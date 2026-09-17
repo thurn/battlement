@@ -457,6 +457,94 @@ namespace Battlement.Tests
             Assert.That(afterDown.Any(body => body is ActionBody.PointerClick), Is.False);
         }
 
+        [Test]
+        public void IndependentBoxGeometryChangesTheActualPointerHitArea()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            var hitId = new ObjectId(Guid.NewGuid());
+            var faceId = new ObjectId(Guid.NewGuid());
+            var initial = new BoxHitRegionState(ProtocolVector3.One, ProtocolVector3.Zero);
+            BattlementGameObject hit = Cube(hitId, 0) with
+            {
+                Kind = new GameObjectKind.BoxHitRegion(initial),
+            };
+            BattlementGameObject face = Cube(faceId, 0, Array.Empty<PointerEvent>());
+            Connect(harness, session, cameraId, hit, face);
+            Assert.That(
+                harness.Runner.IsInputAvailable,
+                Is.True,
+                string.Join("\n", harness.Logger.Records.Select(value => value.Message))
+            );
+            Camera camera = Identity(cameraId).GetComponent<Camera>();
+            GameObject native = Identity(hitId).gameObject;
+            Assert.That(native.GetComponent<Renderer>(), Is.Null);
+            UnityEngine.Vector2 outside = camera.WorldToScreenPoint(
+                new UnityEngine.Vector3(1.5f, 0, 0)
+            );
+            Move(harness, outside, true);
+            Move(harness, outside, false);
+            Assert.That(
+                Actions(harness).OfType<Action>().Any(a => a.Body is ActionBody.PointerClick),
+                Is.False
+            );
+            var resized = new BoxHitRegionState(
+                new ProtocolVector3(2, 1, 1),
+                new ProtocolVector3(1, 0, 0)
+            );
+            var commands = new[]
+            {
+                new Command(
+                    new CommandId(Guid.NewGuid()),
+                    new CommandBody.Transform.SetLocalScale(faceId, new ProtocolVector3(2, 1, 1))
+                ),
+                new Command(
+                    new CommandId(Guid.NewGuid()),
+                    new CommandBody.SetBoxHitRegion(hitId, resized)
+                ),
+            };
+            var batch = new Batch(
+                new BatchId(Guid.NewGuid()),
+                session,
+                new[] { new ParallelCommandGroup<Command>(commands) },
+                Start: BatchStart.Now
+            );
+            harness.Transport.EnqueueSubmit(
+                FakeBattlementTransport.ResponseResult(
+                    new Response(
+                        session,
+                        new ResponseMessage<Command>[]
+                        {
+                            new ResponseMessage<Command>.BatchMessage(batch),
+                        }
+                    )
+                )
+            );
+            harness.Runner.Submit(new byte[] { 1 });
+            Physics.SyncTransforms();
+            Assert.That(Identity(hitId).gameObject, Is.SameAs(native));
+            Assert.That(native.GetComponent<BoxCollider>().center.x, Is.EqualTo(1));
+            Assert.That(Identity(faceId).transform.localScale.x, Is.EqualTo(2));
+            Move(harness, outside, true);
+            Move(harness, outside, false);
+            ActionBody.PointerClick click = Actions(harness)
+                .Select(a => a.Body)
+                .OfType<ActionBody.PointerClick>()
+                .Single();
+            Assert.That(click.ObjectId, Is.EqualTo(hitId));
+            Assert.That(click.WorldHit.X, Is.EqualTo(1.5).Within(0.01));
+            UnityEngine.Vector2 excluded = camera.WorldToScreenPoint(
+                new UnityEngine.Vector3(-0.25f, 0, 0)
+            );
+            Move(harness, excluded, true);
+            Move(harness, excluded, false);
+            Assert.That(
+                Actions(harness).Select(a => a.Body).OfType<ActionBody.PointerClick>().Count(),
+                Is.EqualTo(1)
+            );
+        }
+
         private static void Connect(
             BattlementTestHarness harness,
             SessionId session,

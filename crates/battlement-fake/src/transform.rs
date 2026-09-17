@@ -54,6 +54,13 @@ pub(crate) fn rotate(rotation: Quaternion, vector: Vector3) -> Vector3 {
   Vector3::new(rotated.x, rotated.y, rotated.z)
 }
 
+pub(crate) fn point(local: LocalTransform, point: Vector3) -> Vector3 {
+  add(
+    local.position,
+    rotate(local.rotation, multiply_vector(local.scale, point)),
+  )
+}
+
 pub(crate) fn compose(parent: WorldTransform, local: LocalTransform) -> WorldTransform {
   WorldTransform {
     position: add(

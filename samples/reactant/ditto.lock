@@ -503,6 +503,66 @@ source = "d2449a4dc3e6edb93fa113e7758195c2a4d0a87c7c20c64783af87427356bdea"
 
 [[baselines]]
 profile = "macos"
+scenario = "world hit regions and anchors"
+checkpoint = "attached"
+sha256 = "a525ae149bdf02b65456488a5a0eb91e8feb3682cae2608cc3deaae9b6e7dc8f"
+width = 1280
+height = 720
+size_bytes = 39025
+source = "a7acee9c7b94f4ef755772c5ef5f66a446b32ce8492d681b9beacd54a373fce8"
+
+[[baselines]]
+profile = "macos"
+scenario = "world hit regions and anchors"
+checkpoint = "destroyed"
+sha256 = "edd8a6fbddb656fe0cac1878dbdc7165bcbed924eb7a044c2eac12722b6fc760"
+width = 1280
+height = 720
+size_bytes = 37436
+source = "a7acee9c7b94f4ef755772c5ef5f66a446b32ce8492d681b9beacd54a373fce8"
+
+[[baselines]]
+profile = "macos"
+scenario = "world hit regions and anchors"
+checkpoint = "hidden"
+sha256 = "edd8a6fbddb656fe0cac1878dbdc7165bcbed924eb7a044c2eac12722b6fc760"
+width = 1280
+height = 720
+size_bytes = 37436
+source = "a7acee9c7b94f4ef755772c5ef5f66a446b32ce8492d681b9beacd54a373fce8"
+
+[[baselines]]
+profile = "macos"
+scenario = "world hit regions and anchors"
+checkpoint = "moved"
+sha256 = "b8ea67b6f1aaee9db68b8e4768c1715fd82ad90f287a2adeeb14a657f99f8a35"
+width = 1280
+height = 720
+size_bytes = 51871
+source = "a7acee9c7b94f4ef755772c5ef5f66a446b32ce8492d681b9beacd54a373fce8"
+
+[[baselines]]
+profile = "macos"
+scenario = "world hit regions and anchors"
+checkpoint = "resized"
+sha256 = "8fe5e4480102e6ec96d96b7beae494102d992d50d993077d944c0b698fa418ef"
+width = 1280
+height = 720
+size_bytes = 39348
+source = "a7acee9c7b94f4ef755772c5ef5f66a446b32ce8492d681b9beacd54a373fce8"
+
+[[baselines]]
+profile = "macos"
+scenario = "world hit regions and anchors"
+checkpoint = "restored"
+sha256 = "b8ea67b6f1aaee9db68b8e4768c1715fd82ad90f287a2adeeb14a657f99f8a35"
+width = 1280
+height = 720
+size_bytes = 51871
+source = "a7acee9c7b94f4ef755772c5ef5f66a446b32ce8492d681b9beacd54a373fce8"
+
+[[baselines]]
+profile = "macos"
 scenario = "world material independence"
 checkpoint = "independent-values"
 sha256 = "3ac6f5a7bfa781567a18d02eb0eaddb72447c8ca15fbd3ab422a9650bc973304"

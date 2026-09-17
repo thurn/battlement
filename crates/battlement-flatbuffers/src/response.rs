@@ -350,6 +350,21 @@ pub(crate) fn write_command<'a>(
         payload.as_union_value(),
       )
     }
+    CommandBody::BoxHitRegionSetGeometry(body) => {
+      let region = crate::hit_region::write(builder, body.region);
+      let payload = command_wire::BoxHitRegionPayload::create(
+        builder,
+        &command_wire::BoxHitRegionPayloadArgs {
+          object_id: Some(&uuid(body.object_id.as_uuid())),
+          region: Some(region),
+        },
+      );
+      (
+        wire::CoreCommandKind::BoxHitRegionSetGeometry,
+        wire::CoreCommandPayload::BoxHitRegionPayload,
+        payload.as_union_value(),
+      )
+    }
     CommandBody::RendererSetInstances(body) => {
       let object_id = uuid(body.object_id.as_uuid());
       let instances = crate::material::instances(builder, &body.instances);
@@ -2154,6 +2169,14 @@ fn write_game_object<'a>(
         content.as_union_value(),
       )
     }
+    battlement::GameObjectKind::BoxHitRegion { region } => {
+      let content = crate::hit_region::write(builder, *region);
+      (
+        world_wire::GameObjectKind::BoxHitRegion,
+        world_wire::GameObjectContent::BoxHitRegionObject,
+        content.as_union_value(),
+      )
+    }
     battlement::GameObjectKind::Empty => {
       let content = world_wire::EmptyObject::create(builder, &world_wire::EmptyObjectArgs {});
       (
@@ -3102,6 +3125,7 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     wire::CoreCommandKind::ObjectDestroy | wire::CoreCommandKind::InputSetCamera => {
       wire::CoreCommandPayload::ObjectIdPayload
     }
+    wire::CoreCommandKind::BoxHitRegionSetGeometry => wire::CoreCommandPayload::BoxHitRegionPayload,
     wire::CoreCommandKind::RendererSetInstances => {
       wire::CoreCommandPayload::RendererInstancesPayload
     }
@@ -3235,6 +3259,13 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     return Err(ProtocolError::new("response command kind/payload mismatch"));
   }
   match value.kind() {
+    wire::CoreCommandKind::BoxHitRegionSetGeometry => {
+      let body = value
+        .payload_as_box_hit_region_payload()
+        .expect("kind/payload checked");
+      require_uuid(body.object_id(), "hit region object")?;
+      crate::hit_region::validate(body.region())?;
+    }
     wire::CoreCommandKind::RendererSetInstances => {
       let body = value
         .payload_as_renderer_instances_payload()
@@ -3264,6 +3295,7 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
         .expect("kind/payload checked");
       crate::response_validate::validate_render_order(body.object().render_order())?;
       crate::material::validate_instances(body.object().material_instances())?;
+      crate::response_validate::validate_object_content(body.object())?;
     }
     wire::CoreCommandKind::VisualElementCreate => crate::response_validate::validate_create(
       value
@@ -3314,6 +3346,42 @@ fn verifier_options() -> VerifierOptions {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use battlement::{
+    BoxHitRegionPayload, BoxHitRegionState, GameObject, GameObjectKind, ObjectId, SessionId,
+    Vector3,
+  };
+
+  #[test]
+  fn box_geometry_rejects_native_unrepresentable_dimensions_before_execution() {
+    for size in [
+      0.0,
+      -1.0,
+      f64::NAN,
+      f64::INFINITY,
+      f64::from(f32::MAX) * 2.0,
+      f64::from(f32::MAX) + 1e25,
+      f64::MIN_POSITIVE,
+    ] {
+      let region = BoxHitRegionState {
+        size: Vector3::new(size, 1.0, 1.0),
+        ..Default::default()
+      };
+      let id = ObjectId::new_v4();
+      for command in [
+        CommandBody::BoxHitRegionSetGeometry(BoxHitRegionPayload {
+          object_id: id,
+          region,
+        }),
+        CommandBody::object_create(GameObject::new(id, GameObjectKind::BoxHitRegion { region })),
+      ] {
+        let response = Response::commands(SessionId::new_v4(), [command]);
+        assert!(
+          crate::response::write_core_response_impl(&response, false).is_err(),
+          "accepted invalid box size {size}"
+        );
+      }
+    }
+  }
 
   #[test]
   fn empty_response_is_size_prefixed_verified_and_borrowed() {

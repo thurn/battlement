@@ -2991,5 +2991,40 @@ static public class DebugUiPayloadVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct BoxHitRegionPayload : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static BoxHitRegionPayload GetRootAsBoxHitRegionPayload(ByteBuffer _bb) { return GetRootAsBoxHitRegionPayload(_bb, new BoxHitRegionPayload()); }
+  public static BoxHitRegionPayload GetRootAsBoxHitRegionPayload(ByteBuffer _bb, BoxHitRegionPayload obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public BoxHitRegionPayload __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? ObjectId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.BoxHitRegionObject? Region { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.BoxHitRegionObject?)(new Battlement.FlatBuffers.Generated.BoxHitRegionObject()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+
+  public static void StartBoxHitRegionPayload(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }
+  public static void AddRegion(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.BoxHitRegionObject> regionOffset) { builder.AddOffset(1, regionOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.BoxHitRegionPayload> EndBoxHitRegionPayload(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // object_id
+    builder.Required(o, 6);  // region
+    return new Offset<Battlement.FlatBuffers.Generated.BoxHitRegionPayload>(o);
+  }
+}
+
+
+static public class BoxHitRegionPayloadVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*ObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyTable(tablePos, 6 /*Region*/, Battlement.FlatBuffers.Generated.BoxHitRegionObjectVerify.Verify, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

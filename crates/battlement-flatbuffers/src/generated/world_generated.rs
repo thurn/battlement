@@ -1986,13 +1986,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_GAME_OBJECT_CONTENT: u8 = 9;
+      pub const ENUM_MAX_GAME_OBJECT_CONTENT: u8 = 10;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_GAME_OBJECT_CONTENT: [GameObjectContent; 10] = [
+      pub const ENUM_VALUES_GAME_OBJECT_CONTENT: [GameObjectContent; 11] = [
         GameObjectContent::NONE,
         GameObjectContent::UiDocumentObject,
         GameObjectContent::EmptyObject,
@@ -2003,6 +2003,7 @@ pub mod battlement {
         GameObjectContent::LightObject,
         GameObjectContent::PrefabObject,
         GameObjectContent::MeshObject,
+        GameObjectContent::BoxHitRegionObject,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -2020,9 +2021,10 @@ pub mod battlement {
         pub const LightObject: Self = Self(7);
         pub const PrefabObject: Self = Self(8);
         pub const MeshObject: Self = Self(9);
+        pub const BoxHitRegionObject: Self = Self(10);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 9;
+        pub const ENUM_MAX: u8 = 10;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::UiDocumentObject,
@@ -2034,6 +2036,7 @@ pub mod battlement {
           Self::LightObject,
           Self::PrefabObject,
           Self::MeshObject,
+          Self::BoxHitRegionObject,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -2048,6 +2051,7 @@ pub mod battlement {
             Self::LightObject => Some("LightObject"),
             Self::PrefabObject => Some("PrefabObject"),
             Self::MeshObject => Some("MeshObject"),
+            Self::BoxHitRegionObject => Some("BoxHitRegionObject"),
             _ => None,
           }
         }
@@ -2114,13 +2118,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_GAME_OBJECT_KIND: u8 = 13;
+      pub const ENUM_MAX_GAME_OBJECT_KIND: u8 = 14;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_GAME_OBJECT_KIND: [GameObjectKind; 14] = [
+      pub const ENUM_VALUES_GAME_OBJECT_KIND: [GameObjectKind; 15] = [
         GameObjectKind::UiDocument,
         GameObjectKind::Empty,
         GameObjectKind::Cube,
@@ -2135,6 +2139,7 @@ pub mod battlement {
         GameObjectKind::Light,
         GameObjectKind::Prefab,
         GameObjectKind::Mesh,
+        GameObjectKind::BoxHitRegion,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -2156,9 +2161,10 @@ pub mod battlement {
         pub const Light: Self = Self(11);
         pub const Prefab: Self = Self(12);
         pub const Mesh: Self = Self(13);
+        pub const BoxHitRegion: Self = Self(14);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 13;
+        pub const ENUM_MAX: u8 = 14;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::UiDocument,
           Self::Empty,
@@ -2174,6 +2180,7 @@ pub mod battlement {
           Self::Light,
           Self::Prefab,
           Self::Mesh,
+          Self::BoxHitRegion,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -2192,6 +2199,7 @@ pub mod battlement {
             Self::Light => Some("Light"),
             Self::Prefab => Some("Prefab"),
             Self::Mesh => Some("Mesh"),
+            Self::BoxHitRegion => Some("BoxHitRegion"),
             _ => None,
           }
         }
@@ -7238,6 +7246,150 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum BoxHitRegionObjectOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct BoxHitRegionObject<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for BoxHitRegionObject<'a> {
+        type Inner = BoxHitRegionObject<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> BoxHitRegionObject<'a> {
+        pub const VT_SIZE: ::flatbuffers::VOffsetT = 4;
+        pub const VT_CENTER: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          BoxHitRegionObject { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args BoxHitRegionObjectArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<BoxHitRegionObject<'bldr>> {
+          let mut builder = BoxHitRegionObjectBuilder::new(_fbb);
+          if let Some(x) = args.center {
+            builder.add_center(x);
+          }
+          if let Some(x) = args.size {
+            builder.add_size(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn size(&self) -> &'a Vector3d {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Vector3d>(BoxHitRegionObject::VT_SIZE, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn center(&self) -> &'a Vector3d {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Vector3d>(BoxHitRegionObject::VT_CENTER, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for BoxHitRegionObject<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Vector3d>("size", Self::VT_SIZE, true)?
+            .visit_field::<Vector3d>("center", Self::VT_CENTER, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct BoxHitRegionObjectArgs<'a> {
+        pub size: Option<&'a Vector3d>,
+        pub center: Option<&'a Vector3d>,
+      }
+      impl<'a> Default for BoxHitRegionObjectArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          BoxHitRegionObjectArgs {
+            size: None,   // required field
+            center: None, // required field
+          }
+        }
+      }
+
+      pub struct BoxHitRegionObjectBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BoxHitRegionObjectBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_size(&mut self, size: &Vector3d) {
+          self
+            .fbb_
+            .push_slot_always::<&Vector3d>(BoxHitRegionObject::VT_SIZE, size);
+        }
+        #[inline]
+        pub fn add_center(&mut self, center: &Vector3d) {
+          self
+            .fbb_
+            .push_slot_always::<&Vector3d>(BoxHitRegionObject::VT_CENTER, center);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> BoxHitRegionObjectBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          BoxHitRegionObjectBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<BoxHitRegionObject<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self.fbb_.required(o, BoxHitRegionObject::VT_SIZE, "size");
+          self
+            .fbb_
+            .required(o, BoxHitRegionObject::VT_CENTER, "center");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for BoxHitRegionObject<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("BoxHitRegionObject");
+          ds.field("size", &self.size());
+          ds.field("center", &self.center());
+          ds.finish()
+        }
+      }
       pub enum RenderOrderOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -7722,6 +7874,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn content_as_box_hit_region_object(&self) -> Option<BoxHitRegionObject<'a>> {
+          if self.content_type() == GameObjectContent::BoxHitRegionObject {
+            let u = self.content();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { BoxHitRegionObject::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for GameObject<'_> {
@@ -7750,6 +7916,7 @@ pub mod battlement {
           GameObjectContent::LightObject => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<LightObject>>("GameObjectContent::LightObject", pos),
           GameObjectContent::PrefabObject => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PrefabObject>>("GameObjectContent::PrefabObject", pos),
           GameObjectContent::MeshObject => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<MeshObject>>("GameObjectContent::MeshObject", pos),
+          GameObjectContent::BoxHitRegionObject => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BoxHitRegionObject>>("GameObjectContent::BoxHitRegionObject", pos),
           _ => Ok(()),
         }
      })?
@@ -8027,6 +8194,16 @@ pub mod battlement {
             }
             GameObjectContent::MeshObject => {
               if let Some(x) = self.content_as_mesh_object() {
+                ds.field("content", &x)
+              } else {
+                ds.field(
+                  "content",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            GameObjectContent::BoxHitRegionObject => {
+              if let Some(x) = self.content_as_box_hit_region_object() {
                 ds.field("content", &x)
               } else {
                 ds.field(

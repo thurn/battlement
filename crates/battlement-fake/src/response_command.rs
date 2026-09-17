@@ -88,6 +88,15 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
         CommandBody::InputSetCamera(payload)
       }
     }
+    Kind::BoxHitRegionSetGeometry => {
+      let body = value
+        .payload_as_box_hit_region_payload()
+        .ok_or("box region payload")?;
+      CommandBody::BoxHitRegionSetGeometry(battlement::BoxHitRegionPayload {
+        object_id: object_id(body.object_id())?,
+        region: crate::response_reader::read_box_region(body.region()),
+      })
+    }
     Kind::RendererSetInstances => {
       let body = value
         .payload_as_renderer_instances_payload()

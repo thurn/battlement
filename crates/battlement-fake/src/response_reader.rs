@@ -277,6 +277,13 @@ fn read_object_kind(
       )?)
     }
     world_wire::GameObjectKind::Empty => battlement::GameObjectKind::Empty,
+    world_wire::GameObjectKind::BoxHitRegion => battlement::GameObjectKind::BoxHitRegion {
+      region: read_box_region(
+        value
+          .content_as_box_hit_region_object()
+          .ok_or("box region missing")?,
+      ),
+    },
     kind @ (world_wire::GameObjectKind::Cube
     | world_wire::GameObjectKind::Sphere
     | world_wire::GameObjectKind::Capsule
@@ -658,4 +665,13 @@ fn uuid(
 
 fn session(bytes: [u8; 16]) -> Result<SessionId, String> {
   SessionId::from_uuid(uuid::Uuid::from_bytes(bytes)).map_err(|error| error.to_string())
+}
+
+pub(crate) fn read_box_region(
+  value: world_wire::BoxHitRegionObject<'_>,
+) -> battlement::BoxHitRegionState {
+  battlement::BoxHitRegionState {
+    size: vector3(value.size()),
+    center: vector3(value.center()),
+  }
 }

@@ -1007,6 +1007,55 @@ impl MessageWriter {
     })
   }
 
+  /// Writes a renderer-free box hit region.
+  pub fn box_hit_region_object(
+    &mut self,
+    object_id: [u8; 16],
+    placement: NativeObjectPlacement<'_>,
+    region: battlement::BoxHitRegionState,
+  ) -> Result<GameObjectOffset, ProtocolError> {
+    if !region.is_valid() {
+      return Err(ProtocolError::new("invalid box hit-region geometry"));
+    }
+    let content = crate::hit_region::write(&mut self.builder, region);
+    self.game_object(
+      object_id,
+      placement,
+      world_wire::GameObjectKind::BoxHitRegion,
+      world_wire::GameObjectContent::BoxHitRegionObject,
+      content.as_union_value(),
+    )
+  }
+
+  /// Writes an immediate independent collider update.
+  pub fn set_box_hit_region(
+    &mut self,
+    command_id: [u8; 16],
+    blocking: bool,
+    object_id: [u8; 16],
+    region: battlement::BoxHitRegionState,
+  ) -> Result<CoreCommandOffset, ProtocolError> {
+    if !region.is_valid() {
+      return Err(ProtocolError::new("invalid box hit-region geometry"));
+    }
+    let object_id = common::Uuid::new(&object_id);
+    let region = crate::hit_region::write(&mut self.builder, region);
+    let payload = command_wire::BoxHitRegionPayload::create(
+      &mut self.builder,
+      &command_wire::BoxHitRegionPayloadArgs {
+        object_id: Some(&object_id),
+        region: Some(region),
+      },
+    );
+    self.core_command(
+      command_id,
+      blocking,
+      wire::CoreCommandKind::BoxHitRegionSetGeometry,
+      wire::CoreCommandPayload::BoxHitRegionPayload,
+      payload.as_union_value(),
+    )
+  }
+
   /// Writes an empty game object without constructing an owned game-object graph.
   pub fn empty_object(
     &mut self,

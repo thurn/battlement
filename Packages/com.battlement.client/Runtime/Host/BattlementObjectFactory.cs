@@ -28,6 +28,10 @@ namespace Battlement
                     null
                 ),
                 GameObjectKind.Empty => (new GameObject("Battlement Empty"), null),
+                GameObjectKind.BoxHitRegion region => (
+                    BattlementBoxHitRegion.Create(region.State, IsPointerTarget(description)),
+                    null
+                ),
                 GameObjectKind.Cube cube => Primitive(
                     PrimitiveType.Cube,
                     IsPointerTarget(description),
@@ -103,6 +107,17 @@ namespace Battlement
                 new MeshAddress(description.Address),
                 IsPointerTarget(description.Placement),
                 gameObject => ApplyMaterials(gameObject, description.Materials)
+            );
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectBoxHitRegionCreate description
+        ) =>
+            (
+                BattlementBoxHitRegion.Create(
+                    description.State,
+                    IsPointerTarget(description.Placement)
+                ),
+                null
             );
 
         private (GameObject GameObject, IBattlementAssetLease? Lease) CreateMesh(
@@ -193,7 +208,8 @@ namespace Battlement
                     or GameObjectKind.Plane
                     or GameObjectKind.Quad
                     or GameObjectKind.Image
-                    or GameObjectKind.Mesh;
+                    or GameObjectKind.Mesh
+                    or GameObjectKind.BoxHitRegion;
 
         private static bool IsPointerTarget(BattlementGameObject description) =>
             description.PointerEvents.Count > 0 || description.DragMode is not null;

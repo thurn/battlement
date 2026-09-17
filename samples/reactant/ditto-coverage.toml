@@ -385,3 +385,39 @@ state = "world-materials.left-restored"
 scenario = "world material independence"
 checkpoint = "left-restored"
 owner = "reactant-testing::world_materials"
+
+[[mappings]]
+state = "world-hits.attached"
+scenario = "world hit regions and anchors"
+checkpoint = "attached"
+owner = "reactant-testing::world_hit_regions"
+
+[[mappings]]
+state = "world-hits.resized"
+scenario = "world hit regions and anchors"
+checkpoint = "resized"
+owner = "reactant-testing::world_hit_regions"
+
+[[mappings]]
+state = "world-hits.moved"
+scenario = "world hit regions and anchors"
+checkpoint = "moved"
+owner = "reactant-testing::world_hit_regions"
+
+[[mappings]]
+state = "world-hits.hidden"
+scenario = "world hit regions and anchors"
+checkpoint = "hidden"
+owner = "reactant-testing::world_hit_regions"
+
+[[mappings]]
+state = "world-hits.restored"
+scenario = "world hit regions and anchors"
+checkpoint = "restored"
+owner = "reactant-testing::world_hit_regions"
+
+[[mappings]]
+state = "world-hits.destroyed"
+scenario = "world hit regions and anchors"
+checkpoint = "destroyed"
+owner = "reactant-testing::world_hit_regions"

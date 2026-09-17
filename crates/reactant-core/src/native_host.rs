@@ -4,7 +4,7 @@
 
 use std::any::TypeId;
 
-use battlement::{Command, CommandBody, ObjectId, Validate};
+use battlement::{Command, CommandBody, ObjectId, Validate, Vector3};
 use uuid::Uuid;
 
 use crate::{
@@ -26,6 +26,14 @@ pub struct NativeHost<A: HostAdapter> {
 }
 
 /// A committed object reference with the lifetime of its logical owner.
+/// UI elements require a different ref type and cannot be local-point targets.
+///
+/// ```compile_fail
+/// use reactant_core::{native_host::ObjectRef, prelude::*};
+/// fn wrong_kind(reference: ObjectRef) {
+///   View::new().element_ref(reference);
+/// }
+/// ```
 #[derive(Clone)]
 pub struct ObjectRef(ElementRef);
 
@@ -35,6 +43,18 @@ pub fn use_object_ref() -> ObjectRef {
 }
 
 impl ObjectRef {
+  pub(crate) fn retain_native_identity(
+    &self,
+    object_id: ObjectId,
+  ) -> std::rc::Rc<crate::native_identity_lease::NativeIdentityLease> {
+    self.0.retain_native_identity(object_id)
+  }
+
+  /// Describes a required local point without adding an attachment object or host.
+  pub fn local_point(&self, offset: Vector3) -> crate::local_point::LocalPoint {
+    crate::local_point::LocalPoint::new(self.clone(), offset)
+  }
+
   /// Returns the attached native identity after a successful commit.
   pub fn object_id(&self) -> Option<ObjectId> {
     assert!(
@@ -112,7 +132,12 @@ impl<A: HostAdapter> Sealed for NativeHost<A> {
       ),
       self.description.clone(),
     );
-    if let Some(object) = host.object(None) {
+    let object = host.object(None);
+    assert!(
+      self.reference.is_none() || object.is_some(),
+      "ObjectRef requires a world GameObject host"
+    );
+    if let Some(object) = object {
       Command::new_v4(CommandBody::object_create(object))
         .validate()
         .expect("invalid Reactant object declaration");

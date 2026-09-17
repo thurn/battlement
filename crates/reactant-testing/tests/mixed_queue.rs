@@ -216,6 +216,10 @@ fn rendered_ahead_absence_detaches_logical_ref_but_preserves_queued_movement() {
   display.poll();
   let reference = reference.borrow().as_ref().unwrap().clone();
   let native = reference.object_id().unwrap();
+  let anchor = reference
+    .local_point(Vector3::new(0.5, 0.0, 0.0))
+    .follow()
+    .resolve();
   game.dispatch(3);
   assert!(consumer.wait_for_worker_stopped(TIMEOUT));
   for _ in 0..12 {
@@ -231,13 +235,27 @@ fn rendered_ahead_absence_detaches_logical_ref_but_preserves_queued_movement() {
     display.object(native).unwrap().local_transform().position.x,
     1.0
   );
+  assert_eq!(
+    display.world_point(anchor.object_id(), anchor.offset()).x,
+    1.5
+  );
   assert_eq!(display.presentation_time(), Duration::ZERO);
   display.advance_time(Duration::from_millis(200));
   assert_eq!(
     display.object(native).unwrap().local_transform().position.x,
     2.0
   );
+  assert_eq!(
+    display.world_point(anchor.object_id(), anchor.offset()).x,
+    2.5
+  );
   display.advance_time(Duration::from_millis(200));
   assert!(display.object(native).is_none());
+  assert_eq!(anchor.object_id(), native);
+  let replacement = display.with_engine(|app| app.start_game::<Queue>(0, self::context));
+  display.poll();
+  display.poll();
+  assert_eq!(replacement.status(), GameStatus::Ready);
+  assert!(display.object(anchor.object_id()).is_none());
   assert_eq!(display.frame(), 0);
 }

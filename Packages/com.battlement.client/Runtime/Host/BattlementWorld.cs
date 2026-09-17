@@ -315,6 +315,13 @@ namespace Battlement
                     BattlementObjectFactory.ApplyPrefabAnimator(gameObject, description)
             );
 
+        public void CreateObject(BattlementDirectBoxHitRegionCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: true
+            );
+
         public void CreateObject(BattlementDirectEmptyObjectCreate description) =>
             CreateDirectObject(
                 description.Placement,
@@ -437,6 +444,14 @@ namespace Battlement
                         false,
                         allowedIds.Contains(value.Placement.ObjectId.Value),
                         gameObject => BattlementObjectFactory.ApplyPrefabAnimator(gameObject, value)
+                    );
+                    break;
+                case BattlementDirectBoxHitRegionCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        true,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
                     );
                     break;
                 case BattlementDirectEmptyObjectCreate value:

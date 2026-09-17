@@ -255,3 +255,27 @@ screen = "world-materials"
 [[states]]
 key = "world-materials.left-restored"
 screen = "world-materials"
+
+[[states]]
+key = "world-hits.attached"
+screen = "world-hits"
+
+[[states]]
+key = "world-hits.resized"
+screen = "world-hits"
+
+[[states]]
+key = "world-hits.moved"
+screen = "world-hits"
+
+[[states]]
+key = "world-hits.hidden"
+screen = "world-hits"
+
+[[states]]
+key = "world-hits.restored"
+screen = "world-hits"
+
+[[states]]
+key = "world-hits.destroyed"
+screen = "world-hits"

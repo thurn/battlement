@@ -180,6 +180,8 @@ table UiDocumentObject {
   sorting_order:int;
 }
 
+table BoxHitRegionObject { size:Vector3d (required); center:Vector3d (required); }
+
 union GameObjectContent {
   UiDocumentObject,
   EmptyObject,
@@ -189,7 +191,8 @@ union GameObjectContent {
   CameraObject,
   LightObject,
   PrefabObject,
-  MeshObject
+  MeshObject,
+  BoxHitRegionObject
 }
 
 enum GameObjectKind:ubyte {
@@ -206,7 +209,8 @@ enum GameObjectKind:ubyte {
   Camera,
   Light,
   Prefab,
-  Mesh
+  Mesh,
+  BoxHitRegion
 }
 
 enum RenderOrderKind:ubyte { Group, Layer }

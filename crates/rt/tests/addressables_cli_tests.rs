@@ -178,6 +178,10 @@ impl Fixture {
         "--project",
       ])
       .arg(&self.project)
+      .env(
+        "BATTLEMENT_RESOURCE_SLOTS",
+        self.project.join("resource-slots"),
+      )
       .env("UNITY_EDITOR", &self.editor)
       .env("BATTLEMENT_FAKE_EXPORT", &self.export);
     command.output().unwrap()
@@ -197,6 +201,10 @@ impl Fixture {
       ])
       .arg(&self.project)
       .current_dir(current_dir)
+      .env(
+        "BATTLEMENT_RESOURCE_SLOTS",
+        self.project.join("resource-slots"),
+      )
       .env("UNITY_EDITOR", &self.editor)
       .env("BATTLEMENT_FAKE_EXPORT", &self.export);
     command.output().unwrap()

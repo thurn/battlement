@@ -253,6 +253,13 @@ namespace Battlement
                     );
                     break;
                 }
+                case Wire.GameObjectKind.BoxHitRegion:
+                    if (value.ContentType != Wire.GameObjectContent.BoxHitRegionObject)
+                        throw new InvalidDataException("Hit region has the wrong payload.");
+                    BattlementBoxHitRegion.Validate(
+                        BattlementBoxHitRegion.Read(value.ContentAsBoxHitRegionObject())
+                    );
+                    break;
                 case Wire.GameObjectKind.Empty:
                     if (value.ContentType != Wire.GameObjectContent.EmptyObject)
                         throw new InvalidDataException("An empty object has the wrong payload.");
@@ -523,6 +530,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
@@ -868,6 +876,15 @@ namespace Battlement
                         ValidateDirectCreatedImage(created);
                         return true;
                     }
+                    if (created.Kind == Wire.GameObjectKind.BoxHitRegion)
+                    {
+                        if (created.ContentType != Wire.GameObjectContent.BoxHitRegionObject)
+                            throw new InvalidDataException("Hit region has the wrong payload.");
+                        BattlementBoxHitRegion.Validate(
+                            BattlementBoxHitRegion.Read(created.ContentAsBoxHitRegionObject())
+                        );
+                        return true;
+                    }
                     if (created.Kind == Wire.GameObjectKind.Empty)
                     {
                         if (created.ContentType != Wire.GameObjectContent.EmptyObject)
@@ -928,6 +945,15 @@ namespace Battlement
                         return true;
                     }
                     return false;
+                }
+                case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
+                {
+                    Wire.BoxHitRegionPayload payload = value.PayloadAsBoxHitRegionPayload();
+                    _ = ReadUuid(payload.ObjectId, "hit region object");
+                    BattlementBoxHitRegion.Validate(
+                        BattlementBoxHitRegion.Read(payload.Region!.Value)
+                    );
+                    return true;
                 }
                 case Wire.CoreCommandKind.RendererSetInstances:
                 {
@@ -1585,6 +1611,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
@@ -2009,6 +2036,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
@@ -2585,6 +2613,7 @@ namespace Battlement
             {
                 Wire.GameObjectKind.UiDocument => Wire.GameObjectContent.UiDocumentObject,
                 Wire.GameObjectKind.Empty => Wire.GameObjectContent.EmptyObject,
+                Wire.GameObjectKind.BoxHitRegion => Wire.GameObjectContent.BoxHitRegionObject,
                 Wire.GameObjectKind.Cube
                 or Wire.GameObjectKind.Sphere
                 or Wire.GameObjectKind.Capsule
@@ -3377,6 +3406,8 @@ namespace Battlement
                 Wire.CoreCommandKind.ObjectCreate => Wire.CoreCommandPayload.ObjectCreatePayload,
                 Wire.CoreCommandKind.ObjectDestroy or Wire.CoreCommandKind.InputSetCamera =>
                     Wire.CoreCommandPayload.ObjectIdPayload,
+                Wire.CoreCommandKind.BoxHitRegionSetGeometry =>
+                    Wire.CoreCommandPayload.BoxHitRegionPayload,
                 Wire.CoreCommandKind.RendererSetInstances =>
                     Wire.CoreCommandPayload.RendererInstancesPayload,
                 Wire.CoreCommandKind.ObjectSetRenderOrder =>

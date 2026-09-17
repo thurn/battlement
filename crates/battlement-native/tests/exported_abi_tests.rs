@@ -194,7 +194,7 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     );
     assert_eq!(
       CStr::from_ptr(wire_contract()).to_str().unwrap(),
-      "c73811948255e742ccf6db2b3a0b7b5de47a91492285d983de428518023f953e"
+      "108b684df07c19a85bb337a37375d4d6427c4ecdb4038104cebc93283f2170d7"
     );
     assert_eq!(
       determinism_capabilities(),
@@ -548,7 +548,7 @@ fn checked_in_contract_manifests_match_exported_digests() {
   let fixture_digest = format!("{:x}", Sha256::digest(&fixture_manifest_bytes));
   assert_eq!(
     fixture_digest,
-    "c73811948255e742ccf6db2b3a0b7b5de47a91492285d983de428518023f953e"
+    "108b684df07c19a85bb337a37375d4d6427c4ecdb4038104cebc93283f2170d7"
   );
   let fixture_manifest: serde_json::Value =
     serde_json::from_slice(&fixture_manifest_bytes).unwrap();

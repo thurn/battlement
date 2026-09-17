@@ -508,3 +508,43 @@ screenshot = { name = "left-faded" }
 accessibility_action = { target = { role = "button", name = "Clear left overrides" }, action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "left-restored" }
+
+[[scenarios]]
+name = "world hit regions and anchors"
+fixture = "world-hits"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+click = { target = "38110000-0000-4000-8000-000000000002" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card clicks: 1" }, role = "heading", name = "Card clicks: 1" }
+[[scenarios.steps]]
+screenshot = { name = "attached" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Resize hit region" }, action = "activate" }
+[[scenarios.steps]]
+click = { target = "38110000-0000-4000-8000-000000000002" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card clicks: 2" }, role = "heading", name = "Card clicks: 2" }
+[[scenarios.steps]]
+screenshot = { name = "resized" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Move and rotate parent" }, action = "activate" }
+[[scenarios.steps]]
+click = { target = "38110000-0000-4000-8000-000000000002" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card clicks: 3" }, role = "heading", name = "Card clicks: 3" }
+[[scenarios.steps]]
+screenshot = { name = "moved" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Hide or show card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "hidden" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Hide or show card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Destroy or restore card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "destroyed" }

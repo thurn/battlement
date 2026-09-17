@@ -12,7 +12,8 @@ use crate::world_text;
 
 pub(crate) fn compatible(previous: &GameObjectKind, desired: &GameObjectKind) -> bool {
   match (previous, desired) {
-    (GameObjectKind::Image { .. }, GameObjectKind::Image { .. })
+    (GameObjectKind::BoxHitRegion { .. }, GameObjectKind::BoxHitRegion { .. })
+    | (GameObjectKind::Image { .. }, GameObjectKind::Image { .. })
     | (GameObjectKind::Text { .. }, GameObjectKind::Text { .. })
     | (GameObjectKind::Camera { .. }, GameObjectKind::Camera { .. })
     | (GameObjectKind::Light { .. }, GameObjectKind::Light { .. }) => true,
@@ -27,6 +28,17 @@ pub(crate) fn commands(
 ) -> Vec<CommandBody> {
   let mut output = Vec::new();
   match (previous, desired) {
+    (
+      GameObjectKind::BoxHitRegion { region: previous },
+      GameObjectKind::BoxHitRegion { region: desired },
+    ) if previous != desired => {
+      output.push(CommandBody::BoxHitRegionSetGeometry(
+        battlement::BoxHitRegionPayload {
+          object_id,
+          region: *desired,
+        },
+      ));
+    }
     (GameObjectKind::Text { text: previous }, GameObjectKind::Text { text: desired }) => {
       world_text::commands(object_id, previous, desired, &mut output);
     }

@@ -12782,6 +12782,162 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum BoxHitRegionPayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct BoxHitRegionPayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for BoxHitRegionPayload<'a> {
+        type Inner = BoxHitRegionPayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> BoxHitRegionPayload<'a> {
+        pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_REGION: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          BoxHitRegionPayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args BoxHitRegionPayloadArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<BoxHitRegionPayload<'bldr>> {
+          let mut builder = BoxHitRegionPayloadBuilder::new(_fbb);
+          if let Some(x) = args.region {
+            builder.add_region(x);
+          }
+          if let Some(x) = args.object_id {
+            builder.add_object_id(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn object_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(BoxHitRegionPayload::VT_OBJECT_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn region(&self) -> BoxHitRegionObject<'a> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<BoxHitRegionObject>>(
+                BoxHitRegionPayload::VT_REGION,
+                None,
+              )
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for BoxHitRegionPayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<BoxHitRegionObject>>(
+              "region",
+              Self::VT_REGION,
+              true,
+            )?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct BoxHitRegionPayloadArgs<'a> {
+        pub object_id: Option<&'a Uuid>,
+        pub region: Option<::flatbuffers::WIPOffset<BoxHitRegionObject<'a>>>,
+      }
+      impl<'a> Default for BoxHitRegionPayloadArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          BoxHitRegionPayloadArgs {
+            object_id: None, // required field
+            region: None,    // required field
+          }
+        }
+      }
+
+      pub struct BoxHitRegionPayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BoxHitRegionPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_object_id(&mut self, object_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(BoxHitRegionPayload::VT_OBJECT_ID, object_id);
+        }
+        #[inline]
+        pub fn add_region(&mut self, region: ::flatbuffers::WIPOffset<BoxHitRegionObject<'b>>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<BoxHitRegionObject>>(
+              BoxHitRegionPayload::VT_REGION,
+              region,
+            );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> BoxHitRegionPayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          BoxHitRegionPayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<BoxHitRegionPayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, BoxHitRegionPayload::VT_OBJECT_ID, "object_id");
+          self
+            .fbb_
+            .required(o, BoxHitRegionPayload::VT_REGION, "region");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for BoxHitRegionPayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("BoxHitRegionPayload");
+          ds.field("object_id", &self.object_id());
+          ds.field("region", &self.region());
+          ds.finish()
+        }
+      }
     } // pub mod Generated
   } // pub mod FlatBuffers
 } // pub mod Battlement

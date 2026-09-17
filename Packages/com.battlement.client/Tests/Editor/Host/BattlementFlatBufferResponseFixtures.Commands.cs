@@ -118,6 +118,7 @@ namespace Battlement.Tests
                     value.OnConflict
                 ),
                 CommandBody.Renderer.SetMaterial value => SetMaterial(builder, value),
+                CommandBody.SetBoxHitRegion value => SetBoxHitRegion(builder, value),
                 CommandBody.Renderer.SetInstances value => SetInstances(builder, value),
                 CommandBody.Camera.SetEnabled value => ObjectEnabled(
                     builder,

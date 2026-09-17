@@ -40,6 +40,7 @@ pub struct ElementRef {
 
 pub(crate) struct ElementRefRuntime {
   next_identity: u64,
+  native_leases: crate::native_identity_lease::NativeIdentityLeases,
   attached: HashMap<u64, ElementRef>,
   actions: Vec<QueuedAction>,
 }
@@ -109,6 +110,20 @@ pub fn use_element_ref() -> ElementRef {
 }
 
 impl ElementRef {
+  pub(crate) fn retain_native_identity(
+    &self,
+    object_id: ObjectId,
+  ) -> Rc<crate::native_identity_lease::NativeIdentityLease> {
+    self
+      .inner
+      .runtime
+      .upgrade()
+      .expect("object ref runtime is unavailable")
+      .borrow()
+      .native_leases
+      .retain(object_id)
+  }
+
   pub(crate) fn identity(&self) -> u64 {
     self.inner.identity
   }
@@ -301,6 +316,7 @@ impl ElementRefRuntime {
   pub(crate) fn new() -> Rc<RefCell<Self>> {
     Rc::new(RefCell::new(Self {
       next_identity: 0,
+      native_leases: Default::default(),
       attached: HashMap::new(),
       actions: Vec::new(),
     }))
@@ -544,6 +560,16 @@ pub(crate) fn enter_runtime(
       geometry: Rc::downgrade(geometry),
     }))
   }))
+}
+
+pub(crate) fn native_identity_retained(object_id: ObjectId) -> bool {
+  CURRENT_RUNTIME.with(|current| {
+    current
+      .borrow()
+      .as_ref()
+      .and_then(|context| context.runtime.upgrade())
+      .is_some_and(|runtime| runtime.borrow().native_leases.contains(object_id))
+  })
 }
 
 fn create_ref() -> ElementRef {

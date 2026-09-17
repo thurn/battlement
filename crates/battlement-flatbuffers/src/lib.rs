@@ -8,6 +8,7 @@ mod core_action_geometry;
 mod core_action_motion;
 mod core_client;
 mod geometry;
+mod hit_region;
 mod limits;
 mod material;
 mod message_writer;

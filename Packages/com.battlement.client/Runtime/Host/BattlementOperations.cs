@@ -210,6 +210,12 @@ namespace Battlement
                         ? targetRotation.ObjectId.Value
                     : command.DirectScale is BattlementDirectScale targetScale
                         ? targetScale.ObjectId.Value
+                    : command.DirectBoxHitRegionCreate
+                        is BattlementDirectBoxHitRegionCreate targetBox
+                        ? targetBox.Placement.ObjectId.Value
+                    : command.DirectBoxHitRegionGeometry
+                        is BattlementDirectBoxHitRegionGeometry targetBoxGeometry
+                        ? targetBoxGeometry.ObjectId.Value
                     : command.DirectMaterialInstances
                         is BattlementDirectMaterialInstances targetInstances
                         ? targetInstances.ObjectId.Value

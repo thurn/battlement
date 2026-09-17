@@ -208,12 +208,19 @@ fn validate_game_object(
     }
     _ => return Err(ProtocolError::new("object parent scene kind is unknown")),
   }
+  validate_object_content(value)
+}
+
+pub(crate) fn validate_object_content(
+  value: world_wire::GameObject<'_>,
+) -> Result<(), ProtocolError> {
   if value.kind().variant_name().is_none() || value.content_type().variant_name().is_none() {
     return Err(ProtocolError::new("game object kind is unknown"));
   }
   let expected = match value.kind() {
     world_wire::GameObjectKind::UiDocument => world_wire::GameObjectContent::UiDocumentObject,
     world_wire::GameObjectKind::Empty => world_wire::GameObjectContent::EmptyObject,
+    world_wire::GameObjectKind::BoxHitRegion => world_wire::GameObjectContent::BoxHitRegionObject,
     world_wire::GameObjectKind::Cube
     | world_wire::GameObjectKind::Sphere
     | world_wire::GameObjectKind::Capsule
@@ -228,6 +235,12 @@ fn validate_game_object(
     world_wire::GameObjectKind::Prefab => world_wire::GameObjectContent::PrefabObject,
     _ => return Err(ProtocolError::new("game object kind is unknown")),
   };
+  if value.kind() == world_wire::GameObjectKind::BoxHitRegion {
+    let region = value
+      .content_as_box_hit_region_object()
+      .ok_or_else(|| ProtocolError::new("hit region payload missing"))?;
+    crate::hit_region::validate(region)?;
+  }
   if value.content_type() != expected {
     return Err(ProtocolError::new(
       "game object kind and content payload do not match",

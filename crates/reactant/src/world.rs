@@ -17,10 +17,14 @@ use uuid::Uuid;
 
 use crate::world_adapter::{WorldAdapter, WorldDescription};
 
+pub use crate::world_hit_region::BoxHitRegion;
 pub use crate::world_object::WorldObject;
 pub use crate::world_text::Text;
 pub use crate::world_view::{Camera, Light};
 pub use crate::world_visuals::{Mesh, Sprite};
+pub use reactant_core::local_point::{
+  LocalPoint, LocalPointTarget, PointTracking, ResolvedLocalPoint,
+};
 
 #[derive(Clone, PartialEq)]
 struct SceneAttachment(ParentScene);
@@ -205,7 +209,7 @@ impl Component for Group {
       root: false,
       transform: self.transform,
       active: self.active,
-      clickable: self.click.is_some(),
+      clickable: self.click.is_some() || matches!(self.kind, GameObjectKind::BoxHitRegion { .. }),
       render_order: self.render_order,
       material_instances: self.material_instances.clone(),
     })

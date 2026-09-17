@@ -100,6 +100,9 @@ namespace Battlement
         /// <summary>An empty game object.</summary>
         public sealed record Empty : GameObjectKind;
 
+        /// <summary>Renderer-independent local box geometry.</summary>
+        public sealed record BoxHitRegion(BoxHitRegionState State) : GameObjectKind;
+
         /// <summary>A standard cube primitive.</summary>
         public sealed record Cube(IReadOnlyList<MaterialAssignment> Materials) : GameObjectKind
         {

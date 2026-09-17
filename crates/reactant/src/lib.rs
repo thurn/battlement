@@ -13,6 +13,7 @@ mod game_session;
 pub mod prelude;
 pub mod world;
 mod world_adapter;
+mod world_hit_region;
 mod world_object;
 mod world_properties;
 mod world_text;

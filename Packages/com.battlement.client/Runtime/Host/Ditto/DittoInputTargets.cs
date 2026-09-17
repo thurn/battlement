@@ -462,11 +462,15 @@ namespace Battlement
                 return false;
             }
 
-            GeometryObservationResult result = BattlementWorldBoundsGeometry.Sample(
-                target,
-                runner.DittoInputCamera,
-                displays
-            );
+            GeometryObservationResult result = target.TryGetComponent(
+                out BattlementBoxHitRegion hit
+            )
+                ? BattlementWorldBoundsGeometry.Sample(
+                    hit.GetComponent<BoxCollider>().bounds,
+                    runner.DittoInputCamera,
+                    displays
+                )
+                : BattlementWorldBoundsGeometry.Sample(target, runner.DittoInputCamera, displays);
             if (
                 result
                     is not GeometryObservationResult.Current

@@ -19,7 +19,7 @@ argument-free `new()` and setters.
 For example, a card's artwork, text, and hit region are separate children:
 
 ```rust
-world::Group::new().sort_order(card.sort_order).children((
+world::Group::new().sort_order(card.sort_order).child((
     world::Sprite::new().texture(card.art).layer(0),
     world::Sprite::new().texture(assets.frame).layer(1),
     world::Text::new().text(&card.rules).font(assets.rules_font).layer(2),

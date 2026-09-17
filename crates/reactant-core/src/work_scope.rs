@@ -91,6 +91,7 @@ pub(crate) fn target(command: &CommandBody) -> Option<ObjectId> {
     CommandBody::ObjectCreate(value) => Some(value.object.object_id),
     CommandBody::ObjectDestroy(value) => Some(value.object_id),
     CommandBody::ObjectSetRenderOrder(value) => Some(value.object_id),
+    CommandBody::BoxHitRegionSetGeometry(value) => Some(value.object_id),
     CommandBody::RendererSetInstances(value) => Some(value.object_id),
     CommandBody::ObjectSetActive(value) => Some(value.object_id),
     CommandBody::ObjectReparent(value) => Some(value.object_id),

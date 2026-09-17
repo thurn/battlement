@@ -33,6 +33,8 @@ pub enum CommandBody {
   SceneSetPrimary(SceneIdPayload),
   /// Create one complete game object.
   ObjectCreate(Box<ObjectCreatePayload>),
+  /// Updates independent box geometry on an existing hit region.
+  BoxHitRegionSetGeometry(BoxHitRegionPayload),
   /// Destroy a game object and its game-object descendants.
   ObjectDestroy(ObjectIdPayload),
   /// Set a game object's Unity `activeSelf` value.

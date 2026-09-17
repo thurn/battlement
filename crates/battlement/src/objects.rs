@@ -96,6 +96,11 @@ pub enum GameObjectKind {
   UiDocument(UiDocumentState),
   /// An empty GameObject.
   Empty,
+  /// Pointer geometry independent of any renderer.
+  BoxHitRegion {
+    /// Local box dimensions and center.
+    region: crate::BoxHitRegionState,
+  },
   /// Unity's standard cube primitive.
   Cube {
     /// Ordered prepared-material assignments with unique renderer slots.

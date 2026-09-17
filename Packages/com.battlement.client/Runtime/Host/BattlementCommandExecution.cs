@@ -216,6 +216,30 @@ namespace Battlement
                     BattlementObjectCommands.Destroy(destroy, world, operations)
                 );
             }
+            if (command.DirectBoxHitRegionCreate is BattlementDirectBoxHitRegionCreate boxCreate)
+                return LaunchDirect(() =>
+                {
+                    world.CreateObject(boxCreate);
+                    return null;
+                });
+            if (
+                command.DirectBoxHitRegionGeometry
+                is BattlementDirectBoxHitRegionGeometry boxGeometry
+            )
+                return LaunchDirect(() =>
+                {
+                    if (
+                        !world
+                            .RequireObject(boxGeometry.ObjectId)
+                            .TryGetComponent(out BattlementBoxHitRegion region)
+                    )
+                        throw new BattlementWorldException(
+                            CoreErrorCode.ComponentMissing,
+                            "Target is not a box hit region."
+                        );
+                    region.SetGeometry(boxGeometry.State);
+                    return null;
+                });
             if (command.DirectMaterialInstances is BattlementDirectMaterialInstances instances)
             {
                 return LaunchDirect(() =>

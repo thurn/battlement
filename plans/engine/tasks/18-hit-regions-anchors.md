@@ -24,9 +24,9 @@ The hit box is an independent child; an effect attachment is a local point on a
 typed object ref:
 
 ```rust
-world::Group::new().reference(card_ref).child(
+world::Group::new().reference(card_ref.clone()).child(
     world::BoxHitRegion::new().size(hit_size).center(hit_center),
-)
+);
 let spark_origin = card_ref.local_point(offset);
 ```
 

@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use battlement::{Connect, ObjectId};
+use battlement::{Connect, ObjectId, Vector3};
 use battlement_fake::{
   assets::FakeAssetCatalog,
   client::FakeClient,
@@ -139,6 +139,12 @@ where
   #[must_use]
   pub fn object(&self, object_id: ObjectId) -> Option<&FakeObject> {
     self.client.world().object(object_id)
+  }
+
+  /// Observes a presented local point without advancing time, work, or frames.
+  #[must_use]
+  pub fn world_point(&self, object_id: ObjectId, offset: Vector3) -> Vector3 {
+    self.client.world().world_point(object_id, offset)
   }
 
   /// Advances virtual rules and presentation time without rendering a frame.

@@ -172,6 +172,11 @@ impl Validate for Snapshot {
 impl Validate for Command {
   fn validate(&self) -> Result<(), ValidationError> {
     validate_command_numbers(&self.body)?;
+    if let CommandBody::BoxHitRegionSetGeometry(value) = &self.body
+      && !value.region.is_valid()
+    {
+      return Err(ValidationError::InvalidReference);
+    }
 
     match &self.body {
       CommandBody::AssetsReplaceSet(value) => {
@@ -498,6 +503,7 @@ fn validate_object(
     | GameObjectKind::Plane { materials }
     | GameObjectKind::Quad { materials } => validate_materials(materials, prepared)?,
     GameObjectKind::Empty
+    | GameObjectKind::BoxHitRegion { .. }
     | GameObjectKind::UiDocument(_)
     | GameObjectKind::Camera { .. }
     | GameObjectKind::Light { .. } => {}
@@ -509,6 +515,9 @@ fn validate_object_shape(object: &GameObject) -> Result<(), ValidationError> {
   crate::material_validation::instances(&object.material_instances)?;
   validate_quaternion(object.local_transform.rotation)?;
   match &object.kind {
+    GameObjectKind::BoxHitRegion { region } if !region.is_valid() => {
+      Err(ValidationError::InvalidReference)
+    }
     GameObjectKind::Text { .. } => Ok(()),
     GameObjectKind::Camera { camera } => validate_clipping(camera.near, camera.far),
     GameObjectKind::Light { light } => {

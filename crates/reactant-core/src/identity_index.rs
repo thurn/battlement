@@ -51,7 +51,10 @@ impl<'a> IdentityIndex<'a> {
       && self::current_scope().work.is_none()
       && !self.positions.contains_key(&id)
     {
-      return ObjectId::from_uuid(id).expect("presentation IDs cannot be nil");
+      let object_id = ObjectId::from_uuid(id).expect("presentation IDs cannot be nil");
+      if !crate::element_ref::native_identity_retained(object_id) {
+        return object_id;
+      }
     }
     ObjectId::new_v4()
   }

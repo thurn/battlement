@@ -6,6 +6,10 @@ namespace Battlement
 {
     public abstract partial record CommandBody
     {
+        /// <summary>Replace renderer-independent pointer box geometry.</summary>
+        public sealed record SetBoxHitRegion(ObjectId ObjectId, BoxHitRegionState Region)
+            : CommandBody;
+
         public static class Assets
         {
             /// <summary>Atomically replace the complete prepared asset set.</summary>

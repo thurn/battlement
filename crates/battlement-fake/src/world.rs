@@ -323,6 +323,19 @@ impl FakeWorld {
     )
   }
 
+  /// Transforms a local point through every ancestor, including nonuniform scale.
+  #[must_use]
+  pub fn world_point(&self, id: battlement::ObjectId, point: Vector3) -> Vector3 {
+    let object = self
+      .objects
+      .get(&id)
+      .expect("local-point object is not presented");
+    let point = transform::point(object.local_transform, point);
+    object
+      .parent_id
+      .map_or(point, |parent| self.world_point(parent, point))
+  }
+
   /// Looks up a loaded scene by ID.
   #[must_use]
   pub fn scene(&self, id: SceneId) -> Option<&Scene> {
@@ -806,6 +819,19 @@ impl FakeWorld {
     self.descendants(id)
   }
 
+  pub(crate) fn set_box_hit_region(
+    &mut self,
+    id: battlement::ObjectId,
+    desired: battlement::BoxHitRegionState,
+  ) {
+    assert!(desired.is_valid(), "invalid box hit-region geometry");
+    let object = self.require_object_mut(id);
+    let GameObjectKind::BoxHitRegion { region } = &mut object.kind else {
+      panic!("target is not a box hit region")
+    };
+    *region = desired;
+  }
+
   pub(crate) fn set_material_instances(
     &mut self,
     id: battlement::ObjectId,
@@ -1056,7 +1082,8 @@ impl FakeObject {
           prefab.pointer_collider(),
         )
       }
-      GameObjectKind::Cube { .. }
+      GameObjectKind::BoxHitRegion { .. }
+      | GameObjectKind::Cube { .. }
       | GameObjectKind::Sphere { .. }
       | GameObjectKind::Capsule { .. }
       | GameObjectKind::Cylinder { .. }
@@ -1070,7 +1097,8 @@ impl FakeObject {
     };
     let automatic_collider = matches!(
       object.kind,
-      GameObjectKind::Cube { .. }
+      GameObjectKind::BoxHitRegion { .. }
+        | GameObjectKind::Cube { .. }
         | GameObjectKind::Sphere { .. }
         | GameObjectKind::Capsule { .. }
         | GameObjectKind::Cylinder { .. }

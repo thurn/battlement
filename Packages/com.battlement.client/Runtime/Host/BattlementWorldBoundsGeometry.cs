@@ -39,6 +39,19 @@ namespace Battlement
             if (!TryCombinedBounds(target, out UnityBounds bounds))
                 return Unavailable(GeometryUnavailable.NoRenderers);
 
+            return Sample(bounds, camera, displays);
+        }
+
+        internal static GeometryObservationResult Sample(
+            UnityBounds bounds,
+            Camera camera,
+            IBattlementGeometryDisplaySource displays
+        )
+        {
+            if (!camera.isActiveAndEnabled)
+                return Unavailable(GeometryUnavailable.CameraDisabled);
+            if (!Finite(bounds.min) || !Finite(bounds.max))
+                throw Invalid("World bounds are nonfinite.");
             RequireFinite(camera.worldToCameraMatrix, "World camera transform");
             RequireFinite(camera.projectionMatrix, "World camera projection");
             double near = camera.nearClipPlane;

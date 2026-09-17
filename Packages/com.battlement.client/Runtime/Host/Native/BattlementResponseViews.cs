@@ -33,6 +33,8 @@ namespace Battlement
             DirectObjectActive = null;
             DirectRenderOrder = null;
             DirectMaterialInstances = null;
+            DirectBoxHitRegionCreate = null;
+            DirectBoxHitRegionGeometry = null;
             DirectRotation = null;
             DirectScale = null;
             DirectTweenRotation = null;
@@ -459,6 +461,23 @@ namespace Battlement
         internal BattlementDirectImageObjectCreate? DirectImageObjectCreate { get; }
         internal BattlementDirectObjectActive? DirectObjectActive { get; }
         internal BattlementDirectRenderOrder? DirectRenderOrder { get; }
+        internal BattlementDirectBoxHitRegionCreate? DirectBoxHitRegionCreate { get; }
+        internal BattlementDirectBoxHitRegionGeometry? DirectBoxHitRegionGeometry { get; }
+
+        internal BattlementCommandExecution(
+            CommandId id,
+            bool isBlocking,
+            BattlementDirectBoxHitRegionCreate value
+        )
+            : this(id, isBlocking) => DirectBoxHitRegionCreate = value;
+
+        internal BattlementCommandExecution(
+            CommandId id,
+            bool isBlocking,
+            BattlementDirectBoxHitRegionGeometry value
+        )
+            : this(id, isBlocking) => DirectBoxHitRegionGeometry = value;
+
         internal BattlementDirectMaterialInstances? DirectMaterialInstances { get; }
 
         internal BattlementCommandExecution(
@@ -2280,6 +2299,26 @@ namespace Battlement
         internal double Value { get; }
     }
 
+    internal readonly struct BattlementDirectBoxHitRegionCreate
+    {
+        internal BattlementDirectBoxHitRegionCreate(
+            BattlementDirectObjectPlacement placement,
+            BoxHitRegionState state
+        ) => (Placement, State) = (placement, state);
+
+        internal BattlementDirectObjectPlacement Placement { get; }
+        internal BoxHitRegionState State { get; }
+    }
+
+    internal readonly struct BattlementDirectBoxHitRegionGeometry
+    {
+        internal BattlementDirectBoxHitRegionGeometry(ObjectId objectId, BoxHitRegionState state) =>
+            (ObjectId, State) = (objectId, state);
+
+        internal ObjectId ObjectId { get; }
+        internal BoxHitRegionState State { get; }
+    }
+
     internal readonly struct BattlementDirectEmptyObjectCreate
     {
         internal BattlementDirectEmptyObjectCreate(BattlementDirectObjectPlacement placement) =>
@@ -2481,6 +2520,7 @@ namespace Battlement
                 BattlementDirectPrimitiveObjectCreate value => value.Placement,
                 BattlementDirectMeshObjectCreate value => value.Placement,
                 BattlementDirectPrefabObjectCreate value => value.Placement,
+                BattlementDirectBoxHitRegionCreate value => value.Placement,
                 BattlementDirectEmptyObjectCreate value => value.Placement,
                 BattlementDirectTextObjectCreate value => value.Placement,
                 BattlementDirectCameraObjectCreate value => value.Placement,
@@ -2514,6 +2554,10 @@ namespace Battlement
             BattlementDirectObjectPlacement placement = ReadPlacement(value);
             object description = value.Kind switch
             {
+                Wire.GameObjectKind.BoxHitRegion => new BattlementDirectBoxHitRegionCreate(
+                    placement,
+                    BattlementBoxHitRegion.Read(value.ContentAsBoxHitRegionObject())
+                ),
                 Wire.GameObjectKind.Empty => new BattlementDirectEmptyObjectCreate(placement),
                 Wire.GameObjectKind.Image => ReadImage(value, placement),
                 Wire.GameObjectKind.Text => ReadText(value, placement),
@@ -3054,6 +3098,21 @@ namespace Battlement
                 );
                 return true;
             }
+            if (command.Kind == Wire.CoreCommandKind.BoxHitRegionSetGeometry)
+            {
+                Wire.BoxHitRegionPayload payload = command.PayloadAsBoxHitRegionPayload();
+                execution = new BattlementCommandExecution(
+                    commandId,
+                    command.Blocking,
+                    new BattlementDirectBoxHitRegionGeometry(
+                        new ObjectId(
+                            BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "hit region object")
+                        ),
+                        BattlementBoxHitRegion.Read(payload.Region!.Value)
+                    )
+                );
+                return true;
+            }
             if (command.Kind == Wire.CoreCommandKind.RendererSetInstances)
             {
                 Wire.RendererInstancesPayload payload = command.PayloadAsRendererInstancesPayload();
@@ -3457,6 +3516,18 @@ namespace Battlement
             {
                 Wire.GameObject value = command.PayloadAsObjectCreatePayload().Object!.Value;
                 BattlementDirectObjectPlacement placement = ReadPlacement(value);
+                if (value.Kind == Wire.GameObjectKind.BoxHitRegion)
+                {
+                    execution = new BattlementCommandExecution(
+                        commandId,
+                        command.Blocking,
+                        new BattlementDirectBoxHitRegionCreate(
+                            placement,
+                            BattlementBoxHitRegion.Read(value.ContentAsBoxHitRegionObject())
+                        )
+                    );
+                    return true;
+                }
                 if (value.Kind == Wire.GameObjectKind.Empty)
                 {
                     execution = new BattlementCommandExecution(
@@ -4284,6 +4355,8 @@ namespace Battlement
                 case Wire.CoreCommandKind.MotionScope:
                     break;
                 case Wire.CoreCommandKind.GeometryObservationUpdate:
+                    break;
+                case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                     break;
                 case Wire.CoreCommandKind.AccessibilityUpdate:
                     break;

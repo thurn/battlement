@@ -181,6 +181,7 @@ public enum GameObjectContent : byte
   LightObject = 7,
   PrefabObject = 8,
   MeshObject = 9,
+  BoxHitRegionObject = 10,
 };
 
 
@@ -219,6 +220,9 @@ static public class GameObjectContentVerify
       case GameObjectContent.MeshObject:
         result = Battlement.FlatBuffers.Generated.MeshObjectVerify.Verify(verifier, tablePos);
         break;
+      case GameObjectContent.BoxHitRegionObject:
+        result = Battlement.FlatBuffers.Generated.BoxHitRegionObjectVerify.Verify(verifier, tablePos);
+        break;
       default: result = true;
         break;
     }
@@ -242,6 +246,7 @@ public enum GameObjectKind : byte
   Light = 11,
   Prefab = 12,
   Mesh = 13,
+  BoxHitRegion = 14,
 };
 
 public enum RenderOrderKind : byte
@@ -1484,6 +1489,41 @@ static public class UiDocumentObjectVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct BoxHitRegionObject : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static BoxHitRegionObject GetRootAsBoxHitRegionObject(ByteBuffer _bb) { return GetRootAsBoxHitRegionObject(_bb, new BoxHitRegionObject()); }
+  public static BoxHitRegionObject GetRootAsBoxHitRegionObject(ByteBuffer _bb, BoxHitRegionObject obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public BoxHitRegionObject __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Vector3d? Size { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Vector3d?)(new Battlement.FlatBuffers.Generated.Vector3d()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.Vector3d? Center { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.Vector3d?)(new Battlement.FlatBuffers.Generated.Vector3d()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+
+  public static void StartBoxHitRegionObject(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddSize(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Vector3d> sizeOffset) { builder.AddStruct(0, sizeOffset.Value, 0); }
+  public static void AddCenter(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Vector3d> centerOffset) { builder.AddStruct(1, centerOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.BoxHitRegionObject> EndBoxHitRegionObject(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // size
+    builder.Required(o, 6);  // center
+    return new Offset<Battlement.FlatBuffers.Generated.BoxHitRegionObject>(o);
+  }
+}
+
+
+static public class BoxHitRegionObjectVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Size*/, 24 /*Battlement.FlatBuffers.Generated.Vector3d*/, 8, true)
+      && verifier.VerifyField(tablePos, 6 /*Center*/, 24 /*Battlement.FlatBuffers.Generated.Vector3d*/, 8, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct RenderOrder : IFlatbufferObject
 {
   private Table __p;
@@ -1562,6 +1602,7 @@ public struct GameObject : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.LightObject ContentAsLightObject() { return Content<Battlement.FlatBuffers.Generated.LightObject>().Value; }
   public Battlement.FlatBuffers.Generated.PrefabObject ContentAsPrefabObject() { return Content<Battlement.FlatBuffers.Generated.PrefabObject>().Value; }
   public Battlement.FlatBuffers.Generated.MeshObject ContentAsMeshObject() { return Content<Battlement.FlatBuffers.Generated.MeshObject>().Value; }
+  public Battlement.FlatBuffers.Generated.BoxHitRegionObject ContentAsBoxHitRegionObject() { return Content<Battlement.FlatBuffers.Generated.BoxHitRegionObject>().Value; }
   public Battlement.FlatBuffers.Generated.RenderOrder? RenderOrder { get { int o = __p.__offset(24); return o != 0 ? (Battlement.FlatBuffers.Generated.RenderOrder?)(new Battlement.FlatBuffers.Generated.RenderOrder()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
   public Battlement.FlatBuffers.Generated.MaterialInstance? MaterialInstances(int j) { int o = __p.__offset(26); return o != 0 ? (Battlement.FlatBuffers.Generated.MaterialInstance?)(new Battlement.FlatBuffers.Generated.MaterialInstance()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int MaterialInstancesLength { get { int o = __p.__offset(26); return o != 0 ? __p.__vector_len(o) : 0; } }

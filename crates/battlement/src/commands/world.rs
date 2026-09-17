@@ -163,3 +163,12 @@ pub struct ObjectEnabledPayload {
   /// New enabled state.
   pub enabled: bool,
 }
+
+/// Replaces the local box geometry without changing its native identity.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BoxHitRegionPayload {
+  /// Target hit-region object.
+  pub object_id: ObjectId,
+  /// Complete dimensions and local center.
+  pub region: crate::BoxHitRegionState,
+}

@@ -22,6 +22,8 @@ pub mod assets;
 mod command_builders;
 pub mod commands;
 pub mod geometry;
+pub mod hit_region;
+pub use hit_region::*;
 pub mod material;
 mod material_dependencies;
 mod material_validation;

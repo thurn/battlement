@@ -66,6 +66,7 @@ namespace Battlement
                         ValidatePrimitiveMaterials(quad.Materials, preparedAssets);
                         break;
                     case GameObjectKind.UiDocumentState:
+                    case GameObjectKind.BoxHitRegion:
                     case GameObjectKind.Empty:
                     case GameObjectKind.Camera:
                     case GameObjectKind.Light:
@@ -114,6 +115,7 @@ namespace Battlement
                     case BattlementDirectUiDocumentObjectCreate document:
                         BattlementUiDocumentValidator.Validate(document.State, preparedAssets);
                         break;
+                    case BattlementDirectBoxHitRegionCreate:
                     case BattlementDirectEmptyObjectCreate:
                     case BattlementDirectCameraObjectCreate:
                     case BattlementDirectLightObjectCreate:

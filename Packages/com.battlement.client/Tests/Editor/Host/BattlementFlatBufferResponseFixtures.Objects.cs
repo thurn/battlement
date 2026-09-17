@@ -139,6 +139,12 @@ namespace Battlement.Tests
                     return Primitive(builder, Wire.GameObjectKind.Plane, plane.Materials);
                 case GameObjectKind.Quad quad:
                     return Primitive(builder, Wire.GameObjectKind.Quad, quad.Materials);
+                case GameObjectKind.BoxHitRegion box:
+                    return (
+                        Wire.GameObjectKind.BoxHitRegion,
+                        Wire.GameObjectContent.BoxHitRegionObject,
+                        WriteBox(builder, box.State).Value
+                    );
                 case GameObjectKind.Image image:
                     return Image(builder, image.State);
                 case GameObjectKind.Text text:

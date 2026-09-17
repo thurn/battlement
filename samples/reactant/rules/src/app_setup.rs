@@ -56,6 +56,9 @@ pub fn create_engine() -> ReactantEngine {
 }
 
 fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineError> {
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("world-hits") {
+    return Ok(crate::world_hit_proof::app());
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("world-materials") {
     return Ok(crate::world_material_proof::app());
   }
