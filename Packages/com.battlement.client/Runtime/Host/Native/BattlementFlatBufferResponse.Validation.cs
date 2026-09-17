@@ -282,6 +282,17 @@ namespace Battlement
                 case Wire.GameObjectKind.Light:
                     ValidateDirectCreatedLight(value);
                     break;
+                case Wire.GameObjectKind.Mesh:
+                {
+                    Wire.MeshObject mesh = value.ContentAsMeshObject();
+                    RequirePrepared(assets, mesh.Address, Wire.PreparedAssetKind.Mesh, "mesh");
+                    ValidateDirectMaterials(
+                        mesh.MaterialsLength,
+                        index => mesh.Materials(index)!.Value
+                    );
+                    ValidatePreparedMaterials(mesh.MaterialsLength, mesh.Materials, assets);
+                    break;
+                }
                 case Wire.GameObjectKind.Prefab:
                 {
                     Wire.PrefabObject prefab = value.ContentAsPrefabObject();
@@ -880,6 +891,20 @@ namespace Battlement
                                 "A primitive object has the wrong content payload."
                             );
                         ValidateDirectMaterials(created.ContentAsPrimitiveObject());
+                        return true;
+                    }
+                    if (created.Kind == Wire.GameObjectKind.Mesh)
+                    {
+                        if (created.ContentType != Wire.GameObjectContent.MeshObject)
+                            throw new InvalidDataException(
+                                "A mesh object has the wrong content payload."
+                            );
+                        Wire.MeshObject mesh = created.ContentAsMeshObject();
+                        _ = mesh.Address;
+                        ValidateDirectMaterials(
+                            mesh.MaterialsLength,
+                            index => mesh.Materials(index)!.Value
+                        );
                         return true;
                     }
                     if (created.Kind == Wire.GameObjectKind.Prefab)
@@ -2492,6 +2517,7 @@ namespace Battlement
                 Wire.GameObjectKind.Text => Wire.GameObjectContent.TextObject,
                 Wire.GameObjectKind.Camera => Wire.GameObjectContent.CameraObject,
                 Wire.GameObjectKind.Light => Wire.GameObjectContent.LightObject,
+                Wire.GameObjectKind.Mesh => Wire.GameObjectContent.MeshObject,
                 Wire.GameObjectKind.Prefab => Wire.GameObjectContent.PrefabObject,
                 _ => throw new InvalidDataException("A game object kind is unknown."),
             };

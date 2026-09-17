@@ -13,7 +13,8 @@ enum PreparedAssetKind:ubyte {
   RenderTexture,
   AudioClip,
   TextMeshProFont,
-  UiFont
+  UiFont,
+  Mesh
 }
 
 table PreparedAsset {
@@ -112,6 +113,11 @@ table AnimatorState {
   speed:double = 1.0;
 }
 
+table MeshObject {
+  address:string (required);
+  materials:[MaterialAssignment] (required);
+}
+
 table PrefabObject {
   address:string (required);
   materials:[MaterialAssignment] (required);
@@ -175,7 +181,8 @@ union GameObjectContent {
   TextObject,
   CameraObject,
   LightObject,
-  PrefabObject
+  PrefabObject,
+  MeshObject
 }
 
 enum GameObjectKind:ubyte {
@@ -191,7 +198,8 @@ enum GameObjectKind:ubyte {
   Text,
   Camera,
   Light,
-  Prefab
+  Prefab,
+  Mesh
 }
 
 table GameObject {

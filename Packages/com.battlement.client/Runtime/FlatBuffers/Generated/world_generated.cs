@@ -24,6 +24,7 @@ public enum PreparedAssetKind : byte
   AudioClip = 8,
   TextMeshProFont = 9,
   UiFont = 10,
+  Mesh = 11,
 };
 
 public enum ParentSceneKind : byte
@@ -171,6 +172,7 @@ public enum GameObjectContent : byte
   CameraObject = 6,
   LightObject = 7,
   PrefabObject = 8,
+  MeshObject = 9,
 };
 
 
@@ -206,6 +208,9 @@ static public class GameObjectContentVerify
       case GameObjectContent.PrefabObject:
         result = Battlement.FlatBuffers.Generated.PrefabObjectVerify.Verify(verifier, tablePos);
         break;
+      case GameObjectContent.MeshObject:
+        result = Battlement.FlatBuffers.Generated.MeshObjectVerify.Verify(verifier, tablePos);
+        break;
       default: result = true;
         break;
     }
@@ -228,6 +233,7 @@ public enum GameObjectKind : byte
   Camera = 10,
   Light = 11,
   Prefab = 12,
+  Mesh = 13,
 };
 
 public enum InteractionDistanceKind : byte
@@ -957,6 +963,62 @@ static public class AnimatorStateVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct MeshObject : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static MeshObject GetRootAsMeshObject(ByteBuffer _bb) { return GetRootAsMeshObject(_bb, new MeshObject()); }
+  public static MeshObject GetRootAsMeshObject(ByteBuffer _bb, MeshObject obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public MeshObject __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public string Address { get { int o = __p.__offset(4); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetAddressBytes() { return __p.__vector_as_span<byte>(4, 1); }
+#else
+  public ArraySegment<byte>? GetAddressBytes() { return __p.__vector_as_arraysegment(4); }
+#endif
+  public byte[] GetAddressArray() { return __p.__vector_as_array<byte>(4); }
+  public Battlement.FlatBuffers.Generated.MaterialAssignment? Materials(int j) { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.MaterialAssignment?)(new Battlement.FlatBuffers.Generated.MaterialAssignment()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int MaterialsLength { get { int o = __p.__offset(6); return o != 0 ? __p.__vector_len(o) : 0; } }
+
+  public static Offset<Battlement.FlatBuffers.Generated.MeshObject> CreateMeshObject(FlatBufferBuilder builder,
+      StringOffset addressOffset = default(StringOffset),
+      VectorOffset materialsOffset = default(VectorOffset)) {
+    builder.StartTable(2);
+    MeshObject.AddMaterials(builder, materialsOffset);
+    MeshObject.AddAddress(builder, addressOffset);
+    return MeshObject.EndMeshObject(builder);
+  }
+
+  public static void StartMeshObject(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddAddress(FlatBufferBuilder builder, StringOffset addressOffset) { builder.AddOffset(0, addressOffset.Value, 0); }
+  public static void AddMaterials(FlatBufferBuilder builder, VectorOffset materialsOffset) { builder.AddOffset(1, materialsOffset.Value, 0); }
+  public static VectorOffset CreateMaterialsVector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MaterialAssignment>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateMaterialsVectorBlock(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MaterialAssignment>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateMaterialsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Battlement.FlatBuffers.Generated.MaterialAssignment>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateMaterialsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Battlement.FlatBuffers.Generated.MaterialAssignment>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartMaterialsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static Offset<Battlement.FlatBuffers.Generated.MeshObject> EndMeshObject(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // address
+    builder.Required(o, 6);  // materials
+    return new Offset<Battlement.FlatBuffers.Generated.MeshObject>(o);
+  }
+}
+
+
+static public class MeshObjectVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyString(tablePos, 4 /*Address*/, true)
+      && verifier.VerifyVectorOfTables(tablePos, 6 /*Materials*/, Battlement.FlatBuffers.Generated.MaterialAssignmentVerify.Verify, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct PrefabObject : IFlatbufferObject
 {
   private Table __p;
@@ -1253,6 +1315,7 @@ public struct GameObject : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.CameraObject ContentAsCameraObject() { return Content<Battlement.FlatBuffers.Generated.CameraObject>().Value; }
   public Battlement.FlatBuffers.Generated.LightObject ContentAsLightObject() { return Content<Battlement.FlatBuffers.Generated.LightObject>().Value; }
   public Battlement.FlatBuffers.Generated.PrefabObject ContentAsPrefabObject() { return Content<Battlement.FlatBuffers.Generated.PrefabObject>().Value; }
+  public Battlement.FlatBuffers.Generated.MeshObject ContentAsMeshObject() { return Content<Battlement.FlatBuffers.Generated.MeshObject>().Value; }
 
   public static void StartGameObject(FlatBufferBuilder builder) { builder.StartTable(10); }
   public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }

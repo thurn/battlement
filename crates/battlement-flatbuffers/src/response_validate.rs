@@ -210,6 +210,7 @@ fn validate_game_object(
     world_wire::GameObjectKind::Text => world_wire::GameObjectContent::TextObject,
     world_wire::GameObjectKind::Camera => world_wire::GameObjectContent::CameraObject,
     world_wire::GameObjectKind::Light => world_wire::GameObjectContent::LightObject,
+    world_wire::GameObjectKind::Mesh => world_wire::GameObjectContent::MeshObject,
     world_wire::GameObjectKind::Prefab => world_wire::GameObjectContent::PrefabObject,
     _ => return Err(ProtocolError::new("game object kind is unknown")),
   };

@@ -34,6 +34,16 @@ namespace Battlement
                             text.State.Font.Value
                         );
                         break;
+                    case GameObjectKind.Mesh mesh:
+                        ValidateMesh(
+                            mesh.Address,
+                            mesh.Materials.Select(value => new BattlementDirectMaterialAssignment(
+                                value.Slot,
+                                value.Address.Value
+                            )),
+                            preparedAssets
+                        );
+                        break;
                     case GameObjectKind.Prefab prefab:
                         ValidatePrefab(description, prefab, preparedAssets, inputCameraId);
                         break;
@@ -92,6 +102,9 @@ namespace Battlement
                             text.Font
                         );
                         break;
+                    case BattlementDirectMeshObjectCreate mesh:
+                        ValidateMesh(new MeshAddress(mesh.Address), mesh.Materials, preparedAssets);
+                        break;
                     case BattlementDirectPrefabObjectCreate prefab:
                         ValidateDirectPrefab(prefab, preparedAssets, inputCameraId);
                         break;
@@ -111,6 +124,37 @@ namespace Battlement
                             "Unknown direct game-object kind."
                         );
                 }
+            }
+        }
+
+        private static void ValidateMesh(
+            MeshAddress address,
+            IEnumerable<BattlementDirectMaterialAssignment> materials,
+            IBattlementPreparedAssetLookup assets
+        )
+        {
+            Mesh mesh = RequirePreparedValue<Mesh>(
+                assets,
+                new PreparedAsset.Mesh(address),
+                address.Value
+            );
+            if (mesh.subMeshCount == 0)
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "A prepared mesh must have submeshes."
+                );
+            foreach (BattlementDirectMaterialAssignment assignment in materials)
+            {
+                if (assignment.Slot >= mesh.subMeshCount)
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "Mesh material slot is out of range."
+                    );
+                RequirePreparedValue<Material>(
+                    assets,
+                    new PreparedAsset.Material(new MaterialAddress(assignment.Address)),
+                    assignment.Address
+                );
             }
         }
 

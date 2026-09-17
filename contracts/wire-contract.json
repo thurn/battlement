@@ -16,7 +16,7 @@
       "response.fbs": "7b32432eacdbc485d8ae19ca90a3647bc437df5c4c6e8283483b162e0f2666bb",
       "ui.fbs": "49f1b64006a1c8dee26f40a88739b7f7b37b8646d7c70b38758eeab6c0184736",
       "ui_event.fbs": "eba5eb77a44c688c9bb0734f9640e53f478121dad57e508c0c97d6db1784d40d",
-      "world.fbs": "e2f60e2e593cc49939e1da09f1ed9149bc6006a2be2a3cac2008743b8f042b64"
+      "world.fbs": "a07eee7c5abeaa7a06ed5083756604abfe99e8632371f7cbcd2123a51dfceddc"
     },
     "rust_runtime": "flatbuffers=25.12.19",
     "csharp_runtime": "v25.12.19+battlement-verifier-limits"

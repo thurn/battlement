@@ -50,6 +50,7 @@ namespace Battlement.Tests
                 Is.EqualTo("RenderTexture")
             );
             Assert.That(BattlementAddressExport.Classify(typeof(Material)), Is.EqualTo("Material"));
+            Assert.That(BattlementAddressExport.Classify(typeof(Mesh)), Is.EqualTo("Mesh"));
             Assert.That(
                 BattlementAddressExport.Classify(typeof(AudioClip)),
                 Is.EqualTo("AudioClip")

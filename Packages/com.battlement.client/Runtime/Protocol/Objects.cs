@@ -151,6 +151,10 @@ namespace Battlement
         /// <summary>A standard light.</summary>
         public sealed record Light(LightState State) : GameObjectKind;
 
+        /// <summary>Prepared mesh geometry in authored local units.</summary>
+        public sealed record Mesh(MeshAddress Address, IReadOnlyList<MaterialAssignment> Materials)
+            : GameObjectKind;
+
         /// <summary>An instance of a prepared prefab.</summary>
         /// <param name="Address">Prepared prefab address.</param>
         /// <param name="Materials">Ordered material assignments with unique renderer slots.</param>
@@ -166,7 +170,7 @@ namespace Battlement
         }
     }
 
-    /// <summary>One prepared material assigned to a prefab renderer slot.</summary>
+    /// <summary>One prepared material assigned to a renderer slot.</summary>
     /// <param name="Slot">Zero-based index in the renderer's material array.</param>
     /// <param name="Address">Prepared material address assigned to the slot.</param>
     public sealed record MaterialAssignment(uint Slot, MaterialAddress Address);

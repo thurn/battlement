@@ -241,6 +241,8 @@ namespace Battlement
             {
                 return LaunchDirect(() => BattlementObjectCommands.Create(createPrimitive, world));
             }
+            if (command.DirectMeshObjectCreate is BattlementDirectMeshObjectCreate createMesh)
+                return LaunchDirect(() => BattlementObjectCommands.Create(createMesh, world));
             if (command.DirectPrefabObjectCreate is BattlementDirectPrefabObjectCreate createPrefab)
             {
                 return LaunchDirect(() => BattlementObjectCommands.Create(createPrefab, world));

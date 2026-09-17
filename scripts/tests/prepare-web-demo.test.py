@@ -56,6 +56,15 @@ def main() -> None:
         try:
             prepare_web_demo.REPOSITORY_ROOT = repository
             prepare_web_demo.unity_editor = lambda _sample: Path(sys.executable)
+            prepare_web_demo.validate_sample("fixture")
+            direct = repository / "samples/direct/sample.toml"
+            direct.parent.mkdir(parents=True)
+            direct.write_text('application = "Direct App.app"\nscene = "Assets/Main Scene.unity"\n')
+            prepare_web_demo.validate_sample("direct")
+            command = prepare_web_demo.build_command("direct", True)
+            assert command[command.index("--application") + 1] == "Direct App.app"
+            assert command[command.index("--scene") + 1] == "Assets/Main Scene.unity"
+            assert "--skip-assets" in command and command[-2:] == ["--web", "--release"]
             initial = prepare_web_demo.staged_fingerprint("fixture", False)
             subprocess.run(
                 [
@@ -88,6 +97,15 @@ def main() -> None:
             tracked.write_text("pub fn value() -> u8 { 2 }\n")
             subprocess.run(["git", "add", str(tracked)], cwd=repository, check=True)
             changed = prepare_web_demo.staged_fingerprint("fixture", False)
+            configuration = repository / "samples/fixture/reactant.toml"
+            direct_configuration = configuration.with_name("sample.toml")
+            configuration.unlink()
+            direct_configuration.write_text('application = "Fixture.app"\nscene = "Assets/Main.unity"\n')
+            subprocess.run(["git", "add", "samples/fixture"], cwd=repository, check=True)
+            direct_before = prepare_web_demo.staged_fingerprint("fixture", False)
+            direct_configuration.write_text(direct_configuration.read_text().replace("Main.unity", "Other.unity"))
+            subprocess.run(["git", "add", "samples/fixture"], cwd=repository, check=True)
+            assert prepare_web_demo.staged_fingerprint("fixture", False) != direct_before
         finally:
             prepare_web_demo.REPOSITORY_ROOT = original_root
             prepare_web_demo.unity_editor = original_editor

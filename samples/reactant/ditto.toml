@@ -428,3 +428,37 @@ accessibility_assert = { target = { role = "heading", name = "Score 1 / local 1"
 accessibility_assert = { target = { role = "heading", name = "Card evaluations: 5" }, role = "heading", name = "Card evaluations: 5" }
 [[scenarios.steps]]
 screenshot = { name = "returned" }
+
+[[scenarios]]
+name = "world primitives"
+fixture = "world-primitives"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Switch mesh" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Mesh: orb" }, role = "heading", name = "Mesh: orb" }
+[[scenarios.steps]]
+screenshot = { name = "orb" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Flip card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "back" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle front" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Front: removed" }, role = "heading", name = "Front: removed" }
+[[scenarios.steps]]
+screenshot = { name = "independent-back" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle front" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Flip card" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Switch mesh" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change light" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "restored-dim" }

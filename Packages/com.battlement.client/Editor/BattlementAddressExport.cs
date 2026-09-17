@@ -173,6 +173,8 @@ namespace Battlement.Editor
             {
                 return "Prefab";
             }
+            if (typeof(Mesh).IsAssignableFrom(type))
+                return "Mesh";
             if (typeof(Material).IsAssignableFrom(type))
             {
                 return "Material";

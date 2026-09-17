@@ -199,3 +199,23 @@ screen = "stable-props"
 [[states]]
 key = "stable-props.returned"
 screen = "stable-props"
+
+[[states]]
+key = "world-primitives.initial"
+screen = "world-primitives"
+
+[[states]]
+key = "world-primitives.orb"
+screen = "world-primitives"
+
+[[states]]
+key = "world-primitives.back"
+screen = "world-primitives"
+
+[[states]]
+key = "world-primitives.independent-back"
+screen = "world-primitives"
+
+[[states]]
+key = "world-primitives.restored-dim"
+screen = "world-primitives"

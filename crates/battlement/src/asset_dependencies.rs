@@ -94,6 +94,12 @@ impl AssetDependencies {
 
   fn object(&mut self, object: &GameObject) {
     match &object.kind {
+      GameObjectKind::Mesh { address, materials } => {
+        self.insert(PreparedAsset::Mesh(address.clone()));
+        for material in materials {
+          self.insert(PreparedAsset::Material(material.address.clone()));
+        }
+      }
       GameObjectKind::Prefab {
         address, materials, ..
       } => {
@@ -193,6 +199,7 @@ pub fn address(asset: &PreparedAsset) -> &str {
   match asset {
     PreparedAsset::Scene(value) => value.as_str(),
     PreparedAsset::Prefab(value) | PreparedAsset::ParticleEffect(value) => value.as_str(),
+    PreparedAsset::Mesh(value) => value.as_str(),
     PreparedAsset::Material(value) => value.as_str(),
     PreparedAsset::Texture(value) => value.as_str(),
     PreparedAsset::Sprite(value) => value.as_str(),

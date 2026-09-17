@@ -4,8 +4,9 @@ use std::collections::BTreeMap;
 
 use crate::{
   CameraClearMode, CameraProjection, Color, DragMode, HorizontalAlignment, ImageFit, LightType,
-  LocalTransform, MaterialAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor, SceneAddress,
-  SceneId, ShadowMode, TextMeshProFontAddress, TextureAddress, UiDocumentState, VerticalAlignment,
+  LocalTransform, MaterialAddress, MeshAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor,
+  SceneAddress, SceneId, ShadowMode, TextMeshProFontAddress, TextureAddress, UiDocumentState,
+  VerticalAlignment,
 };
 
 /// One additively loaded Addressable content-scene instance.
@@ -139,6 +140,13 @@ pub enum GameObjectKind {
     /// Complete light component state.
     light: LightState,
   },
+  /// Authored mesh geometry with prepared materials.
+  Mesh {
+    /// Prepared mesh address; its geometry is not resized or reoriented.
+    address: MeshAddress,
+    /// Prepared material assignments indexed by submesh.
+    materials: Vec<MaterialAssignment>,
+  },
   /// An instance of a prepared prefab.
   Prefab {
     /// Prepared prefab address.
@@ -234,7 +242,7 @@ impl From<LightState> for GameObjectKind {
   }
 }
 
-/// One prepared material assigned to a prefab renderer slot.
+/// One prepared material assigned to a geometry renderer slot.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MaterialAssignment {
   /// Zero-based index in the renderer's shared-material array.

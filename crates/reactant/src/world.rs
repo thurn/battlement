@@ -1,6 +1,9 @@
-//! World attachments and opaque visuals owned by ordinary Reactant components.
+//! World attachments and typed visuals owned by ordinary Reactant components.
 
-use battlement::{GameObjectKind, LocalTransform, ParentScene, PrefabAddress, Vector3};
+use battlement::{
+  GameObject, GameObjectKind, LocalTransform, ObjectId, ParentScene, PrefabAddress, Quaternion,
+  Vector3,
+};
 use reactant_core::{
   callback::Callback,
   component::Component,
@@ -14,6 +17,10 @@ use uuid::Uuid;
 
 use crate::world_adapter::{WorldAdapter, WorldDescription};
 
+pub use crate::world_object::WorldObject;
+pub use crate::world_view::{Camera, Light};
+pub use crate::world_visuals::{Mesh, Sprite};
+
 #[derive(Clone, PartialEq)]
 struct SceneAttachment(ParentScene);
 
@@ -26,7 +33,7 @@ pub struct SceneRoot {
 /// An empty transform group with logical children.
 #[derive(Clone)]
 pub struct Group {
-  kind: GameObjectKind,
+  pub(crate) kind: GameObjectKind,
   transform: LocalTransform,
   active: bool,
   children: Vec<Node>,
@@ -86,6 +93,29 @@ impl Group {
     }
   }
 
+  pub(crate) fn into_object(self, object_id: ObjectId) -> GameObject {
+    assert!(
+      self.children.is_empty(),
+      "static objects cannot contain logical children"
+    );
+    assert!(
+      self.reference.is_none(),
+      "static objects cannot attach render refs"
+    );
+    assert!(
+      self.click.is_none(),
+      "static objects cannot attach logical callbacks"
+    );
+    assert!(
+      self.id.is_none(),
+      "static object identity comes from its object ID"
+    );
+    let mut object = GameObject::new(object_id, self.kind);
+    object.local_transform = self.transform;
+    object.active = self.active;
+    object
+  }
+
   /// Preserves the compatible native host across logical parents and attachments.
   pub fn id(mut self, id: Uuid) -> Self {
     assert!(!id.is_nil(), "presentation IDs cannot be nil");
@@ -106,6 +136,11 @@ impl Group {
   /// Sets the local position.
   pub fn position(mut self, position: Vector3) -> Self {
     self.transform.position = position;
+    self
+  }
+  /// Sets the local orientation without changing authored geometry.
+  pub fn rotation(mut self, rotation: Quaternion) -> Self {
+    self.transform.rotation = rotation;
     self
   }
   /// Sets the local scale.

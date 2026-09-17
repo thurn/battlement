@@ -301,3 +301,33 @@ state = "stable-props.returned"
 scenario = "explicit props"
 checkpoint = "returned"
 owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "world-primitives.initial"
+scenario = "world primitives"
+checkpoint = "initial"
+owner = "reactant-testing::world_hosts"
+
+[[mappings]]
+state = "world-primitives.orb"
+scenario = "world primitives"
+checkpoint = "orb"
+owner = "reactant-testing::world_hosts"
+
+[[mappings]]
+state = "world-primitives.back"
+scenario = "world primitives"
+checkpoint = "back"
+owner = "reactant-testing::world_hosts"
+
+[[mappings]]
+state = "world-primitives.independent-back"
+scenario = "world primitives"
+checkpoint = "independent-back"
+owner = "reactant-testing::world_hosts"
+
+[[mappings]]
+state = "world-primitives.restored-dim"
+scenario = "world primitives"
+checkpoint = "restored-dim"
+owner = "reactant-testing::world_hosts"

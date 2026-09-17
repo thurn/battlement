@@ -1,4 +1,4 @@
-//! Group and opaque-prefab lowering through the shared host interface.
+//! Typed world object lowering through the shared host interface.
 
 use battlement::{
   Command, CommandBody, GameObject, GameObjectKind, LocalTransform, ObjectId,
@@ -6,6 +6,8 @@ use battlement::{
   PositionPayload, PropertyCommand, RotationPayload, ScalePayload,
 };
 use reactant_core::host_node::{HostAdapter, HostNode};
+
+use crate::world_properties;
 
 #[derive(Clone)]
 pub(crate) struct WorldDescription {
@@ -24,7 +26,9 @@ impl HostAdapter for WorldAdapter {
 
   fn requires_remount(previous: &WorldDescription, desired: &WorldDescription) -> bool {
     let attachment_changed = previous.root && previous.scene != desired.scene;
-    previous.kind != desired.kind || previous.root != desired.root || attachment_changed
+    !world_properties::compatible(&previous.kind, &desired.kind)
+      || previous.root != desired.root
+      || attachment_changed
   }
 
   fn create_command(node: &HostNode, parent: ObjectId, _: u32) -> Command {
@@ -48,7 +52,7 @@ impl HostAdapter for WorldAdapter {
     desired: &WorldDescription,
     _: bool,
   ) -> Vec<Command> {
-    let mut bodies = Vec::new();
+    let mut bodies = world_properties::commands(object_id, &previous.kind, &desired.kind);
     if previous.transform.position != desired.transform.position {
       bodies.push(CommandBody::TransformSetLocalPosition(
         PropertyCommand::canceling(PositionPayload {

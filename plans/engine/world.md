@@ -20,8 +20,8 @@ For example, a card's artwork, text, and hit region are separate children:
 
 ```rust
 world::Group::new().sort_order(card.sort_order).children((
-    world::Sprite::new().sprite(card.art).layer(0),
-    world::Sprite::new().sprite(assets.frame).layer(1),
+    world::Sprite::new().texture(card.art).layer(0),
+    world::Sprite::new().texture(assets.frame).layer(1),
     world::Text::new().text(&card.rules).font(assets.rules_font).layer(2),
     world::BoxHitRegion::new().size(card.hit_size).center(card.hit_center),
 ))
@@ -57,7 +57,7 @@ A shared Motion value can drive dissolve on several sprites, while a separate
 opacity track fades text:
 
 ```rust
-world::Sprite::new().sprite(card.art)
+world::Sprite::new().texture(card.art)
     .material(assets.dissolve)
     .parameter(CardShader::Clip, dissolve_progress.clone())
 ```

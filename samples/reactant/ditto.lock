@@ -500,3 +500,53 @@ width = 1280
 height = 720
 size_bytes = 45243
 source = "d2449a4dc3e6edb93fa113e7758195c2a4d0a87c7c20c64783af87427356bdea"
+
+[[baselines]]
+profile = "macos"
+scenario = "world primitives"
+checkpoint = "back"
+sha256 = "e834c2c170443db413b2013917812cb7004e1acac6ab9114dc74bef9234e3708"
+width = 1280
+height = 720
+size_bytes = 66952
+source = "db2a0b3af22e9aeef491807276a602c9c89656f2f9a7245c87dba31fdc2620da"
+
+[[baselines]]
+profile = "macos"
+scenario = "world primitives"
+checkpoint = "independent-back"
+sha256 = "ddaff5aede3de8ac0b9271c8945f2112d6a527b136c3be348f38bb26b5a8db54"
+width = 1280
+height = 720
+size_bytes = 67013
+source = "6560f8a4826ae9040ab3a412fc1ac86ce73e3652b74b8160ae498313863ad37a"
+
+[[baselines]]
+profile = "macos"
+scenario = "world primitives"
+checkpoint = "initial"
+sha256 = "0b9be3cef05b41527521c56b9a6ca40c14df208f3a665ba51cc99f831c55cc62"
+width = 1280
+height = 720
+size_bytes = 42239
+source = "6560f8a4826ae9040ab3a412fc1ac86ce73e3652b74b8160ae498313863ad37a"
+
+[[baselines]]
+profile = "macos"
+scenario = "world primitives"
+checkpoint = "orb"
+sha256 = "6e7e6ed340388efebb8c1bef24374ecf5f64eb156d640d16667b24df66e90390"
+width = 1280
+height = 720
+size_bytes = 56509
+source = "6560f8a4826ae9040ab3a412fc1ac86ce73e3652b74b8160ae498313863ad37a"
+
+[[baselines]]
+profile = "macos"
+scenario = "world primitives"
+checkpoint = "restored-dim"
+sha256 = "962ea2f2e029df9309c37bc121d842d44660ec9cbdf295b03a10db8cb785194c"
+width = 1280
+height = 720
+size_bytes = 41105
+source = "6560f8a4826ae9040ab3a412fc1ac86ce73e3652b74b8160ae498313863ad37a"

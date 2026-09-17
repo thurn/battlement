@@ -267,6 +267,26 @@ def sample_rust_workspaces() -> list[Path]:
     return sorted(manifests, key=lambda path: path.as_posix())
 
 
+def check_wire_schema_closure() -> None:
+    """Reject stale wire manifests before starting compilation or Unity."""
+    wire = REPOSITORY_ROOT / "contracts/wire-contract.json"
+    fixture = REPOSITORY_ROOT / "crates/battlement-native/tests/fixtures/exported-engine/schema"
+    manifest = json.loads(wire.read_text())
+    extension = json.loads((fixture / "wire-contract.json").read_text())
+    for directory, declared in (
+        (REPOSITORY_ROOT / "schemas/flatbuffers", manifest["flatbuffers"]["schema_closure"]),
+        (fixture, extension["schema_closure"]),
+    ):
+        actual = {
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in directory.glob("*.fbs")
+        }
+        if actual != declared:
+            raise RuntimeError(f"Stale wire schema closure: {directory}")
+    if extension["base_wire_contract_digest"] != hashlib.sha256(wire.read_bytes()).hexdigest():
+        raise RuntimeError("Fixture wire contract does not match its base manifest")
+
+
 def check_cargo_lockfiles(workspaces: list[Path]) -> None:
     """Reject stale locks before metadata discovery or builds can rewrite them."""
     for manifest in [Path("Cargo.toml"), *workspaces]:
@@ -1038,6 +1058,7 @@ def run_ci(
 ) -> None:
     samples = sample_names()
     sample_workspaces = sample_rust_workspaces()
+    run_step("Check wire schema closure", function=check_wire_schema_closure)
     run_step(
         "Check Rust lockfiles",
         function=lambda: check_cargo_lockfiles(sample_workspaces),

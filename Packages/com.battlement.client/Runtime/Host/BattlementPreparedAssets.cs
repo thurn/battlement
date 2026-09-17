@@ -350,6 +350,7 @@ namespace Battlement
             Preconditions.CheckNotNull(asset, nameof(asset)) switch
             {
                 PreparedAsset.Scene value => RequireAddress(value.Address.Value),
+                PreparedAsset.Mesh value => RequireAddress(value.Address.Value),
                 PreparedAsset.Prefab value => RequireAddress(value.Address.Value),
                 PreparedAsset.ParticleEffect value => RequireAddress(value.Address.Value),
                 PreparedAsset.Material value => RequireAddress(value.Address.Value),

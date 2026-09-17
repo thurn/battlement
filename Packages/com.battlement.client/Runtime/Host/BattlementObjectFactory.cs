@@ -71,6 +71,11 @@ namespace Battlement
                     BattlementStandardComponents.CreateLight(light.State),
                     null
                 ),
+                GameObjectKind.Mesh mesh => CreateMesh(
+                    mesh.Address,
+                    IsPointerTarget(description),
+                    gameObject => ApplyMaterials(gameObject, mesh.Materials)
+                ),
                 GameObjectKind.Prefab prefab => InstantiatePrefab(prefab),
                 _ => throw new BattlementWorldException(
                     CoreErrorCode.InvalidProperty,
@@ -90,6 +95,21 @@ namespace Battlement
                 IsPointerTarget(description.Placement),
                 description.Materials
             );
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectMeshObjectCreate description
+        ) =>
+            CreateMesh(
+                new MeshAddress(description.Address),
+                IsPointerTarget(description.Placement),
+                gameObject => ApplyMaterials(gameObject, description.Materials)
+            );
+
+        private (GameObject GameObject, IBattlementAssetLease? Lease) CreateMesh(
+            MeshAddress address,
+            bool pointerEvents,
+            System.Action<GameObject> materials
+        ) => BattlementMeshGeometry.Create(preparedAssets, address, pointerEvents, materials);
 
         public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
             BattlementDirectPrefabObjectCreate description
@@ -160,7 +180,8 @@ namespace Battlement
                     or GameObjectKind.Cylinder
                     or GameObjectKind.Plane
                     or GameObjectKind.Quad
-                    or GameObjectKind.Image;
+                    or GameObjectKind.Image
+                    or GameObjectKind.Mesh;
 
         private static bool IsPointerTarget(BattlementGameObject description) =>
             description.PointerEvents.Count > 0 || description.DragMode is not null;

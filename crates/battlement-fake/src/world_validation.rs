@@ -32,6 +32,13 @@ pub(crate) fn validate_object_assets(
         text.font
       );
     }
+    GameObjectKind::Mesh { address, materials } => {
+      assert_prepared(prepared_assets, PreparedAsset::Mesh(address.clone()));
+      let slots = catalog
+        .mesh_slots(address)
+        .unwrap_or_else(|| panic!("unknown mesh asset: {address}"));
+      validate_material_assignments(materials, Some(slots), catalog, prepared_assets);
+    }
     GameObjectKind::Prefab {
       address,
       materials,
@@ -128,6 +135,7 @@ pub(crate) fn renderer_slots(
     | GameObjectKind::Cylinder { .. }
     | GameObjectKind::Plane { .. }
     | GameObjectKind::Quad { .. } => Some(1),
+    GameObjectKind::Mesh { address, .. } => catalog.mesh_slots(address),
     GameObjectKind::Prefab { address, .. } => catalog
       .prefab(address)
       .and_then(assets::FakePrefab::material_slots),
@@ -137,6 +145,7 @@ pub(crate) fn renderer_slots(
 
 pub(crate) fn require_catalog_asset(catalog: &assets::FakeAssetCatalog, asset: &PreparedAsset) {
   let valid = match asset {
+    PreparedAsset::Mesh(address) => catalog.mesh_slots(address).is_some(),
     PreparedAsset::Scene(address) => catalog.has_scene(address),
     PreparedAsset::Prefab(address) => catalog.prefab(address).is_some(),
     PreparedAsset::ParticleEffect(address) => catalog.has_particle_effect(address),

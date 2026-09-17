@@ -157,6 +157,7 @@ namespace Battlement.Tests
             (Wire.PreparedAssetKind kind, string address) = asset switch
             {
                 PreparedAsset.Scene value => (Wire.PreparedAssetKind.Scene, value.Address.Value),
+                PreparedAsset.Mesh value => (Wire.PreparedAssetKind.Mesh, value.Address.Value),
                 PreparedAsset.Prefab value => (Wire.PreparedAssetKind.Prefab, value.Address.Value),
                 PreparedAsset.ParticleEffect value => (
                     Wire.PreparedAssetKind.ParticleEffect,

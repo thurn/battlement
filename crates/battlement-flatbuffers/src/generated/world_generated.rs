@@ -26,13 +26,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_PREPARED_ASSET_KIND: u8 = 10;
+      pub const ENUM_MAX_PREPARED_ASSET_KIND: u8 = 11;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_PREPARED_ASSET_KIND: [PreparedAssetKind; 11] = [
+      pub const ENUM_VALUES_PREPARED_ASSET_KIND: [PreparedAssetKind; 12] = [
         PreparedAssetKind::Scene,
         PreparedAssetKind::Prefab,
         PreparedAssetKind::ParticleEffect,
@@ -44,6 +44,7 @@ pub mod battlement {
         PreparedAssetKind::AudioClip,
         PreparedAssetKind::TextMeshProFont,
         PreparedAssetKind::UiFont,
+        PreparedAssetKind::Mesh,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -62,9 +63,10 @@ pub mod battlement {
         pub const AudioClip: Self = Self(8);
         pub const TextMeshProFont: Self = Self(9);
         pub const UiFont: Self = Self(10);
+        pub const Mesh: Self = Self(11);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 10;
+        pub const ENUM_MAX: u8 = 11;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::Scene,
           Self::Prefab,
@@ -77,6 +79,7 @@ pub mod battlement {
           Self::AudioClip,
           Self::TextMeshProFont,
           Self::UiFont,
+          Self::Mesh,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -92,6 +95,7 @@ pub mod battlement {
             Self::AudioClip => Some("AudioClip"),
             Self::TextMeshProFont => Some("TextMeshProFont"),
             Self::UiFont => Some("UiFont"),
+            Self::Mesh => Some("Mesh"),
             _ => None,
           }
         }
@@ -1884,13 +1888,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_GAME_OBJECT_CONTENT: u8 = 8;
+      pub const ENUM_MAX_GAME_OBJECT_CONTENT: u8 = 9;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_GAME_OBJECT_CONTENT: [GameObjectContent; 9] = [
+      pub const ENUM_VALUES_GAME_OBJECT_CONTENT: [GameObjectContent; 10] = [
         GameObjectContent::NONE,
         GameObjectContent::UiDocumentObject,
         GameObjectContent::EmptyObject,
@@ -1900,6 +1904,7 @@ pub mod battlement {
         GameObjectContent::CameraObject,
         GameObjectContent::LightObject,
         GameObjectContent::PrefabObject,
+        GameObjectContent::MeshObject,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1916,9 +1921,10 @@ pub mod battlement {
         pub const CameraObject: Self = Self(6);
         pub const LightObject: Self = Self(7);
         pub const PrefabObject: Self = Self(8);
+        pub const MeshObject: Self = Self(9);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 8;
+        pub const ENUM_MAX: u8 = 9;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::UiDocumentObject,
@@ -1929,6 +1935,7 @@ pub mod battlement {
           Self::CameraObject,
           Self::LightObject,
           Self::PrefabObject,
+          Self::MeshObject,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -1942,6 +1949,7 @@ pub mod battlement {
             Self::CameraObject => Some("CameraObject"),
             Self::LightObject => Some("LightObject"),
             Self::PrefabObject => Some("PrefabObject"),
+            Self::MeshObject => Some("MeshObject"),
             _ => None,
           }
         }
@@ -2008,13 +2016,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_GAME_OBJECT_KIND: u8 = 12;
+      pub const ENUM_MAX_GAME_OBJECT_KIND: u8 = 13;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_GAME_OBJECT_KIND: [GameObjectKind; 13] = [
+      pub const ENUM_VALUES_GAME_OBJECT_KIND: [GameObjectKind; 14] = [
         GameObjectKind::UiDocument,
         GameObjectKind::Empty,
         GameObjectKind::Cube,
@@ -2028,6 +2036,7 @@ pub mod battlement {
         GameObjectKind::Camera,
         GameObjectKind::Light,
         GameObjectKind::Prefab,
+        GameObjectKind::Mesh,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -2048,9 +2057,10 @@ pub mod battlement {
         pub const Camera: Self = Self(10);
         pub const Light: Self = Self(11);
         pub const Prefab: Self = Self(12);
+        pub const Mesh: Self = Self(13);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 12;
+        pub const ENUM_MAX: u8 = 13;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::UiDocument,
           Self::Empty,
@@ -2065,6 +2075,7 @@ pub mod battlement {
           Self::Camera,
           Self::Light,
           Self::Prefab,
+          Self::Mesh,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -2082,6 +2093,7 @@ pub mod battlement {
             Self::Camera => Some("Camera"),
             Self::Light => Some("Light"),
             Self::Prefab => Some("Prefab"),
+            Self::Mesh => Some("Mesh"),
             _ => None,
           }
         }
@@ -4998,6 +5010,164 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum MeshObjectOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MeshObject<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MeshObject<'a> {
+        type Inner = MeshObject<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MeshObject<'a> {
+        pub const VT_ADDRESS: ::flatbuffers::VOffsetT = 4;
+        pub const VT_MATERIALS: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MeshObject { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MeshObjectArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MeshObject<'bldr>> {
+          let mut builder = MeshObjectBuilder::new(_fbb);
+          if let Some(x) = args.materials {
+            builder.add_materials(x);
+          }
+          if let Some(x) = args.address {
+            builder.add_address(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn address(&self) -> &'a str {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(MeshObject::VT_ADDRESS, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn materials(
+          &self,
+        ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialAssignment<'a>>>
+        {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<
+                ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialAssignment>>,
+              >>(MeshObject::VT_MATERIALS, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MeshObject<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("address", Self::VT_ADDRESS, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<
+              ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MaterialAssignment>>,
+            >>("materials", Self::VT_MATERIALS, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MeshObjectArgs<'a> {
+        pub address: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub materials: Option<
+          ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialAssignment<'a>>>,
+          >,
+        >,
+      }
+      impl<'a> Default for MeshObjectArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MeshObjectArgs {
+            address: None,   // required field
+            materials: None, // required field
+          }
+        }
+      }
+
+      pub struct MeshObjectBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MeshObjectBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_address(&mut self, address: ::flatbuffers::WIPOffset<&'b str>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<_>>(MeshObject::VT_ADDRESS, address);
+        }
+        #[inline]
+        pub fn add_materials(
+          &mut self,
+          materials: ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<MaterialAssignment<'b>>>,
+          >,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<_>>(MeshObject::VT_MATERIALS, materials);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MeshObjectBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MeshObjectBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MeshObject<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self.fbb_.required(o, MeshObject::VT_ADDRESS, "address");
+          self.fbb_.required(o, MeshObject::VT_MATERIALS, "materials");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MeshObject<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MeshObject");
+          ds.field("address", &self.address());
+          ds.field("materials", &self.materials());
+          ds.finish()
+        }
+      }
       pub enum PrefabObjectOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -6547,6 +6717,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn content_as_mesh_object(&self) -> Option<MeshObject<'a>> {
+          if self.content_type() == GameObjectContent::MeshObject {
+            let u = self.content();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { MeshObject::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for GameObject<'_> {
@@ -6574,6 +6758,7 @@ pub mod battlement {
           GameObjectContent::CameraObject => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<CameraObject>>("GameObjectContent::CameraObject", pos),
           GameObjectContent::LightObject => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<LightObject>>("GameObjectContent::LightObject", pos),
           GameObjectContent::PrefabObject => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PrefabObject>>("GameObjectContent::PrefabObject", pos),
+          GameObjectContent::MeshObject => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<MeshObject>>("GameObjectContent::MeshObject", pos),
           _ => Ok(()),
         }
      })?
@@ -6807,6 +6992,16 @@ pub mod battlement {
             }
             GameObjectContent::PrefabObject => {
               if let Some(x) = self.content_as_prefab_object() {
+                ds.field("content", &x)
+              } else {
+                ds.field(
+                  "content",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            GameObjectContent::MeshObject => {
+              if let Some(x) = self.content_as_mesh_object() {
                 ds.field("content", &x)
               } else {
                 ds.field(

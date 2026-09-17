@@ -215,6 +215,8 @@ namespace Battlement
                     : command.DirectPrimitiveObjectCreate
                         is BattlementDirectPrimitiveObjectCreate targetPrimitive
                         ? targetPrimitive.Placement.ObjectId.Value
+                    : command.DirectMeshObjectCreate is BattlementDirectMeshObjectCreate targetMesh
+                        ? targetMesh.Placement.ObjectId.Value
                     : command.DirectPrefabObjectCreate
                         is BattlementDirectPrefabObjectCreate targetPrefab
                         ? targetPrefab.Placement.ObjectId.Value

@@ -410,6 +410,7 @@ fn same_metadata(left: &AssetRegistration, right: &AssetRegistration) -> bool {
 
 fn prepared_asset(asset: &PreparedAsset) -> (&'static str, &str) {
   match asset {
+    PreparedAsset::Mesh(value) => ("Mesh", value.as_str()),
     PreparedAsset::Scene(value) => ("Scene", value.as_str()),
     PreparedAsset::Prefab(value) => ("Prefab", value.as_str()),
     PreparedAsset::ParticleEffect(value) => ("ParticleEffect", value.as_str()),

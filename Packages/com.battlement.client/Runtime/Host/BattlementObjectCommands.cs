@@ -26,6 +26,15 @@ namespace Battlement
         }
 
         public static IBattlementCommandOperation? Create(
+            BattlementDirectMeshObjectCreate command,
+            BattlementWorld world
+        )
+        {
+            world.CreateObject(command);
+            return null;
+        }
+
+        public static IBattlementCommandOperation? Create(
             BattlementDirectPrefabObjectCreate command,
             BattlementWorld world
         )

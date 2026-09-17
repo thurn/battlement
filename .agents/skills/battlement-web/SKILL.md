@@ -11,7 +11,7 @@ browser defects, JavaScript integration, WebGL rendering risks, and hosting.
 For a platform risk not covered by existing paths, declare the durable risk and
 its affected samples in `web/contracts.toml`; do not substitute a native pass.
 
-Stage build inputs, then run `python3 scripts/prepare-web-demo.py <sample>`.
+Stage build inputs, then run `python3 scripts/prepare-web-demo.py --project samples/<sample>`.
 It produces the release-compressed profile used by deployment; use
 `--development` only when that different profile is intentional. Start review
 with `python3 scripts/serve_web.py --directory <build-directory> --handle

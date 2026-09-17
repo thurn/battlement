@@ -254,6 +254,7 @@ fn validate_controller_settings(settings: &ControllerInputSettings) -> Result<()
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum PreparedKind {
+  Mesh,
   Scene,
   Prefab,
   ParticleEffect,
@@ -273,6 +274,7 @@ fn prepared_assets(
   let mut prepared = HashMap::with_capacity(assets.len());
   for asset in assets {
     let (address, kind) = match asset {
+      PreparedAsset::Mesh(value) => (value.as_str(), PreparedKind::Mesh),
       PreparedAsset::Scene(value) => (value.as_str(), PreparedKind::Scene),
       PreparedAsset::Prefab(value) => (value.as_str(), PreparedKind::Prefab),
       PreparedAsset::ParticleEffect(value) => (value.as_str(), PreparedKind::ParticleEffect),
@@ -468,6 +470,10 @@ fn validate_object(
     GameObjectKind::Text { text } => {
       require_asset(prepared, text.font.as_str(), PreparedKind::TextMeshProFont)?;
     }
+    GameObjectKind::Mesh { address, materials } => {
+      require_asset(prepared, address.as_str(), PreparedKind::Mesh)?;
+      validate_materials(materials, prepared)?;
+    }
     GameObjectKind::Prefab {
       address, materials, ..
     } => {
@@ -528,6 +534,7 @@ fn materials(kind: &GameObjectKind) -> &[MaterialAssignment] {
     | GameObjectKind::Cylinder { materials }
     | GameObjectKind::Plane { materials }
     | GameObjectKind::Quad { materials }
+    | GameObjectKind::Mesh { materials, .. }
     | GameObjectKind::Prefab { materials, .. } => materials,
     _ => &[],
   }

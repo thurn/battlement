@@ -164,6 +164,7 @@ pub(crate) fn read_prepared_asset(
 ) -> Result<battlement::PreparedAsset, String> {
   let address = value.address();
   Ok(match value.kind() {
+    world_wire::PreparedAssetKind::Mesh => battlement::PreparedAsset::Mesh(address.into()),
     world_wire::PreparedAssetKind::Scene => battlement::PreparedAsset::Scene(address.into()),
     world_wire::PreparedAssetKind::Prefab => battlement::PreparedAsset::Prefab(address.into()),
     world_wire::PreparedAssetKind::ParticleEffect => {
@@ -382,6 +383,15 @@ fn read_object_kind(
             _ => return Err("unknown shadow mode".to_owned()),
           },
         },
+      }
+    }
+    world_wire::GameObjectKind::Mesh => {
+      let mesh = value
+        .content_as_mesh_object()
+        .ok_or_else(|| "mesh object payload is missing".to_owned())?;
+      battlement::GameObjectKind::Mesh {
+        address: mesh.address().into(),
+        materials: read_materials(mesh.materials()),
       }
     }
     world_wire::GameObjectKind::Prefab => {

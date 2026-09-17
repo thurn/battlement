@@ -316,6 +316,7 @@ namespace Battlement.Tests
                 new PreparedAsset.Scene(new SceneAddress("game/scene")),
                 new PreparedAsset.Prefab(new PrefabAddress("game/prefab")),
                 new PreparedAsset.ParticleEffect(new ParticleEffectAddress("game/effect")),
+                new PreparedAsset.Mesh(new MeshAddress("game/mesh")),
                 new PreparedAsset.Material(new MaterialAddress("game/material")),
                 new PreparedAsset.Texture(new TextureAddress("game/texture")),
                 new PreparedAsset.Sprite(new SpriteAddress("game/sprite")),

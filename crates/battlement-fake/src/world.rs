@@ -990,6 +990,7 @@ impl FakeObject {
       | GameObjectKind::Cylinder { .. }
       | GameObjectKind::Plane { .. }
       | GameObjectKind::Quad { .. }
+      | GameObjectKind::Mesh { .. }
       | GameObjectKind::Image { .. } => (None, None, None, None, true),
       GameObjectKind::Empty | GameObjectKind::UiDocument(_) | GameObjectKind::Text { .. } => {
         (None, None, None, None, false)
@@ -1003,6 +1004,7 @@ impl FakeObject {
         | GameObjectKind::Cylinder { .. }
         | GameObjectKind::Plane { .. }
         | GameObjectKind::Quad { .. }
+        | GameObjectKind::Mesh { .. }
         | GameObjectKind::Image { .. }
     );
     let collider = collider
@@ -1050,6 +1052,7 @@ fn materials(kind: &GameObjectKind) -> Option<&[MaterialAssignment]> {
     | GameObjectKind::Cylinder { materials }
     | GameObjectKind::Plane { materials }
     | GameObjectKind::Quad { materials }
+    | GameObjectKind::Mesh { materials, .. }
     | GameObjectKind::Prefab { materials, .. } => Some(materials),
     _ => None,
   }
@@ -1063,6 +1066,7 @@ pub(crate) fn materials_mut(kind: &mut GameObjectKind) -> Option<&mut Vec<Materi
     | GameObjectKind::Cylinder { materials }
     | GameObjectKind::Plane { materials }
     | GameObjectKind::Quad { materials }
+    | GameObjectKind::Mesh { materials, .. }
     | GameObjectKind::Prefab { materials, .. } => Some(materials),
     _ => None,
   }

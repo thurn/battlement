@@ -3,9 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use battlement::{
-  AudioClipAddress, CameraState, LightState, MaterialAddress, PrefabAddress, RenderTextureAddress,
-  SceneAddress, SpriteAddress, TextMeshProFontAddress, TextureAddress, UiFontAddress,
-  VectorImageAddress,
+  AudioClipAddress, CameraState, LightState, MaterialAddress, MeshAddress, PrefabAddress,
+  RenderTextureAddress, SceneAddress, SpriteAddress, TextMeshProFontAddress, TextureAddress,
+  UiFontAddress, VectorImageAddress,
 };
 
 /// An immutable-after-sharing catalog of assets available to a fake client.
@@ -13,6 +13,7 @@ use battlement::{
 pub struct FakeAssetCatalog {
   addresses: BTreeSet<String>,
   scenes: BTreeSet<String>,
+  meshes: BTreeMap<String, usize>,
   prefabs: BTreeMap<String, FakePrefab>,
   particle_effects: BTreeSet<String>,
   materials: BTreeSet<String>,
@@ -54,6 +55,18 @@ impl FakeAssetCatalog {
     let address = address.into();
     self.insert_address(address.as_str());
     self.particle_effects.insert(address.into_string());
+  }
+
+  /// Registers mesh geometry with its positive submesh count.
+  pub fn add_mesh(&mut self, address: impl Into<MeshAddress>, submeshes: usize) {
+    assert!(submeshes > 0, "mesh submesh count must be positive");
+    let address = address.into();
+    self.insert_address(address.as_str());
+    self.meshes.insert(address.into_string(), submeshes);
+  }
+
+  pub(crate) fn mesh_slots(&self, address: &MeshAddress) -> Option<usize> {
+    self.meshes.get(address.as_str()).copied()
   }
 
   /// Registers a material address.

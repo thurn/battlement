@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import tomllib
 from typing import NamedTuple
 
 import operation_log
@@ -62,6 +63,7 @@ def web_build_identity(sample: str, release: bool) -> BuildIdentity:
             f"samples/{sample}/Packages",
             f"samples/{sample}/ProjectSettings",
             f"samples/{sample}/reactant.toml",
+            f"samples/{sample}/sample.toml",
         ),
         "sample-rules": (f"samples/{sample}/rules",),
         "web-bootstrap": ("web/init.js",),
@@ -276,8 +278,16 @@ def changed_categories(entries: Path, manifest: dict[str, object]) -> str:
 def build_command(sample: str, release: bool) -> list[str]:
     command = [
         "cargo", "run", "--quiet", "-p", "rt", "--",
-        "build", "--project", f"samples/{sample}", "--web",
+        "build", "--project", f"samples/{sample}",
     ]
+    configuration = REPOSITORY_ROOT / "samples" / sample / "sample.toml"
+    if configuration.is_file():
+        document = tomllib.loads(configuration.read_text())
+        command.extend([
+            "--skip-assets", "--application", document["application"],
+            "--manifest-path", "rules/Cargo.toml", "--scene", document["scene"],
+        ])
+    command.append("--web")
     if release:
         command.append("--release")
     return command
@@ -344,7 +354,8 @@ def command_version(command: list[str]) -> str:
 def validate_sample(sample: str) -> None:
     if not sample or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in sample):
         raise RuntimeError("Sample names may contain lowercase letters, numbers, and hyphens.")
-    if not (REPOSITORY_ROOT / "samples" / sample / "reactant.toml").is_file():
+    project = REPOSITORY_ROOT / "samples" / sample
+    if not any((project / name).is_file() for name in ("reactant.toml", "sample.toml")):
         raise RuntimeError(f"Unknown sample: {sample}")
 
 

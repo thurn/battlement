@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "base_wire_contract_digest": "6520332ea6de0262f6a1e00737a0e6bd878aae95580b930596fed1f027a8a61e",
+  "base_wire_contract_digest": "81af8b9516884ef7b1346117539be49165c970b110c9a424cde6c17f888202ef",
   "schema_closure": {
     "fixture_response.fbs": "bdcb7ecf89fae1a174c685f56e46054d5734a60c21dba8144c06cb52a32d83ca"
   },

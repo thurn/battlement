@@ -5,11 +5,11 @@ using UnityEngine;
 namespace Battlement
 {
     /// <summary>
-    /// Retains one prepared prefab's protocol usage lease for an instance's lifetime.
+    /// Retains one prepared geometry asset's protocol usage lease for an instance's lifetime.
     /// </summary>
     /// <remarks>
     /// The lease contributes to Battlement's prepared-asset usage count. It prevents a
-    /// command-driven prepared-set replacement from removing the prefab while this
+    /// command-driven prepared-set replacement from removing the asset while this
     /// instance exists; Addressables retains the underlying asset through its load handle.
     /// </remarks>
     [DisallowMultipleComponent]
@@ -17,10 +17,10 @@ namespace Battlement
     {
         private IBattlementAssetLease? lease;
 
-        /// <summary>Associates the instance with its acquired prepared-prefab lease.</summary>
+        /// <summary>Associates the instance with its acquired prepared-asset lease.</summary>
         internal void Initialize(IBattlementAssetLease value) => lease = value;
 
-        /// <summary>Releases the instance's contribution to the prefab usage count.</summary>
+        /// <summary>Releases the instance's contribution to the asset usage count.</summary>
         internal void Release()
         {
             lease?.Dispose();

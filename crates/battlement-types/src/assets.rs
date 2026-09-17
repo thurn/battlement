@@ -80,6 +80,9 @@ mod kind {
   pub struct Material;
 
   #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+  pub struct Mesh;
+
+  #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
   pub struct Texture;
 
   #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -108,6 +111,8 @@ mod kind {
 pub type SceneAddress = AssetAddress<kind::Scene>;
 /// An Addressable prefab key.
 pub type PrefabAddress = AssetAddress<kind::Prefab>;
+/// An Addressable mesh key; geometry uses authored local units.
+pub type MeshAddress = AssetAddress<kind::Mesh>;
 /// An Addressable material key.
 pub type MaterialAddress = AssetAddress<kind::Material>;
 /// An Addressable `Texture2D` key used by world images and UI graphics.

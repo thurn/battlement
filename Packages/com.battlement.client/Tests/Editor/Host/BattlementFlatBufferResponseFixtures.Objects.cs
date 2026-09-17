@@ -112,6 +112,16 @@ namespace Battlement.Tests
                     return Camera(builder, camera.State);
                 case GameObjectKind.Light light:
                     return Light(builder, light.State);
+                case GameObjectKind.Mesh mesh:
+                {
+                    StringOffset address = builder.CreateString(mesh.Address.Value);
+                    VectorOffset materials = WriteMaterials(builder, mesh.Materials);
+                    return (
+                        Wire.GameObjectKind.Mesh,
+                        Wire.GameObjectContent.MeshObject,
+                        Wire.MeshObject.CreateMeshObject(builder, address, materials).Value
+                    );
+                }
                 case GameObjectKind.Prefab prefab:
                     return Prefab(builder, prefab);
                 case GameObjectKind.UiDocumentState document:

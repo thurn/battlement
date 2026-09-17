@@ -36,6 +36,7 @@ namespace Battlement
             DirectTweenRotation = null;
             DirectTweenScale = null;
             DirectPrimitiveObjectCreate = null;
+            DirectMeshObjectCreate = null;
             DirectPrefabObjectCreate = null;
             DirectEmptyObjectCreate = null;
             DirectTextObjectCreate = null;
@@ -460,6 +461,16 @@ namespace Battlement
         internal BattlementDirectTweenRotation? DirectTweenRotation { get; }
         internal BattlementDirectTweenScale? DirectTweenScale { get; }
         internal BattlementDirectPrimitiveObjectCreate? DirectPrimitiveObjectCreate { get; }
+
+        internal BattlementCommandExecution(
+            CommandId id,
+            bool isBlocking,
+            BattlementDirectMeshObjectCreate mesh
+        )
+            : this(id, isBlocking) => DirectMeshObjectCreate = mesh;
+
+        internal BattlementDirectMeshObjectCreate? DirectMeshObjectCreate { get; }
+
         internal BattlementDirectPrefabObjectCreate? DirectPrefabObjectCreate { get; }
         internal BattlementDirectEmptyObjectCreate? DirectEmptyObjectCreate { get; }
         internal BattlementDirectTextObjectCreate? DirectTextObjectCreate { get; }
@@ -2421,6 +2432,7 @@ namespace Battlement
             {
                 BattlementDirectImageObjectCreate value => value.Placement,
                 BattlementDirectPrimitiveObjectCreate value => value.Placement,
+                BattlementDirectMeshObjectCreate value => value.Placement,
                 BattlementDirectPrefabObjectCreate value => value.Placement,
                 BattlementDirectEmptyObjectCreate value => value.Placement,
                 BattlementDirectTextObjectCreate value => value.Placement,
@@ -2466,6 +2478,7 @@ namespace Battlement
                         value.ContentAsUiDocumentObject()
                     )
                 ),
+                Wire.GameObjectKind.Mesh => ReadMesh(value, placement),
                 Wire.GameObjectKind.Prefab => ReadPrefab(value, placement),
                 _ when IsPrimitive(value.Kind) => new BattlementDirectPrimitiveObjectCreate(
                     placement,
@@ -2567,6 +2580,19 @@ namespace Battlement
                 light.OuterSpotAngle,
                 light.InnerSpotAngle,
                 (byte)light.Shadows
+            );
+        }
+
+        private static BattlementDirectMeshObjectCreate ReadMesh(
+            Wire.GameObject value,
+            BattlementDirectObjectPlacement placement
+        )
+        {
+            Wire.MeshObject mesh = value.ContentAsMeshObject();
+            return new BattlementDirectMeshObjectCreate(
+                placement,
+                mesh.Address,
+                ReadMaterials(mesh.MaterialsLength, index => mesh.Materials(index)!.Value)
             );
         }
 
@@ -3465,6 +3491,15 @@ namespace Battlement
                             value.Kind,
                             ReadMaterials(value.ContentAsPrimitiveObject())
                         )
+                    );
+                    return true;
+                }
+                if (value.Kind == Wire.GameObjectKind.Mesh)
+                {
+                    execution = new BattlementCommandExecution(
+                        commandId,
+                        command.Blocking,
+                        ReadMesh(value, placement)
                     );
                     return true;
                 }
@@ -4879,6 +4914,7 @@ namespace Battlement
             string address = value.Address;
             return value.Kind switch
             {
+                Wire.PreparedAssetKind.Mesh => new PreparedAsset.Mesh(new MeshAddress(address)),
                 Wire.PreparedAssetKind.Scene => new PreparedAsset.Scene(new SceneAddress(address)),
                 Wire.PreparedAssetKind.Prefab => new PreparedAsset.Prefab(
                     new PrefabAddress(address)

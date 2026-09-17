@@ -17,6 +17,8 @@ namespace Battlement
         private Material? material;
         private Mesh? mesh;
         private BoxCollider? imageCollider;
+        private int textureProperty;
+        private int colorProperty;
         private Texture? texture;
         private ImageFit fit;
         private float width;
@@ -92,7 +94,13 @@ namespace Battlement
                 );
             }
 
-            Material template = Resources.Load<Material>("BattlementImage");
+            RenderPipelineAsset pipeline = QualitySettings.renderPipeline;
+            if (pipeline == null)
+                pipeline = GraphicsSettings.defaultRenderPipeline;
+            bool builtIn = pipeline == null;
+            Material template = Resources.Load<Material>(
+                builtIn ? "BattlementImageBuiltIn" : "BattlementImage"
+            );
             if (template == null)
             {
                 throw new BattlementWorldException(
@@ -102,7 +110,10 @@ namespace Battlement
             }
             mesh = new Mesh { name = "Battlement Image Mesh" };
             material = new Material(template) { name = "Battlement Image Material" };
-            ConfigureTransparentMaterial(material);
+            if (!builtIn)
+                ConfigureTransparentMaterial(material);
+            textureProperty = builtIn ? Shader.PropertyToID("_MainTex") : BaseMap;
+            colorProperty = builtIn ? Shader.PropertyToID("_Color") : BaseColor;
 
             gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
             gameObject.AddComponent<MeshRenderer>().sharedMaterial = material;
@@ -118,8 +129,8 @@ namespace Battlement
             fit = requestedFit;
             color = new UnityEngine.Color((float)red, (float)green, (float)blue, (float)opacity);
             FacesCamera = facesCamera;
-            material.SetTexture(BaseMap, texture);
-            material.SetColor(BaseColor, color);
+            material.SetTexture(textureProperty, texture);
+            material.SetColor(colorProperty, color);
             UpdateGeometry();
         }
 
@@ -136,7 +147,7 @@ namespace Battlement
             IBattlementAssetLease? previousLease = textureLease;
             Texture? previousTexture = texture;
             texture = preparedTexture;
-            material!.SetTexture(BaseMap, texture);
+            material!.SetTexture(textureProperty, texture);
             try
             {
                 UpdateGeometry();
@@ -144,7 +155,7 @@ namespace Battlement
             catch
             {
                 texture = previousTexture;
-                material.SetTexture(BaseMap, texture);
+                material.SetTexture(textureProperty, texture);
                 UpdateGeometry();
                 throw;
             }
@@ -179,13 +190,13 @@ namespace Battlement
             color.r = converted.r;
             color.g = converted.g;
             color.b = converted.b;
-            material!.SetColor(BaseColor, color);
+            material!.SetColor(colorProperty, color);
         }
 
         internal void SetOpacity(double opacity)
         {
             color.a = ConvertOpacity(opacity);
-            material!.SetColor(BaseColor, color);
+            material!.SetColor(colorProperty, color);
         }
 
         internal void ApplyTint(UnityEngine.Color value)
@@ -193,13 +204,13 @@ namespace Battlement
             color.r = value.r;
             color.g = value.g;
             color.b = value.b;
-            material!.SetColor(BaseColor, color);
+            material!.SetColor(colorProperty, color);
         }
 
         internal void ApplyOpacity(float value)
         {
             color.a = value;
-            material!.SetColor(BaseColor, color);
+            material!.SetColor(colorProperty, color);
         }
 
         internal static UnityEngine.Color ConvertTint(RgbColor tint) =>

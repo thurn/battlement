@@ -1,9 +1,9 @@
 //! Prepared Addressables declarations owned by the core protocol.
 
 pub use battlement_types::{
-  AssetAddress, AudioClipAddress, MaterialAddress, PrefabAddress, RenderTextureAddress,
-  SceneAddress, SpriteAddress, TextMeshProFontAddress, TextureAddress, UiFontAddress,
-  UntypedAssetAddress, VectorImageAddress,
+  AssetAddress, AudioClipAddress, MaterialAddress, MeshAddress, PrefabAddress,
+  RenderTextureAddress, SceneAddress, SpriteAddress, TextMeshProFontAddress, TextureAddress,
+  UiFontAddress, UntypedAssetAddress, VectorImageAddress,
 };
 
 /// One Addressables entry loaded and type-checked before commands may use it.
@@ -15,6 +15,8 @@ pub enum PreparedAsset {
   Prefab(PrefabAddress),
   /// A prefab used for temporary particle effects.
   ParticleEffect(PrefabAddress),
+  /// A mesh used by a Battlement-owned renderer.
+  Mesh(MeshAddress),
   /// A material assignable to a supported renderer.
   Material(MaterialAddress),
   /// A texture used by an image quad.
@@ -50,6 +52,12 @@ impl PreparedAsset {
   #[must_use]
   pub fn particle_effect(address: impl Into<PrefabAddress>) -> Self {
     Self::ParticleEffect(address.into())
+  }
+
+  /// Creates a prepared mesh declaration.
+  #[must_use]
+  pub fn mesh(address: impl Into<MeshAddress>) -> Self {
+    Self::Mesh(address.into())
   }
 
   /// Creates a prepared material declaration.

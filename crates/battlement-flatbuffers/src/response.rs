@@ -2020,6 +2020,7 @@ fn write_prepared_asset<'a>(
   value: &battlement::PreparedAsset,
 ) -> WIPOffset<world_wire::PreparedAsset<'a>> {
   let (kind, address) = match value {
+    battlement::PreparedAsset::Mesh(value) => (world_wire::PreparedAssetKind::Mesh, value.as_str()),
     battlement::PreparedAsset::Scene(value) => {
       (world_wire::PreparedAssetKind::Scene, value.as_str())
     }
@@ -2233,6 +2234,22 @@ fn write_game_object<'a>(
       (
         world_wire::GameObjectKind::Light,
         world_wire::GameObjectContent::LightObject,
+        content.as_union_value(),
+      )
+    }
+    battlement::GameObjectKind::Mesh { address, materials } => {
+      let address = builder.create_string(address.as_str());
+      let materials = write_materials(builder, materials);
+      let content = world_wire::MeshObject::create(
+        builder,
+        &world_wire::MeshObjectArgs {
+          address: Some(address),
+          materials: Some(materials),
+        },
+      );
+      (
+        world_wire::GameObjectKind::Mesh,
+        world_wire::GameObjectContent::MeshObject,
         content.as_union_value(),
       )
     }

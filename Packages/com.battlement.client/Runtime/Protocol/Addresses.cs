@@ -76,6 +76,28 @@ namespace Battlement
             !left.Equals(right);
     }
 
+    /// <summary>An Addressable mesh key.</summary>
+    public readonly struct MeshAddress : IEquatable<MeshAddress>
+    {
+        /// <summary>Creates a typed address from its stable, namespaced key.</summary>
+        public MeshAddress(string value) => Value = value;
+
+        /// <summary>Gets the Addressables key.</summary>
+        public string Value { get; }
+
+        public bool Equals(MeshAddress other) => Value == other.Value;
+
+        public override bool Equals(object? obj) => obj is MeshAddress other && Equals(other);
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public override string ToString() => Value;
+
+        public static bool operator ==(MeshAddress left, MeshAddress right) => left.Equals(right);
+
+        public static bool operator !=(MeshAddress left, MeshAddress right) => !left.Equals(right);
+    }
+
     /// <summary>An Addressable material key.</summary>
     public readonly struct MaterialAddress : IEquatable<MaterialAddress>
     {

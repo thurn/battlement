@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from contextlib import ExitStack, nullcontext
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -33,6 +34,7 @@ def main() -> None:
         root = Path(temporary)
         _verify_focused_cargo_target(root)
         _verify_lockfile_preflight(root)
+        _verify_wire_preflight(root)
         _verify_cargo_target_isolation(root)
         _verify_cargo_targets_do_not_cross_checkouts(root)
         _verify_parallel_sample_target_isolation(root)
@@ -137,6 +139,44 @@ def _verify_lockfile_preflight(root: Path) -> None:
             cwd=checkout, check=True, capture_output=True,
         )
         ci.check_cargo_lockfiles([sample])
+
+
+def _verify_wire_preflight(root: Path) -> None:
+    checkout = root / "wire-preflight"
+    schemas = checkout / "schemas/flatbuffers"
+    schemas.mkdir(parents=True)
+    schema = schemas / "world.fbs"
+    schema.write_text("table World {}\n")
+    wire = checkout / "contracts/wire-contract.json"
+    wire.parent.mkdir()
+    wire.write_text(json.dumps({"flatbuffers": {"schema_closure": {
+        schema.name: hashlib.sha256(schema.read_bytes()).hexdigest(),
+    }}}))
+    fixture = checkout / "crates/battlement-native/tests/fixtures/exported-engine/schema"
+    fixture.mkdir(parents=True)
+    extension = fixture / "wire-contract.json"
+    extension.write_text(json.dumps({"schema_closure": {},
+        "base_wire_contract_digest": hashlib.sha256(wire.read_bytes()).hexdigest()}))
+    with patch.object(ci, "REPOSITORY_ROOT", checkout):
+        ci.check_wire_schema_closure()
+        original = schema.read_bytes()
+        schema.write_text("table World { value:int; }\n")
+        try:
+            ci.check_wire_schema_closure()
+        except RuntimeError as error:
+            assert "Stale wire schema closure" in str(error)
+        else:
+            raise AssertionError("changed schema passed stale manifest preflight")
+        schema.write_bytes(original)
+        extension.write_text(extension.read_text().replace(
+            hashlib.sha256(wire.read_bytes()).hexdigest(), "0" * 64,
+        ))
+        try:
+            ci.check_wire_schema_closure()
+        except RuntimeError as error:
+            assert "base manifest" in str(error)
+        else:
+            raise AssertionError("stale extension base passed preflight")
 
 
 def _verify_cargo_target_isolation(root: Path) -> None:
@@ -460,6 +500,7 @@ def _verify_selected_native_execution() -> None:
         patch.object(web_selection, "validate_affected"),
         patch.multiple(ci, run_csharp_preflight=lambda *_a: None,
                        check_cargo_lockfiles=lambda *_a: None,
+                       check_wire_schema_closure=lambda: None,
                        lint_rust_workspaces=lambda *_a: None),
         patch.object(ci, "test_rust_workspaces", return_value=0.0),
         patch.object(ci.ci_tooling, "run", tooling),

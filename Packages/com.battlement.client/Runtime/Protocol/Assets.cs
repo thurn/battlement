@@ -22,6 +22,9 @@ namespace Battlement
         /// <summary>A prefab used for temporary particle effects.</summary>
         public sealed record ParticleEffect(ParticleEffectAddress Address) : PreparedAsset;
 
+        /// <summary>Authored geometry for a mesh renderer.</summary>
+        public sealed record Mesh(MeshAddress Address) : PreparedAsset;
+
         /// <summary>A material assignable to a supported renderer.</summary>
         public sealed record Material(MaterialAddress Address) : PreparedAsset;
 

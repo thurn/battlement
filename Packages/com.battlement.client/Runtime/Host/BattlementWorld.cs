@@ -296,6 +296,13 @@ namespace Battlement
                 usesAutomaticPointerCollider: true
             );
 
+        public void CreateObject(BattlementDirectMeshObjectCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: true
+            );
+
         public void CreateObject(BattlementDirectPrefabObjectCreate description) =>
             CreateDirectObject(
                 description.Placement,
@@ -404,6 +411,14 @@ namespace Battlement
                     );
                     break;
                 case BattlementDirectPrimitiveObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        true,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                case BattlementDirectMeshObjectCreate value:
                     CreateDirectObject(
                         value.Placement,
                         () => objectFactory.Construct(value),

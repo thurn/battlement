@@ -614,6 +614,7 @@ where
       "asset is not prepared: {address}"
     );
     let valid = match &expected {
+      PreparedAsset::Mesh(value) => self.assets.mesh_slots(value).is_some(),
       PreparedAsset::Scene(value) => self.assets.has_scene(value),
       PreparedAsset::Prefab(value) => self.assets.prefab(value).is_some(),
       PreparedAsset::ParticleEffect(value) => self.assets.has_particle_effect(value),
