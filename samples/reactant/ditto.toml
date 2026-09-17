@@ -462,3 +462,29 @@ accessibility_action = { target = { role = "button", name = "Switch mesh" }, act
 accessibility_action = { target = { role = "button", name = "Change light" }, action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "restored-dim" }
+
+[[scenarios]]
+name = "world text ordering"
+fixture = "world-text"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "glyphs-above-stripe" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Cover glyphs" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "stripe-above-glyphs" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Raise text card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "group-above-group" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Cover glyphs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change wrapping" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "narrow-right-aligned" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Tint and fade" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "tinted-translucent" }

@@ -35,6 +35,7 @@ namespace Battlement.Tests
                     value.ObjectId,
                     Wire.CoreCommandKind.ObjectDestroy
                 ),
+                CommandBody.Object.SetRenderOrder value => SetRenderOrder(builder, value),
                 CommandBody.Object.SetActive value => ObjectEnabled(
                     builder,
                     value.ObjectId,

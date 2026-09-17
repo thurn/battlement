@@ -2027,6 +2027,161 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum ObjectRenderOrderPayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct ObjectRenderOrderPayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for ObjectRenderOrderPayload<'a> {
+        type Inner = ObjectRenderOrderPayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> ObjectRenderOrderPayload<'a> {
+        pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_RENDER_ORDER: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          ObjectRenderOrderPayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args ObjectRenderOrderPayloadArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<ObjectRenderOrderPayload<'bldr>> {
+          let mut builder = ObjectRenderOrderPayloadBuilder::new(_fbb);
+          if let Some(x) = args.render_order {
+            builder.add_render_order(x);
+          }
+          if let Some(x) = args.object_id {
+            builder.add_object_id(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn object_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(ObjectRenderOrderPayload::VT_OBJECT_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn render_order(&self) -> Option<RenderOrder<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<RenderOrder>>(
+                ObjectRenderOrderPayload::VT_RENDER_ORDER,
+                None,
+              )
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for ObjectRenderOrderPayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<RenderOrder>>(
+              "render_order",
+              Self::VT_RENDER_ORDER,
+              false,
+            )?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct ObjectRenderOrderPayloadArgs<'a> {
+        pub object_id: Option<&'a Uuid>,
+        pub render_order: Option<::flatbuffers::WIPOffset<RenderOrder<'a>>>,
+      }
+      impl<'a> Default for ObjectRenderOrderPayloadArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          ObjectRenderOrderPayloadArgs {
+            object_id: None, // required field
+            render_order: None,
+          }
+        }
+      }
+
+      pub struct ObjectRenderOrderPayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ObjectRenderOrderPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_object_id(&mut self, object_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(ObjectRenderOrderPayload::VT_OBJECT_ID, object_id);
+        }
+        #[inline]
+        pub fn add_render_order(
+          &mut self,
+          render_order: ::flatbuffers::WIPOffset<RenderOrder<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<RenderOrder>>(
+              ObjectRenderOrderPayload::VT_RENDER_ORDER,
+              render_order,
+            );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> ObjectRenderOrderPayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          ObjectRenderOrderPayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<ObjectRenderOrderPayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, ObjectRenderOrderPayload::VT_OBJECT_ID, "object_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for ObjectRenderOrderPayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("ObjectRenderOrderPayload");
+          ds.field("object_id", &self.object_id());
+          ds.field("render_order", &self.render_order());
+          ds.finish()
+        }
+      }
       pub enum ObjectReparentPayloadOffset {}
       #[derive(Copy, Clone, PartialEq)]
 

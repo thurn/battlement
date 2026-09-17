@@ -1,5 +1,7 @@
 //! In-memory Battlement-controlled objects, scenes, and component state.
 
+use battlement::RenderOrder;
+
 use std::collections::{BTreeMap, HashMap};
 
 use battlement::{
@@ -80,6 +82,7 @@ pub struct FakeObject {
   local_transform: battlement::LocalTransform,
   pointer_events: Vec<battlement::PointerEvent>,
   drag_mode: Option<battlement::DragMode>,
+  render_order: Option<RenderOrder>,
   pub(crate) kind: GameObjectKind,
   renderer_slots: Option<usize>,
   camera: Option<CameraState>,
@@ -156,6 +159,11 @@ impl FakeObject {
   #[must_use]
   pub fn pointer_events(&self) -> &[battlement::PointerEvent] {
     &self.pointer_events
+  }
+
+  /// Explicit ordering relative to the nearest ancestor sorting group.
+  pub fn render_order(&self) -> Option<RenderOrder> {
+    self.render_order
   }
 
   /// Returns the object's configured drag behavior, when draggable.
@@ -779,6 +787,20 @@ impl FakeWorld {
     self.descendants(id)
   }
 
+  pub(crate) fn set_render_order(&mut self, id: battlement::ObjectId, order: Option<RenderOrder>) {
+    let object = self.require_object_mut(id);
+    let has_renderer = object.renderer_slots.is_some()
+      || matches!(
+        object.kind,
+        GameObjectKind::Text { .. } | GameObjectKind::Image { .. }
+      );
+    assert!(
+      !matches!(order, Some(RenderOrder::Layer(_))) || has_renderer,
+      "layer ordering requires a renderer"
+    );
+    object.render_order = order;
+  }
+
   pub(crate) fn set_input_enabled(&mut self, enabled: bool) {
     self.input_enabled = enabled;
   }
@@ -971,6 +993,15 @@ impl FakeObject {
       ParentScene::Persistent => None,
     };
     let renderer_slots = world_validation::renderer_slots(&object.kind, catalog);
+    let has_renderer = renderer_slots.is_some()
+      || matches!(
+        object.kind,
+        GameObjectKind::Text { .. } | GameObjectKind::Image { .. }
+      );
+    assert!(
+      !matches!(object.render_order, Some(RenderOrder::Layer(_))) || has_renderer,
+      "layer ordering requires a renderer"
+    );
     let (camera, light, animator_descriptor, particles_playing, collider) = match &object.kind {
       GameObjectKind::Camera { camera } => (Some(*camera), None, None, None, false),
       GameObjectKind::Light { light } => (None, Some(*light), None, None, false),
@@ -1020,6 +1051,7 @@ impl FakeObject {
       local_transform,
       pointer_events: object.pointer_events,
       drag_mode: object.drag_mode,
+      render_order: object.render_order,
       kind: object.kind,
       renderer_slots,
       camera,

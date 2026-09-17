@@ -144,6 +144,9 @@ where
         self.world.create_object(value.object.clone(), &self.assets)
       }
       CommandBody::ObjectDestroy(value) => self.world.destroy_object(value.object_id),
+      CommandBody::ObjectSetRenderOrder(value) => self
+        .world
+        .set_render_order(value.object_id, value.render_order),
       CommandBody::ObjectSetActive(value) => self.world.set_active(value.object_id, value.active),
       CommandBody::ObjectReparent(value) => {
         self

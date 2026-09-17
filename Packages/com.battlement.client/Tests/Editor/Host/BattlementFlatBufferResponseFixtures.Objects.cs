@@ -18,7 +18,9 @@ namespace Battlement.Tests
             VectorOffset pointerEvents = PointerEventVector(builder, value.PointerEvents);
             (Wire.GameObjectKind kind, Wire.GameObjectContent contentType, int content) =
                 WriteObjectContent(builder, value.Kind);
+            Offset<Wire.RenderOrder> renderOrder = WriteRenderOrder(builder, value.RenderOrder);
             Wire.GameObject.StartGameObject(builder);
+            Wire.GameObject.AddRenderOrder(builder, renderOrder);
             Wire.GameObject.AddContent(builder, content);
             Wire.GameObject.AddContentType(builder, contentType);
             Wire.GameObject.AddKind(builder, kind);
@@ -52,6 +54,34 @@ namespace Battlement.Tests
             Wire.GameObject.AddParentScene(builder, parentScene);
             Wire.GameObject.AddObjectId(builder, Uuid(builder, value.Id.Value));
             return Wire.GameObject.EndGameObject(builder);
+        }
+
+        private static Offset<Wire.RenderOrder> WriteRenderOrder(
+            FlatBufferBuilder builder,
+            RenderOrder? value
+        ) =>
+            value is RenderOrder order
+                ? Wire.RenderOrder.CreateRenderOrder(
+                    builder,
+                    (Wire.RenderOrderKind)order.Kind,
+                    order.Order
+                )
+                : default;
+
+        private static Payload SetRenderOrder(
+            FlatBufferBuilder builder,
+            CommandBody.Object.SetRenderOrder value
+        )
+        {
+            Offset<Wire.RenderOrder> order = WriteRenderOrder(builder, value.Order);
+            Wire.ObjectRenderOrderPayload.StartObjectRenderOrderPayload(builder);
+            Wire.ObjectRenderOrderPayload.AddRenderOrder(builder, order);
+            Wire.ObjectRenderOrderPayload.AddObjectId(builder, Uuid(builder, value.ObjectId.Value));
+            return new Payload(
+                Wire.CoreCommandKind.ObjectSetRenderOrder,
+                Wire.CoreCommandPayload.ObjectRenderOrderPayload,
+                Wire.ObjectRenderOrderPayload.EndObjectRenderOrderPayload(builder).Value
+            );
         }
 
         private static Offset<Wire.ParentScene> WriteParentScene(

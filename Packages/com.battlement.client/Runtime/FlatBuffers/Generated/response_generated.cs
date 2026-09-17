@@ -116,6 +116,7 @@ public enum CoreCommandKind : byte
   MotionDragControl = 93,
   GeometryObservationUpdate = 94,
   AccessibilityUpdate = 95,
+  ObjectSetRenderOrder = 96,
 };
 
 public enum CoreCommandPayload : byte
@@ -204,6 +205,7 @@ public enum CoreCommandPayload : byte
   MotionDragControlOperation = 81,
   GeometryObservationUpdate = 82,
   AccessibilityUpdate = 83,
+  ObjectRenderOrderPayload = 84,
 };
 
 
@@ -464,6 +466,9 @@ static public class CoreCommandPayloadVerify
       case CoreCommandPayload.AccessibilityUpdate:
         result = Battlement.FlatBuffers.Generated.AccessibilityUpdateVerify.Verify(verifier, tablePos);
         break;
+      case CoreCommandPayload.ObjectRenderOrderPayload:
+        result = Battlement.FlatBuffers.Generated.ObjectRenderOrderPayloadVerify.Verify(verifier, tablePos);
+        break;
       default: result = true;
         break;
     }
@@ -623,6 +628,7 @@ public struct CoreCommand : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.MotionDragControlOperation PayloadAsMotionDragControlOperation() { return Payload<Battlement.FlatBuffers.Generated.MotionDragControlOperation>().Value; }
   public Battlement.FlatBuffers.Generated.GeometryObservationUpdate PayloadAsGeometryObservationUpdate() { return Payload<Battlement.FlatBuffers.Generated.GeometryObservationUpdate>().Value; }
   public Battlement.FlatBuffers.Generated.AccessibilityUpdate PayloadAsAccessibilityUpdate() { return Payload<Battlement.FlatBuffers.Generated.AccessibilityUpdate>().Value; }
+  public Battlement.FlatBuffers.Generated.ObjectRenderOrderPayload PayloadAsObjectRenderOrderPayload() { return Payload<Battlement.FlatBuffers.Generated.ObjectRenderOrderPayload>().Value; }
 
   public static void StartCoreCommand(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddCommandId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> commandIdOffset) { builder.AddStruct(0, commandIdOffset.Value, 0); }

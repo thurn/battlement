@@ -138,6 +138,7 @@ namespace Battlement
         public static void ApplyStableState(GameObject gameObject, BattlementGameObject description)
         {
             ApplyLocalTransform(gameObject.transform, description.LocalTransform);
+            BattlementRenderOrder.Apply(gameObject, description.RenderOrder);
             gameObject.SetActive(description.IsActive);
             if (description.Kind is GameObjectKind.Prefab { Animator: { } animator })
             {
@@ -169,6 +170,7 @@ namespace Battlement
                 (float)description.ScaleY,
                 (float)description.ScaleZ
             );
+            BattlementRenderOrder.Apply(gameObject, description.RenderOrder);
             gameObject.SetActive(description.Active);
         }
 

@@ -331,3 +331,33 @@ state = "world-primitives.restored-dim"
 scenario = "world primitives"
 checkpoint = "restored-dim"
 owner = "reactant-testing::world_hosts"
+
+[[mappings]]
+state = "world-text.glyphs-above-stripe"
+scenario = "world text ordering"
+checkpoint = "glyphs-above-stripe"
+owner = "reactant-testing::world_text"
+
+[[mappings]]
+state = "world-text.stripe-above-glyphs"
+scenario = "world text ordering"
+checkpoint = "stripe-above-glyphs"
+owner = "reactant-testing::world_text"
+
+[[mappings]]
+state = "world-text.group-above-group"
+scenario = "world text ordering"
+checkpoint = "group-above-group"
+owner = "reactant-testing::world_text"
+
+[[mappings]]
+state = "world-text.narrow-right-aligned"
+scenario = "world text ordering"
+checkpoint = "narrow-right-aligned"
+owner = "reactant-testing::world_text"
+
+[[mappings]]
+state = "world-text.tinted-translucent"
+scenario = "world text ordering"
+checkpoint = "tinted-translucent"
+owner = "reactant-testing::world_text"

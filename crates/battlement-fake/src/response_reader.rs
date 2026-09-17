@@ -1,5 +1,7 @@
 //! Verified response decoding for the retained in-memory fake world.
 
+use battlement::RenderOrder;
+
 use battlement::{
   Batch, BatchStart, Command, ParallelCommandGroup, Response, ResponseMessage, SessionId,
 };
@@ -233,6 +235,7 @@ pub(crate) fn read_object(
         })
       })
       .collect::<Result<Vec<_>, String>>()?,
+    render_order: read_render_order(value.render_order())?,
     drag_mode: match value.drag_mode() {
       world_wire::DragMode::None => None,
       world_wire::DragMode::SnapToPointer => Some(battlement::DragMode::SnapToPointer),
@@ -241,6 +244,18 @@ pub(crate) fn read_object(
     },
     kind,
   })
+}
+
+pub(crate) fn read_render_order(
+  value: Option<world_wire::RenderOrder<'_>>,
+) -> Result<Option<RenderOrder>, String> {
+  value
+    .map(|value| match value.kind() {
+      world_wire::RenderOrderKind::Group => Ok(RenderOrder::Group(value.order())),
+      world_wire::RenderOrderKind::Layer => Ok(RenderOrder::Layer(value.order())),
+      _ => Err("unknown render order kind".to_owned()),
+    })
+    .transpose()
 }
 
 fn read_object_kind(

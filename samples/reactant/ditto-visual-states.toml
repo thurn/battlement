@@ -219,3 +219,23 @@ screen = "world-primitives"
 [[states]]
 key = "world-primitives.restored-dim"
 screen = "world-primitives"
+
+[[states]]
+key = "world-text.glyphs-above-stripe"
+screen = "world-text"
+
+[[states]]
+key = "world-text.stripe-above-glyphs"
+screen = "world-text"
+
+[[states]]
+key = "world-text.group-above-group"
+screen = "world-text"
+
+[[states]]
+key = "world-text.narrow-right-aligned"
+screen = "world-text"
+
+[[states]]
+key = "world-text.tinted-translucent"
+screen = "world-text"

@@ -25,6 +25,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ca70af47c43b041c095ddfbec6ab363b
+    m_Address: reactant/world/font
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e0e4b4d4a4f794fc29fa7137842aabac
     m_Address: reactant/world/orb
     m_ReadOnly: 0

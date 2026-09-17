@@ -19,6 +19,7 @@ namespace Battlement
     /// <param name="LocalTransform">Local transform relative to the parent or placement.</param>
     /// <param name="PointerEvents">Unique pointer events enabled for this object.</param>
     /// <param name="DragMode">Local pointer-following behavior, or null when not draggable.</param>
+    /// <param name="RenderOrder">Relative visual order, or authored defaults when absent.</param>
     public sealed record BattlementGameObject(
         ObjectId Id,
         GameObjectKind Kind,
@@ -27,7 +28,8 @@ namespace Battlement
         bool IsActive,
         LocalTransform LocalTransform,
         IReadOnlyList<PointerEvent> PointerEvents,
-        DragMode? DragMode = null
+        DragMode? DragMode = null,
+        RenderOrder? RenderOrder = null
     )
     {
         public BattlementGameObject(ObjectId id, GameObjectKind kind)

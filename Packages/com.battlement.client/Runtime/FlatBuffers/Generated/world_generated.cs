@@ -236,6 +236,12 @@ public enum GameObjectKind : byte
   Mesh = 13,
 };
 
+public enum RenderOrderKind : byte
+{
+  Group = 0,
+  Layer = 1,
+};
+
 public enum InteractionDistanceKind : byte
 {
   Unbounded = 0,
@@ -1280,6 +1286,48 @@ static public class UiDocumentObjectVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct RenderOrder : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static RenderOrder GetRootAsRenderOrder(ByteBuffer _bb) { return GetRootAsRenderOrder(_bb, new RenderOrder()); }
+  public static RenderOrder GetRootAsRenderOrder(ByteBuffer _bb, RenderOrder obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public RenderOrder __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.RenderOrderKind Kind { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.RenderOrderKind)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.RenderOrderKind.Group; } }
+  public short Order { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetShort(o + __p.bb_pos) : (short)0; } }
+
+  public static Offset<Battlement.FlatBuffers.Generated.RenderOrder> CreateRenderOrder(FlatBufferBuilder builder,
+      Battlement.FlatBuffers.Generated.RenderOrderKind kind = Battlement.FlatBuffers.Generated.RenderOrderKind.Group,
+      short order = 0) {
+    builder.StartTable(2);
+    RenderOrder.AddOrder(builder, order);
+    RenderOrder.AddKind(builder, kind);
+    return RenderOrder.EndRenderOrder(builder);
+  }
+
+  public static void StartRenderOrder(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.RenderOrderKind kind) { builder.AddByte(0, (byte)kind, 0); }
+  public static void AddOrder(FlatBufferBuilder builder, short order) { builder.AddShort(1, order, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.RenderOrder> EndRenderOrder(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<Battlement.FlatBuffers.Generated.RenderOrder>(o);
+  }
+}
+
+
+static public class RenderOrderVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Kind*/, 1 /*Battlement.FlatBuffers.Generated.RenderOrderKind*/, 1, false)
+      && verifier.VerifyField(tablePos, 6 /*Order*/, 2 /*short*/, 2, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct GameObject : IFlatbufferObject
 {
   private Table __p;
@@ -1316,8 +1364,9 @@ public struct GameObject : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.LightObject ContentAsLightObject() { return Content<Battlement.FlatBuffers.Generated.LightObject>().Value; }
   public Battlement.FlatBuffers.Generated.PrefabObject ContentAsPrefabObject() { return Content<Battlement.FlatBuffers.Generated.PrefabObject>().Value; }
   public Battlement.FlatBuffers.Generated.MeshObject ContentAsMeshObject() { return Content<Battlement.FlatBuffers.Generated.MeshObject>().Value; }
+  public Battlement.FlatBuffers.Generated.RenderOrder? RenderOrder { get { int o = __p.__offset(24); return o != 0 ? (Battlement.FlatBuffers.Generated.RenderOrder?)(new Battlement.FlatBuffers.Generated.RenderOrder()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
-  public static void StartGameObject(FlatBufferBuilder builder) { builder.StartTable(10); }
+  public static void StartGameObject(FlatBufferBuilder builder) { builder.StartTable(11); }
   public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }
   public static void AddParentScene(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ParentScene> parentSceneOffset) { builder.AddOffset(1, parentSceneOffset.Value, 0); }
   public static void AddParentId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> parentIdOffset) { builder.AddStruct(2, parentIdOffset.Value, 0); }
@@ -1333,6 +1382,7 @@ public struct GameObject : IFlatbufferObject
   public static void AddKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.GameObjectKind kind) { builder.AddByte(7, (byte)kind, 0); }
   public static void AddContentType(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.GameObjectContent contentType) { builder.AddByte(8, (byte)contentType, 0); }
   public static void AddContent(FlatBufferBuilder builder, int contentOffset) { builder.AddOffset(9, contentOffset, 0); }
+  public static void AddRenderOrder(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.RenderOrder> renderOrderOffset) { builder.AddOffset(10, renderOrderOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.GameObject> EndGameObject(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 4);  // object_id
@@ -1360,6 +1410,7 @@ static public class GameObjectVerify
       && verifier.VerifyField(tablePos, 18 /*Kind*/, 1 /*Battlement.FlatBuffers.Generated.GameObjectKind*/, 1, false)
       && verifier.VerifyField(tablePos, 20 /*ContentType*/, 1 /*Battlement.FlatBuffers.Generated.GameObjectContent*/, 1, false)
       && verifier.VerifyUnion(tablePos, 20, 22 /*Content*/, Battlement.FlatBuffers.Generated.GameObjectContentVerify.Verify, true)
+      && verifier.VerifyTable(tablePos, 24 /*RenderOrder*/, Battlement.FlatBuffers.Generated.RenderOrderVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

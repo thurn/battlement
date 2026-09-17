@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 
 use crate::{
   CameraClearMode, CameraProjection, Color, DragMode, HorizontalAlignment, ImageFit, LightType,
-  LocalTransform, MaterialAddress, MeshAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor,
-  SceneAddress, SceneId, ShadowMode, TextMeshProFontAddress, TextureAddress, UiDocumentState,
-  VerticalAlignment,
+  LocalTransform, MaterialAddress, MeshAddress, ObjectId, PointerEvent, PrefabAddress, RenderOrder,
+  RgbColor, SceneAddress, SceneId, ShadowMode, TextMeshProFontAddress, TextureAddress,
+  UiDocumentState, VerticalAlignment,
 };
 
 /// One additively loaded Addressable content-scene instance.
@@ -50,6 +50,8 @@ pub struct GameObject {
   pub pointer_events: Vec<PointerEvent>,
   /// Local pointer-following behavior, or `None` when the object is not draggable.
   pub drag_mode: Option<DragMode>,
+  /// Optional group-relative visual ordering; none preserves the host's authored ordering.
+  pub render_order: Option<RenderOrder>,
   /// Kind-specific object content and component state.
   pub kind: GameObjectKind,
 }
@@ -66,6 +68,7 @@ impl GameObject {
       local_transform: LocalTransform::default(),
       pointer_events: Vec::new(),
       drag_mode: None,
+      render_order: None,
       kind: kind.into(),
     }
   }

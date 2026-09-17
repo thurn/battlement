@@ -170,10 +170,20 @@ pub(crate) fn validate_action(
   }
 }
 
+pub(crate) fn validate_render_order(
+  value: Option<world_wire::RenderOrder<'_>>,
+) -> Result<(), ProtocolError> {
+  if value.is_some_and(|value| value.kind().variant_name().is_none()) {
+    return Err(ProtocolError::new("render order kind is unknown"));
+  }
+  Ok(())
+}
+
 fn validate_game_object(
   value: world_wire::GameObject<'_>,
   scene_ids: &HashSet<Id>,
 ) -> Result<(), ProtocolError> {
+  validate_render_order(value.render_order())?;
   let parent_scene = value.parent_scene();
   match parent_scene.kind() {
     world_wire::ParentSceneKind::PrimaryScene | world_wire::ParentSceneKind::Persistent => {

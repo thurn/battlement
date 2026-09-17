@@ -2,7 +2,7 @@
 
 use battlement::{
   GameObject, GameObjectKind, LocalTransform, ObjectId, ParentScene, PrefabAddress, Quaternion,
-  Vector3,
+  RenderOrder, Vector3,
 };
 use reactant_core::{
   callback::Callback,
@@ -18,6 +18,7 @@ use uuid::Uuid;
 use crate::world_adapter::{WorldAdapter, WorldDescription};
 
 pub use crate::world_object::WorldObject;
+pub use crate::world_text::Text;
 pub use crate::world_view::{Camera, Light};
 pub use crate::world_visuals::{Mesh, Sprite};
 
@@ -36,6 +37,7 @@ pub struct Group {
   pub(crate) kind: GameObjectKind,
   transform: LocalTransform,
   active: bool,
+  pub(crate) render_order: Option<RenderOrder>,
   children: Vec<Node>,
   reference: Option<ObjectRef>,
   click: Option<Callback<()>>,
@@ -73,6 +75,7 @@ impl Component for SceneRoot {
           transform: LocalTransform::default(),
           active: true,
           clickable: false,
+          render_order: None,
         })
         .child(self.children.clone()),
       )
@@ -86,6 +89,7 @@ impl Group {
       kind: GameObjectKind::Empty,
       transform: LocalTransform::default(),
       active: true,
+      render_order: None,
       children: Vec::new(),
       reference: None,
       click: None,
@@ -113,6 +117,7 @@ impl Group {
     let mut object = GameObject::new(object_id, self.kind);
     object.local_transform = self.transform;
     object.active = self.active;
+    object.render_order = self.render_order;
     object
   }
 
@@ -120,6 +125,12 @@ impl Group {
   pub fn id(mut self, id: Uuid) -> Self {
     assert!(!id.is_nil(), "presentation IDs cannot be nil");
     self.id = Some(id);
+    self
+  }
+
+  /// Sorts visual descendants together relative to the enclosing sorting group.
+  pub fn sort_order(mut self, order: i16) -> Self {
+    self.render_order = Some(RenderOrder::Group(order));
     self
   }
 
@@ -191,6 +202,7 @@ impl Component for Group {
       transform: self.transform,
       active: self.active,
       clickable: self.click.is_some(),
+      render_order: self.render_order,
     })
     .child(self.children.clone());
     if let Some(id) = self.id {

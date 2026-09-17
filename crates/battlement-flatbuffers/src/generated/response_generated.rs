@@ -156,13 +156,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 95;
+      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 96;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 96] = [
+      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 97] = [
         CoreCommandKind::ApplicationOpenUrl,
         CoreCommandKind::Diagnostics,
         CoreCommandKind::AssetsReplaceSet,
@@ -259,6 +259,7 @@ pub mod battlement {
         CoreCommandKind::MotionDragControl,
         CoreCommandKind::GeometryObservationUpdate,
         CoreCommandKind::AccessibilityUpdate,
+        CoreCommandKind::ObjectSetRenderOrder,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -362,9 +363,10 @@ pub mod battlement {
         pub const MotionDragControl: Self = Self(93);
         pub const GeometryObservationUpdate: Self = Self(94);
         pub const AccessibilityUpdate: Self = Self(95);
+        pub const ObjectSetRenderOrder: Self = Self(96);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 95;
+        pub const ENUM_MAX: u8 = 96;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::ApplicationOpenUrl,
           Self::Diagnostics,
@@ -462,6 +464,7 @@ pub mod battlement {
           Self::MotionDragControl,
           Self::GeometryObservationUpdate,
           Self::AccessibilityUpdate,
+          Self::ObjectSetRenderOrder,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -562,6 +565,7 @@ pub mod battlement {
             Self::MotionDragControl => Some("MotionDragControl"),
             Self::GeometryObservationUpdate => Some("GeometryObservationUpdate"),
             Self::AccessibilityUpdate => Some("AccessibilityUpdate"),
+            Self::ObjectSetRenderOrder => Some("ObjectSetRenderOrder"),
             _ => None,
           }
         }
@@ -626,13 +630,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 83;
+      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 84;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 84] = [
+      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 85] = [
         CoreCommandPayload::NONE,
         CoreCommandPayload::ExternalUrlPayload,
         CoreCommandPayload::DiagnosticsPayload,
@@ -717,6 +721,7 @@ pub mod battlement {
         CoreCommandPayload::MotionDragControlOperation,
         CoreCommandPayload::GeometryObservationUpdate,
         CoreCommandPayload::AccessibilityUpdate,
+        CoreCommandPayload::ObjectRenderOrderPayload,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -808,9 +813,10 @@ pub mod battlement {
         pub const MotionDragControlOperation: Self = Self(81);
         pub const GeometryObservationUpdate: Self = Self(82);
         pub const AccessibilityUpdate: Self = Self(83);
+        pub const ObjectRenderOrderPayload: Self = Self(84);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 83;
+        pub const ENUM_MAX: u8 = 84;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ExternalUrlPayload,
@@ -896,6 +902,7 @@ pub mod battlement {
           Self::MotionDragControlOperation,
           Self::GeometryObservationUpdate,
           Self::AccessibilityUpdate,
+          Self::ObjectRenderOrderPayload,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -984,6 +991,7 @@ pub mod battlement {
             Self::MotionDragControlOperation => Some("MotionDragControlOperation"),
             Self::GeometryObservationUpdate => Some("GeometryObservationUpdate"),
             Self::AccessibilityUpdate => Some("AccessibilityUpdate"),
+            Self::ObjectRenderOrderPayload => Some("ObjectRenderOrderPayload"),
             _ => None,
           }
         }
@@ -2535,6 +2543,22 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn payload_as_object_render_order_payload(
+          &self,
+        ) -> Option<ObjectRenderOrderPayload<'a>> {
+          if self.payload_type() == CoreCommandPayload::ObjectRenderOrderPayload {
+            let u = self.payload();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { ObjectRenderOrderPayload::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CoreCommand<'_> {
@@ -2632,6 +2656,7 @@ pub mod battlement {
           CoreCommandPayload::MotionDragControlOperation => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<MotionDragControlOperation>>("CoreCommandPayload::MotionDragControlOperation", pos),
           CoreCommandPayload::GeometryObservationUpdate => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GeometryObservationUpdate>>("CoreCommandPayload::GeometryObservationUpdate", pos),
           CoreCommandPayload::AccessibilityUpdate => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<AccessibilityUpdate>>("CoreCommandPayload::AccessibilityUpdate", pos),
+          CoreCommandPayload::ObjectRenderOrderPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ObjectRenderOrderPayload>>("CoreCommandPayload::ObjectRenderOrderPayload", pos),
           _ => Ok(()),
         }
      })?
@@ -3552,6 +3577,16 @@ pub mod battlement {
             }
             CoreCommandPayload::AccessibilityUpdate => {
               if let Some(x) = self.payload_as_accessibility_update() {
+                ds.field("payload", &x)
+              } else {
+                ds.field(
+                  "payload",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            CoreCommandPayload::ObjectRenderOrderPayload => {
+              if let Some(x) = self.payload_as_object_render_order_payload() {
                 ds.field("payload", &x)
               } else {
                 ds.field(

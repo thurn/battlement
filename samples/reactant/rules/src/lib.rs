@@ -54,3 +54,4 @@ pub use sample_constants::{
 };
 
 mod world_proof;
+mod world_text_proof;

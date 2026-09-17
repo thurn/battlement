@@ -1,3 +1,5 @@
+use battlement::RenderOrder;
+
 use std::{
   cell::RefCell,
   sync::atomic::{AtomicU64, Ordering},
@@ -733,6 +735,8 @@ pub struct NativeObjectPlacement<'a> {
   pub pointer_events: &'a [NativePointerEvent],
   /// Initial dragging policy.
   pub drag_mode: NativeDragMode,
+  /// Optional group-relative visual order.
+  pub render_order: Option<RenderOrder>,
 }
 
 impl Default for NativeObjectPlacement<'_> {
@@ -744,6 +748,7 @@ impl Default for NativeObjectPlacement<'_> {
       transform: NativeTransform::default(),
       pointer_events: &[],
       drag_mode: NativeDragMode::None,
+      render_order: None,
     }
   }
 }
@@ -1939,6 +1944,33 @@ impl MessageWriter {
       blocking,
       wire::CoreCommandKind::ObjectSetActive,
       wire::CoreCommandPayload::ObjectSetActivePayload,
+      payload.as_union_value(),
+    )
+  }
+
+  /// Writes group-relative ordering, or restores authored ordering when absent.
+  pub fn set_object_render_order(
+    &mut self,
+    command_id: [u8; 16],
+    blocking: bool,
+    object_id: [u8; 16],
+    order: Option<RenderOrder>,
+  ) -> Result<CoreCommandOffset, ProtocolError> {
+    require_uuid(object_id, "ordered object")?;
+    let object_id = common::Uuid::new(&object_id);
+    let render_order = crate::response::write_render_order(&mut self.builder, order);
+    let payload = command_wire::ObjectRenderOrderPayload::create(
+      &mut self.builder,
+      &command_wire::ObjectRenderOrderPayloadArgs {
+        object_id: Some(&object_id),
+        render_order,
+      },
+    );
+    self.core_command(
+      command_id,
+      blocking,
+      wire::CoreCommandKind::ObjectSetRenderOrder,
+      wire::CoreCommandPayload::ObjectRenderOrderPayload,
       payload.as_union_value(),
     )
   }
@@ -3576,6 +3608,8 @@ impl MessageWriter {
     let local_transform = common::LocalTransform::new(&position, &rotation, &scale);
     let object_id = common::Uuid::new(&object_id);
     let parent_id = placement.parent_id.map(|value| common::Uuid::new(&value));
+    let render_order =
+      crate::response::write_render_order(&mut self.builder, placement.render_order);
     let value = world_wire::GameObject::create(
       &mut self.builder,
       &world_wire::GameObjectArgs {
@@ -3583,6 +3617,7 @@ impl MessageWriter {
         parent_scene: Some(parent_scene),
         parent_id: parent_id.as_ref(),
         active: placement.active,
+        render_order,
         local_transform: Some(&local_transform),
         pointer_events: Some(pointer_events),
         drag_mode: match placement.drag_mode {

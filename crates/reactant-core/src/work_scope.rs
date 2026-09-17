@@ -90,6 +90,7 @@ pub(crate) fn target(command: &CommandBody) -> Option<ObjectId> {
   match command {
     CommandBody::ObjectCreate(value) => Some(value.object.object_id),
     CommandBody::ObjectDestroy(value) => Some(value.object_id),
+    CommandBody::ObjectSetRenderOrder(value) => Some(value.object_id),
     CommandBody::ObjectSetActive(value) => Some(value.object_id),
     CommandBody::ObjectReparent(value) => Some(value.object_id),
     CommandBody::TransformSetLocalPosition(value) => Some(value.payload.object_id),

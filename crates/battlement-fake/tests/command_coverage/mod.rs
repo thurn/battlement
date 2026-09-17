@@ -136,6 +136,14 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
   push_body(
     &mut commands,
     &mut next,
+    CommandBody::ObjectSetRenderOrder(battlement::ObjectRenderOrderPayload {
+      object_id: object_id(2),
+      render_order: Some(battlement::RenderOrder::Group(2)),
+    }),
+  );
+  push_body(
+    &mut commands,
+    &mut next,
     CommandBody::ObjectReparent(battlement::ObjectReparentPayload {
       object_id: object_id(3),
       parent_id: Some(object_id(2)),

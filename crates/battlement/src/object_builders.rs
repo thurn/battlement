@@ -3,11 +3,18 @@
 use crate::{
   AnimatorState, CameraClearMode, CameraProjection, CameraState, Color, DragMode, GameObject,
   GameObjectKind, HorizontalAlignment, ImageFit, ImageState, LightState, LightType, LocalTransform,
-  ObjectId, ParentScene, PointerEvent, Quaternion, RgbColor, ShadowMode, TextMeshProFontAddress,
-  TextState, Vector3, VerticalAlignment,
+  ObjectId, ParentScene, PointerEvent, Quaternion, RenderOrder, RgbColor, ShadowMode,
+  TextMeshProFontAddress, TextState, Vector3, VerticalAlignment,
 };
 
 impl GameObject {
+  /// Sets group-relative visual ordering without changing geometry.
+  #[must_use]
+  pub fn render_order(mut self, value: RenderOrder) -> Self {
+    self.render_order = Some(value);
+    self
+  }
+
   /// Sets the owning scene and returns the updated object.
   #[must_use]
   pub fn parent_scene(mut self, value: ParentScene) -> Self {

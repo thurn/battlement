@@ -216,6 +216,14 @@ namespace Battlement
                     BattlementObjectCommands.Destroy(destroy, world, operations)
                 );
             }
+            if (command.DirectRenderOrder is BattlementDirectRenderOrder order)
+            {
+                return LaunchDirect(() =>
+                {
+                    BattlementRenderOrder.Apply(world.RequireObject(order.ObjectId), order.Order);
+                    return null;
+                });
+            }
             if (command.DirectObjectActive is BattlementDirectObjectActive active)
             {
                 return LaunchDirect(() => BattlementObjectCommands.SetActive(active, world));

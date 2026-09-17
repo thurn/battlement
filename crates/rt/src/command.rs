@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
+use battlement_ditto::coverage_ledger;
 use battlement_reactant_assets::{AssetCommand, CommandOptions, FeatureSelection};
 use battlement_tooling::application::BuildOptions;
 use clap::{Args, Parser, Subcommand};
@@ -34,6 +35,12 @@ enum Command {
   Addressables(crate::addressables::Args),
   /// Inspect, install, restore, or verify a native plugin.
   Plugin(crate::plugin::Args),
+  /// Validate repository native states, checkpoints, and baseline coverage without building players.
+  CheckNativeCoverage {
+    /// Repository containing the samples coverage registry.
+    #[arg(long, default_value = ".")]
+    repository: PathBuf,
+  },
   /// Run Battlement Ditto with an explicit suite configuration.
   #[command(disable_help_flag = true)]
   Ditto(DittoArgs),
@@ -175,6 +182,13 @@ fn run() -> Result<u8> {
     Command::Assets(args) => crate::assets::run(args)?,
     Command::Addressables(args) => crate::addressables::run(args)?,
     Command::Plugin(args) => crate::plugin::run(args)?,
+    Command::CheckNativeCoverage { repository } => {
+      let report = coverage_ledger::check_repository(&repository)?;
+      println!(
+        "Native coverage checked for {} samples.",
+        report.samples.len()
+      );
+    }
     Command::Ditto(args) => {
       return crate::ditto::run(args.config, args.arguments, &INTERRUPTED);
     }
@@ -244,6 +258,7 @@ mod tests {
         "assets",
         "addressables",
         "plugin",
+        "check-native-coverage",
         "ditto"
       ]
     );

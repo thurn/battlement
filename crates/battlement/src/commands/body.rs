@@ -37,6 +37,8 @@ pub enum CommandBody {
   ObjectDestroy(ObjectIdPayload),
   /// Set a game object's Unity `activeSelf` value.
   ObjectSetActive(ObjectSetActivePayload),
+  /// Set group-relative visual ordering without changing geometry or identity.
+  ObjectSetRenderOrder(ObjectRenderOrderPayload),
   /// Reparent a game object within its current placement.
   ObjectReparent(ObjectReparentPayload),
   /// Set local position immediately.

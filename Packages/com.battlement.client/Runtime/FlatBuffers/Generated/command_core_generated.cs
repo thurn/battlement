@@ -426,6 +426,40 @@ static public class ObjectSetActivePayloadVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct ObjectRenderOrderPayload : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static ObjectRenderOrderPayload GetRootAsObjectRenderOrderPayload(ByteBuffer _bb) { return GetRootAsObjectRenderOrderPayload(_bb, new ObjectRenderOrderPayload()); }
+  public static ObjectRenderOrderPayload GetRootAsObjectRenderOrderPayload(ByteBuffer _bb, ObjectRenderOrderPayload obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public ObjectRenderOrderPayload __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? ObjectId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.RenderOrder? RenderOrder { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.RenderOrder?)(new Battlement.FlatBuffers.Generated.RenderOrder()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+
+  public static void StartObjectRenderOrderPayload(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }
+  public static void AddRenderOrder(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.RenderOrder> renderOrderOffset) { builder.AddOffset(1, renderOrderOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.ObjectRenderOrderPayload> EndObjectRenderOrderPayload(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // object_id
+    return new Offset<Battlement.FlatBuffers.Generated.ObjectRenderOrderPayload>(o);
+  }
+}
+
+
+static public class ObjectRenderOrderPayloadVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*ObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyTable(tablePos, 6 /*RenderOrder*/, Battlement.FlatBuffers.Generated.RenderOrderVerify.Verify, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct ObjectReparentPayload : IFlatbufferObject
 {
   private Table __p;

@@ -1,5 +1,7 @@
 //! Prepared textured surfaces and authored mesh geometry.
 
+use battlement::RenderOrder;
+
 use battlement::{
   GameObjectKind, ImageFit, ImageState, MaterialAssignment, MeshAddress, RgbColor, TextureAddress,
 };
@@ -19,6 +21,12 @@ pub struct MeshProperties {
 }
 
 impl Sprite {
+  /// Sets renderer order relative to the nearest enclosing sorting group.
+  pub fn layer(mut self, order: i16) -> Self {
+    self.group.render_order = Some(RenderOrder::Layer(order));
+    self
+  }
+
   /// Creates a unit XY surface; set its required texture before rendering.
   pub fn new() -> Self {
     Self::with_properties(ImageState::new("", 1.0, 1.0), |image| {
@@ -71,6 +79,12 @@ impl Default for Sprite {
 }
 
 impl Mesh {
+  /// Sets renderer order relative to the nearest enclosing sorting group.
+  pub fn layer(mut self, order: i16) -> Self {
+    self.group.render_order = Some(RenderOrder::Layer(order));
+    self
+  }
+
   /// Creates a mesh declaration; set its required prepared address before rendering.
   pub fn new() -> Self {
     Self::with_properties(MeshProperties::default(), |mesh| GameObjectKind::Mesh {

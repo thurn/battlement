@@ -8,9 +8,12 @@ use battlement::{
   PerspectivePayload, PropertyCommand, SetTexturePayload, SpotAnglePayload, TintPayload,
 };
 
+use crate::world_text;
+
 pub(crate) fn compatible(previous: &GameObjectKind, desired: &GameObjectKind) -> bool {
   match (previous, desired) {
     (GameObjectKind::Image { .. }, GameObjectKind::Image { .. })
+    | (GameObjectKind::Text { .. }, GameObjectKind::Text { .. })
     | (GameObjectKind::Camera { .. }, GameObjectKind::Camera { .. })
     | (GameObjectKind::Light { .. }, GameObjectKind::Light { .. }) => true,
     _ => previous == desired,
@@ -24,6 +27,9 @@ pub(crate) fn commands(
 ) -> Vec<CommandBody> {
   let mut output = Vec::new();
   match (previous, desired) {
+    (GameObjectKind::Text { text: previous }, GameObjectKind::Text { text: desired }) => {
+      world_text::commands(object_id, previous, desired, &mut output);
+    }
     (GameObjectKind::Image { image: previous }, GameObjectKind::Image { image: desired }) => {
       self::sprite(object_id, previous, desired, &mut output);
     }

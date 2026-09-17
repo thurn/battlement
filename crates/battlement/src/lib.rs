@@ -27,6 +27,7 @@ pub mod messages;
 mod motion_asset_dependencies;
 mod object_builders;
 pub mod objects;
+pub mod render_order;
 pub mod validation;
 
 pub use accessibility::*;
@@ -37,4 +38,5 @@ pub use commands::*;
 pub use geometry::*;
 pub use messages::*;
 pub use objects::*;
+pub use render_order::*;
 pub use validation::*;

@@ -1,3 +1,5 @@
+use battlement::RenderOrder;
+
 use battlement::{Command, CommandBody};
 #[cfg(any(test, feature = "test-support"))]
 use battlement::{Response, ResponseMessage, Validate};
@@ -345,6 +347,22 @@ pub(crate) fn write_command<'a>(
       (
         wire::CoreCommandKind::ObjectCreate,
         wire::CoreCommandPayload::ObjectCreatePayload,
+        payload.as_union_value(),
+      )
+    }
+    CommandBody::ObjectSetRenderOrder(body) => {
+      let object_id = uuid(body.object_id.as_uuid());
+      let render_order = write_render_order(builder, body.render_order);
+      let payload = command_wire::ObjectRenderOrderPayload::create(
+        builder,
+        &command_wire::ObjectRenderOrderPayloadArgs {
+          object_id: Some(&object_id),
+          render_order,
+        },
+      );
+      (
+        wire::CoreCommandKind::ObjectSetRenderOrder,
+        wire::CoreCommandPayload::ObjectRenderOrderPayload,
         payload.as_union_value(),
       )
     }
@@ -2279,6 +2297,7 @@ fn write_game_object<'a>(
     }
   };
   let object_id = uuid(value.object_id.as_uuid());
+  let render_order = write_render_order(builder, value.render_order);
   Ok(world_wire::GameObject::create(
     builder,
     &world_wire::GameObjectArgs {
@@ -2286,6 +2305,7 @@ fn write_game_object<'a>(
       parent_scene: Some(parent_scene),
       parent_id: parent_id.as_ref(),
       active: value.active,
+      render_order,
       local_transform: Some(&local_transform),
       pointer_events: Some(pointer_events),
       drag_mode: match value.drag_mode {
@@ -2298,6 +2318,19 @@ fn write_game_object<'a>(
       content: Some(content),
     },
   ))
+}
+
+pub(crate) fn write_render_order<'a>(
+  builder: &mut FlatBufferBuilder<'a>,
+  value: Option<RenderOrder>,
+) -> Option<WIPOffset<world_wire::RenderOrder<'a>>> {
+  value.map(|value| {
+    let (kind, order) = match value {
+      RenderOrder::Group(order) => (world_wire::RenderOrderKind::Group, order),
+      RenderOrder::Layer(order) => (world_wire::RenderOrderKind::Layer, order),
+    };
+    world_wire::RenderOrder::create(builder, &world_wire::RenderOrderArgs { kind, order })
+  })
 }
 
 pub(crate) fn write_snapshot<'a>(
@@ -3037,6 +3070,9 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     wire::CoreCommandKind::ObjectDestroy | wire::CoreCommandKind::InputSetCamera => {
       wire::CoreCommandPayload::ObjectIdPayload
     }
+    wire::CoreCommandKind::ObjectSetRenderOrder => {
+      wire::CoreCommandPayload::ObjectRenderOrderPayload
+    }
     wire::CoreCommandKind::ObjectSetActive => wire::CoreCommandPayload::ObjectSetActivePayload,
     wire::CoreCommandKind::ObjectReparent => wire::CoreCommandPayload::ObjectReparentPayload,
     wire::CoreCommandKind::TransformSetLocalPosition
@@ -3164,6 +3200,19 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     return Err(ProtocolError::new("response command kind/payload mismatch"));
   }
   match value.kind() {
+    wire::CoreCommandKind::ObjectSetRenderOrder => {
+      let body = value
+        .payload_as_object_render_order_payload()
+        .expect("kind/payload checked");
+      require_uuid(body.object_id(), "ordered object")?;
+      crate::response_validate::validate_render_order(body.render_order())?;
+    }
+    wire::CoreCommandKind::ObjectCreate => {
+      let body = value
+        .payload_as_object_create_payload()
+        .expect("kind/payload checked");
+      crate::response_validate::validate_render_order(body.object().render_order())?;
+    }
     wire::CoreCommandKind::VisualElementCreate => crate::response_validate::validate_create(
       value
         .payload_as_visual_element_create_payload()

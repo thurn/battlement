@@ -1,6 +1,6 @@
 use crate::{
-  GameObject, MaterialAddress, ObjectId, PreparedAsset, Quaternion, SceneAddress, SceneId, Tween,
-  Vector3,
+  GameObject, MaterialAddress, ObjectId, PreparedAsset, Quaternion, RenderOrder, SceneAddress,
+  SceneId, Tween, Vector3,
 };
 
 /// Atomically replaces the complete prepared asset set.
@@ -53,6 +53,15 @@ pub struct ObjectSetActivePayload {
   /// inactive. This does not change component `enabled` flags or Unity's
   /// active Scene.
   pub active: bool,
+}
+
+/// Sets visual ordering, or restores authored ordering when absent.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ObjectRenderOrderPayload {
+  /// Target game object.
+  pub object_id: ObjectId,
+  /// Group-relative order, or none to restore the host's authored defaults.
+  pub render_order: Option<RenderOrder>,
 }
 
 /// Reparents a game object within its current placement.

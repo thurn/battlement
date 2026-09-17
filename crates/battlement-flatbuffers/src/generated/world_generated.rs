@@ -2153,6 +2153,95 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
+      pub const ENUM_MIN_RENDER_ORDER_KIND: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_RENDER_ORDER_KIND: u8 = 1;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_RENDER_ORDER_KIND: [RenderOrderKind; 2] =
+        [RenderOrderKind::Group, RenderOrderKind::Layer];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct RenderOrderKind(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl RenderOrderKind {
+        pub const Group: Self = Self(0);
+        pub const Layer: Self = Self(1);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 1;
+        pub const ENUM_VALUES: &'static [Self] = &[Self::Group, Self::Layer];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Group => Some("Group"),
+            Self::Layer => Some("Layer"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for RenderOrderKind {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for RenderOrderKind {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for RenderOrderKind {
+        type Output = RenderOrderKind;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for RenderOrderKind {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for RenderOrderKind {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for RenderOrderKind {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
       pub const ENUM_MIN_INTERACTION_DISTANCE_KIND: u8 = 0;
       #[deprecated(
         since = "2.0.0",
@@ -6416,6 +6505,142 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum RenderOrderOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct RenderOrder<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for RenderOrder<'a> {
+        type Inner = RenderOrder<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> RenderOrder<'a> {
+        pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+        pub const VT_ORDER: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          RenderOrder { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args RenderOrderArgs,
+        ) -> ::flatbuffers::WIPOffset<RenderOrder<'bldr>> {
+          let mut builder = RenderOrderBuilder::new(_fbb);
+          builder.add_order(args.order);
+          builder.add_kind(args.kind);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn kind(&self) -> RenderOrderKind {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<RenderOrderKind>(RenderOrder::VT_KIND, Some(RenderOrderKind::Group))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn order(&self) -> i16 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<i16>(RenderOrder::VT_ORDER, Some(0))
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for RenderOrder<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<RenderOrderKind>("kind", Self::VT_KIND, false)?
+            .visit_field::<i16>("order", Self::VT_ORDER, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct RenderOrderArgs {
+        pub kind: RenderOrderKind,
+        pub order: i16,
+      }
+      impl<'a> Default for RenderOrderArgs {
+        #[inline]
+        fn default() -> Self {
+          RenderOrderArgs {
+            kind: RenderOrderKind::Group,
+            order: 0,
+          }
+        }
+      }
+
+      pub struct RenderOrderBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RenderOrderBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_kind(&mut self, kind: RenderOrderKind) {
+          self.fbb_.push_slot::<RenderOrderKind>(
+            RenderOrder::VT_KIND,
+            kind,
+            RenderOrderKind::Group,
+          );
+        }
+        #[inline]
+        pub fn add_order(&mut self, order: i16) {
+          self.fbb_.push_slot::<i16>(RenderOrder::VT_ORDER, order, 0);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> RenderOrderBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          RenderOrderBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<RenderOrder<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for RenderOrder<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("RenderOrder");
+          ds.field("kind", &self.kind());
+          ds.field("order", &self.order());
+          ds.finish()
+        }
+      }
       pub enum GameObjectOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -6444,6 +6669,7 @@ pub mod battlement {
         pub const VT_KIND: ::flatbuffers::VOffsetT = 18;
         pub const VT_CONTENT_TYPE: ::flatbuffers::VOffsetT = 20;
         pub const VT_CONTENT: ::flatbuffers::VOffsetT = 22;
+        pub const VT_RENDER_ORDER: ::flatbuffers::VOffsetT = 24;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6460,6 +6686,9 @@ pub mod battlement {
           args: &'args GameObjectArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<GameObject<'bldr>> {
           let mut builder = GameObjectBuilder::new(_fbb);
+          if let Some(x) = args.render_order {
+            builder.add_render_order(x);
+          }
           if let Some(x) = args.content {
             builder.add_content(x);
           }
@@ -6604,6 +6833,17 @@ pub mod battlement {
                 None,
               )
               .unwrap()
+          }
+        }
+        #[inline]
+        pub fn render_order(&self) -> Option<RenderOrder<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<RenderOrder>>(GameObject::VT_RENDER_ORDER, None)
           }
         }
         #[inline]
@@ -6762,6 +7002,7 @@ pub mod battlement {
           _ => Ok(()),
         }
      })?
+     .visit_field::<::flatbuffers::ForwardsUOffset<RenderOrder>>("render_order", Self::VT_RENDER_ORDER, false)?
      .finish();
           Ok(())
         }
@@ -6778,6 +7019,7 @@ pub mod battlement {
         pub kind: GameObjectKind,
         pub content_type: GameObjectContent,
         pub content: Option<::flatbuffers::WIPOffset<::flatbuffers::UnionWIPOffset>>,
+        pub render_order: Option<::flatbuffers::WIPOffset<RenderOrder<'a>>>,
       }
       impl<'a> Default for GameObjectArgs<'a> {
         #[inline]
@@ -6793,6 +7035,7 @@ pub mod battlement {
             kind: GameObjectKind::UiDocument,
             content_type: GameObjectContent::NONE,
             content: None, // required field
+            render_order: None,
           }
         }
       }
@@ -6878,6 +7121,18 @@ pub mod battlement {
           self
             .fbb_
             .push_slot_always::<::flatbuffers::WIPOffset<_>>(GameObject::VT_CONTENT, content);
+        }
+        #[inline]
+        pub fn add_render_order(
+          &mut self,
+          render_order: ::flatbuffers::WIPOffset<RenderOrder<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<RenderOrder>>(
+              GameObject::VT_RENDER_ORDER,
+              render_order,
+            );
         }
         #[inline]
         pub fn new(
@@ -7015,6 +7270,7 @@ pub mod battlement {
               ds.field("content", &x)
             }
           };
+          ds.field("render_order", &self.render_order());
           ds.finish()
         }
       }

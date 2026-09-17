@@ -15,6 +15,7 @@ pub mod world;
 mod world_adapter;
 mod world_object;
 mod world_properties;
+mod world_text;
 mod world_view;
 mod world_visuals;
 

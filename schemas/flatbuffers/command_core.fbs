@@ -31,6 +31,7 @@ table SceneIdPayload { scene_id:Uuid (required); }
 table ObjectCreatePayload { object:GameObject (required); }
 table ObjectIdPayload { object_id:Uuid (required); }
 table ObjectSetActivePayload { object_id:Uuid (required); active:bool; }
+table ObjectRenderOrderPayload { object_id:Uuid (required); render_order:RenderOrder; }
 table ObjectReparentPayload { object_id:Uuid (required); parent_id:Uuid; world_position_stays:bool; }
 
 table PositionPayload {

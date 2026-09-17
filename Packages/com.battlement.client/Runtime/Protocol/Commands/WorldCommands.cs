@@ -50,6 +50,10 @@ namespace Battlement
             /// <param name="IsActive">New activation value.</param>
             public sealed record SetActive(ObjectId ObjectId, bool IsActive) : CommandBody;
 
+            /// <summary>Set relative visual order, or restore authored defaults.</summary>
+            public sealed record SetRenderOrder(ObjectId ObjectId, RenderOrder? Order)
+                : CommandBody;
+
             /// <summary>Reparent a game object within its current placement.</summary>
             /// <param name="ObjectId">Game object to reparent.</param>
             /// <param name="ParentId">New parent, or null for the placement container.</param>

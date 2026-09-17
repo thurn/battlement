@@ -447,6 +447,7 @@ def _verify_selected_native_execution() -> None:
     closed: list[bool] = []
 
     class DittoLeases:
+        binary = Path("/tmp/battlement-ci-test-rt")
         cache_root = Path("/tmp/battlement-ci-test-ditto")
 
         def __init__(self, *_arguments: object) -> None:

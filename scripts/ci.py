@@ -1133,6 +1133,12 @@ def run_ci(
         if full and platform.system() in {"Darwin", "Windows"}:
             if native_samples and platform.system() == "Darwin":
                 ditto_preparation_seconds[0] = prepare_standalone_builder(ditto_builds)
+                assert ditto_builds is not None
+                run_step(
+                    "Check native coverage ledger",
+                    [str(ditto_builds.binary), "check-native-coverage",
+                     "--repository", str(REPOSITORY_ROOT)],
+                )
 
             def build_samples() -> None:
                 build_standalone_samples(

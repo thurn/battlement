@@ -550,3 +550,53 @@ width = 1280
 height = 720
 size_bytes = 41105
 source = "6560f8a4826ae9040ab3a412fc1ac86ce73e3652b74b8160ae498313863ad37a"
+
+[[baselines]]
+profile = "macos"
+scenario = "world text ordering"
+checkpoint = "glyphs-above-stripe"
+sha256 = "7efff937b4fff58e0cfc0ddbc9fae6d7229bb1bdd303d1e931a65bdeb8ed5c22"
+width = 1280
+height = 720
+size_bytes = 57822
+source = "0700012cfc2028ff7af1766e177691f635530b0a5a4270af1e5977d49c14be4d"
+
+[[baselines]]
+profile = "macos"
+scenario = "world text ordering"
+checkpoint = "group-above-group"
+sha256 = "1dcd190c48ee41f6482df48a6cfd1045fbeb297f23c192eab1c03c13a7a8f057"
+width = 1280
+height = 720
+size_bytes = 52873
+source = "0700012cfc2028ff7af1766e177691f635530b0a5a4270af1e5977d49c14be4d"
+
+[[baselines]]
+profile = "macos"
+scenario = "world text ordering"
+checkpoint = "narrow-right-aligned"
+sha256 = "c3c4232167153738ade30f8e5dfbcbccef506050053e43b780a6d3b181ec62c5"
+width = 1280
+height = 720
+size_bytes = 56621
+source = "0700012cfc2028ff7af1766e177691f635530b0a5a4270af1e5977d49c14be4d"
+
+[[baselines]]
+profile = "macos"
+scenario = "world text ordering"
+checkpoint = "stripe-above-glyphs"
+sha256 = "4151a43f02b350a7ee9d92f1efac7915023c1a2f499036fae65a89720131927c"
+width = 1280
+height = 720
+size_bytes = 54099
+source = "0700012cfc2028ff7af1766e177691f635530b0a5a4270af1e5977d49c14be4d"
+
+[[baselines]]
+profile = "macos"
+scenario = "world text ordering"
+checkpoint = "tinted-translucent"
+sha256 = "5e0a3726bcd721d83bab694653c00792acb639dc872af3c2489038052556cba7"
+width = 1280
+height = 720
+size_bytes = 55527
+source = "0700012cfc2028ff7af1766e177691f635530b0a5a4270af1e5977d49c14be4d"

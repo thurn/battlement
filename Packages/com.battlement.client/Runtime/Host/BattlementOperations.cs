@@ -210,6 +210,8 @@ namespace Battlement
                         ? targetRotation.ObjectId.Value
                     : command.DirectScale is BattlementDirectScale targetScale
                         ? targetScale.ObjectId.Value
+                    : command.DirectRenderOrder is BattlementDirectRenderOrder targetOrder
+                        ? targetOrder.ObjectId.Value
                     : command.DirectObjectActive is BattlementDirectObjectActive targetActive
                         ? targetActive.ObjectId.Value
                     : command.DirectPrimitiveObjectCreate

@@ -2,8 +2,9 @@
 
 use battlement::{
   Command, CommandBody, GameObject, GameObjectKind, LocalTransform, ObjectId,
-  ObjectReparentPayload, ObjectSetActivePayload, ParentScene, PointerEvent, PointerEventsPayload,
-  PositionPayload, PropertyCommand, RotationPayload, ScalePayload,
+  ObjectRenderOrderPayload, ObjectReparentPayload, ObjectSetActivePayload, ParentScene,
+  PointerEvent, PointerEventsPayload, PositionPayload, PropertyCommand, RenderOrder,
+  RotationPayload, ScalePayload,
 };
 use reactant_core::host_node::{HostAdapter, HostNode};
 
@@ -16,6 +17,7 @@ pub(crate) struct WorldDescription {
   pub(crate) root: bool,
   pub(crate) transform: LocalTransform,
   pub(crate) active: bool,
+  pub(crate) render_order: Option<RenderOrder>,
   pub(crate) clickable: bool,
 }
 
@@ -77,6 +79,14 @@ impl HostAdapter for WorldAdapter {
         }),
       ));
     }
+    if previous.render_order != desired.render_order {
+      bodies.push(CommandBody::ObjectSetRenderOrder(
+        ObjectRenderOrderPayload {
+          object_id,
+          render_order: desired.render_order,
+        },
+      ));
+    }
     if previous.active != desired.active {
       bodies.push(CommandBody::ObjectSetActive(ObjectSetActivePayload {
         object_id,
@@ -132,6 +142,7 @@ impl HostAdapter for WorldAdapter {
     object.parent_id = if description.root { None } else { parent };
     object.local_transform = description.transform;
     object.active = description.active;
+    object.render_order = description.render_order;
     object.pointer_events = Self::events(description);
     Some(object)
   }

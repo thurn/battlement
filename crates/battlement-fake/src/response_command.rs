@@ -88,6 +88,15 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
         CommandBody::InputSetCamera(payload)
       }
     }
+    Kind::ObjectSetRenderOrder => {
+      let body = value
+        .payload_as_object_render_order_payload()
+        .ok_or_else(missing)?;
+      CommandBody::ObjectSetRenderOrder(battlement::ObjectRenderOrderPayload {
+        object_id: object_id(body.object_id())?,
+        render_order: crate::response_reader::read_render_order(body.render_order())?,
+      })
+    }
     Kind::ObjectSetActive => {
       let body = value
         .payload_as_object_set_active_payload()

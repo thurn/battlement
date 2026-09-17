@@ -518,6 +518,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
                     break;
                 case Wire.CoreCommandKind.ObjectReparent:
@@ -921,6 +922,14 @@ namespace Battlement
                         return true;
                     }
                     return false;
+                }
+                case Wire.CoreCommandKind.ObjectSetRenderOrder:
+                {
+                    Wire.ObjectRenderOrderPayload payload =
+                        value.PayloadAsObjectRenderOrderPayload();
+                    _ = ReadUuid(payload.ObjectId, "ordered object");
+                    ValidateRenderOrder(payload.RenderOrder);
+                    return true;
                 }
                 case Wire.CoreCommandKind.ObjectSetActive:
                 {
@@ -1561,6 +1570,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
                     break;
                 case Wire.CoreCommandKind.ObjectReparent:
@@ -1983,6 +1993,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
                     break;
                 case Wire.CoreCommandKind.ObjectReparent:
@@ -2320,6 +2331,7 @@ namespace Battlement
             RequireFinite(transform.Position);
             RequireQuaternion(transform.Rotation);
             RequireFinite(transform.Scale);
+            ValidateRenderOrder(value.RenderOrder);
             if (!Known(value.DragMode, Wire.DragMode.PreserveOffset))
                 throw new InvalidDataException("An object drag mode is unknown.");
             var pointerEvents = new HashSet<Wire.PointerEventKind>();
@@ -2331,6 +2343,12 @@ namespace Battlement
                         "Object pointer events are unknown or repeated."
                     );
             }
+        }
+
+        private static void ValidateRenderOrder(Wire.RenderOrder? value)
+        {
+            if (value is Wire.RenderOrder order && !Known(order.Kind, Wire.RenderOrderKind.Layer))
+                throw new InvalidDataException("A render order kind is unknown.");
         }
 
         private static void ValidateDirectMaterials(Wire.PrimitiveObject value) =>
@@ -3299,6 +3317,8 @@ namespace Battlement
                 Wire.CoreCommandKind.ObjectCreate => Wire.CoreCommandPayload.ObjectCreatePayload,
                 Wire.CoreCommandKind.ObjectDestroy or Wire.CoreCommandKind.InputSetCamera =>
                     Wire.CoreCommandPayload.ObjectIdPayload,
+                Wire.CoreCommandKind.ObjectSetRenderOrder =>
+                    Wire.CoreCommandPayload.ObjectRenderOrderPayload,
                 Wire.CoreCommandKind.ObjectSetActive =>
                     Wire.CoreCommandPayload.ObjectSetActivePayload,
                 Wire.CoreCommandKind.ObjectReparent =>
