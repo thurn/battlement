@@ -12,6 +12,7 @@ mod engine;
 mod handles;
 mod logging;
 mod panic_capture;
+mod response_budget;
 #[cfg(feature = "threading")]
 pub mod threading;
 
@@ -32,6 +33,7 @@ pub use battlement_flatbuffers::{
 pub use engine::*;
 pub use handles::*;
 pub use logging::*;
+pub use response_budget::{ResponseBudget, ResponseLease};
 
 /// Wire version implemented by engines that opt into Ditto's deterministic runtime contract.
 pub const DITTO_DETERMINISM_CONTRACT_V3: u32 = 3;
@@ -43,14 +45,14 @@ pub const NATIVE_ABI_DIGEST: &str =
   "5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14";
 /// SHA-256 of the canonical wire-contract manifest.
 pub const WIRE_CONTRACT_DIGEST: &str =
-  "94063de87b8aa3df3d8492dd61c6fae2b6e1fd962c0efb6750c7299e3ecbc9cb";
+  "6520332ea6de0262f6a1e00737a0e6bd878aae95580b930596fed1f027a8a61e";
 
 #[doc(hidden)]
 pub static NATIVE_ABI_DIGEST_C: &[u8; 65] =
   b"5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14\0";
 #[doc(hidden)]
 pub static WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
-  b"94063de87b8aa3df3d8492dd61c6fae2b6e1fd962c0efb6750c7299e3ecbc9cb\0";
+  b"6520332ea6de0262f6a1e00737a0e6bd878aae95580b930596fed1f027a8a61e\0";
 
 #[doc(hidden)]
 pub fn wire_contract_digest_for_factory<F, E>(_: F) -> *const core::ffi::c_char

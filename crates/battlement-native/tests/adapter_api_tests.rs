@@ -8,24 +8,29 @@ use battlement_flatbuffers::{
 };
 use battlement_native::{
   BattlementBuffer, Engine, EngineError, EngineResponse, FlatBufferSubmitError, NO_MESSAGE, OK,
-  UiEventResult, buffer_free, ffi_connect, ffi_create, ffi_destroy, ffi_poll, ffi_submit,
-  ffi_submit_ui_event,
+  ResponseBudget, UiEventResult, buffer_free, ffi_connect, ffi_create, ffi_destroy, ffi_poll,
+  ffi_submit, ffi_submit_ui_event,
 };
 
 static TEST_LOCK: Mutex<()> = Mutex::new(());
 
 struct DirectEngine {
   session: [u8; 16],
+  budget: Option<ResponseBudget>,
 }
 
 impl Engine for DirectEngine {
   const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
   fn connect(&mut self, _: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
-    EngineResponse::from_core(
+    let mut response = EngineResponse::from_core(
       self.session,
       write_empty_response(self.session).map_err(error)?,
-    )
+    )?;
+    if let Some(budget) = &self.budget {
+      assert!(budget.admit(&mut response));
+    }
+    Ok(response)
   }
 
   fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
@@ -74,7 +79,12 @@ impl Engine for DirectEngine {
 fn adapter_accepts_finished_flatbuffers() {
   let _guard = TEST_LOCK.lock().unwrap();
   let session = [9; 16];
-  let factory = || Ok(DirectEngine { session });
+  let factory = || {
+    Ok(DirectEngine {
+      session,
+      budget: None,
+    })
+  };
   let mut engine = ptr::null_mut();
   let mut output = BattlementBuffer::EMPTY;
   assert_eq!(unsafe { ffi_create(factory, &mut engine, &mut output) }, OK);
@@ -171,4 +181,44 @@ unsafe fn take_bytes(buffer: BattlementBuffer) -> Vec<u8> {
   let bytes = unsafe { std::slice::from_raw_parts(buffer.data, buffer.length as usize) }.to_vec();
   unsafe { buffer_free(buffer) };
   bytes
+}
+
+#[test]
+fn native_buffer_release_returns_admission_after_the_last_host_use() {
+  let _guard = TEST_LOCK.lock().unwrap();
+  let budget = ResponseBudget::new(32 * 1024 * 1024);
+  let factory = || {
+    Ok(DirectEngine {
+      session: [9; 16],
+      budget: Some(budget.clone()),
+    })
+  };
+  let mut engine = ptr::null_mut();
+  let mut output = BattlementBuffer::EMPTY;
+  assert_eq!(unsafe { ffi_create(factory, &mut engine, &mut output) }, OK);
+  let connect = connect_bytes();
+  assert_eq!(
+    unsafe {
+      ffi_connect(
+        factory,
+        engine,
+        connect.as_ptr(),
+        connect.len() as u64,
+        &mut output,
+      )
+    },
+    OK
+  );
+  assert_eq!(budget.retained_bytes(), output.allocation_bytes as usize);
+  assert!(budget.retained_bytes() > 0);
+  let mut diagnostic = BattlementBuffer::EMPTY;
+  assert_eq!(unsafe { ffi_destroy(factory, engine, &mut diagnostic) }, OK);
+  assert!(
+    budget.retained_bytes() > 0,
+    "destroying an engine cannot release a borrowed response"
+  );
+  unsafe {
+    buffer_free(output);
+  }
+  assert_eq!(budget.retained_bytes(), 0);
 }

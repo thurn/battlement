@@ -20,6 +20,7 @@ import time
 import tomllib
 import uuid
 
+from ditto_build_leases import ci_cache_root
 import ditto_evidence
 import ditto_replay
 import operation_log
@@ -31,12 +32,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = REPOSITORY_ROOT / "artifacts/ditto-ci"
 INVOCATION_ID = os.environ.get("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
 INVOCATION_ROOT = ditto_evidence.invocation_root(REPOSITORY_ROOT, INVOCATION_ID)
-CACHE_ROOT = Path(
-    os.environ.get(
-        "DITTO_CI_CACHE_ROOT",
-        Path.home() / "Library/Caches/Battlement/ditto-ci",
-    )
-)
+CACHE_ROOT = ci_cache_root()
 DITTO = Path(
     os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/debug/rt")
 )

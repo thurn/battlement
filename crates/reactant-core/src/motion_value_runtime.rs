@@ -1,5 +1,7 @@
 use std::{
   cell::RefCell,
+  collections::HashMap,
+  mem,
   rc::{Rc, Weak},
 };
 
@@ -12,7 +14,8 @@ thread_local! {
 }
 
 pub(crate) struct MotionValueRuntime {
-  commands: Vec<CommandBody>,
+  commands: Vec<(Option<u64>, CommandBody)>,
+  consumed_owners: HashMap<ObjectId, u64>,
   subscriptions: Vec<Subscription>,
   playbacks: Vec<PlaybackSubscription>,
 }
@@ -45,6 +48,7 @@ impl MotionValueRuntime {
   pub(crate) fn new(_runtime_id: u64) -> Rc<RefCell<Self>> {
     Rc::new(RefCell::new(Self {
       commands: Vec::new(),
+      consumed_owners: HashMap::new(),
       subscriptions: Vec::new(),
       playbacks: Vec::new(),
     }))
@@ -61,17 +65,25 @@ impl MotionValueRuntime {
   pub(crate) fn command_groups(&self, length: usize) -> Vec<Vec<CommandBody>> {
     self.commands[..length]
       .iter()
-      .cloned()
-      .map(|body| vec![body])
+      .map(|(_, body)| vec![body.clone()])
       .collect()
   }
 
   pub(crate) fn consume_commands(&mut self, length: usize) {
-    self.commands.drain(..length);
+    for (scope, body) in self.commands.drain(..length) {
+      if let (Some(scope), Some(target)) = (scope, crate::work_scope::target(&body)) {
+        self.consumed_owners.insert(target, scope);
+      }
+    }
+  }
+
+  pub(crate) fn take_owners(&mut self) -> HashMap<ObjectId, u64> {
+    mem::take(&mut self.consumed_owners)
   }
 
   pub(crate) fn clear(&mut self) {
     self.commands.clear();
+    self.consumed_owners.clear();
     self.subscriptions.clear();
     self.playbacks.clear();
   }
@@ -189,6 +201,7 @@ pub(crate) fn current_runtime() -> (u64, Weak<RefCell<MotionValueRuntime>>) {
 pub(crate) fn queue(
   runtime_id: u64,
   runtime: &Weak<RefCell<MotionValueRuntime>>,
+  scope: Option<u64>,
   body: CommandBody,
 ) {
   assert!(
@@ -204,6 +217,6 @@ pub(crate) fn queue(
     }
   });
   if let Some(runtime) = runtime.upgrade() {
-    runtime.borrow_mut().commands.push(body);
+    runtime.borrow_mut().commands.push((scope, body));
   }
 }

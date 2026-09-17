@@ -29,7 +29,7 @@ import ci_steps
 import ci_selection
 import ci_tooling
 from ci_steps import run_parallel_steps, run_step
-from ditto_build_leases import DittoBuildLeases
+from ditto_build_leases import DittoBuildLeases, ci_cache_root
 from platform_support import (
     executable_name,
     readline_with_timeout,
@@ -1080,10 +1080,7 @@ def run_ci(
     invocation_id = os.environ.get("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
     ditto_builds = None
     if full and platform.system() == "Darwin":
-        cache_root = Path(os.environ.get(
-            "DITTO_CI_CACHE_ROOT",
-            Path.home() / "Library/Caches/Battlement/ditto-ci",
-        ))
+        cache_root = ci_cache_root()
         invocation_root = ditto_evidence.invocation_root(
             REPOSITORY_ROOT, invocation_id
         )

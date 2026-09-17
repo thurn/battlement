@@ -73,7 +73,19 @@ namespace Battlement.Tests
         private static Payload VisualDestroy(
             FlatBufferBuilder builder,
             CommandBody.VisualElement.Destroy value
-        ) => throw Unsupported(value);
+        )
+        {
+            Wire.VisualElementDestroyPayload.StartVisualElementDestroyPayload(builder);
+            Wire.VisualElementDestroyPayload.AddObjectId(
+                builder,
+                Uuid(builder, value.ObjectId.Value)
+            );
+            return new(
+                Wire.CoreCommandKind.VisualElementDestroy,
+                Wire.CoreCommandPayload.VisualElementDestroyPayload,
+                Wire.VisualElementDestroyPayload.EndVisualElementDestroyPayload(builder).Value
+            );
+        }
 
         private static Payload VisualAction(
             FlatBufferBuilder builder,

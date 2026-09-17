@@ -1,5 +1,5 @@
 use std::{
-  cell::RefCell,
+  cell::{Cell, RefCell},
   panic,
   rc::{Rc, Weak},
 };
@@ -37,6 +37,7 @@ pub struct GameHandle<G: Game> {
 
 pub(crate) struct GameSession<G: Game> {
   pub(crate) id: u64,
+  pub(crate) automatic: Cell<bool>,
   pub(crate) worker: RulesWorker,
   pub(crate) app: Weak<Coordinator>,
   pub(crate) data: RefCell<SessionData<G>>,

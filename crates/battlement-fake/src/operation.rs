@@ -11,6 +11,8 @@ use crate::{
 pub(crate) struct ScheduledOperation {
   pub(crate) command_id: battlement::CommandId,
   pub(crate) batch_id: BatchId,
+  pub(crate) scope: Option<u64>,
+  pub(crate) retention: Option<battlement_native::ResponseLease>,
   pub(crate) blocking: bool,
   pub(crate) key: Option<OperationKey>,
   started_ms: u64,
@@ -204,6 +206,8 @@ impl ScheduledOperation {
     Some(Self {
       command_id: command.command_id,
       batch_id,
+      scope: None,
+      retention: None,
       blocking: command.blocking,
       key,
       started_ms,

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Battlement.UI;
 
 namespace Battlement
 {
@@ -10,6 +11,7 @@ namespace Battlement
     internal sealed class BattlementBatchScheduler
     {
         private readonly List<ScheduledBatch> batches = new();
+        private readonly HashSet<ulong> canceledScopes = new();
         private readonly IBattlementClock clock;
         private readonly BattlementCommandExecutor executor;
         private readonly BattlementOperationRegistry operations;
@@ -61,13 +63,16 @@ namespace Battlement
             foreach (ScheduledBatch batch in batches)
                 batch.Dispose();
             batches.Clear();
+            canceledScopes.Clear();
             operations.BeginSession();
+            executor.ResetWorkOwnership();
             ActivityVersion++;
         }
 
         public void CancelForSnapshot()
         {
             operations.CancelAll();
+            executor.ResetWorkOwnership();
             foreach (ScheduledBatch batch in batches)
                 batch.Dispose();
             batches.Clear();
@@ -79,9 +84,31 @@ namespace Battlement
             BattlementBatchAdmissionResult admission
         )
         {
+            if (batch.CancelScope is ulong canceled)
+                CancelScope(canceled);
+            if (batch.WorkScope is ulong owner && canceledScopes.Contains(owner))
+            {
+                batch.Dispose();
+                return;
+            }
             batches.Add(new ScheduledBatch(sessionId, batch, admission));
             ActivityVersion++;
             Advance();
+        }
+
+        private void CancelScope(ulong scope)
+        {
+            canceledScopes.Add(scope);
+            operations.CancelScope(scope);
+            executor.CancelScope(scope);
+            foreach (ScheduledBatch batch in batches.Where(item => item.WorkScope == scope))
+            {
+                batch.BlockingOperations.Clear();
+                if (batch.HasStarted && batch.Outcome == BatchOutcome.Pending)
+                    executor.EndBatch();
+                batch.Outcome = BatchOutcome.Canceled;
+                batch.Dispose();
+            }
         }
 
         public void Advance()
@@ -215,7 +242,8 @@ namespace Battlement
                         scheduled.Id,
                         command,
                         now,
-                        started => executor.Launch(command, started)
+                        started => Launch(scheduled, command, started),
+                        scheduled.WorkScope
                     );
                     if (operation is null)
                     {
@@ -261,6 +289,29 @@ namespace Battlement
             return true;
         }
 
+        private IBattlementCommandOperation? Launch(
+            ScheduledBatch batch,
+            BattlementCommandExecution command,
+            TimeSpan now
+        )
+        {
+            try
+            {
+                return executor.Launch(command, now, batch.WorkScope);
+            }
+            catch (BattlementCommandException error)
+                when (batch.IsCancellation && error.ErrorCode == CoreErrorCode.UnknownObject)
+            {
+                // Its queued creation may have been canceled before reaching the host.
+                return null;
+            }
+            catch (BattlementUiException error)
+                when (batch.IsCancellation && error.ErrorCode == CoreErrorCode.UnknownObject)
+            {
+                return null;
+            }
+        }
+
         private bool HasEarlierBlockingWork(ScheduledBatch scheduled) =>
             batches.Any(batch =>
                 IsDependency(scheduled, batch) && batch.Outcome == BatchOutcome.Pending
@@ -276,6 +327,8 @@ namespace Battlement
             {
                 return earlier.ContainsAssetPreparation;
             }
+            if (scheduled.WorkScope.HasValue && earlier.WorkScope != scheduled.WorkScope)
+                return earlier.ContainsAssetPreparation;
             return scheduled.Admission.WaitsThroughSequence is long through
                 && earlier.Admission.Sequence <= through;
         }
@@ -293,8 +346,8 @@ namespace Battlement
                 return false;
             }
 
-            ScheduledBatch? predecessor = batches.FirstOrDefault(batch =>
-                batch.Admission.Sequence == scheduled.Admission.Sequence - 1
+            ScheduledBatch? predecessor = batches.LastOrDefault(batch =>
+                IsDependency(scheduled, batch)
             );
             return predecessor?.Outcome == BatchOutcome.Failed;
         }
@@ -351,6 +404,7 @@ namespace Battlement
             Pending,
             Succeeded,
             Failed,
+            Canceled,
         }
 
         private sealed class ScheduledBatch : IDisposable
@@ -366,6 +420,8 @@ namespace Battlement
                 Admission = admission;
                 Id = batch.Id;
                 Start = batch.Start;
+                WorkScope = batch.WorkScope;
+                IsCancellation = batch.CancelScope.HasValue;
                 for (int groupIndex = 0; groupIndex < batch.GroupCount; groupIndex++)
                 {
                     for (
@@ -387,6 +443,10 @@ namespace Battlement
             public BatchId Id { get; }
 
             public BatchStart Start { get; }
+
+            public ulong? WorkScope { get; }
+
+            public bool IsCancellation { get; }
 
             public bool ContainsAssetPreparation { get; }
 

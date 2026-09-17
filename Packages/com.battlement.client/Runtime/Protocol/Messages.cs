@@ -132,12 +132,16 @@ namespace Battlement
     /// <param name="Groups">Nonempty ordered list of parallel command groups.</param>
     /// <param name="CausedByActionId">Action whose processing caused this batch, if any.</param>
     /// <param name="Start">How this batch relates to earlier blocking batches.</param>
+    /// <param name="WorkScope">Game work owner, independent of the application session.</param>
+    /// <param name="CancelScope">Scope canceled before optional destruction cleanup.</param>
     public record Batch<TCommand>(
         BatchId Id,
         SessionId SessionId,
         IReadOnlyList<ParallelCommandGroup<TCommand>> Groups,
         ActionId? CausedByActionId = null,
-        BatchStart Start = BatchStart.Now
+        BatchStart Start = BatchStart.Now,
+        ulong? WorkScope = null,
+        ulong? CancelScope = null
     )
         where TCommand : ICommand;
 
@@ -147,8 +151,10 @@ namespace Battlement
         SessionId SessionId,
         IReadOnlyList<ParallelCommandGroup<Command>> Groups,
         ActionId? CausedByActionId = null,
-        BatchStart Start = BatchStart.Now
-    ) : Batch<Command>(Id, SessionId, Groups, CausedByActionId, Start);
+        BatchStart Start = BatchStart.Now,
+        ulong? WorkScope = null,
+        ulong? CancelScope = null
+    ) : Batch<Command>(Id, SessionId, Groups, CausedByActionId, Start, WorkScope, CancelScope);
 
     /// <summary>Commands launched together before the batch considers the next group.</summary>
     /// <typeparam name="TCommand">The command type carried by this group.</typeparam>

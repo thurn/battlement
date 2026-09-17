@@ -22,6 +22,7 @@ use crate::{
   hooks,
   motion::Transition,
   motion_value_runtime::{self, MotionValueRuntime},
+  work_scope,
 };
 
 /// A stable typed handle whose authoritative presentation value lives in Unity.
@@ -57,6 +58,7 @@ pub struct ControlledMotionClock {
   clock_id: ObjectId,
   runtime_id: u64,
   runtime: Weak<RefCell<MotionValueRuntime>>,
+  scope: Option<u64>,
 }
 
 /// Source selected for [`use_motion_time`].
@@ -108,6 +110,7 @@ pub struct AnimationPlayback {
 pub(crate) struct MotionValueRuntimeHandle {
   runtime_id: u64,
   runtime: Weak<RefCell<MotionValueRuntime>>,
+  scope: Option<u64>,
 }
 
 /// Terminal playback outcome.
@@ -160,6 +163,7 @@ pub(crate) struct ErasedMotionValue {
 struct MotionValueInner {
   runtime_id: u64,
   runtime: Weak<RefCell<MotionValueRuntime>>,
+  scope: Option<u64>,
   descriptor: MotionValueDescriptor,
   dependencies: Vec<ErasedMotionValue>,
   latest: RefCell<battlement::MotionValue>,
@@ -182,6 +186,7 @@ struct MotionValueEventSlot<T: MotionValueType> {
 struct PlaybackInner {
   runtime_id: u64,
   runtime: Weak<RefCell<MotionValueRuntime>>,
+  scope: Option<u64>,
   playback_id: ObjectId,
   generation: u32,
   terminal: RefCell<Option<PlaybackOutcome>>,
@@ -430,6 +435,7 @@ pub fn use_controlled_motion_clock() -> ControlledMotionClock {
         clock_id: ObjectId::new_v4(),
         runtime_id,
         runtime,
+        scope: work_scope::current(),
       })
     },
     |slot| slot.0.clone(),
@@ -454,7 +460,11 @@ impl<T: MotionValueType> MotionValue<T> {
 
   /// Starts one independently controlled transition to `value`.
   pub fn animate(&self, value: T, transition: Transition) -> AnimationPlayback {
-    let playback = AnimationPlayback::new(self.inner.runtime_id, self.inner.runtime.clone());
+    let playback = AnimationPlayback::new(
+      self.inner.runtime_id,
+      self.inner.runtime.clone(),
+      self.inner.scope,
+    );
     self.command(MotionValueCommand::Animate {
       playback_id: playback.inner.playback_id,
       generation: playback.inner.generation,
@@ -500,6 +510,7 @@ impl<T: MotionValueType> MotionValue<T> {
     motion_value_runtime::queue(
       self.inner.runtime_id,
       &self.inner.runtime,
+      self.inner.scope,
       CommandBody::MotionValue(MotionValueOperation {
         value_id: self.id(),
         command,
@@ -748,6 +759,7 @@ impl ControlledMotionClock {
     motion_value_runtime::queue(
       self.runtime_id,
       &self.runtime,
+      self.scope,
       CommandBody::MotionControlledClock(battlement::MotionControlledClockOperation {
         clock_id: self.clock_id,
         command,
@@ -852,6 +864,7 @@ fn use_value<T: MotionValueType>(
           inner: Rc::new(MotionValueInner {
             runtime_id,
             runtime,
+            scope: work_scope::current(),
             descriptor: MotionValueDescriptor {
               value_id: ObjectId::new_v4(),
               initial: initial.clone(),

@@ -306,6 +306,80 @@ namespace Battlement.Tests
             Assert.That(Failures(harness), Is.Empty);
         }
 
+        [Test]
+        public void GameCancellationDropsUnstartedWorkAndOperationsWhileMenuWorkCompletes()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            var game = new ObjectId(Guid.NewGuid());
+            var neverStarted = new ObjectId(Guid.NewGuid());
+            var menu = new ObjectId(Guid.NewGuid());
+            Batch gameplay = BatchWithGroups(
+                session,
+                BatchStart.AfterEarlierBlockingWork,
+                Group(Create(game)),
+                Group(Wait(TimeSpan.FromSeconds(1)), Wait(TimeSpan.FromSeconds(2)).Nonblocking()),
+                Group(Create(neverStarted))
+            ) with
+            {
+                WorkScope = 7,
+            };
+            Batch menuWork = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(Create(menu)),
+                Group(Wait(TimeSpan.FromMilliseconds(500))),
+                Group(SetLocalPosition(menu, new Vector3(5, 0, 0)))
+            );
+            SubmitResponse(harness, Response(session, gameplay, menuWork));
+            Assert.That(HasIdentity(game), Is.True);
+            Assert.That(HasIdentity(menu), Is.True);
+            Batch cancel = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(
+                    new Command(
+                        new CommandId(Guid.NewGuid()),
+                        new CommandBody.Object.Destroy(game)
+                    ),
+                    new Command(
+                        new CommandId(Guid.NewGuid()),
+                        new CommandBody.Object.Destroy(neverStarted)
+                    ),
+                    new Command(
+                        new CommandId(Guid.NewGuid()),
+                        new CommandBody.VisualElement.Destroy(new ObjectId(Guid.NewGuid()))
+                    )
+                )
+            ) with
+            {
+                CancelScope = 7,
+            };
+            SubmitResponse(harness, Response(session, cancel));
+            Assert.That(HasIdentity(game), Is.False);
+            Assert.That(HasIdentity(neverStarted), Is.False);
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(500));
+            harness.Runner.RunFrame();
+            Assert.That(Identity(menu).transform.localPosition.x, Is.EqualTo(5));
+            Assert.That(harness.Runner.ObserveDittoWork().ActiveFiniteTimelineCount, Is.Zero);
+            Assert.That(Failures(harness), Is.Empty);
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(session, BatchStart.Now, Group(Create(neverStarted))) with
+                    {
+                        WorkScope = 7,
+                    }
+                )
+            );
+            Assert.That(
+                HasIdentity(neverStarted),
+                Is.False,
+                "Late work cannot resurrect a canceled game."
+            );
+        }
+
         private static SessionId Connect(BattlementTestHarness harness)
         {
             var session = new SessionId(Guid.NewGuid());

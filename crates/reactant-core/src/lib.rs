@@ -158,3 +158,8 @@ pub mod element_behavior;
 pub mod label_binding;
 
 pub mod scale_to_fit;
+
+#[doc(hidden)]
+pub mod work_scope;
+
+pub mod app_output;

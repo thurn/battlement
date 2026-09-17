@@ -75,6 +75,10 @@ namespace Battlement.Tests
             Wire.Batch.StartBatch(builder);
             Wire.Batch.AddGroups(builder, groupVector);
             Wire.Batch.AddStart(builder, (Wire.BatchStart)batch.Start);
+            if (batch.WorkScope is ulong owner)
+                Wire.Batch.AddWorkScope(builder, owner);
+            if (batch.CancelScope is ulong canceled)
+                Wire.Batch.AddCancelScope(builder, canceled);
             if (batch.CausedByActionId is ActionId actionId)
                 Wire.Batch.AddCausedByActionId(builder, Uuid(builder, actionId.Value));
             Wire.Batch.AddSessionId(builder, Uuid(builder, batch.SessionId.Value));

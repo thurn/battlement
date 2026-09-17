@@ -754,15 +754,19 @@ public struct Batch : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.Uuid? SessionId { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
   public Battlement.FlatBuffers.Generated.Uuid? CausedByActionId { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
   public Battlement.FlatBuffers.Generated.BatchStart Start { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.BatchStart)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.BatchStart.Now; } }
-  public Battlement.FlatBuffers.Generated.ParallelCommandGroup? Groups(int j) { int o = __p.__offset(12); return o != 0 ? (Battlement.FlatBuffers.Generated.ParallelCommandGroup?)(new Battlement.FlatBuffers.Generated.ParallelCommandGroup()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
-  public int GroupsLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public ulong? WorkScope { get { int o = __p.__offset(12); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong?)null; } }
+  public ulong? CancelScope { get { int o = __p.__offset(14); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong?)null; } }
+  public Battlement.FlatBuffers.Generated.ParallelCommandGroup? Groups(int j) { int o = __p.__offset(16); return o != 0 ? (Battlement.FlatBuffers.Generated.ParallelCommandGroup?)(new Battlement.FlatBuffers.Generated.ParallelCommandGroup()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int GroupsLength { get { int o = __p.__offset(16); return o != 0 ? __p.__vector_len(o) : 0; } }
 
-  public static void StartBatch(FlatBufferBuilder builder) { builder.StartTable(5); }
+  public static void StartBatch(FlatBufferBuilder builder) { builder.StartTable(7); }
   public static void AddBatchId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> batchIdOffset) { builder.AddStruct(0, batchIdOffset.Value, 0); }
   public static void AddSessionId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> sessionIdOffset) { builder.AddStruct(1, sessionIdOffset.Value, 0); }
   public static void AddCausedByActionId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> causedByActionIdOffset) { builder.AddStruct(2, causedByActionIdOffset.Value, 0); }
   public static void AddStart(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.BatchStart start) { builder.AddByte(3, (byte)start, 0); }
-  public static void AddGroups(FlatBufferBuilder builder, VectorOffset groupsOffset) { builder.AddOffset(4, groupsOffset.Value, 0); }
+  public static void AddWorkScope(FlatBufferBuilder builder, ulong? workScope) { builder.AddUlong(4, workScope); }
+  public static void AddCancelScope(FlatBufferBuilder builder, ulong? cancelScope) { builder.AddUlong(5, cancelScope); }
+  public static void AddGroups(FlatBufferBuilder builder, VectorOffset groupsOffset) { builder.AddOffset(6, groupsOffset.Value, 0); }
   public static VectorOffset CreateGroupsVector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ParallelCommandGroup>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateGroupsVectorBlock(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ParallelCommandGroup>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateGroupsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Battlement.FlatBuffers.Generated.ParallelCommandGroup>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
@@ -772,7 +776,7 @@ public struct Batch : IFlatbufferObject
     int o = builder.EndTable();
     builder.Required(o, 4);  // batch_id
     builder.Required(o, 6);  // session_id
-    builder.Required(o, 12);  // groups
+    builder.Required(o, 16);  // groups
     return new Offset<Battlement.FlatBuffers.Generated.Batch>(o);
   }
 }
@@ -787,7 +791,9 @@ static public class BatchVerify
       && verifier.VerifyField(tablePos, 6 /*SessionId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
       && verifier.VerifyField(tablePos, 8 /*CausedByActionId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, false)
       && verifier.VerifyField(tablePos, 10 /*Start*/, 1 /*Battlement.FlatBuffers.Generated.BatchStart*/, 1, false)
-      && verifier.VerifyVectorOfTables(tablePos, 12 /*Groups*/, Battlement.FlatBuffers.Generated.ParallelCommandGroupVerify.Verify, true)
+      && verifier.VerifyField(tablePos, 12 /*WorkScope*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyField(tablePos, 14 /*CancelScope*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyVectorOfTables(tablePos, 16 /*Groups*/, Battlement.FlatBuffers.Generated.ParallelCommandGroupVerify.Verify, true)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

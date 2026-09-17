@@ -18,6 +18,23 @@ pub trait AppRuntime: Any {
   fn callback(&self, callback: &mut dyn FnMut());
   /// Ends application work without joining background computation.
   fn stop(&self);
+  /// Current game work owner; ended sessions have no active work.
+  fn work_scope(&self) -> Option<u64> {
+    None
+  }
+  /// Consumes at most one publication after downstream admission permits it.
+  fn take_output(&self) -> Option<Box<dyn AppOutput>> {
+    None
+  }
+  /// Routes an attributed host failure to its still-current owner.
+  fn fail_work(&self, _scope: u64, _message: String) {}
+}
+
+/// A consumed publication retained until its native output is admitted.
+#[doc(hidden)]
+pub trait AppOutput {
+  fn scope(&self) -> u64;
+  fn submitted(&self);
 }
 
 /// Optional application context carried by a stable root provider.
@@ -51,6 +68,9 @@ pub(crate) struct RuntimeSlot {
 pub(crate) struct CallbackScope(Option<Rc<dyn AppRuntime>>);
 
 impl RuntimeSlot {
+  pub(crate) fn runtime(&self) -> Option<Rc<dyn AppRuntime>> {
+    self.runtime.clone()
+  }
   pub(crate) fn get_or_insert<T: AppRuntime>(&mut self, create: impl FnOnce() -> T) -> Rc<T> {
     if let Some(value) = &self.value {
       return Rc::clone(value)

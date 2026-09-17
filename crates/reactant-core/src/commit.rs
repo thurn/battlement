@@ -1,8 +1,8 @@
 use std::{cell::Cell, rc::Rc, thread};
 
 use battlement::{
-  ActionId, Batch, BatchId, Command, ParallelCommandGroup, Response, ResponseMessage, SessionId,
-  Snapshot,
+  ActionId, Batch, BatchId, BatchStart, Command, ParallelCommandGroup, Response, ResponseMessage,
+  SessionId, Snapshot,
 };
 
 use crate::{
@@ -59,10 +59,29 @@ impl ReactantCommit {
     batch
   }
 
+  pub(crate) fn into_app_batches(mut self, session: SessionId) -> Vec<Batch> {
+    if !self.independent {
+      return self
+        .into_batch(session)
+        .map(|mut batch| {
+          batch.start = BatchStart::AfterEarlierBlockingWork;
+          batch
+        })
+        .into_iter()
+        .collect();
+    }
+    let groups = self.take_groups();
+    let batches = crate::work_scope::batches(session, groups, &self.work_owners, self.independent);
+    self.acknowledge();
+    batches
+  }
+
   pub(crate) fn empty() -> Self {
     Self {
       groups: Some(Vec::new()),
       receipt: None,
+      work_owners: Default::default(),
+      independent: false,
     }
   }
 
@@ -70,6 +89,8 @@ impl ReactantCommit {
     Self {
       groups: Some(groups),
       receipt: Some(receipt),
+      work_owners: Default::default(),
+      independent: false,
     }
   }
 

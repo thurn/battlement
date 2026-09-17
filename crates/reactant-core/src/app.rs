@@ -12,6 +12,7 @@ use trox::{Bundle, Localizer, SourceLocale};
 use crate::{
   app_context::{AppQueue, Observations},
   app_delivery::Delivery,
+  app_output::{DeliveryLimits, OutputDelivery},
   app_root::AppRoot,
   app_runtime::{AppRuntime, RuntimeSlot},
   cooperative_executor::CooperativeExecutor,
@@ -54,6 +55,7 @@ pub struct App<G: 'static = ()> {
   pub(crate) observations: Rc<RefCell<Observations>>,
   pub(crate) queue: Rc<RefCell<AppQueue>>,
   pub(crate) delivery: Delivery,
+  pub(crate) output: OutputDelivery,
   pub(crate) session: Option<SessionId>,
   pub(crate) reset: bool,
   pub(crate) healthy: bool,
@@ -97,16 +99,30 @@ impl<G: 'static> App<G> {
       })),
       queue: Rc::new(RefCell::new(AppQueue::default())),
       delivery: Delivery::default(),
+      output: OutputDelivery::default(),
       session: None,
       reset: false,
       healthy: true,
     }
   }
 
+  /// Configures gameplay transport admission before connecting.
+  pub fn delivery_limits(mut self, limits: DeliveryLimits) -> Self {
+    self.require_configuring();
+    self.output = OutputDelivery::new(limits);
+    self
+  }
+
+  /// Observes gameplay allocations still required by the host, without advancing it.
+  pub fn retained_gameplay_bytes(&self) -> usize {
+    self.output.retained_bytes()
+  }
+
   /// Returns this app's single orchestration runtime, creating it when needed.
   /// Higher-level application APIs use this to retain ownership across sessions.
   #[doc(hidden)]
   pub fn application_runtime<T: AppRuntime>(&mut self, create: impl FnOnce() -> T) -> Rc<T> {
+    self.runtime.track_work_scopes = true;
     self.orchestration.borrow_mut().get_or_insert(create)
   }
 

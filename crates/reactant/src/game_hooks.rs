@@ -6,9 +6,11 @@ use std::{
 use reactant_core::{
   app_runtime::ApplicationContext,
   component::Component,
+  context::ContextProvider,
   hooks,
   key::KeyRenderExt,
   render::{Node, Render},
+  work_scope::WorkScope,
 };
 use reactant_rules::{ChoiceOwner, Game, PresentedPrompt};
 
@@ -50,7 +52,11 @@ impl Component for GameRoot {
     let context = self::attached();
     context
       .filter(|context| context.status != GameStatus::Stopped)
-      .map(|context| self.child.clone().key(context.id))
+      .map(|context| {
+        ContextProvider::new()
+          .context(WorkScope(context.id))
+          .child(self.child.clone().key(context.id))
+      })
   }
 }
 

@@ -61,7 +61,8 @@ namespace Battlement
             BatchId batchId,
             BattlementCommandExecution command,
             TimeSpan now,
-            Func<TimeSpan, IBattlementCommandOperation?> launch
+            Func<TimeSpan, IBattlementCommandOperation?> launch,
+            ulong? workScope = null
         )
         {
             if (!executedCommands.Add(command.Id.Value))
@@ -246,7 +247,10 @@ namespace Battlement
                 conflicts,
                 launch,
                 Remove
-            );
+            )
+            {
+                WorkScope = workScope,
+            };
             operations.Add(tracked);
             if (conflicts.Length == 0 && tracked.IsComplete(now))
             {
@@ -289,6 +293,16 @@ namespace Battlement
                     Report(operation, CoreErrorCode.UnityException, exception.Message, exception);
                 }
             }
+        }
+
+        public void CancelScope(ulong scope)
+        {
+            foreach (
+                TrackedOperation operation in operations
+                    .Where(item => item.WorkScope == scope)
+                    .ToArray()
+            )
+                operation.Cancel();
         }
 
         public void CancelAll()
@@ -407,6 +421,8 @@ namespace Battlement
             public SessionId SessionId { get; }
 
             public BatchId BatchId { get; }
+
+            public ulong? WorkScope { get; set; }
 
             public bool IsBlocking { get; }
 

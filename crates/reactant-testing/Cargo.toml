@@ -15,6 +15,7 @@ exported-worker-fixture = { package = "battlement-native-export-fixture", path =
 reactant-rules.workspace = true
 
 [dev-dependencies]
+battlement-cloud = { path = "../battlement-cloud" }
 reactant.workspace = true
 reactant-core.workspace = true
 trox.workspace = true

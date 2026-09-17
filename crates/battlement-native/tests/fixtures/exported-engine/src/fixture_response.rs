@@ -88,7 +88,7 @@ fn require_fixture_error(value: wire::FixtureError) -> Result<(), EngineError> {
 }
 
 pub(crate) const WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
-  b"001087f1f9fb991cb34082fbd2d9a6d67e851be65fd4dbe6c8dc95d294f97373\0";
+  b"ddf73a68f7249727e68d8444ac1bf7e504dae5f5808824d3a12bf0ca7cfd0fad\0";
 
 pub(crate) fn write_response(
   response: &Response<AnyCommand<FlashPayload>>,
@@ -164,6 +164,8 @@ pub(crate) fn write_response(
               batch_id: Some(&batch_id),
               session_id: Some(&session_id),
               caused_by_action_id: caused_by_action_id.as_ref(),
+              work_scope: batch.work_scope,
+              cancel_scope: batch.cancel_scope,
               start: match batch.start {
                 BatchStart::Now => battlement_flatbuffers::schema_generated::response_generated::battlement::flat_buffers::generated::BatchStart::Now,
                 BatchStart::AfterEarlierBlockingWork => battlement_flatbuffers::schema_generated::response_generated::battlement::flat_buffers::generated::BatchStart::AfterEarlierBlockingWork,

@@ -16,6 +16,14 @@ import time
 import ci_steps
 
 
+def ci_cache_root() -> Path:
+    """Share verified interactive builds unless CI explicitly selects another cache."""
+    return Path(os.environ.get(
+        "DITTO_CI_CACHE_ROOT",
+        os.environ.get("DITTO_CACHE_ROOT", Path.home() / "Library/Caches/Battlement/ditto"),
+    ))
+
+
 @dataclass
 class RetainedBuild:
     """One prepared build protected by its still-running producer."""

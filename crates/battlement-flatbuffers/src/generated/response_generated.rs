@@ -3914,7 +3914,9 @@ pub mod battlement {
         pub const VT_SESSION_ID: ::flatbuffers::VOffsetT = 6;
         pub const VT_CAUSED_BY_ACTION_ID: ::flatbuffers::VOffsetT = 8;
         pub const VT_START: ::flatbuffers::VOffsetT = 10;
-        pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
+        pub const VT_WORK_SCOPE: ::flatbuffers::VOffsetT = 12;
+        pub const VT_CANCEL_SCOPE: ::flatbuffers::VOffsetT = 14;
+        pub const VT_GROUPS: ::flatbuffers::VOffsetT = 16;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3931,6 +3933,12 @@ pub mod battlement {
           args: &'args BatchArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<Batch<'bldr>> {
           let mut builder = BatchBuilder::new(_fbb);
+          if let Some(x) = args.cancel_scope {
+            builder.add_cancel_scope(x);
+          }
+          if let Some(x) = args.work_scope {
+            builder.add_work_scope(x);
+          }
           if let Some(x) = args.groups {
             builder.add_groups(x);
           }
@@ -3981,6 +3989,20 @@ pub mod battlement {
           }
         }
         #[inline]
+        pub fn work_scope(&self) -> Option<u64> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe { self._tab.get::<u64>(Batch::VT_WORK_SCOPE, None) }
+        }
+        #[inline]
+        pub fn cancel_scope(&self) -> Option<u64> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe { self._tab.get::<u64>(Batch::VT_CANCEL_SCOPE, None) }
+        }
+        #[inline]
         pub fn groups(
           &self,
         ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup<'a>>>
@@ -4010,6 +4032,8 @@ pub mod battlement {
             .visit_field::<Uuid>("session_id", Self::VT_SESSION_ID, true)?
             .visit_field::<Uuid>("caused_by_action_id", Self::VT_CAUSED_BY_ACTION_ID, false)?
             .visit_field::<BatchStart>("start", Self::VT_START, false)?
+            .visit_field::<u64>("work_scope", Self::VT_WORK_SCOPE, false)?
+            .visit_field::<u64>("cancel_scope", Self::VT_CANCEL_SCOPE, false)?
             .visit_field::<::flatbuffers::ForwardsUOffset<
               ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup>>,
             >>("groups", Self::VT_GROUPS, true)?
@@ -4022,6 +4046,8 @@ pub mod battlement {
         pub session_id: Option<&'a Uuid>,
         pub caused_by_action_id: Option<&'a Uuid>,
         pub start: BatchStart,
+        pub work_scope: Option<u64>,
+        pub cancel_scope: Option<u64>,
         pub groups: Option<
           ::flatbuffers::WIPOffset<
             ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup<'a>>>,
@@ -4036,6 +4062,8 @@ pub mod battlement {
             session_id: None, // required field
             caused_by_action_id: None,
             start: BatchStart::Now,
+            work_scope: None,
+            cancel_scope: None,
             groups: None, // required field
           }
         }
@@ -4069,6 +4097,18 @@ pub mod battlement {
           self
             .fbb_
             .push_slot::<BatchStart>(Batch::VT_START, start, BatchStart::Now);
+        }
+        #[inline]
+        pub fn add_work_scope(&mut self, work_scope: u64) {
+          self
+            .fbb_
+            .push_slot_always::<u64>(Batch::VT_WORK_SCOPE, work_scope);
+        }
+        #[inline]
+        pub fn add_cancel_scope(&mut self, cancel_scope: u64) {
+          self
+            .fbb_
+            .push_slot_always::<u64>(Batch::VT_CANCEL_SCOPE, cancel_scope);
         }
         #[inline]
         pub fn add_groups(
@@ -4108,6 +4148,8 @@ pub mod battlement {
           ds.field("session_id", &self.session_id());
           ds.field("caused_by_action_id", &self.caused_by_action_id());
           ds.field("start", &self.start());
+          ds.field("work_scope", &self.work_scope());
+          ds.field("cancel_scope", &self.cancel_scope());
           ds.field("groups", &self.groups());
           ds.finish()
         }

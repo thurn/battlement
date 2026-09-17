@@ -166,6 +166,8 @@ fn write_core_response_impl(
             batch_id: Some(&batch_id),
             session_id: Some(&session_id),
             caused_by_action_id: caused_by_action_id.as_ref(),
+            work_scope: batch.work_scope,
+            cancel_scope: batch.cancel_scope,
             start: match batch.start {
               battlement::BatchStart::Now => wire::BatchStart::Now,
               battlement::BatchStart::AfterEarlierBlockingWork => {
@@ -2951,7 +2953,16 @@ fn validate_response(value: wire::Response<'_>) -> Result<(), ProtocolError> {
         ) {
           return Err(ProtocolError::new("batch start is unknown"));
         }
-        if batch.groups().is_empty() {
+        if batch.work_scope() == Some(0) || batch.cancel_scope() == Some(0) {
+          return Err(ProtocolError::new("work scope must be nonzero"));
+        }
+        if batch.cancel_scope().is_some() {
+          if batch.work_scope().is_some() || batch.start() != wire::BatchStart::Now {
+            return Err(ProtocolError::new(
+              "cancellation must be independent unowned work",
+            ));
+          }
+        } else if batch.groups().is_empty() {
           return Err(ProtocolError::new("batch has no parallel groups"));
         }
         for group in batch.groups() {
@@ -2962,11 +2973,20 @@ fn validate_response(value: wire::Response<'_>) -> Result<(), ProtocolError> {
             if entry.command_type() != wire::CommandEntryPayload::CoreCommand {
               return Err(ProtocolError::new("core command entry kind is unknown"));
             }
-            validate_command(
-              entry
-                .command_as_core_command()
-                .ok_or_else(|| ProtocolError::new("core command entry payload is absent"))?,
-            )?;
+            let command = entry
+              .command_as_core_command()
+              .ok_or_else(|| ProtocolError::new("core command entry payload is absent"))?;
+            if batch.cancel_scope().is_some()
+              && !matches!(
+                command.kind(),
+                wire::CoreCommandKind::VisualElementDestroy | wire::CoreCommandKind::ObjectDestroy
+              )
+            {
+              return Err(ProtocolError::new(
+                "cancellation cleanup may only destroy objects",
+              ));
+            }
+            validate_command(command)?;
           }
         }
       }

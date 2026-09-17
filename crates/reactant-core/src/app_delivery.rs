@@ -75,14 +75,6 @@ impl Delivery {
             preparation.start = BatchStart::AfterEarlierAssetPreparation;
             messages.push(DeliveryMessage::Batch(preparation));
           }
-          if !batch
-            .groups
-            .iter()
-            .flat_map(|group| &group.commands)
-            .all(|command| matches!(command.body, CommandBody::OperationCancel(_)))
-          {
-            batch.start = BatchStart::AfterEarlierBlockingWork;
-          }
         }
       }
       messages.push(message);
@@ -100,7 +92,7 @@ pub(crate) fn append(
   action: Option<ActionId>,
   commit: ReactantCommit,
 ) {
-  if let Some(mut batch) = commit.into_batch(response.session_id) {
+  for mut batch in commit.into_app_batches(response.session_id) {
     batch.caused_by_action_id = action;
     response.messages.push(DeliveryMessage::Batch(batch));
   }
@@ -132,15 +124,23 @@ pub(crate) fn take_imperative(response: &mut DeliveryResponse) -> Vec<DeliveryMe
   messages
 }
 
-pub(crate) fn commands(response: &mut DeliveryResponse, commands: Vec<QueuedCommand>) {
+pub(crate) fn commands(
+  response: &mut DeliveryResponse,
+  commands: Vec<QueuedCommand>,
+  independent: bool,
+) {
   let mut pending = commands.into_iter().peekable();
   while let Some(first) = pending.next() {
     let action = first.action;
+    let scope = first.scope;
     let cancel = matches!(first.command.body, CommandBody::OperationCancel(_));
     let mut group = vec![first.command];
     while pending.peek().is_some_and(|next| {
-      next.action == action
-        && matches!(next.command.body, CommandBody::OperationCancel(_)) == cancel
+      (
+        next.action,
+        next.scope,
+        matches!(next.command.body, CommandBody::OperationCancel(_)),
+      ) == (action, scope, cancel)
     }) {
       group.push(pending.next().expect("queued command").command);
     }
@@ -150,6 +150,14 @@ pub(crate) fn commands(response: &mut DeliveryResponse, commands: Vec<QueuedComm
       vec![ParallelCommandGroup::new(group)],
     );
     batch.caused_by_action_id = action;
+    batch.work_scope = if cancel { None } else { scope };
+    if !cancel {
+      batch.start = if independent && scope.is_none() {
+        BatchStart::AfterEarlierAssetPreparation
+      } else {
+        BatchStart::AfterEarlierBlockingWork
+      };
+    }
     response.messages.push(DeliveryMessage::Batch(batch));
   }
 }

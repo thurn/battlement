@@ -59,6 +59,9 @@ fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineErr
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("rules-session") {
     return Ok(crate::session_proof::app());
   }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("rules-batches") {
+    return Ok(crate::batch_proof::app());
+  }
   Ok(create_engine())
 }
 

@@ -224,6 +224,10 @@ pub struct Batch<C = Command> {
   pub caused_by_action_id: Option<ActionId>,
   /// Whether to start independently or after earlier blocking batches.
   pub start: BatchStart,
+  /// Game-owned work canceled together without replacing the application session.
+  pub work_scope: Option<u64>,
+  /// Immediately cancels this scope before applying optional destruction cleanup.
+  pub cancel_scope: Option<u64>,
   /// Nonempty ordered list of parallel command groups.
   pub groups: Vec<ParallelCommandGroup<C>>,
 }
@@ -241,6 +245,8 @@ impl<C> Batch<C> {
       session_id,
       caused_by_action_id: None,
       start: BatchStart::Now,
+      work_scope: None,
+      cancel_scope: None,
       groups,
     }
   }

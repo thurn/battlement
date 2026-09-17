@@ -72,8 +72,9 @@ dropping one cloned handle does not stop a session still owned by the app.
 
 ## Dispatch, stop, inspect, and save explicitly
 
-Import `reactant::prelude::GameApp` for `App::start_game` and the public
-`game_consumer` submission boundary. Wrap game-owned components in `GameRoot`;
+Import `reactant::prelude::GameApp` for `App::start_game`. App polling consumes
+and submits publications automatically; obtaining `game_consumer` selects the
+manual submission boundary. `resume_automatic_submission()` restores app delivery. Wrap game-owned components in `GameRoot`;
 place persistent menus alongside it so replacement remounts only the game.
 
 `GameHandle<G>` is cloneable. Clones share one session without cloning its

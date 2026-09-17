@@ -14,7 +14,7 @@ namespace Battlement.CustomFixtures
             IBattlementFlatBufferClientSchema
     {
         public const string ContractDigest =
-            "001087f1f9fb991cb34082fbd2d9a6d67e851be65fd4dbe6c8dc95d294f97373";
+            "ddf73a68f7249727e68d8444ac1bf7e504dae5f5808824d3a12bf0ca7cfd0fad";
 
         private readonly FlatBufferBuilder clientBuilder = new(1024);
         private readonly Func<object, byte> errorEncoder;
@@ -79,7 +79,16 @@ namespace Battlement.CustomFixtures
                     _ = BattlementFlatBufferCore.ReadUuid(batch.CausedByActionId, "causing action");
                 if ((byte)batch.Start > (byte)CoreWire.BatchStart.AfterEarlierAssetPreparation)
                     throw new InvalidDataException("A fixture batch start value is unknown.");
-                if (batch.GroupsLength == 0)
+                if (batch.WorkScope == 0 || batch.CancelScope == 0)
+                    throw new InvalidDataException("A work scope must be nonzero.");
+                if (
+                    batch.CancelScope.HasValue
+                    && (batch.WorkScope.HasValue || batch.Start != CoreWire.BatchStart.Now)
+                )
+                    throw new InvalidDataException(
+                        "Cancellation must be independent unowned work."
+                    );
+                if (batch.GroupsLength == 0 && !batch.CancelScope.HasValue)
                     throw new InvalidDataException("A fixture batch has no command groups.");
                 for (int groupIndex = 0; groupIndex < batch.GroupsLength; groupIndex++)
                 {
@@ -94,6 +103,25 @@ namespace Battlement.CustomFixtures
                             groupIndex,
                             commandIndex
                         );
+                        if (batch.CancelScope.HasValue)
+                        {
+                            if (
+                                command.CommandType
+                                != Wire.FixtureCommand.Battlement_FlatBuffers_Generated_CoreCommand
+                            )
+                                throw new InvalidDataException(
+                                    "Cancellation cleanup must contain core destroys."
+                                );
+                            var cleanup =
+                                command.CommandAsBattlement_FlatBuffers_Generated_CoreCommand();
+                            if (
+                                cleanup.Kind != CoreWire.CoreCommandKind.VisualElementDestroy
+                                && cleanup.Kind != CoreWire.CoreCommandKind.ObjectDestroy
+                            )
+                                throw new InvalidDataException(
+                                    "Cancellation cleanup may only destroy objects."
+                                );
+                        }
                         switch (command.CommandType)
                         {
                             case Wire.FixtureCommand.Battlement_FlatBuffers_Generated_CoreCommand:
@@ -160,6 +188,12 @@ namespace Battlement.CustomFixtures
 
         public BatchStart ReadBatchStart(ByteBuffer bytes, int messageIndex) =>
             (BatchStart)(byte)Batch(bytes, messageIndex).Start;
+
+        public ulong? ReadWorkScope(ByteBuffer bytes, int messageIndex) =>
+            Batch(bytes, messageIndex).WorkScope;
+
+        public ulong? ReadCancelScope(ByteBuffer bytes, int messageIndex) =>
+            Batch(bytes, messageIndex).CancelScope;
 
         public int ReadGroupCount(ByteBuffer bytes, int messageIndex) =>
             Batch(bytes, messageIndex).GroupsLength;

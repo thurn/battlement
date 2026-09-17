@@ -175,6 +175,10 @@ namespace Battlement
                 Read(schema => schema.ReadCausedByActionId(response.bytes, messageIndex));
             public BatchStart Start =>
                 Read(schema => schema.ReadBatchStart(response.bytes, messageIndex));
+            public ulong? WorkScope =>
+                Read(schema => schema.ReadWorkScope(response.bytes, messageIndex));
+            public ulong? CancelScope =>
+                Read(schema => schema.ReadCancelScope(response.bytes, messageIndex));
             public int GroupCount =>
                 Read(schema => schema.ReadGroupCount(response.bytes, messageIndex));
 

@@ -6,11 +6,11 @@ use std::{
 };
 
 use battlement::UiEventDisposition;
-use battlement_flatbuffers::{
-  ConnectView, FinishedMessage, UiEventActionView, recycle_message_storage,
-};
+use battlement_flatbuffers::{ConnectView, UiEventActionView, recycle_message_storage};
 
-use crate::{Engine, EngineError, EngineResponse, FlatBufferSubmitError, panic_capture};
+use crate::{
+  Engine, EngineError, EngineResponse, FlatBufferSubmitError, panic_capture, response_budget,
+};
 
 /// Operation completed successfully and returned a FlatBuffer response.
 pub const OK: i32 = 0;
@@ -126,6 +126,7 @@ pub unsafe fn buffer_free(buffer: BattlementBuffer) {
   // SAFETY: The caller returns the exact Vec allocation and dimensions from
   // `from_storage`; `data` may point at a finished suffix and is never used to free.
   let storage = unsafe { Vec::from_raw_parts(buffer.allocation_data, length, capacity) };
+  response_budget::release(buffer.allocation_data as usize);
   recycle_message_storage(storage);
   OUTSTANDING_BUFFERS.fetch_sub(1, Ordering::Relaxed);
 }
@@ -324,7 +325,6 @@ where
         .map_err(|error| (INVALID_ARGUMENT, format!("invalid connect: {error}")))?;
       engine
         .connect(view)
-        .map(EngineResponse::into_message)
         .map_err(|error| (ENGINE_ERROR, error.to_string()))
     })
   }
@@ -353,13 +353,10 @@ where
     ffi_output_call(engine, out_buffer, "battlement_submit", |engine| {
       let bytes =
         input_slice(data, length).map_err(|error| (INVALID_ARGUMENT, error.to_owned()))?;
-      engine
-        .submit(bytes)
-        .map(EngineResponse::into_message)
-        .map_err(|error| match error {
-          FlatBufferSubmitError::InvalidArgument(error) => (INVALID_ARGUMENT, error.to_string()),
-          FlatBufferSubmitError::Engine(error) => (ENGINE_ERROR, error.to_string()),
-        })
+      engine.submit(bytes).map_err(|error| match error {
+        FlatBufferSubmitError::InvalidArgument(error) => (INVALID_ARGUMENT, error.to_string()),
+        FlatBufferSubmitError::Engine(error) => (ENGINE_ERROR, error.to_string()),
+      })
     })
   }
 }
@@ -418,7 +415,7 @@ where
   })) {
     Ok(Ok(result)) => unsafe {
       out_disposition.write(result.disposition as u32);
-      write_finished(out_buffer, result.response.into_message())
+      write_finished(out_buffer, result.response)
     },
     Ok(Err((status, error))) => {
       unsafe { write_error(out_buffer, error) };
@@ -458,7 +455,7 @@ where
   }
   panic_capture::prepare();
   match catch_unwind(AssertUnwindSafe(|| unsafe { &mut (*engine).engine }.poll())) {
-    Ok(Ok(Some(message))) => unsafe { write_finished(out_buffer, message.into_message()) },
+    Ok(Ok(Some(message))) => unsafe { write_finished(out_buffer, message) },
     Ok(Ok(None)) => NO_MESSAGE,
     Ok(Err(error)) => {
       unsafe { write_error(out_buffer, error) };
@@ -476,7 +473,7 @@ unsafe fn ffi_output_call<E: Engine>(
   engine: *mut BattlementEngine<E>,
   out_buffer: *mut BattlementBuffer,
   operation: &'static str,
-  call: impl FnOnce(&mut E) -> Result<FinishedMessage, (i32, String)>,
+  call: impl FnOnce(&mut E) -> Result<EngineResponse, (i32, String)>,
 ) -> i32 {
   if out_buffer.is_null() {
     return INVALID_ARGUMENT;
@@ -553,8 +550,10 @@ unsafe fn input_slice<'a>(data: *const u8, length: u64) -> Result<&'a [u8], &'st
   Ok(unsafe { std::slice::from_raw_parts(data, length) })
 }
 
-unsafe fn write_finished(out_buffer: *mut BattlementBuffer, message: FinishedMessage) -> i32 {
+unsafe fn write_finished(out_buffer: *mut BattlementBuffer, response: EngineResponse) -> i32 {
+  let (message, lease) = response.into_parts();
   let (storage, start) = message.into_storage();
+  response_budget::handoff(storage.as_ptr() as usize, lease);
   // SAFETY: The caller provides a checked, writable output pointer.
   unsafe { out_buffer.write(BattlementBuffer::from_storage(storage, start)) };
   OK

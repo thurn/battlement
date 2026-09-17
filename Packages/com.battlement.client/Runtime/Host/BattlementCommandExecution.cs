@@ -7,6 +7,7 @@ namespace Battlement
 {
     internal sealed class BattlementCommandExecutor
     {
+        private readonly BattlementWorkOwnership workOwnership = new();
         private readonly BattlementWorld world;
         private readonly BattlementPreparedAssets preparedAssets;
         private readonly BattlementScenes scenes;
@@ -61,7 +62,26 @@ namespace Battlement
             this.openExternalUrl = openExternalUrl;
         }
 
-        public IBattlementCommandOperation? Launch(BattlementCommandExecution command, TimeSpan now)
+        public void ResetWorkOwnership() => workOwnership.Clear();
+
+        public void CancelScope(ulong scope) =>
+            workOwnership.Cancel(scope, world, uiDocuments, operations);
+
+        public IBattlementCommandOperation? Launch(
+            BattlementCommandExecution command,
+            TimeSpan now,
+            ulong? scope = null
+        )
+        {
+            var operation = LaunchCore(command, now);
+            workOwnership.Record(command, scope, world, uiDocuments);
+            return operation;
+        }
+
+        private IBattlementCommandOperation? LaunchCore(
+            BattlementCommandExecution command,
+            TimeSpan now
+        )
         {
             if (command.DirectLocalPosition is BattlementDirectLocalPosition position)
             {

@@ -236,7 +236,7 @@ def replace_tree(source: Path, destination: Path) -> None:
 
 def replace_file(source: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(source, destination)
+    shutil.copy2(source, destination)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,10 @@ use std::{
   rc::Rc,
 };
 
-use reactant_core::{app::App, app_runtime::AppRuntime};
+use reactant_core::{
+  app::App,
+  app_runtime::{AppOutput, AppRuntime},
+};
 use reactant_rules::{DisplayConnection, Game, RulesContext, RulesWorker};
 
 use crate::{
@@ -42,6 +45,8 @@ pub(crate) trait AttachedSession: Any {
   fn fail(&self, message: String);
   fn view(&self, revision: u64) -> GameRenderContext;
   fn id(&self) -> u64;
+  fn active(&self) -> bool;
+  fn output(self: Rc<Self>) -> Option<Box<dyn AppOutput>>;
 }
 
 impl<M: 'static> GameApp for App<M> {
@@ -64,6 +69,7 @@ impl<M: 'static> GameApp for App<M> {
     coordinator.next.set(id);
     let session = Rc::new(GameSession {
       id,
+      automatic: Cell::new(true),
       worker: coordinator.worker.clone(),
       app: Rc::downgrade(&coordinator),
       data: RefCell::new(SessionData {
@@ -96,11 +102,11 @@ impl<M: 'static> GameApp for App<M> {
       .clone()
       .expect("no game is attached");
     let erased: Rc<dyn Any> = session;
-    GameConsumer {
-      session: erased
-        .downcast::<GameSession<G>>()
-        .unwrap_or_else(|_| panic!("attached game type mismatch")),
-    }
+    let session = erased
+      .downcast::<GameSession<G>>()
+      .unwrap_or_else(|_| panic!("attached game type mismatch"));
+    session.automatic.set(false);
+    GameConsumer { session }
   }
 }
 
@@ -117,6 +123,30 @@ impl Coordinator {
 }
 
 impl AppRuntime for Coordinator {
+  fn work_scope(&self) -> Option<u64> {
+    self
+      .current
+      .borrow()
+      .as_ref()
+      .filter(|session| session.active())
+      .map(|session| session.id())
+  }
+
+  fn take_output(&self) -> Option<Box<dyn AppOutput>> {
+    self.current.borrow().clone()?.output()
+  }
+
+  fn fail_work(&self, scope: u64, message: String) {
+    if let Some(session) = self
+      .current
+      .borrow()
+      .clone()
+      .filter(|session| session.id() == scope)
+    {
+      session.fail(message);
+    }
+  }
+
   fn context(&self) -> Rc<dyn Any> {
     let view = self
       .current
@@ -176,6 +206,20 @@ impl<G: Game> AttachedSession for GameSession<G> {
   }
   fn id(&self) -> u64 {
     self.id
+  }
+  fn active(&self) -> bool {
+    !matches!(
+      self.data.borrow().status,
+      GameStatus::Failed | GameStatus::Stopped
+    )
+  }
+  fn output(self: Rc<Self>) -> Option<Box<dyn AppOutput>> {
+    if !self.automatic.get() {
+      return None;
+    }
+    GameConsumer { session: self }
+      .take_output()
+      .map(|output| Box::new(output) as Box<dyn AppOutput>)
   }
   fn view(&self, revision: u64) -> GameRenderContext {
     let data = self.data.borrow();

@@ -64,7 +64,10 @@ namespace Battlement
                 );
             }
 
-            if (batch.GroupCount is 0 or > MaximumGroups)
+            if (
+                batch.GroupCount > MaximumGroups
+                || (batch.GroupCount == 0 && !batch.CancelScope.HasValue)
+            )
             {
                 CoreErrorCode code =
                     batch.GroupCount > MaximumGroups

@@ -19,3 +19,27 @@ screen = "rules-session"
 [[states]]
 key = "rules-session.failed-recovery-menu"
 screen = "rules-session"
+
+[[states]]
+key = "rules-batches.render-ahead"
+screen = "rules-batches"
+
+[[states]]
+key = "rules-batches.independent-menu"
+screen = "rules-batches"
+
+[[states]]
+key = "rules-batches.game-canceled"
+screen = "rules-batches"
+
+[[states]]
+key = "rules-batches.menu-operation-completed"
+screen = "rules-batches"
+
+[[states]]
+key = "rules-batches.draw-playing"
+screen = "rules-batches"
+
+[[states]]
+key = "rules-batches.energy-playing"
+screen = "rules-batches"

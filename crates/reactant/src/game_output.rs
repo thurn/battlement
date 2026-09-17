@@ -3,6 +3,8 @@ use std::{
   time::Duration,
 };
 
+use reactant_core::app_runtime::AppOutput;
+
 use reactant_rules::{
   CompletedAction, Game, PresentedPrompt, PublicationObservation, RunObservation,
 };
@@ -18,6 +20,7 @@ pub struct GameConsumer<G: Game> {
 pub struct GameOutput<G: Game> {
   session: Weak<GameSession<G>>,
   sequence: u64,
+  scope: u64,
   state: Rc<G::State>,
   prompt: Option<Rc<PresentedPrompt<G::Prompt<'static>>>>,
   animation: Option<Rc<G::StateAnimation>>,
@@ -31,6 +34,11 @@ pub(crate) struct PendingOutput<G: Game> {
 }
 
 impl<G: Game> GameConsumer<G> {
+  /// Returns publication consumption to the app while retaining diagnostic observations.
+  pub fn resume_automatic_submission(&self) {
+    self.session.automatic.set(true);
+  }
+
   /// Takes the next FIFO entry, releasing its worker slot before submission.
   /// Retains at most one unsubmitted output and returns it again until resolved.
   pub fn take_output(&self) -> Option<GameOutput<G>> {
@@ -55,6 +63,7 @@ impl<G: Game> GameConsumer<G> {
     Some(GameOutput {
       session: Rc::downgrade(&self.session),
       sequence: pending.sequence,
+      scope: self.session.id,
       state: Rc::clone(&data.rendered),
       prompt: data.prompt.clone(),
       animation: pending.animation.clone(),
@@ -71,6 +80,21 @@ impl<G: Game> GameConsumer<G> {
     data.run.as_ref().is_some_and(|run| {
       run.wait_for_publication(timeout, |o| o.published > o.consumed || o.abandoned)
     })
+  }
+
+  /// Waits for a publication boundary without consuming output or advancing host time.
+  pub fn wait_for_publication(
+    &self,
+    timeout: Duration,
+    predicate: impl Fn(PublicationObservation) -> bool,
+  ) -> bool {
+    self
+      .session
+      .data
+      .borrow()
+      .run
+      .as_ref()
+      .is_some_and(|run| run.wait_for_publication(timeout, predicate))
   }
 
   /// Reports out-of-band worker lifecycle, including cleanup after public stop.
@@ -176,5 +200,14 @@ impl<G: Game> GameOutput<G> {
     }
     drop(data);
     session.changed();
+  }
+}
+
+impl<G: Game> AppOutput for GameOutput<G> {
+  fn scope(&self) -> u64 {
+    self.scope
+  }
+  fn submitted(&self) {
+    self.submitted();
   }
 }

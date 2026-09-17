@@ -13,6 +13,7 @@ use crate::{
   action_context,
   geometry::{self, MeasurementStatus, ViewportRef},
   hooks, localization,
+  work_scope::WorkScope,
 };
 
 /// Submits native work without owning a protocol session or response queue.
@@ -21,11 +22,16 @@ pub struct AppHandle {
   queue: Weak<RefCell<AppQueue>>,
   generation: u64,
   origin: Option<ActionId>,
+  scope: Option<u64>,
 }
 
 /// Returns the current application's session-bound operations handle.
 pub fn use_app() -> AppHandle {
-  hooks::use_required_context::<AppHandle>()
+  let mut handle = hooks::use_required_context::<AppHandle>();
+  handle.scope = hooks::use_optional_context::<WorkScope>()
+    .map(|scope| scope.0)
+    .filter(|scope| *scope != 0);
+  handle
 }
 
 /// Reads logical display dimensions, using the connection size until measured.
@@ -54,6 +60,7 @@ impl AppHandle {
     self.with_queue(|queue| {
       queue.commands.push(QueuedCommand {
         command,
+        scope: self.scope,
         action: action_context::current().or(self.origin),
       })
     });
@@ -86,6 +93,7 @@ impl AppHandle {
       queue: Rc::downgrade(queue),
       generation: queue.borrow().generation,
       origin: action_context::current(),
+      scope: None,
     }
   }
 
@@ -101,8 +109,7 @@ impl AppHandle {
 
 impl PartialEq for AppHandle {
   fn eq(&self, other: &Self) -> bool {
-    self.generation == other.generation
-      && self.origin == other.origin
+    (self.scope, self.generation, self.origin) == (other.scope, other.generation, other.origin)
       && Weak::ptr_eq(&self.queue, &other.queue)
   }
 }
@@ -124,6 +131,7 @@ pub(crate) struct Observations {
 }
 
 pub(crate) struct QueuedCommand {
+  pub(crate) scope: Option<u64>,
   pub(crate) command: Command,
   pub(crate) action: Option<ActionId>,
 }

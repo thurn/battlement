@@ -18,6 +18,7 @@ use crate::{
     MotionValueRuntimeHandle, PlaybackInner, PlaybackOutcome, duration_micros, duration_millis,
   },
   motion_value_runtime::{self, MotionValueRuntime},
+  work_scope,
 };
 
 impl AudioPlayback {
@@ -171,10 +172,15 @@ impl Default for AudioPlaybackOptions {
 }
 
 impl AnimationPlayback {
-  pub(crate) fn new(runtime_id: u64, runtime: Weak<RefCell<MotionValueRuntime>>) -> Self {
+  pub(crate) fn new(
+    runtime_id: u64,
+    runtime: Weak<RefCell<MotionValueRuntime>>,
+    scope: Option<u64>,
+  ) -> Self {
     let inner = Rc::new(PlaybackInner {
       runtime_id,
       runtime: runtime.clone(),
+      scope,
       playback_id: ObjectId::new_v4(),
       generation: 1,
       terminal: RefCell::new(None),
@@ -195,7 +201,7 @@ impl AnimationPlayback {
   }
 
   pub(crate) fn from_handle(handle: &MotionValueRuntimeHandle) -> Self {
-    Self::new(handle.runtime_id, handle.runtime.clone())
+    Self::new(handle.runtime_id, handle.runtime.clone(), handle.scope)
   }
 
   pub(crate) fn protocol_identity(&self) -> (ObjectId, u32) {
@@ -299,6 +305,7 @@ impl AnimationPlayback {
     motion_value_runtime::queue(
       self.inner.runtime_id,
       &self.inner.runtime,
+      self.inner.scope,
       CommandBody::MotionValuePlayback(MotionValuePlaybackOperation {
         playback_id: self.inner.playback_id,
         generation: self.inner.generation,
@@ -314,11 +321,12 @@ impl MotionValueRuntimeHandle {
     Self {
       runtime_id,
       runtime,
+      scope: work_scope::current(),
     }
   }
 
   pub(crate) fn queue(&self, body: CommandBody) {
-    motion_value_runtime::queue(self.runtime_id, &self.runtime, body);
+    motion_value_runtime::queue(self.runtime_id, &self.runtime, self.scope, body);
   }
 }
 
@@ -383,7 +391,7 @@ mod tests {
   #[test]
   fn playback_callbacks_wait_for_the_matching_native_terminal_event() {
     let runtime = MotionValueRuntime::new(7);
-    let playback = AnimationPlayback::new(7, Rc::downgrade(&runtime));
+    let playback = AnimationPlayback::new(7, Rc::downgrade(&runtime), None);
     let completed = Rc::new(Cell::new(0));
     let observed = completed.clone();
     playback.on_complete(move || observed.set(observed.get() + 1));

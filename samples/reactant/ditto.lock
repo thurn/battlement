@@ -13,6 +13,66 @@ source = "7c7c44a7dbb7647dfc4d33843b0320031dab4db3636dc3973f62a0678f29122a"
 
 [[baselines]]
 profile = "macos"
+scenario = "ordered game batches"
+checkpoint = "game-canceled"
+sha256 = "ffe30f9dfbbe76b4073296ca61170f5262e829864f4ebd4561a874da0bc8c968"
+width = 1280
+height = 720
+size_bytes = 38282
+source = "0b313f80f5c789b6675f0f59ddda6f001503eeb3bb4bec6fd2f70e2e08275bb5"
+
+[[baselines]]
+profile = "macos"
+scenario = "ordered game batches"
+checkpoint = "independent-menu"
+sha256 = "763611b350e11f553e64414315e4f8813ae1b81b63a49a777884971e68eca236"
+width = 1280
+height = 720
+size_bytes = 41675
+source = "0b313f80f5c789b6675f0f59ddda6f001503eeb3bb4bec6fd2f70e2e08275bb5"
+
+[[baselines]]
+profile = "macos"
+scenario = "ordered game batches"
+checkpoint = "menu-operation-completed"
+sha256 = "f933c0da61048f180d844f824519d0c85a6a8564c349af00b5ac77dbc7d4151d"
+width = 1280
+height = 720
+size_bytes = 37905
+source = "0b313f80f5c789b6675f0f59ddda6f001503eeb3bb4bec6fd2f70e2e08275bb5"
+
+[[baselines]]
+profile = "macos"
+scenario = "ordered game batches"
+checkpoint = "render-ahead"
+sha256 = "a93ba1547110142975986995bb7a6625072830276e530a9f8b3af9c22648790e"
+width = 1280
+height = 720
+size_bytes = 42200
+source = "0b313f80f5c789b6675f0f59ddda6f001503eeb3bb4bec6fd2f70e2e08275bb5"
+
+[[baselines]]
+profile = "macos"
+scenario = "ordered game playback"
+checkpoint = "draw-playing"
+sha256 = "7b366f6a6fedaad0f1bd125c14dbff92a323e1f99c8ced9babb65a9ee9a0ec99"
+width = 1280
+height = 720
+size_bytes = 41519
+source = "0b313f80f5c789b6675f0f59ddda6f001503eeb3bb4bec6fd2f70e2e08275bb5"
+
+[[baselines]]
+profile = "macos"
+scenario = "ordered game playback"
+checkpoint = "energy-playing"
+sha256 = "4c14c7816c5405c73458f6ec25eec2fe25797c8dc0afd9ee555e9dbbd39660ea"
+width = 1280
+height = 720
+size_bytes = 40236
+source = "0b313f80f5c789b6675f0f59ddda6f001503eeb3bb4bec6fd2f70e2e08275bb5"
+
+[[baselines]]
+profile = "macos"
 scenario = "rules session acceptance"
 checkpoint = "accepted-ready"
 sha256 = "ffd3d3bdc2b449e793c2f7d09785973147092f69d0108ddec33b3258caf580c9"

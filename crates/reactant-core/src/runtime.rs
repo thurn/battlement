@@ -3,6 +3,7 @@
 use std::{
   any::TypeId,
   cell::RefCell,
+  collections::HashMap,
   mem,
   panic::{self, AssertUnwindSafe},
   rc::Rc,
@@ -10,9 +11,9 @@ use std::{
 };
 
 use battlement::{
-  self, AccessibilitySnapshot, AccessibilityUpdate, ActionId, CommandBody, GeometryGeneration,
-  GeometryObservationBatch, MotionEventBatch, MotionSequence, ObjectId, UiDocument, UiEvent,
-  UiEventDisposition,
+  self, AccessibilitySnapshot, AccessibilityUpdate, ActionId, Batch, CommandBody,
+  GeometryGeneration, GeometryObservationBatch, MotionEventBatch, MotionSequence, ObjectId,
+  SessionId, Snapshot, UiDocument, UiEvent, UiEventDisposition,
 };
 use battlement_flatbuffers::{RetainedUiBudget, RetainedUiSnapshot};
 use trox::{Bundle, Localizer, SourceLocale};
@@ -70,6 +71,8 @@ pub struct Root {
 pub struct ReactantCommit {
   pub(crate) groups: Option<Vec<Vec<CommandBody>>>,
   pub(crate) receipt: Option<DeliveryReceipt>,
+  pub(crate) work_owners: HashMap<ObjectId, u64>,
+  pub(crate) independent: bool,
 }
 
 struct FrozenCommandCounts {
@@ -138,6 +141,9 @@ pub struct Reactant<G: 'static> {
   roots: Vec<RootRegistration<G>>,
   state: RuntimeState,
   outstanding: Option<DeliveryReceipt>,
+  pub(crate) track_work_scopes: bool,
+  work_owners: HashMap<ObjectId, u64>,
+  current_work_owners: HashMap<ObjectId, u64>,
   pending_effects: Vec<EffectOperation>,
   pending_geometry_effects: Vec<GeometryEffectOperation>,
   pending_error_reports: Vec<ErrorReport>,
@@ -168,6 +174,9 @@ impl<G: 'static> Reactant<G> {
       roots: Vec::new(),
       state: RuntimeState::Registering,
       outstanding: None,
+      track_work_scopes: false,
+      work_owners: HashMap::new(),
+      current_work_owners: HashMap::new(),
       pending_effects: Vec::new(),
       pending_geometry_effects: Vec::new(),
       pending_error_reports: Vec::new(),
@@ -1244,12 +1253,19 @@ impl<G: 'static> Reactant<G> {
   }
 
   fn create_commit(&mut self, groups: Vec<Vec<CommandBody>>) -> ReactantCommit {
+    let motion_owners = self.motion_values.borrow_mut().take_owners();
     if groups.is_empty() {
       return ReactantCommit::empty();
     }
     let receipt = DeliveryReceipt::new();
     self.outstanding = Some(receipt.clone());
-    ReactantCommit::new(groups, receipt)
+    let mut commit = ReactantCommit::new(groups, receipt);
+    if self.track_work_scopes {
+      commit.work_owners = self.work_owners.clone();
+      commit.work_owners.extend(motion_owners);
+      commit.independent = true;
+    }
+    commit
   }
 
   fn commit_pending_actions(&mut self) -> ReactantCommit {
@@ -1336,6 +1352,45 @@ impl<G: 'static> Reactant<G> {
     }
   }
 
+  pub(crate) fn extract_scoped_snapshot(&self, snapshot: &mut Snapshot) -> Vec<Batch> {
+    crate::work_scope::extract_snapshot(snapshot, &self.current_work_owners)
+  }
+
+  pub(crate) fn recover_scope(&self, scope: u64, session: SessionId) -> Option<Batch> {
+    let trees = self
+      .roots
+      .iter()
+      .map(|root| &root.committed)
+      .collect::<Vec<_>>();
+    let bindings = self.external_portals.active_bindings();
+    let layout = portal::layout(self.runtime_id, &trees, &bindings);
+    let mut commands = Vec::new();
+    for (root, physical) in self.roots.iter().zip(&layout.roots) {
+      crate::work_scope::recovery(
+        &physical.hosts,
+        root.document.root_id,
+        scope,
+        &self.current_work_owners,
+        &mut commands,
+      );
+    }
+    for (target, physical) in &layout.externals {
+      let parent = bindings
+        .iter()
+        .find(|(binding, _)| binding == target)
+        .expect("external binding")
+        .1;
+      crate::work_scope::recovery(
+        &physical.hosts,
+        parent,
+        scope,
+        &self.current_work_owners,
+        &mut commands,
+      );
+    }
+    (!commands.is_empty()).then(|| Batch::parallel(session, commands))
+  }
+
   fn install_rendered(
     &mut self,
     committed: &mut [RenderTree],
@@ -1343,6 +1398,13 @@ impl<G: 'static> Reactant<G> {
     reconnect: bool,
     local_transactions: Option<&mut [LocalRenderTransaction]>,
   ) {
+    if self.track_work_scopes {
+      self.work_owners = mem::take(&mut self.current_work_owners);
+      for tree in committed.iter() {
+        crate::work_scope::collect(tree, None, &mut self.current_work_owners);
+      }
+      self.work_owners.extend(&self.current_work_owners);
+    }
     let mut next = Vec::new();
     for rendered in committed.iter() {
       rendered.hook_owners(&mut next);

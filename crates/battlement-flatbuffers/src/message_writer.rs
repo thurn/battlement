@@ -3407,12 +3407,35 @@ impl MessageWriter {
     start: NativeBatchStart,
     groups: &[ParallelGroupOffset],
   ) -> Result<ResponseMessageOffset, ProtocolError> {
+    self.scoped_batch(
+      batch_id,
+      session_id,
+      caused_by_action_id,
+      start,
+      None,
+      None,
+      groups,
+    )
+  }
+
+  /// Writes owned game work or independent cancellation and destruction cleanup.
+  #[allow(clippy::too_many_arguments)]
+  pub fn scoped_batch(
+    &mut self,
+    batch_id: [u8; 16],
+    session_id: [u8; 16],
+    caused_by_action_id: Option<[u8; 16]>,
+    start: NativeBatchStart,
+    work_scope: Option<u64>,
+    cancel_scope: Option<u64>,
+    groups: &[ParallelGroupOffset],
+  ) -> Result<ResponseMessageOffset, ProtocolError> {
     require_uuid(batch_id, "batch")?;
     require_uuid(session_id, "batch session")?;
     if let Some(action_id) = caused_by_action_id {
       require_uuid(action_id, "causing action")?;
     }
-    if groups.is_empty() {
+    if groups.is_empty() && cancel_scope.is_none() {
       return Err(ProtocolError::new("a batch cannot have no command groups"));
     }
     self.require_offsets(groups.iter().map(|value| value.builder_id))?;
@@ -3427,6 +3450,8 @@ impl MessageWriter {
         batch_id: Some(&batch_id),
         session_id: Some(&session_id),
         caused_by_action_id: caused_by_action_id.as_ref(),
+        work_scope,
+        cancel_scope,
         start: match start {
           NativeBatchStart::Now => wire::BatchStart::Now,
           NativeBatchStart::AfterEarlierBlockingWork => wire::BatchStart::AfterEarlierBlockingWork,

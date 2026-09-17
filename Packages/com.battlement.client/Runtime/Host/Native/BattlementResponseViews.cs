@@ -5002,6 +5002,8 @@ namespace Battlement
         SessionId SessionId { get; }
         ActionId? CausedByActionId { get; }
         BatchStart Start { get; }
+        ulong? WorkScope { get; }
+        ulong? CancelScope { get; }
         int GroupCount { get; }
         int CommandCount(int groupIndex);
         CommandId CommandId(int groupIndex, int commandIndex);
@@ -5266,6 +5268,8 @@ namespace Battlement
                 )
                 : null;
         public BatchStart Start => (BatchStart)(byte)Checked().Start;
+        public ulong? WorkScope => Checked().WorkScope;
+        public ulong? CancelScope => Checked().CancelScope;
         public int GroupCount => Checked().GroupsLength;
 
         public int CommandCount(int groupIndex) => Group(groupIndex).CommandsLength;

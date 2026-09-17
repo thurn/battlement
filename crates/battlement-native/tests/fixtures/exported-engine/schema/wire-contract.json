@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "base_wire_contract_digest": "94063de87b8aa3df3d8492dd61c6fae2b6e1fd962c0efb6750c7299e3ecbc9cb",
+  "base_wire_contract_digest": "6520332ea6de0262f6a1e00737a0e6bd878aae95580b930596fed1f027a8a61e",
   "schema_closure": {
-    "fixture_response.fbs": "172ddb3984ab5e8455ed7b942d099ff27ff4b8e9209ff6de2df2922a825f31a0"
+    "fixture_response.fbs": "bdcb7ecf89fae1a174c685f56e46054d5734a60c21dba8144c06cb52a32d83ca"
   },
   "generation_options": ["--gen-onefile", "--filename-suffix", "_generated"]
 }

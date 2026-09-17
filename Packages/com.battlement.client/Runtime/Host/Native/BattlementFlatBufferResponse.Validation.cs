@@ -19,7 +19,17 @@ namespace Battlement
                 _ = ReadUuid(value.CausedByActionId, "causing action");
             if (!Known(value.Start, Wire.BatchStart.AfterEarlierAssetPreparation))
                 throw new InvalidDataException("The batch start value is unknown.");
-            if (value.GroupsLength is < 1 or > 256)
+            if (value.WorkScope == 0 || value.CancelScope == 0)
+                throw new InvalidDataException("A work scope must be nonzero.");
+            if (
+                value.CancelScope.HasValue
+                && (value.WorkScope.HasValue || value.Start != Wire.BatchStart.Now)
+            )
+                throw new InvalidDataException("Cancellation must be independent unowned work.");
+            if (
+                value.GroupsLength > 256
+                || (value.GroupsLength == 0 && !value.CancelScope.HasValue)
+            )
                 throw new InvalidDataException(
                     "A batch must contain between one and 256 parallel groups."
                 );
@@ -45,6 +55,14 @@ namespace Battlement
                     Wire.CoreCommand command = entry.CommandAsCoreCommand();
                     if (!commandIds.Add(ReadUuid(command.CommandId, "command")))
                         throw new InvalidDataException("A batch repeats a command UUID.");
+                    if (
+                        value.CancelScope.HasValue
+                        && command.Kind != Wire.CoreCommandKind.VisualElementDestroy
+                        && command.Kind != Wire.CoreCommandKind.ObjectDestroy
+                    )
+                        throw new InvalidDataException(
+                            "Cancellation cleanup may only destroy objects."
+                        );
                     ValidateCommand(command);
                 }
             }

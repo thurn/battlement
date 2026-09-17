@@ -75,3 +75,47 @@ accessibility_action = { target = { role = "button", name = "Fail gameplay host"
 accessibility_action = { target = { role = "button", name = "Settings" }, action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "failed-recovery-menu" }
+
+[[scenarios]]
+name = "ordered game batches"
+fixture = "rules-batches"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Begin ordered game" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 12 }
+[[scenarios.steps]]
+screenshot = { name = "render-ahead" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Settings" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 1 }
+[[scenarios.steps]]
+screenshot = { name = "independent-menu" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Stop queued game" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 6 }
+[[scenarios.steps]]
+screenshot = { name = "game-canceled" }
+[[scenarios.steps]]
+advance = { frames = 240 }
+[[scenarios.steps]]
+screenshot = { name = "menu-operation-completed" }
+
+[[scenarios]]
+name = "ordered game playback"
+fixture = "rules-batches"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Begin ordered game" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 36 }
+[[scenarios.steps]]
+screenshot = { name = "draw-playing" }
+[[scenarios.steps]]
+advance = { frames = 30 }
+[[scenarios.steps]]
+screenshot = { name = "energy-playing" }

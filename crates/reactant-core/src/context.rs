@@ -231,6 +231,9 @@ pub(crate) struct ProviderValue {
 }
 
 impl ProviderValue {
+  pub(crate) fn get<T: 'static>(&self) -> Option<&T> {
+    self.value.downcast_ref()
+  }
   pub(crate) fn new<T: 'static>(identity: ContextIdentity, value: Rc<T>) -> Self {
     Self { identity, value }
   }

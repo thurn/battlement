@@ -1,5 +1,6 @@
 use std::{error::Error, fmt};
 
+use crate::ResponseLease;
 use battlement::UiEventDisposition;
 use battlement_flatbuffers::{ConnectView, FinishedMessage, ResponseView, UiEventActionView};
 /// A diagnostic returned when a rules engine cannot complete an operation.
@@ -61,6 +62,7 @@ impl FlatBufferSubmitError {
 pub struct EngineResponse {
   session_id: [u8; 16],
   message: FinishedMessage,
+  pub(crate) lease: Option<ResponseLease>,
 }
 
 impl EngineResponse {
@@ -99,8 +101,18 @@ impl EngineResponse {
     self.message.as_bytes()
   }
 
-  pub(crate) fn into_message(self) -> FinishedMessage {
-    self.message
+  /// Returns the builder allocation charged to downstream admission.
+  pub fn allocation_bytes(&self) -> usize {
+    self.message.allocation_bytes()
+  }
+
+  /// Retains admission for a host that copies verified messages into its own storage.
+  pub fn retention(&self) -> Option<ResponseLease> {
+    self.lease.clone()
+  }
+
+  pub(crate) fn into_parts(self) -> (FinishedMessage, Option<ResponseLease>) {
+    (self.message, self.lease)
   }
 
   fn from_verified(
@@ -127,6 +139,7 @@ impl EngineResponse {
     Ok(Self {
       session_id,
       message,
+      lease: None,
     })
   }
 }

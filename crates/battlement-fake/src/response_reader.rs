@@ -64,6 +64,8 @@ fn read_batch(value: wire::Batch<'_>) -> Result<Batch, String> {
     .map(uuid)
     .transpose()?
     .map(|value| battlement::ActionId::from_uuid(value).expect("verified nonzero action UUID"));
+  batch.work_scope = value.work_scope();
+  batch.cancel_scope = value.cancel_scope();
   batch.start = match value.start() {
     wire::BatchStart::Now => BatchStart::Now,
     wire::BatchStart::AfterEarlierBlockingWork => BatchStart::AfterEarlierBlockingWork,

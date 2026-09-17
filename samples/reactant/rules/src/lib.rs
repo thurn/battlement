@@ -3,6 +3,7 @@
 mod animation_validation;
 mod app_setup;
 mod assets;
+mod batch_proof;
 mod collection_settings;
 mod composed_effects;
 mod composition;

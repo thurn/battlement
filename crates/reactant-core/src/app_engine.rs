@@ -2,7 +2,6 @@ use std::{mem, rc::Rc, thread};
 
 use battlement::application::{ApplicationState, ReducedMotionPreference};
 use battlement::{ActionId, ScreenSize, SessionId, Snapshot, UiEventDisposition};
-use battlement_flatbuffers::{MessageWriter, NativeBatchStart};
 use battlement_native::{
   ConnectView, CoreActionBodyView, CoreClientMessageView, Engine, EngineError, EngineResponse,
   FlatBufferSubmitError, UiEventActionView, UiEventResult,
@@ -66,7 +65,7 @@ impl<G: 'static> App<G> {
     }
     let response = self.snapshot();
     self.healthy = true;
-    Ok(self.delivery.prepare(response))
+    Ok(response)
   }
 
   fn submit_view_response(
@@ -77,7 +76,15 @@ impl<G: 'static> App<G> {
       .session
       .expect("connect before submitting application messages");
     let CoreClientMessageView::Action(action) = message else {
-      return Ok(DeliveryResponse::empty(session));
+      if let CoreClientMessageView::BatchFailed(failure) = message
+        && failure.session_id() == *session.as_uuid().as_bytes()
+      {
+        self.report_batch_failure(failure.batch_id(), failure.message());
+      }
+      // OperationFailed reports nonblocking cosmetic work; the host retains its diagnostic.
+      let mut response = DeliveryResponse::empty(session);
+      self.settle(&mut response, None, false);
+      return Ok(response);
     };
     let session_id = SessionId::from_uuid(uuid::Uuid::from_bytes(action.session_id()))
       .expect("core view validates nonzero session UUIDs");
@@ -119,7 +126,7 @@ impl<G: 'static> App<G> {
     app_delivery::append(&mut response, Some(action_id), commit);
     self.settle(&mut response, Some(action_id), false);
     self.healthy = true;
-    Ok(self.delivery.prepare(response))
+    Ok(response)
   }
 
   fn submit_ui_event_response(
@@ -145,7 +152,7 @@ impl<G: 'static> App<G> {
     self.healthy = true;
     Ok(DeliveryUiEvent {
       disposition,
-      response: self.delivery.prepare(response),
+      response,
     })
   }
 
@@ -160,7 +167,7 @@ impl<G: 'static> App<G> {
     if response.messages.is_empty() {
       return Ok(None);
     }
-    Ok(Some(self.delivery.prepare(response)))
+    Ok(Some(response))
   }
 }
 
@@ -169,7 +176,7 @@ impl<G: 'static> Engine for App<G> {
 
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let response = self.connect_response(message)?;
-    native_response(response)
+    self.deliver(response)
   }
 
   fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
@@ -179,7 +186,9 @@ impl<G: 'static> Engine for App<G> {
     let response = self
       .submit_view_response(message)
       .map_err(FlatBufferSubmitError::engine)?;
-    native_response(response).map_err(FlatBufferSubmitError::engine)
+    self
+      .deliver(response)
+      .map_err(FlatBufferSubmitError::engine)
   }
 
   fn submit_ui_event(
@@ -189,66 +198,58 @@ impl<G: 'static> Engine for App<G> {
     let result = self.submit_ui_event_response(action)?;
     Ok(UiEventResult {
       disposition: result.disposition,
-      response: native_response(result.response)?,
+      response: self.deliver(result.response)?,
     })
   }
 
   fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
-    self.poll_response()?.map(native_response).transpose()
-  }
-}
-
-fn native_response(response: DeliveryResponse) -> Result<EngineResponse, EngineError> {
-  let session_id = *response.session_id.as_uuid().as_bytes();
-  let mut writer = MessageWriter::default();
-  let mut messages = Vec::with_capacity(response.messages.len());
-  for message in &response.messages {
-    let offset = match message {
-      DeliveryMessage::Snapshot(snapshot) => writer.snapshot_message(snapshot),
-      DeliveryMessage::Batch(batch) => {
-        let mut groups = Vec::with_capacity(batch.groups.len());
-        for group in &batch.groups {
-          let commands = group
-            .commands
-            .iter()
-            .map(|command| writer.command(command))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| EngineError::new(error.to_string()))?;
-          groups.push(
-            writer
-              .parallel_group(&commands)
-              .map_err(|error| EngineError::new(error.to_string()))?,
-          );
-        }
-        writer.batch(
-          *batch.batch_id.as_uuid().as_bytes(),
-          *batch.session_id.as_uuid().as_bytes(),
-          batch
-            .caused_by_action_id
-            .map(|value| *value.as_uuid().as_bytes()),
-          match batch.start {
-            battlement::BatchStart::Now => NativeBatchStart::Now,
-            battlement::BatchStart::AfterEarlierBlockingWork => {
-              NativeBatchStart::AfterEarlierBlockingWork
-            }
-            battlement::BatchStart::AfterEarlierAssetPreparation => {
-              NativeBatchStart::AfterEarlierAssetPreparation
-            }
-          },
-          &groups,
-        )
-      }
+    if self.output.can_consume()
+      && let Some(runtime) = self.orchestration.borrow().runtime()
+    {
+      self.output.publication = runtime.take_output();
     }
-    .map_err(|error| EngineError::new(error.to_string()))?;
-    messages.push(offset);
+    let Some(session) = self.session else {
+      return Ok(None);
+    };
+    let response = self
+      .poll_response()?
+      .unwrap_or_else(|| DeliveryResponse::empty(session));
+    self.finish_response(response)
   }
-  let message = writer
-    .finish(session_id, &messages)
-    .map_err(|error| EngineError::new(error.to_string()))?;
-  EngineResponse::from_core(session_id, message)
 }
 
 impl<G: 'static> App<G> {
+  fn deliver(&mut self, response: DeliveryResponse) -> Result<EngineResponse, EngineError> {
+    let session = *response.session_id.as_uuid().as_bytes();
+    self
+      .finish_response(response)?
+      .map_or_else(|| EngineResponse::empty(session), Ok)
+  }
+
+  fn finish_response(
+    &mut self,
+    mut response: DeliveryResponse,
+  ) -> Result<Option<EngineResponse>, EngineError> {
+    let runtime = self.orchestration.borrow().runtime();
+    let active = runtime.as_ref().and_then(|runtime| runtime.work_scope());
+    if let Some(scope) = self.output.ending_scope(active)
+      && let Some(batch) = self.runtime.recover_scope(scope, response.session_id)
+    {
+      response.messages.push(DeliveryMessage::Batch(batch));
+    }
+    let response = self.delivery.prepare(response);
+    self.output.finish(response, runtime)
+  }
+
+  fn report_batch_failure(&self, batch: [u8; 16], message: &str) {
+    if let (Some(scope), Some(runtime)) = (
+      self.output.failed_batch(batch),
+      self.orchestration.borrow().runtime(),
+    ) {
+      runtime.fail_work(scope, message.to_owned());
+    }
+  }
+
   fn check_session(&self, session: SessionId) -> Result<(), EngineError> {
     if self.session != Some(session) {
       return Err(EngineError::new("application event session mismatch"));
@@ -268,12 +269,16 @@ impl<G: 'static> App<G> {
       objects,
       self.camera.object_id,
     );
-    let (snapshot, commit) = self
+    let (mut snapshot, commit) = self
       .runtime
       .begin_session(&mut self.model)
       .expect("application failed to render")
       .into_app_parts(snapshot);
+    let batches = self.runtime.extract_scoped_snapshot(&mut snapshot);
     let mut response = DeliveryResponse::snapshot(snapshot);
+    response
+      .messages
+      .extend(batches.into_iter().map(DeliveryMessage::Batch));
     app_delivery::append(&mut response, None, commit);
     response
   }
@@ -329,7 +334,7 @@ impl<G: 'static> App<G> {
       }
       response.messages.extend(imperative);
     }
-    app_delivery::commands(response, commands);
+    app_delivery::commands(response, commands, self.runtime.track_work_scopes);
   }
 }
 

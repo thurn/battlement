@@ -2,7 +2,9 @@
 
 use std::collections::VecDeque;
 
-use battlement::{Batch, BatchId, BatchStart, CommandBody, ConflictPolicy, ParallelCommandGroup};
+use battlement::{
+  Batch, BatchId, BatchStart, CommandBody, ConflictPolicy, ParallelCommandGroup, UiNode,
+};
 
 use crate::{client::FakeClient, operation::ScheduledOperation};
 
@@ -24,6 +26,9 @@ pub(crate) enum OperationKey {
 
 pub(crate) struct ScheduledBatch {
   pub(crate) batch_id: BatchId,
+  pub(crate) scope: Option<u64>,
+  pub(crate) cancellation: bool,
+  pub(crate) retention: Option<battlement_native::ResponseLease>,
   pub(crate) start: BatchStart,
   pub(crate) groups: VecDeque<ParallelCommandGroup>,
   pub(crate) next_group_index: usize,
@@ -41,6 +46,9 @@ impl ScheduledBatch {
     });
     Self {
       batch_id: batch.batch_id,
+      scope: batch.work_scope,
+      cancellation: batch.cancel_scope.is_some(),
+      retention: None,
       start: batch.start,
       groups: batch.groups.into(),
       next_group_index: 0,
@@ -154,11 +162,61 @@ where
   E: battlement_native::Engine,
 {
   pub(crate) fn schedule_batch(&mut self, batch: Batch) {
-    self.scheduled_batches.push(ScheduledBatch::new(batch));
+    if let Some(scope) = batch.cancel_scope {
+      self.canceled_scopes.insert(scope);
+      let owned = self
+        .work_objects
+        .iter()
+        .filter(|(_, (owner, _))| *owner == scope)
+        .map(|(id, (_, ui))| (*id, *ui))
+        .collect::<Vec<_>>();
+      for (id, ui) in owned {
+        if ui {
+          if self.ui_world.element(id).is_some() {
+            self.ui_world.destroy(id).expect("owned UI cleanup");
+          }
+        } else if self.world.object(id).is_some() {
+          self.world.destroy_object(id);
+        }
+        self.work_objects.remove(&id);
+      }
+      let ids = self
+        .scheduled_batches
+        .iter()
+        .filter(|batch| batch.scope == Some(scope))
+        .map(|batch| batch.batch_id)
+        .collect::<std::collections::HashSet<_>>();
+      for batch in &mut self.scheduled_batches {
+        if batch.scope == Some(scope) {
+          batch.groups.clear();
+          batch.retention = None;
+        }
+      }
+      self
+        .operations
+        .retain(|operation| !ids.contains(&operation.batch_id) && operation.scope != Some(scope));
+    }
+    if batch
+      .work_scope
+      .is_some_and(|scope| self.canceled_scopes.contains(&scope))
+    {
+      return;
+    }
+    let mut scheduled = ScheduledBatch::new(batch);
+    scheduled.retention = self.response_retention.clone();
+    self.scheduled_batches.push(scheduled);
     self.pump_presentation();
   }
 
-  pub(crate) fn schedule_operation(&mut self, operation: ScheduledOperation) {
+  pub(crate) fn schedule_operation(&mut self, mut operation: ScheduledOperation) {
+    if let Some(batch) = self
+      .scheduled_batches
+      .iter()
+      .find(|batch| batch.batch_id == operation.batch_id)
+    {
+      operation.retention = batch.retention.clone();
+      operation.scope = batch.scope;
+    }
     if operation.advance(&mut self.world, self.presentation_ms) {
       return;
     }
@@ -196,6 +254,7 @@ where
   pub(crate) fn reset_presentation(&mut self) {
     self.scheduled_batches.clear();
     self.operations.clear();
+    self.work_objects.clear();
   }
 
   pub(crate) fn advance_presentation_to(&mut self, target_ms: u64) {
@@ -225,6 +284,15 @@ where
   }
 
   pub(crate) fn pump_presentation(&mut self) {
+    if self.presentation_advancing {
+      return;
+    }
+    self.presentation_advancing = true;
+    self.advance_batches();
+    self.presentation_advancing = false;
+  }
+
+  fn advance_batches(&mut self) {
     loop {
       let operations = std::mem::take(&mut self.operations);
       self.operations = operations
@@ -243,10 +311,28 @@ where
           let group_index = self.scheduled_batches[index].next_group_index;
           self.scheduled_batches[index].next_group_index += 1;
           let mut failed = false;
+          let cancellation = self.scheduled_batches[index].cancellation;
           for (command_index, command) in group.commands.into_iter().enumerate() {
+            if cancellation && self.missing_cleanup_target(&command.body) {
+              continue;
+            }
+            self.record_work_creation(&command.body, self.scheduled_batches[index].scope);
+            let destroyed = matches!(
+              command.body,
+              CommandBody::VisualElementDestroy(_) | CommandBody::ObjectDestroy(_)
+            );
             if !self.execute_command(command, batch_id, group_index, command_index) {
               failed = true;
               break;
+            }
+            if destroyed {
+              self.work_objects.retain(|id, (_, ui)| {
+                if *ui {
+                  self.ui_world.element(*id).is_some()
+                } else {
+                  self.world.object(*id).is_some()
+                }
+              });
             }
           }
           if failed {
@@ -270,6 +356,36 @@ where
     }
   }
 
+  fn record_work_creation(&mut self, command: &CommandBody, scope: Option<u64>) {
+    let Some(scope) = scope else {
+      return;
+    };
+    match command {
+      CommandBody::VisualElementCreate(value) => self.record_work_ui(&value.node, scope),
+      CommandBody::ObjectCreate(value) => {
+        self
+          .work_objects
+          .insert(value.object.object_id, (scope, false));
+      }
+      _ => (),
+    }
+  }
+
+  fn record_work_ui(&mut self, node: &UiNode, scope: u64) {
+    self.work_objects.insert(node.object_id, (scope, true));
+    for child in &node.children {
+      self.record_work_ui(child, scope);
+    }
+  }
+
+  fn missing_cleanup_target(&self, command: &CommandBody) -> bool {
+    match command {
+      CommandBody::VisualElementDestroy(value) => self.ui_world.element(value.object_id).is_none(),
+      CommandBody::ObjectDestroy(value) => self.world.object(value.object_id).is_none(),
+      _ => false,
+    }
+  }
+
   fn batch_can_advance(&self, index: usize) -> bool {
     let batch = &self.scheduled_batches[index];
     if self
@@ -284,7 +400,11 @@ where
     }
     match batch.start {
       BatchStart::Now => true,
-      BatchStart::AfterEarlierBlockingWork => index == 0,
+      BatchStart::AfterEarlierBlockingWork => {
+        !self.scheduled_batches[..index].iter().any(|earlier| {
+          batch.scope.is_none() || earlier.scope == batch.scope || earlier.prepares_assets
+        })
+      }
       BatchStart::AfterEarlierAssetPreparation => !self.scheduled_batches[..index]
         .iter()
         .any(|earlier| earlier.prepares_assets),

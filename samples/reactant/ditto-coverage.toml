@@ -31,3 +31,39 @@ state = "rules-session.failed-recovery-menu"
 scenario = "rules session acceptance"
 checkpoint = "failed-recovery-menu"
 owner = "reactant-testing::sessions"
+
+[[mappings]]
+state = "rules-batches.render-ahead"
+scenario = "ordered game batches"
+checkpoint = "render-ahead"
+owner = "reactant-testing::batches"
+
+[[mappings]]
+state = "rules-batches.independent-menu"
+scenario = "ordered game batches"
+checkpoint = "independent-menu"
+owner = "reactant-testing::batches"
+
+[[mappings]]
+state = "rules-batches.game-canceled"
+scenario = "ordered game batches"
+checkpoint = "game-canceled"
+owner = "reactant-testing::batches"
+
+[[mappings]]
+state = "rules-batches.menu-operation-completed"
+scenario = "ordered game batches"
+checkpoint = "menu-operation-completed"
+owner = "reactant-testing::batches"
+
+[[mappings]]
+state = "rules-batches.draw-playing"
+scenario = "ordered game playback"
+checkpoint = "draw-playing"
+owner = "reactant-testing::batches"
+
+[[mappings]]
+state = "rules-batches.energy-playing"
+scenario = "ordered game playback"
+checkpoint = "energy-playing"
+owner = "reactant-testing::batches"

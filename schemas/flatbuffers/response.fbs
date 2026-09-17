@@ -213,6 +213,8 @@ table Batch {
   session_id:Uuid (required);
   caused_by_action_id:Uuid;
   start:BatchStart;
+  work_scope:ulong = null;
+  cancel_scope:ulong = null;
   groups:[ParallelCommandGroup] (required);
 }
 

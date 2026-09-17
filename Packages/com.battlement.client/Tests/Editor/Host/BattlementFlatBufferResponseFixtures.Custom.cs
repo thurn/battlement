@@ -88,6 +88,10 @@ namespace Battlement.Tests
             FixtureWire.Batch.StartBatch(builder);
             FixtureWire.Batch.AddGroups(builder, groupVector);
             FixtureWire.Batch.AddStart(builder, (CoreWire.BatchStart)batch.Start);
+            if (batch.WorkScope is ulong workScope)
+                FixtureWire.Batch.AddWorkScope(builder, workScope);
+            if (batch.CancelScope is ulong cancelScope)
+                FixtureWire.Batch.AddCancelScope(builder, cancelScope);
             if (batch.CausedByActionId is ActionId actionId)
                 FixtureWire.Batch.AddCausedByActionId(
                     builder,
