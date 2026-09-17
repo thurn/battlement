@@ -14,12 +14,19 @@ enum PreparedAssetKind:ubyte {
   AudioClip,
   TextMeshProFont,
   UiFont,
-  Mesh
+  Mesh,
+  MaterialParameters
 }
+
+enum MaterialParameterKind:ubyte { Float, Color, Vector }
+table MaterialParameterDeclaration { name:string (required); kind:MaterialParameterKind; }
+table MaterialParameterValue { name:string (required); kind:MaterialParameterKind; x:double; y:double; z:double; w:double; }
+table MaterialInstance { address:string (required); slot:uint; parameters:[MaterialParameterValue] (required); }
 
 table PreparedAsset {
   kind:PreparedAssetKind;
   address:string (required);
+  parameters:[MaterialParameterDeclaration];
 }
 
 table Scene {
@@ -216,6 +223,7 @@ table GameObject {
   kind:GameObjectKind;
   content:GameObjectContent (required);
   render_order:RenderOrder;
+  material_instances:[MaterialInstance];
 }
 
 enum InteractionDistanceKind:ubyte { Unbounded, Inclusive }

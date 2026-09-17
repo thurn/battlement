@@ -180,6 +180,12 @@ namespace Battlement
 
         public static class Renderer
         {
+            /// <summary>Replaces material overrides; empty restores authored slots.</summary>
+            public sealed record SetInstances(
+                ObjectId ObjectId,
+                System.Collections.Generic.IReadOnlyList<MaterialInstance> Instances
+            ) : CommandBody;
+
             /// <summary>Assign a prepared material to one or all renderer slots.</summary>
             /// <param name="ObjectId">Target primitive or prefab object.</param>
             /// <param name="Address">Prepared material address.</param>

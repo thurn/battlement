@@ -9,6 +9,7 @@ mod core_action_motion;
 mod core_client;
 mod geometry;
 mod limits;
+mod material;
 mod message_writer;
 mod motion;
 mod response;

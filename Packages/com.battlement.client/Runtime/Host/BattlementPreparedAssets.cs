@@ -26,6 +26,8 @@ namespace Battlement
         private readonly IBattlementAssetStorage storage;
         private readonly List<Entry> retired = new();
         private Dictionary<string, Entry> active = new(StringComparer.Ordinal);
+        private Dictionary<string, HashSet<MaterialParameterDeclaration>> materialDeclarations =
+            new(StringComparer.Ordinal);
         private Replacement? pending;
         private bool isDisposed;
 
@@ -75,6 +77,7 @@ namespace Battlement
                 );
             }
 
+            var requirements = new List<PreparedAsset.MaterialParameters>();
             var declarations = new List<(string Address, PreparedAsset Asset)>(assetCount);
             var validated = new Dictionary<string, PreparedAsset>(
                 assetCount,
@@ -83,6 +86,11 @@ namespace Battlement
             for (int index = 0; index < assetCount; index++)
             {
                 PreparedAsset asset = readAsset(index);
+                if (asset is PreparedAsset.MaterialParameters material)
+                {
+                    requirements.Add(material);
+                    asset = new PreparedAsset.Material(material.Address);
+                }
                 string address = AddressOf(asset);
                 if (Encoding.UTF8.GetByteCount(address) > MaximumStringBytes)
                 {
@@ -141,7 +149,7 @@ namespace Battlement
                     }
                 }
 
-                pending = new Replacement(target, additions, isAuthoritative);
+                pending = new Replacement(target, additions, isAuthoritative, requirements);
             }
             catch
             {
@@ -193,6 +201,18 @@ namespace Battlement
                     ValidatePreparedValue(addition);
                 }
 
+                foreach (PreparedAsset.MaterialParameters requirement in pending.Requirements)
+                {
+                    if (
+                        pending.Target[requirement.Address.Value].Handle.Value
+                        is not Material material
+                    )
+                        throw Failure(
+                            CoreErrorCode.AssetTypeMismatch,
+                            "Prepared material is not a Unity Material."
+                        );
+                    BattlementMaterialParameters.Validate(material, requirement.Parameters);
+                }
                 CommitPending();
                 return true;
             }
@@ -208,6 +228,24 @@ namespace Battlement
                 CancelPending();
                 return true;
             }
+        }
+
+        internal void ValidateMaterialInstances(IReadOnlyList<MaterialInstance>? instances)
+        {
+            if (instances is null)
+                return;
+            foreach (MaterialInstance instance in instances)
+            foreach (MaterialParameterValue value in instance.Parameters)
+                if (
+                    !materialDeclarations.TryGetValue(instance.Address.Value, out var declarations)
+                    || !declarations.Contains(
+                        new MaterialParameterDeclaration(value.Name, value.Kind)
+                    )
+                )
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        $"Material parameter '{value.Name}' was not declared in the prepared set."
+                    );
         }
 
         /// <summary>Looks up an active entry without loading or acquiring a lease.</summary>
@@ -283,6 +321,7 @@ namespace Battlement
                 }
             }
             active.Clear();
+            materialDeclarations.Clear();
         }
 
         public bool IsSessionEmpty => active.Count == 0 && retired.Count == 0 && pending is null;
@@ -306,6 +345,7 @@ namespace Battlement
             }
 
             active.Clear();
+            materialDeclarations.Clear();
             retired.Clear();
             isDisposed = true;
         }
@@ -333,6 +373,15 @@ namespace Battlement
                 }
             }
 
+            var declarations = new Dictionary<string, HashSet<MaterialParameterDeclaration>>(
+                StringComparer.Ordinal
+            );
+            foreach (PreparedAsset.MaterialParameters requirement in replacement.Requirements)
+                declarations.Add(
+                    requirement.Address.Value,
+                    new HashSet<MaterialParameterDeclaration>(requirement.Parameters)
+                );
+            materialDeclarations = declarations;
             active = replacement.Target;
             pending = null;
         }
@@ -482,7 +531,8 @@ namespace Battlement
         private sealed record Replacement(
             Dictionary<string, Entry> Target,
             List<Entry> Additions,
-            bool IsAuthoritative
+            bool IsAuthoritative,
+            IReadOnlyList<PreparedAsset.MaterialParameters> Requirements
         );
 
         private sealed class Lease : IBattlementAssetLease, IBattlementGeometryAnchorLease

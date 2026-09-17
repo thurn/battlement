@@ -173,6 +173,12 @@ pub(crate) fn read_prepared_asset(
       battlement::PreparedAsset::ParticleEffect(address.into())
     }
     world_wire::PreparedAssetKind::Material => battlement::PreparedAsset::Material(address.into()),
+    world_wire::PreparedAssetKind::MaterialParameters => {
+      battlement::PreparedAsset::MaterialParameters {
+        address: address.into(),
+        parameters: crate::material::declarations(value.parameters())?,
+      }
+    }
     world_wire::PreparedAssetKind::Texture => battlement::PreparedAsset::Texture(address.into()),
     world_wire::PreparedAssetKind::Sprite => battlement::PreparedAsset::Sprite(address.into()),
     world_wire::PreparedAssetKind::VectorImage => {
@@ -236,6 +242,7 @@ pub(crate) fn read_object(
       })
       .collect::<Result<Vec<_>, String>>()?,
     render_order: read_render_order(value.render_order())?,
+    material_instances: crate::material::instances(value.material_instances())?,
     drag_mode: match value.drag_mode() {
       world_wire::DragMode::None => None,
       world_wire::DragMode::SnapToPointer => Some(battlement::DragMode::SnapToPointer),

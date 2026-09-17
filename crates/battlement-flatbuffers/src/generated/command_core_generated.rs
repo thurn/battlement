@@ -2027,6 +2027,169 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum RendererInstancesPayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct RendererInstancesPayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for RendererInstancesPayload<'a> {
+        type Inner = RendererInstancesPayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> RendererInstancesPayload<'a> {
+        pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_INSTANCES: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          RendererInstancesPayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args RendererInstancesPayloadArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<RendererInstancesPayload<'bldr>> {
+          let mut builder = RendererInstancesPayloadBuilder::new(_fbb);
+          if let Some(x) = args.instances {
+            builder.add_instances(x);
+          }
+          if let Some(x) = args.object_id {
+            builder.add_object_id(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn object_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(RendererInstancesPayload::VT_OBJECT_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn instances(
+          &self,
+        ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialInstance<'a>>>
+        {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<
+                ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialInstance>>,
+              >>(RendererInstancesPayload::VT_INSTANCES, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for RendererInstancesPayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<
+              ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MaterialInstance>>,
+            >>("instances", Self::VT_INSTANCES, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct RendererInstancesPayloadArgs<'a> {
+        pub object_id: Option<&'a Uuid>,
+        pub instances: Option<
+          ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialInstance<'a>>>,
+          >,
+        >,
+      }
+      impl<'a> Default for RendererInstancesPayloadArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          RendererInstancesPayloadArgs {
+            object_id: None, // required field
+            instances: None, // required field
+          }
+        }
+      }
+
+      pub struct RendererInstancesPayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RendererInstancesPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_object_id(&mut self, object_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(RendererInstancesPayload::VT_OBJECT_ID, object_id);
+        }
+        #[inline]
+        pub fn add_instances(
+          &mut self,
+          instances: ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<MaterialInstance<'b>>>,
+          >,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            RendererInstancesPayload::VT_INSTANCES,
+            instances,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> RendererInstancesPayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          RendererInstancesPayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<RendererInstancesPayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, RendererInstancesPayload::VT_OBJECT_ID, "object_id");
+          self
+            .fbb_
+            .required(o, RendererInstancesPayload::VT_INSTANCES, "instances");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for RendererInstancesPayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("RendererInstancesPayload");
+          ds.field("object_id", &self.object_id());
+          ds.field("instances", &self.instances());
+          ds.finish()
+        }
+      }
       pub enum ObjectRenderOrderPayloadOffset {}
       #[derive(Copy, Clone, PartialEq)]
 

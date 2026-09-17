@@ -88,6 +88,15 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
         CommandBody::InputSetCamera(payload)
       }
     }
+    Kind::RendererSetInstances => {
+      let body = value
+        .payload_as_renderer_instances_payload()
+        .ok_or("material instances payload")?;
+      CommandBody::RendererSetInstances(battlement::RendererInstancesPayload {
+        object_id: object_id(body.object_id())?,
+        instances: crate::material::instances(Some(body.instances()))?,
+      })
+    }
     Kind::ObjectSetRenderOrder => {
       let body = value
         .payload_as_object_render_order_payload()

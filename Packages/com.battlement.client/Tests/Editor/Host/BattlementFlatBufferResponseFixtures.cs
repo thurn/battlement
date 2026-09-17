@@ -163,6 +163,10 @@ namespace Battlement.Tests
                     Wire.PreparedAssetKind.ParticleEffect,
                     value.Address.Value
                 ),
+                PreparedAsset.MaterialParameters value => (
+                    Wire.PreparedAssetKind.MaterialParameters,
+                    value.Address.Value
+                ),
                 PreparedAsset.Material value => (
                     Wire.PreparedAssetKind.Material,
                     value.Address.Value
@@ -191,11 +195,25 @@ namespace Battlement.Tests
                 PreparedAsset.UiFont value => (Wire.PreparedAssetKind.UiFont, value.Address.Value),
                 _ => throw new ArgumentException("Unknown prepared asset.", nameof(asset)),
             };
-            return Wire.PreparedAsset.CreatePreparedAsset(
-                builder,
-                kind,
-                builder.CreateString(address)
-            );
+            StringOffset assetAddress = builder.CreateString(address);
+            VectorOffset parameters = default;
+            if (asset is PreparedAsset.MaterialParameters material)
+            {
+                var entries = new int[material.Parameters.Count];
+                for (int i = 0; i < entries.Length; i++)
+                {
+                    MaterialParameterDeclaration p = material.Parameters[i];
+                    entries[i] = Wire
+                        .MaterialParameterDeclaration.CreateMaterialParameterDeclaration(
+                            builder,
+                            builder.CreateString(p.Name),
+                            (Wire.MaterialParameterKind)p.Kind
+                        )
+                        .Value;
+                }
+                parameters = OffsetVector(builder, entries);
+            }
+            return Wire.PreparedAsset.CreatePreparedAsset(builder, kind, assetAddress, parameters);
         }
 
         private static Offset<Wire.PanelInputConfiguration> WritePanelInput(

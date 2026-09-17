@@ -54,7 +54,7 @@ impl Delivery {
           snapshot.prepared_assets = self.assets.assets();
         }
         DeliveryMessage::Batch(batch) => {
-          let before = self.assets.assets().len();
+          let before = self.assets.revision();
           for group in &batch.groups {
             for command in &group.commands {
               assert!(
@@ -64,7 +64,7 @@ impl Delivery {
               self.assets.command(&command.body);
             }
           }
-          if self.assets.assets().len() != before {
+          if self.assets.revision() != before {
             let mut preparation = Batch::parallel(
               response.session_id,
               [CommandBody::AssetsReplaceSet(ReplaceAssetSetPayload {

@@ -39,6 +39,8 @@ pub enum CommandBody {
   ObjectSetActive(ObjectSetActivePayload),
   /// Set group-relative visual ordering without changing geometry or identity.
   ObjectSetRenderOrder(ObjectRenderOrderPayload),
+  /// Replaces renderer-local material overrides, restoring removed slots.
+  RendererSetInstances(RendererInstancesPayload),
   /// Reparent a game object within its current placement.
   ObjectReparent(ObjectReparentPayload),
   /// Set local position immediately.

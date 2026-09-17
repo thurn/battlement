@@ -27,6 +27,7 @@ pub use response_reader::read as read_response;
 mod assertions;
 mod executor;
 mod interpolation;
+mod material;
 mod operation;
 mod presentation;
 mod transform;

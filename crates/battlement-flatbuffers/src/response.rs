@@ -350,6 +350,22 @@ pub(crate) fn write_command<'a>(
         payload.as_union_value(),
       )
     }
+    CommandBody::RendererSetInstances(body) => {
+      let object_id = uuid(body.object_id.as_uuid());
+      let instances = crate::material::instances(builder, &body.instances);
+      let payload = command_wire::RendererInstancesPayload::create(
+        builder,
+        &command_wire::RendererInstancesPayloadArgs {
+          object_id: Some(&object_id),
+          instances: Some(instances),
+        },
+      );
+      (
+        wire::CoreCommandKind::RendererSetInstances,
+        wire::CoreCommandPayload::RendererInstancesPayload,
+        payload.as_union_value(),
+      )
+    }
     CommandBody::ObjectSetRenderOrder(body) => {
       let object_id = uuid(body.object_id.as_uuid());
       let render_order = write_render_order(builder, body.render_order);
@@ -2049,6 +2065,10 @@ fn write_prepared_asset<'a>(
       world_wire::PreparedAssetKind::ParticleEffect,
       value.as_str(),
     ),
+    battlement::PreparedAsset::MaterialParameters { address, .. } => (
+      world_wire::PreparedAssetKind::MaterialParameters,
+      address.as_str(),
+    ),
     battlement::PreparedAsset::Material(value) => {
       (world_wire::PreparedAssetKind::Material, value.as_str())
     }
@@ -2075,10 +2095,17 @@ fn write_prepared_asset<'a>(
       (world_wire::PreparedAssetKind::UiFont, value.as_str())
     }
   };
+  let parameters = match value {
+    battlement::PreparedAsset::MaterialParameters { parameters, .. } => {
+      Some(crate::material::declarations(builder, parameters))
+    }
+    _ => None,
+  };
   let address = builder.create_string(address);
   world_wire::PreparedAsset::create(
     builder,
     &world_wire::PreparedAssetArgs {
+      parameters,
       kind,
       address: Some(address),
     },
@@ -2297,6 +2324,10 @@ fn write_game_object<'a>(
     }
   };
   let object_id = uuid(value.object_id.as_uuid());
+  let material_instances = Some(crate::material::instances(
+    builder,
+    &value.material_instances,
+  ));
   let render_order = write_render_order(builder, value.render_order);
   Ok(world_wire::GameObject::create(
     builder,
@@ -2306,6 +2337,7 @@ fn write_game_object<'a>(
       parent_id: parent_id.as_ref(),
       active: value.active,
       render_order,
+      material_instances,
       local_transform: Some(&local_transform),
       pointer_events: Some(pointer_events),
       drag_mode: match value.drag_mode {
@@ -3070,6 +3102,9 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     wire::CoreCommandKind::ObjectDestroy | wire::CoreCommandKind::InputSetCamera => {
       wire::CoreCommandPayload::ObjectIdPayload
     }
+    wire::CoreCommandKind::RendererSetInstances => {
+      wire::CoreCommandPayload::RendererInstancesPayload
+    }
     wire::CoreCommandKind::ObjectSetRenderOrder => {
       wire::CoreCommandPayload::ObjectRenderOrderPayload
     }
@@ -3200,6 +3235,22 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     return Err(ProtocolError::new("response command kind/payload mismatch"));
   }
   match value.kind() {
+    wire::CoreCommandKind::RendererSetInstances => {
+      let body = value
+        .payload_as_renderer_instances_payload()
+        .expect("kind/payload checked");
+      require_uuid(body.object_id(), "material object")?;
+      crate::material::validate_instances(Some(body.instances()))?;
+    }
+    wire::CoreCommandKind::AssetsReplaceSet => {
+      for asset in value
+        .payload_as_replace_asset_set_payload()
+        .expect("kind/payload checked")
+        .assets()
+      {
+        crate::material::validate_asset(asset)?;
+      }
+    }
     wire::CoreCommandKind::ObjectSetRenderOrder => {
       let body = value
         .payload_as_object_render_order_payload()
@@ -3212,6 +3263,7 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
         .payload_as_object_create_payload()
         .expect("kind/payload checked");
       crate::response_validate::validate_render_order(body.object().render_order())?;
+      crate::material::validate_instances(body.object().material_instances())?;
     }
     wire::CoreCommandKind::VisualElementCreate => crate::response_validate::validate_create(
       value

@@ -8,10 +8,11 @@ use battlement::{
   CommandBody, Connect, CoreErrorCode, DisplayId, DisplayOrientation, DragMode, DragPayload,
   GameObject, GameObjectKind, GeometryGeneration, GeometryObservation, GeometryObservationBatch,
   GeometryObservationId, GeometryObservationResult, GeometryObservationTarget,
-  GeometryObservationUpdate, GeometryObservationValue, GeometryValue, LocalTransform, ObjectId,
-  ParallelCommandGroup, PointerEvent, PreparedAsset, Response, ResponseMessage, Scene, SceneId,
-  ScreenSize, SessionId, Snapshot, Style, UiDocument, UiFontAddress, UiNode, Vector3,
-  ViewportGeometry, ViewportRect,
+  GeometryObservationUpdate, GeometryObservationValue, GeometryValue, LocalTransform,
+  MaterialInstance, MaterialParameter, MaterialParameterDeclaration, MaterialParameterKind,
+  ObjectId, ParallelCommandGroup, PointerEvent, PreparedAsset, RendererInstancesPayload, Response,
+  ResponseMessage, Scene, SceneId, ScreenSize, SessionId, Snapshot, Style, UiDocument,
+  UiFontAddress, UiNode, Vector3, ViewportGeometry, ViewportRect,
 };
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use battlement_cloud_fake::diagnostics::{DiagnosticsFake, FakeDiagnosticsCommandOutcome};
@@ -949,4 +950,60 @@ fn assertion_helpers_report_missing_objects_and_world_transform() {
     client.world().world_transform(object_id(99))
   }));
   assert!(unknown.is_err());
+}
+
+#[test]
+fn undeclared_material_command_cannot_change_a_card() {
+  for partial in [false, true] {
+    let session_id = session(151);
+    let mut assets = FakeAssetCatalog::new();
+    assets.add_scene("test/scene");
+    assets.add_material_with_parameters(
+      "test/material",
+      [
+        MaterialParameter::<f64>::new("_Clip").value(0.0),
+        MaterialParameter::<f64>::new("_Other").value(1.0),
+      ],
+    );
+    let mut initial = snapshot(
+      session_id,
+      vec![
+        camera(),
+        GameObject::new(object_id(2), GameObjectKind::Quad { materials: vec![] }),
+      ],
+    );
+    initial.prepared_assets.push(if partial {
+      PreparedAsset::MaterialParameters {
+        address: "test/material".into(),
+        parameters: vec![MaterialParameterDeclaration {
+          name: "_Other".into(),
+          kind: MaterialParameterKind::Float,
+        }],
+      }
+    } else {
+      PreparedAsset::Material("test/material".into())
+    });
+    let engine = ScriptedEngine::new(
+      [Response::new(
+        session_id,
+        vec![ResponseMessage::Snapshot(initial)],
+      )],
+      [],
+      [Some(command(
+        session_id,
+        CommandBody::RendererSetInstances(RendererInstancesPayload {
+          object_id: object_id(2),
+          instances: vec![
+            MaterialInstance::new("test/material")
+              .parameter(MaterialParameter::<f64>::new("_Clip"), 0.5),
+          ],
+        }),
+        1,
+      ))],
+    );
+    let mut client = FakeClient::connect(engine, Arc::new(assets));
+    let before = client.assert_object(object_id(2)).clone();
+    assert!(std::panic::catch_unwind(AssertUnwindSafe(|| client.poll())).is_err());
+    assert_eq!(client.assert_object(object_id(2)), &before);
+  }
 }

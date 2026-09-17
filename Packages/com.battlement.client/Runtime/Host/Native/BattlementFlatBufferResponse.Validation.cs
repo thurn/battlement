@@ -136,7 +136,12 @@ namespace Battlement
                 RequireSnapshotString(asset.Address, "prepared asset address", allowEmpty: false);
                 if (!Enum.IsDefined(typeof(Wire.PreparedAssetKind), asset.Kind))
                     throw new InvalidDataException("A prepared asset kind is unknown.");
-                if (!assets.TryAdd(asset.Address, asset.Kind))
+                ValidateMaterialDeclaration(asset);
+                Wire.PreparedAssetKind normalized =
+                    asset.Kind == Wire.PreparedAssetKind.MaterialParameters
+                        ? Wire.PreparedAssetKind.Material
+                        : asset.Kind;
+                if (!assets.TryAdd(asset.Address, normalized))
                     throw new InvalidDataException("A prepared asset address is repeated.");
             }
 
@@ -518,6 +523,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
                     break;
@@ -922,6 +928,14 @@ namespace Battlement
                         return true;
                     }
                     return false;
+                }
+                case Wire.CoreCommandKind.RendererSetInstances:
+                {
+                    Wire.RendererInstancesPayload payload =
+                        value.PayloadAsRendererInstancesPayload();
+                    _ = ReadUuid(payload.ObjectId, "material object");
+                    ValidateMaterialInstances(payload.InstancesLength, payload.Instances);
+                    return true;
                 }
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 {
@@ -1366,6 +1380,7 @@ namespace Battlement
                 if (!Enum.IsDefined(typeof(Wire.PreparedAssetKind), asset.Kind))
                     throw new InvalidDataException("A prepared asset kind is unknown.");
                 RequireSnapshotString(asset.Address, "prepared asset address", allowEmpty: false);
+                ValidateMaterialDeclaration(asset);
                 if (!addresses.Add(asset.Address))
                     throw new InvalidDataException("A prepared asset address is repeated.");
             }
@@ -1570,6 +1585,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
                     break;
@@ -1993,6 +2009,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
                     break;
@@ -2332,6 +2349,7 @@ namespace Battlement
             RequireQuaternion(transform.Rotation);
             RequireFinite(transform.Scale);
             ValidateRenderOrder(value.RenderOrder);
+            ValidateMaterialInstances(value.MaterialInstancesLength, value.MaterialInstances);
             if (!Known(value.DragMode, Wire.DragMode.PreserveOffset))
                 throw new InvalidDataException("An object drag mode is unknown.");
             var pointerEvents = new HashSet<Wire.PointerEventKind>();
@@ -2342,6 +2360,48 @@ namespace Battlement
                     throw new InvalidDataException(
                         "Object pointer events are unknown or repeated."
                     );
+            }
+        }
+
+        private static void ValidateMaterialDeclaration(Wire.PreparedAsset asset)
+        {
+            if (asset.Kind != Wire.PreparedAssetKind.MaterialParameters)
+                return;
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < asset.ParametersLength; i++)
+            {
+                Wire.MaterialParameterDeclaration p = asset.Parameters(i)!.Value;
+                RequireSnapshotString(p.Name, "material parameter", allowEmpty: false);
+                if (!names.Add(p.Name) || !Known(p.Kind, Wire.MaterialParameterKind.Vector))
+                    throw new InvalidDataException("Invalid material parameter declaration.");
+            }
+        }
+
+        private static void ValidateMaterialInstances(
+            int count,
+            Func<int, Wire.MaterialInstance?> read
+        )
+        {
+            var slots = new HashSet<uint>();
+            for (int i = 0; i < count; i++)
+            {
+                Wire.MaterialInstance m = read(i)!.Value;
+                RequireSnapshotString(m.Address, "material instance", allowEmpty: false);
+                if (!slots.Add(m.Slot))
+                    throw new InvalidDataException("Duplicate material slot.");
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                for (int j = 0; j < m.ParametersLength; j++)
+                {
+                    Wire.MaterialParameterValue p = m.Parameters(j)!.Value;
+                    RequireSnapshotString(p.Name, "material parameter", allowEmpty: false);
+                    if (!names.Add(p.Name) || !Known(p.Kind, Wire.MaterialParameterKind.Vector))
+                        throw new InvalidDataException("Invalid material parameter value.");
+                    foreach (double n in new[] { p.X, p.Y, p.Z, p.W })
+                        if (double.IsNaN(n) || Math.Abs(n) > float.MaxValue)
+                            throw new InvalidDataException(
+                                "Material value must be a finite shader number."
+                            );
+                }
             }
         }
 
@@ -3317,6 +3377,8 @@ namespace Battlement
                 Wire.CoreCommandKind.ObjectCreate => Wire.CoreCommandPayload.ObjectCreatePayload,
                 Wire.CoreCommandKind.ObjectDestroy or Wire.CoreCommandKind.InputSetCamera =>
                     Wire.CoreCommandPayload.ObjectIdPayload,
+                Wire.CoreCommandKind.RendererSetInstances =>
+                    Wire.CoreCommandPayload.RendererInstancesPayload,
                 Wire.CoreCommandKind.ObjectSetRenderOrder =>
                     Wire.CoreCommandPayload.ObjectRenderOrderPayload,
                 Wire.CoreCommandKind.ObjectSetActive =>

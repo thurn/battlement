@@ -18,6 +18,7 @@ pub(crate) struct WorldDescription {
   pub(crate) transform: LocalTransform,
   pub(crate) active: bool,
   pub(crate) render_order: Option<RenderOrder>,
+  pub(crate) material_instances: Vec<battlement::MaterialInstance>,
   pub(crate) clickable: bool,
 }
 
@@ -77,6 +78,14 @@ impl HostAdapter for WorldAdapter {
           object_id,
           scale: desired.transform.scale,
         }),
+      ));
+    }
+    if previous.material_instances != desired.material_instances {
+      bodies.push(CommandBody::RendererSetInstances(
+        battlement::RendererInstancesPayload {
+          object_id,
+          instances: desired.material_instances.clone(),
+        },
       ));
     }
     if previous.render_order != desired.render_order {
@@ -143,6 +152,7 @@ impl HostAdapter for WorldAdapter {
     object.local_transform = description.transform;
     object.active = description.active;
     object.render_order = description.render_order;
+    object.material_instances = description.material_instances.clone();
     object.pointer_events = Self::events(description);
     Some(object)
   }

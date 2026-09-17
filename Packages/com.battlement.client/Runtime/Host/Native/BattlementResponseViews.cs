@@ -32,6 +32,7 @@ namespace Battlement
             DirectImageObjectCreate = null;
             DirectObjectActive = null;
             DirectRenderOrder = null;
+            DirectMaterialInstances = null;
             DirectRotation = null;
             DirectScale = null;
             DirectTweenRotation = null;
@@ -458,6 +459,14 @@ namespace Battlement
         internal BattlementDirectImageObjectCreate? DirectImageObjectCreate { get; }
         internal BattlementDirectObjectActive? DirectObjectActive { get; }
         internal BattlementDirectRenderOrder? DirectRenderOrder { get; }
+        internal BattlementDirectMaterialInstances? DirectMaterialInstances { get; }
+
+        internal BattlementCommandExecution(
+            CommandId id,
+            bool isBlocking,
+            BattlementDirectMaterialInstances materials
+        )
+            : this(id, isBlocking) => DirectMaterialInstances = materials;
 
         internal BattlementCommandExecution(
             CommandId id,
@@ -1577,6 +1586,17 @@ namespace Battlement
         internal bool Enabled { get; }
     }
 
+    internal readonly struct BattlementDirectMaterialInstances
+    {
+        internal BattlementDirectMaterialInstances(
+            ObjectId id,
+            IReadOnlyList<MaterialInstance> values
+        ) => (ObjectId, Values) = (id, values);
+
+        internal ObjectId ObjectId { get; }
+        internal IReadOnlyList<MaterialInstance> Values { get; }
+    }
+
     internal readonly struct BattlementDirectRenderOrder
     {
         internal BattlementDirectRenderOrder(ObjectId objectId, RenderOrder? order) =>
@@ -2053,7 +2073,8 @@ namespace Battlement
             double scaleZ,
             PointerEvent[] pointerEvents,
             DragMode? dragMode,
-            RenderOrder? renderOrder = null
+            RenderOrder? renderOrder = null,
+            IReadOnlyList<MaterialInstance>? materialInstances = null
         ) =>
             (
                 ObjectId,
@@ -2073,6 +2094,7 @@ namespace Battlement
                 ScaleZ,
                 PointerEvents,
                 DragMode,
+                MaterialInstances,
                 RenderOrder
             ) = (
                 objectId,
@@ -2092,6 +2114,7 @@ namespace Battlement
                 scaleZ,
                 pointerEvents,
                 dragMode,
+                materialInstances,
                 renderOrder
             );
 
@@ -2113,6 +2136,7 @@ namespace Battlement
         internal PointerEvent[] PointerEvents { get; }
         internal DragMode? DragMode { get; }
         internal RenderOrder? RenderOrder { get; }
+        internal IReadOnlyList<MaterialInstance>? MaterialInstances { get; }
     }
 
     internal readonly struct BattlementDirectImageObjectCreate
@@ -3025,6 +3049,24 @@ namespace Battlement
                     new BattlementDirectDestroyObject(
                         new ObjectId(
                             BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "destroyed object")
+                        )
+                    )
+                );
+                return true;
+            }
+            if (command.Kind == Wire.CoreCommandKind.RendererSetInstances)
+            {
+                Wire.RendererInstancesPayload payload = command.PayloadAsRendererInstancesPayload();
+                execution = new BattlementCommandExecution(
+                    commandId,
+                    command.Blocking,
+                    new BattlementDirectMaterialInstances(
+                        new ObjectId(
+                            BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "material object")
+                        ),
+                        BattlementMaterialParameters.Read(
+                            payload.InstancesLength,
+                            payload.Instances
                         )
                     )
                 );
@@ -4075,6 +4117,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
                 case Wire.CoreCommandKind.ObjectSetActive:
                     break;
@@ -4945,7 +4988,11 @@ namespace Battlement
                 scale.Z,
                 pointerEvents,
                 value.DragMode == Wire.DragMode.None ? null : (DragMode)((byte)value.DragMode - 1),
-                ReadRenderOrder(value.RenderOrder)
+                ReadRenderOrder(value.RenderOrder),
+                BattlementMaterialParameters.Read(
+                    value.MaterialInstancesLength,
+                    value.MaterialInstances
+                )
             );
         }
 
@@ -4966,6 +5013,9 @@ namespace Battlement
                 ),
                 Wire.PreparedAssetKind.ParticleEffect => new PreparedAsset.ParticleEffect(
                     new ParticleEffectAddress(address)
+                ),
+                Wire.PreparedAssetKind.MaterialParameters => BattlementMaterialParameters.Read(
+                    value
                 ),
                 Wire.PreparedAssetKind.Material => new PreparedAsset.Material(
                     new MaterialAddress(address)

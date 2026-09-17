@@ -239,3 +239,19 @@ screen = "world-text"
 [[states]]
 key = "world-text.tinted-translucent"
 screen = "world-text"
+
+[[states]]
+key = "world-materials.independent-values"
+screen = "world-materials"
+
+[[states]]
+key = "world-materials.left-changed"
+screen = "world-materials"
+
+[[states]]
+key = "world-materials.left-faded"
+screen = "world-materials"
+
+[[states]]
+key = "world-materials.left-restored"
+screen = "world-materials"

@@ -29,7 +29,8 @@ namespace Battlement
         LocalTransform LocalTransform,
         IReadOnlyList<PointerEvent> PointerEvents,
         DragMode? DragMode = null,
-        RenderOrder? RenderOrder = null
+        RenderOrder? RenderOrder = null,
+        IReadOnlyList<MaterialInstance>? MaterialInstances = null
     )
     {
         public BattlementGameObject(ObjectId id, GameObjectKind kind)

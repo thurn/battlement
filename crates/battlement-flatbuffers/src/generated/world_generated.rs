@@ -26,13 +26,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_PREPARED_ASSET_KIND: u8 = 11;
+      pub const ENUM_MAX_PREPARED_ASSET_KIND: u8 = 12;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_PREPARED_ASSET_KIND: [PreparedAssetKind; 12] = [
+      pub const ENUM_VALUES_PREPARED_ASSET_KIND: [PreparedAssetKind; 13] = [
         PreparedAssetKind::Scene,
         PreparedAssetKind::Prefab,
         PreparedAssetKind::ParticleEffect,
@@ -45,6 +45,7 @@ pub mod battlement {
         PreparedAssetKind::TextMeshProFont,
         PreparedAssetKind::UiFont,
         PreparedAssetKind::Mesh,
+        PreparedAssetKind::MaterialParameters,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -64,9 +65,10 @@ pub mod battlement {
         pub const TextMeshProFont: Self = Self(9);
         pub const UiFont: Self = Self(10);
         pub const Mesh: Self = Self(11);
+        pub const MaterialParameters: Self = Self(12);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 11;
+        pub const ENUM_MAX: u8 = 12;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::Scene,
           Self::Prefab,
@@ -80,6 +82,7 @@ pub mod battlement {
           Self::TextMeshProFont,
           Self::UiFont,
           Self::Mesh,
+          Self::MaterialParameters,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -96,6 +99,7 @@ pub mod battlement {
             Self::TextMeshProFont => Some("TextMeshProFont"),
             Self::UiFont => Some("UiFont"),
             Self::Mesh => Some("Mesh"),
+            Self::MaterialParameters => Some("MaterialParameters"),
             _ => None,
           }
         }
@@ -151,6 +155,100 @@ pub mod battlement {
       }
 
       impl ::flatbuffers::SimpleToVerifyInSlice for PreparedAssetKind {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_MATERIAL_PARAMETER_KIND: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_MATERIAL_PARAMETER_KIND: u8 = 2;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_MATERIAL_PARAMETER_KIND: [MaterialParameterKind; 3] = [
+        MaterialParameterKind::Float,
+        MaterialParameterKind::Color,
+        MaterialParameterKind::Vector,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct MaterialParameterKind(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl MaterialParameterKind {
+        pub const Float: Self = Self(0);
+        pub const Color: Self = Self(1);
+        pub const Vector: Self = Self(2);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 2;
+        pub const ENUM_VALUES: &'static [Self] = &[Self::Float, Self::Color, Self::Vector];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Float => Some("Float"),
+            Self::Color => Some("Color"),
+            Self::Vector => Some("Vector"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for MaterialParameterKind {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for MaterialParameterKind {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for MaterialParameterKind {
+        type Output = MaterialParameterKind;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for MaterialParameterKind {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for MaterialParameterKind {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for MaterialParameterKind {}
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -2423,6 +2521,585 @@ pub mod battlement {
       }
 
       impl ::flatbuffers::SimpleToVerifyInSlice for PanelInputRedirection {}
+      pub enum MaterialParameterDeclarationOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MaterialParameterDeclaration<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MaterialParameterDeclaration<'a> {
+        type Inner = MaterialParameterDeclaration<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MaterialParameterDeclaration<'a> {
+        pub const VT_NAME: ::flatbuffers::VOffsetT = 4;
+        pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MaterialParameterDeclaration { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MaterialParameterDeclarationArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MaterialParameterDeclaration<'bldr>> {
+          let mut builder = MaterialParameterDeclarationBuilder::new(_fbb);
+          if let Some(x) = args.name {
+            builder.add_name(x);
+          }
+          builder.add_kind(args.kind);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn name(&self) -> &'a str {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(
+                MaterialParameterDeclaration::VT_NAME,
+                None,
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn kind(&self) -> MaterialParameterKind {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MaterialParameterKind>(
+                MaterialParameterDeclaration::VT_KIND,
+                Some(MaterialParameterKind::Float),
+              )
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MaterialParameterDeclaration<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, true)?
+            .visit_field::<MaterialParameterKind>("kind", Self::VT_KIND, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MaterialParameterDeclarationArgs<'a> {
+        pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub kind: MaterialParameterKind,
+      }
+      impl<'a> Default for MaterialParameterDeclarationArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MaterialParameterDeclarationArgs {
+            name: None, // required field
+            kind: MaterialParameterKind::Float,
+          }
+        }
+      }
+
+      pub struct MaterialParameterDeclarationBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MaterialParameterDeclarationBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b str>) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MaterialParameterDeclaration::VT_NAME,
+            name,
+          );
+        }
+        #[inline]
+        pub fn add_kind(&mut self, kind: MaterialParameterKind) {
+          self.fbb_.push_slot::<MaterialParameterKind>(
+            MaterialParameterDeclaration::VT_KIND,
+            kind,
+            MaterialParameterKind::Float,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MaterialParameterDeclarationBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MaterialParameterDeclarationBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MaterialParameterDeclaration<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, MaterialParameterDeclaration::VT_NAME, "name");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MaterialParameterDeclaration<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MaterialParameterDeclaration");
+          ds.field("name", &self.name());
+          ds.field("kind", &self.kind());
+          ds.finish()
+        }
+      }
+      pub enum MaterialParameterValueOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MaterialParameterValue<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MaterialParameterValue<'a> {
+        type Inner = MaterialParameterValue<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MaterialParameterValue<'a> {
+        pub const VT_NAME: ::flatbuffers::VOffsetT = 4;
+        pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+        pub const VT_X: ::flatbuffers::VOffsetT = 8;
+        pub const VT_Y: ::flatbuffers::VOffsetT = 10;
+        pub const VT_Z: ::flatbuffers::VOffsetT = 12;
+        pub const VT_W: ::flatbuffers::VOffsetT = 14;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MaterialParameterValue { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MaterialParameterValueArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MaterialParameterValue<'bldr>> {
+          let mut builder = MaterialParameterValueBuilder::new(_fbb);
+          builder.add_w(args.w);
+          builder.add_z(args.z);
+          builder.add_y(args.y);
+          builder.add_x(args.x);
+          if let Some(x) = args.name {
+            builder.add_name(x);
+          }
+          builder.add_kind(args.kind);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn name(&self) -> &'a str {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(MaterialParameterValue::VT_NAME, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn kind(&self) -> MaterialParameterKind {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MaterialParameterKind>(
+                MaterialParameterValue::VT_KIND,
+                Some(MaterialParameterKind::Float),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn x(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(MaterialParameterValue::VT_X, Some(0.0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn y(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(MaterialParameterValue::VT_Y, Some(0.0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn z(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(MaterialParameterValue::VT_Z, Some(0.0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn w(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(MaterialParameterValue::VT_W, Some(0.0))
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MaterialParameterValue<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, true)?
+            .visit_field::<MaterialParameterKind>("kind", Self::VT_KIND, false)?
+            .visit_field::<f64>("x", Self::VT_X, false)?
+            .visit_field::<f64>("y", Self::VT_Y, false)?
+            .visit_field::<f64>("z", Self::VT_Z, false)?
+            .visit_field::<f64>("w", Self::VT_W, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MaterialParameterValueArgs<'a> {
+        pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub kind: MaterialParameterKind,
+        pub x: f64,
+        pub y: f64,
+        pub z: f64,
+        pub w: f64,
+      }
+      impl<'a> Default for MaterialParameterValueArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MaterialParameterValueArgs {
+            name: None, // required field
+            kind: MaterialParameterKind::Float,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 0.0,
+          }
+        }
+      }
+
+      pub struct MaterialParameterValueBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MaterialParameterValueBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b str>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<_>>(MaterialParameterValue::VT_NAME, name);
+        }
+        #[inline]
+        pub fn add_kind(&mut self, kind: MaterialParameterKind) {
+          self.fbb_.push_slot::<MaterialParameterKind>(
+            MaterialParameterValue::VT_KIND,
+            kind,
+            MaterialParameterKind::Float,
+          );
+        }
+        #[inline]
+        pub fn add_x(&mut self, x: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(MaterialParameterValue::VT_X, x, 0.0);
+        }
+        #[inline]
+        pub fn add_y(&mut self, y: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(MaterialParameterValue::VT_Y, y, 0.0);
+        }
+        #[inline]
+        pub fn add_z(&mut self, z: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(MaterialParameterValue::VT_Z, z, 0.0);
+        }
+        #[inline]
+        pub fn add_w(&mut self, w: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(MaterialParameterValue::VT_W, w, 0.0);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MaterialParameterValueBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MaterialParameterValueBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MaterialParameterValue<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, MaterialParameterValue::VT_NAME, "name");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MaterialParameterValue<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MaterialParameterValue");
+          ds.field("name", &self.name());
+          ds.field("kind", &self.kind());
+          ds.field("x", &self.x());
+          ds.field("y", &self.y());
+          ds.field("z", &self.z());
+          ds.field("w", &self.w());
+          ds.finish()
+        }
+      }
+      pub enum MaterialInstanceOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MaterialInstance<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MaterialInstance<'a> {
+        type Inner = MaterialInstance<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MaterialInstance<'a> {
+        pub const VT_ADDRESS: ::flatbuffers::VOffsetT = 4;
+        pub const VT_SLOT: ::flatbuffers::VOffsetT = 6;
+        pub const VT_PARAMETERS: ::flatbuffers::VOffsetT = 8;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MaterialInstance { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MaterialInstanceArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MaterialInstance<'bldr>> {
+          let mut builder = MaterialInstanceBuilder::new(_fbb);
+          if let Some(x) = args.parameters {
+            builder.add_parameters(x);
+          }
+          builder.add_slot(args.slot);
+          if let Some(x) = args.address {
+            builder.add_address(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn address(&self) -> &'a str {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(MaterialInstance::VT_ADDRESS, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn slot(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(MaterialInstance::VT_SLOT, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn parameters(
+          &self,
+        ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialParameterValue<'a>>>
+        {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<
+                ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialParameterValue>>,
+              >>(MaterialInstance::VT_PARAMETERS, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MaterialInstance<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("address", Self::VT_ADDRESS, true)?
+            .visit_field::<u32>("slot", Self::VT_SLOT, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<
+              ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MaterialParameterValue>>,
+            >>("parameters", Self::VT_PARAMETERS, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MaterialInstanceArgs<'a> {
+        pub address: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub slot: u32,
+        pub parameters: Option<
+          ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialParameterValue<'a>>>,
+          >,
+        >,
+      }
+      impl<'a> Default for MaterialInstanceArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MaterialInstanceArgs {
+            address: None, // required field
+            slot: 0,
+            parameters: None, // required field
+          }
+        }
+      }
+
+      pub struct MaterialInstanceBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MaterialInstanceBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_address(&mut self, address: ::flatbuffers::WIPOffset<&'b str>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<_>>(MaterialInstance::VT_ADDRESS, address);
+        }
+        #[inline]
+        pub fn add_slot(&mut self, slot: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(MaterialInstance::VT_SLOT, slot, 0);
+        }
+        #[inline]
+        pub fn add_parameters(
+          &mut self,
+          parameters: ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<MaterialParameterValue<'b>>>,
+          >,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MaterialInstance::VT_PARAMETERS,
+            parameters,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MaterialInstanceBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MaterialInstanceBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MaterialInstance<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, MaterialInstance::VT_ADDRESS, "address");
+          self
+            .fbb_
+            .required(o, MaterialInstance::VT_PARAMETERS, "parameters");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MaterialInstance<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MaterialInstance");
+          ds.field("address", &self.address());
+          ds.field("slot", &self.slot());
+          ds.field("parameters", &self.parameters());
+          ds.finish()
+        }
+      }
       pub enum PreparedAssetOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -2443,6 +3120,7 @@ pub mod battlement {
       impl<'a> PreparedAsset<'a> {
         pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
         pub const VT_ADDRESS: ::flatbuffers::VOffsetT = 6;
+        pub const VT_PARAMETERS: ::flatbuffers::VOffsetT = 8;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -2459,6 +3137,9 @@ pub mod battlement {
           args: &'args PreparedAssetArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<PreparedAsset<'bldr>> {
           let mut builder = PreparedAssetBuilder::new(_fbb);
+          if let Some(x) = args.parameters {
+            builder.add_parameters(x);
+          }
           if let Some(x) = args.address {
             builder.add_address(x);
           }
@@ -2490,6 +3171,27 @@ pub mod battlement {
               .unwrap()
           }
         }
+        #[inline]
+        pub fn parameters(
+          &self,
+        ) -> Option<
+          ::flatbuffers::Vector<
+            'a,
+            ::flatbuffers::ForwardsUOffset<MaterialParameterDeclaration<'a>>,
+          >,
+        > {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self._tab.get::<::flatbuffers::ForwardsUOffset<
+              ::flatbuffers::Vector<
+                'a,
+                ::flatbuffers::ForwardsUOffset<MaterialParameterDeclaration>,
+              >,
+            >>(PreparedAsset::VT_PARAMETERS, None)
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for PreparedAsset<'_> {
@@ -2501,6 +3203,12 @@ pub mod battlement {
           v.visit_table(pos)?
             .visit_field::<PreparedAssetKind>("kind", Self::VT_KIND, false)?
             .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("address", Self::VT_ADDRESS, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<
+              ::flatbuffers::Vector<
+                '_,
+                ::flatbuffers::ForwardsUOffset<MaterialParameterDeclaration>,
+              >,
+            >>("parameters", Self::VT_PARAMETERS, false)?
             .finish();
           Ok(())
         }
@@ -2508,6 +3216,14 @@ pub mod battlement {
       pub struct PreparedAssetArgs<'a> {
         pub kind: PreparedAssetKind,
         pub address: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub parameters: Option<
+          ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<
+              'a,
+              ::flatbuffers::ForwardsUOffset<MaterialParameterDeclaration<'a>>,
+            >,
+          >,
+        >,
       }
       impl<'a> Default for PreparedAssetArgs<'a> {
         #[inline]
@@ -2515,6 +3231,7 @@ pub mod battlement {
           PreparedAssetArgs {
             kind: PreparedAssetKind::Scene,
             address: None, // required field
+            parameters: None,
           }
         }
       }
@@ -2539,6 +3256,21 @@ pub mod battlement {
             .push_slot_always::<::flatbuffers::WIPOffset<_>>(PreparedAsset::VT_ADDRESS, address);
         }
         #[inline]
+        pub fn add_parameters(
+          &mut self,
+          parameters: ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<
+              'b,
+              ::flatbuffers::ForwardsUOffset<MaterialParameterDeclaration<'b>>,
+            >,
+          >,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            PreparedAsset::VT_PARAMETERS,
+            parameters,
+          );
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> PreparedAssetBuilder<'a, 'b, A> {
@@ -2561,6 +3293,7 @@ pub mod battlement {
           let mut ds = f.debug_struct("PreparedAsset");
           ds.field("kind", &self.kind());
           ds.field("address", &self.address());
+          ds.field("parameters", &self.parameters());
           ds.finish()
         }
       }
@@ -6670,6 +7403,7 @@ pub mod battlement {
         pub const VT_CONTENT_TYPE: ::flatbuffers::VOffsetT = 20;
         pub const VT_CONTENT: ::flatbuffers::VOffsetT = 22;
         pub const VT_RENDER_ORDER: ::flatbuffers::VOffsetT = 24;
+        pub const VT_MATERIAL_INSTANCES: ::flatbuffers::VOffsetT = 26;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6686,6 +7420,9 @@ pub mod battlement {
           args: &'args GameObjectArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<GameObject<'bldr>> {
           let mut builder = GameObjectBuilder::new(_fbb);
+          if let Some(x) = args.material_instances {
+            builder.add_material_instances(x);
+          }
           if let Some(x) = args.render_order {
             builder.add_render_order(x);
           }
@@ -6847,6 +7584,20 @@ pub mod battlement {
           }
         }
         #[inline]
+        pub fn material_instances(
+          &self,
+        ) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialInstance<'a>>>>
+        {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self._tab.get::<::flatbuffers::ForwardsUOffset<
+              ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialInstance>>,
+            >>(GameObject::VT_MATERIAL_INSTANCES, None)
+          }
+        }
+        #[inline]
         #[allow(non_snake_case)]
         pub fn content_as_ui_document_object(&self) -> Option<UiDocumentObject<'a>> {
           if self.content_type() == GameObjectContent::UiDocumentObject {
@@ -7003,6 +7754,7 @@ pub mod battlement {
         }
      })?
      .visit_field::<::flatbuffers::ForwardsUOffset<RenderOrder>>("render_order", Self::VT_RENDER_ORDER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MaterialInstance>>>>("material_instances", Self::VT_MATERIAL_INSTANCES, false)?
      .finish();
           Ok(())
         }
@@ -7020,6 +7772,11 @@ pub mod battlement {
         pub content_type: GameObjectContent,
         pub content: Option<::flatbuffers::WIPOffset<::flatbuffers::UnionWIPOffset>>,
         pub render_order: Option<::flatbuffers::WIPOffset<RenderOrder<'a>>>,
+        pub material_instances: Option<
+          ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialInstance<'a>>>,
+          >,
+        >,
       }
       impl<'a> Default for GameObjectArgs<'a> {
         #[inline]
@@ -7036,6 +7793,7 @@ pub mod battlement {
             content_type: GameObjectContent::NONE,
             content: None, // required field
             render_order: None,
+            material_instances: None,
           }
         }
       }
@@ -7133,6 +7891,18 @@ pub mod battlement {
               GameObject::VT_RENDER_ORDER,
               render_order,
             );
+        }
+        #[inline]
+        pub fn add_material_instances(
+          &mut self,
+          material_instances: ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<MaterialInstance<'b>>>,
+          >,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            GameObject::VT_MATERIAL_INSTANCES,
+            material_instances,
+          );
         }
         #[inline]
         pub fn new(
@@ -7271,6 +8041,7 @@ pub mod battlement {
             }
           };
           ds.field("render_order", &self.render_order());
+          ds.field("material_instances", &self.material_instances());
           ds.finish()
         }
       }

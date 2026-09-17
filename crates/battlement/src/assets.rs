@@ -19,6 +19,13 @@ pub enum PreparedAsset {
   Mesh(MeshAddress),
   /// A material assignable to a supported renderer.
   Material(MaterialAddress),
+  /// A material whose required named shader properties are checked before use.
+  MaterialParameters {
+    /// Prepared material address.
+    address: MaterialAddress,
+    /// Named properties required by dependent commands.
+    parameters: Vec<crate::MaterialParameterDeclaration>,
+  },
   /// A texture used by an image quad.
   Texture(TextureAddress),
   /// A sprite used by UI Toolkit images and backgrounds.

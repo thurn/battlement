@@ -64,6 +64,15 @@ pub struct ObjectRenderOrderPayload {
   pub render_order: Option<RenderOrder>,
 }
 
+/// Replaces all instance materials on a renderer.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RendererInstancesPayload {
+  /// Target renderer object.
+  pub object_id: ObjectId,
+  /// Complete override set; omitted slots restore original materials.
+  pub instances: Vec<crate::MaterialInstance>,
+}
+
 /// Reparents a game object within its current placement.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ObjectReparentPayload {

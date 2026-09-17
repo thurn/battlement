@@ -53,5 +53,6 @@ pub use sample_constants::{
   MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, Screen,
 };
 
+mod world_material_proof;
 mod world_proof;
 mod world_text_proof;

@@ -9,6 +9,9 @@ use crate::{
 type Id = [u8; 16];
 
 pub(crate) fn validate_snapshot(value: response_wire::Snapshot<'_>) -> Result<(), ProtocolError> {
+  for asset in value.prepared_assets() {
+    crate::material::validate_asset(asset)?;
+  }
   let mut scene_ids = HashSet::new();
   for scene in value.scenes() {
     require_uuid(scene.scene_id(), "snapshot scene")?;
@@ -184,6 +187,7 @@ fn validate_game_object(
   scene_ids: &HashSet<Id>,
 ) -> Result<(), ProtocolError> {
   validate_render_order(value.render_order())?;
+  crate::material::validate_instances(value.material_instances())?;
   let parent_scene = value.parent_scene();
   match parent_scene.kind() {
     world_wire::ParentSceneKind::PrimaryScene | world_wire::ParentSceneKind::Persistent => {

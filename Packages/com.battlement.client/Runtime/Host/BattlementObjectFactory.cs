@@ -135,10 +135,15 @@ namespace Battlement
             BattlementDirectUiDocumentObjectCreate description
         ) => (BattlementUiDocuments.CreateGameObject(description.State, preparedAssets), null);
 
-        public static void ApplyStableState(GameObject gameObject, BattlementGameObject description)
+        public void ApplyStableState(GameObject gameObject, BattlementGameObject description)
         {
             ApplyLocalTransform(gameObject.transform, description.LocalTransform);
             BattlementRenderOrder.Apply(gameObject, description.RenderOrder);
+            BattlementMaterialInstances.Apply(
+                gameObject,
+                preparedAssets,
+                description.MaterialInstances
+            );
             gameObject.SetActive(description.IsActive);
             if (description.Kind is GameObjectKind.Prefab { Animator: { } animator })
             {
@@ -146,7 +151,7 @@ namespace Battlement
             }
         }
 
-        public static void ApplyStableState(
+        public void ApplyStableState(
             GameObject gameObject,
             BattlementDirectObjectPlacement description
         )
@@ -171,6 +176,11 @@ namespace Battlement
                 (float)description.ScaleZ
             );
             BattlementRenderOrder.Apply(gameObject, description.RenderOrder);
+            BattlementMaterialInstances.Apply(
+                gameObject,
+                preparedAssets,
+                description.MaterialInstances
+            );
             gameObject.SetActive(description.Active);
         }
 

@@ -103,7 +103,8 @@ enum CoreCommandKind:ubyte {
   MotionDragControl,
   GeometryObservationUpdate,
   AccessibilityUpdate,
-  ObjectSetRenderOrder
+  ObjectSetRenderOrder,
+  RendererSetInstances
 }
 
 union CoreCommandPayload {
@@ -190,7 +191,8 @@ union CoreCommandPayload {
   MotionDragControlOperation,
   GeometryObservationUpdate,
   AccessibilityUpdate,
-  ObjectRenderOrderPayload
+  ObjectRenderOrderPayload,
+  RendererInstancesPayload
 }
 
 table CoreCommand {

@@ -19,7 +19,12 @@ namespace Battlement.Tests
             (Wire.GameObjectKind kind, Wire.GameObjectContent contentType, int content) =
                 WriteObjectContent(builder, value.Kind);
             Offset<Wire.RenderOrder> renderOrder = WriteRenderOrder(builder, value.RenderOrder);
+            VectorOffset instances = WriteInstances(
+                builder,
+                value.MaterialInstances ?? Array.Empty<MaterialInstance>()
+            );
             Wire.GameObject.StartGameObject(builder);
+            Wire.GameObject.AddMaterialInstances(builder, instances);
             Wire.GameObject.AddRenderOrder(builder, renderOrder);
             Wire.GameObject.AddContent(builder, content);
             Wire.GameObject.AddContentType(builder, contentType);

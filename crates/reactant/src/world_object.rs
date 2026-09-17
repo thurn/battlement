@@ -25,6 +25,20 @@ impl<P> WorldObject<P> {
     }
   }
 
+  /// Applies a prepared material and typed renderer-local values to one slot.
+  pub fn material(mut self, material: battlement::MaterialInstance) -> Self {
+    assert!(
+      !self
+        .group
+        .material_instances
+        .iter()
+        .any(|m| m.slot == material.slot),
+      "duplicate material slot"
+    );
+    self.group.material_instances.push(material);
+    self
+  }
+
   /// Preserves the compatible native host across logical parents and attachments.
   pub fn id(mut self, id: Uuid) -> Self {
     self.group = self.group.id(id);

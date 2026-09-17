@@ -224,6 +224,11 @@ where
         );
       }
       CommandBody::RendererSetMaterial(value) => self.set_material(value),
+      CommandBody::RendererSetInstances(value) => {
+        self
+          .world
+          .set_material_instances(value.object_id, value.instances.clone(), &self.assets)
+      }
       CommandBody::CameraSetEnabled(value) => self
         .world
         .set_camera_enabled(value.object_id, value.enabled),
@@ -622,6 +627,12 @@ where
       PreparedAsset::Prefab(value) => self.assets.prefab(value).is_some(),
       PreparedAsset::ParticleEffect(value) => self.assets.has_particle_effect(value),
       PreparedAsset::Material(value) => self.assets.has_material(value),
+      PreparedAsset::MaterialParameters {
+        address,
+        parameters,
+      } => self
+        .assets
+        .validate_material_parameters(address, parameters),
       PreparedAsset::Texture(value) => self.assets.has_texture(value),
       PreparedAsset::Sprite(value) => self.assets.has_sprite(value),
       PreparedAsset::VectorImage(value) => self.assets.has_vector_image(value),

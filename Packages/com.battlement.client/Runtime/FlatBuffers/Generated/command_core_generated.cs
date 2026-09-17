@@ -426,6 +426,47 @@ static public class ObjectSetActivePayloadVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct RendererInstancesPayload : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static RendererInstancesPayload GetRootAsRendererInstancesPayload(ByteBuffer _bb) { return GetRootAsRendererInstancesPayload(_bb, new RendererInstancesPayload()); }
+  public static RendererInstancesPayload GetRootAsRendererInstancesPayload(ByteBuffer _bb, RendererInstancesPayload obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public RendererInstancesPayload __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? ObjectId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MaterialInstance? Instances(int j) { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.MaterialInstance?)(new Battlement.FlatBuffers.Generated.MaterialInstance()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int InstancesLength { get { int o = __p.__offset(6); return o != 0 ? __p.__vector_len(o) : 0; } }
+
+  public static void StartRendererInstancesPayload(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }
+  public static void AddInstances(FlatBufferBuilder builder, VectorOffset instancesOffset) { builder.AddOffset(1, instancesOffset.Value, 0); }
+  public static VectorOffset CreateInstancesVector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MaterialInstance>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateInstancesVectorBlock(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MaterialInstance>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateInstancesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Battlement.FlatBuffers.Generated.MaterialInstance>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateInstancesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Battlement.FlatBuffers.Generated.MaterialInstance>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartInstancesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static Offset<Battlement.FlatBuffers.Generated.RendererInstancesPayload> EndRendererInstancesPayload(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // object_id
+    builder.Required(o, 6);  // instances
+    return new Offset<Battlement.FlatBuffers.Generated.RendererInstancesPayload>(o);
+  }
+}
+
+
+static public class RendererInstancesPayloadVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*ObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyVectorOfTables(tablePos, 6 /*Instances*/, Battlement.FlatBuffers.Generated.MaterialInstanceVerify.Verify, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct ObjectRenderOrderPayload : IFlatbufferObject
 {
   private Table __p;

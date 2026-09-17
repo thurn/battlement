@@ -148,6 +148,8 @@ impl Validate for Snapshot {
       validate_parent_chain(object, primary_scene, &objects)?;
     }
 
+    crate::material_validation::prepared(self)?;
+
     if let Some(input_camera_id) = self.input_camera_id {
       let input_camera = objects
         .get(&input_camera_id)
@@ -174,6 +176,9 @@ impl Validate for Command {
     match &self.body {
       CommandBody::AssetsReplaceSet(value) => {
         prepared_assets(&value.assets)?;
+      }
+      CommandBody::RendererSetInstances(value) => {
+        crate::material_validation::instances(&value.instances)?
       }
       CommandBody::ObjectCreate(value) => {
         validate_object_shape(&value.object)?;
@@ -279,6 +284,9 @@ fn prepared_assets(
       PreparedAsset::Prefab(value) => (value.as_str(), PreparedKind::Prefab),
       PreparedAsset::ParticleEffect(value) => (value.as_str(), PreparedKind::ParticleEffect),
       PreparedAsset::Material(value) => (value.as_str(), PreparedKind::Material),
+      PreparedAsset::MaterialParameters { address, .. } => {
+        (address.as_str(), PreparedKind::Material)
+      }
       PreparedAsset::Texture(value) => (value.as_str(), PreparedKind::Texture),
       PreparedAsset::Sprite(value) => (value.as_str(), PreparedKind::Sprite),
       PreparedAsset::VectorImage(value) => (value.as_str(), PreparedKind::VectorImage),
@@ -462,6 +470,9 @@ fn validate_object(
   prepared: &HashMap<&str, PreparedKind>,
 ) -> Result<(), ValidationError> {
   validate_object_shape(object)?;
+  for m in &object.material_instances {
+    require_asset(prepared, m.address.as_str(), PreparedKind::Material)?;
+  }
 
   match &object.kind {
     GameObjectKind::Image { image } => {
@@ -495,6 +506,7 @@ fn validate_object(
 }
 
 fn validate_object_shape(object: &GameObject) -> Result<(), ValidationError> {
+  crate::material_validation::instances(&object.material_instances)?;
   validate_quaternion(object.local_transform.rotation)?;
   match &object.kind {
     GameObjectKind::Text { .. } => Ok(()),

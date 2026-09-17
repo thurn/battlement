@@ -176,6 +176,8 @@ namespace Battlement
         {
             try
             {
+                foreach (BattlementDirectSnapshotObject value in replacement.DirectObjects!)
+                    preparedAssets.ValidateMaterialInstances(value.Placement.MaterialInstances);
                 BattlementPreparedObjectValidator.Validate(
                     replacement.DirectObjects!,
                     preparedAssets,

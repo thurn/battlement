@@ -258,6 +258,14 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
   push_body(
     &mut commands,
     &mut next,
+    CommandBody::RendererSetInstances(battlement::RendererInstancesPayload {
+      object_id: object_id(3),
+      instances: vec![battlement::MaterialInstance::new("test/material")],
+    }),
+  );
+  push_body(
+    &mut commands,
+    &mut next,
     CommandBody::RendererSetMaterial(battlement::PropertyCommand::canceling(
       battlement::SetMaterialPayload {
         object_id: object_id(3),

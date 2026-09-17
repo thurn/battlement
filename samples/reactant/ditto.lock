@@ -503,6 +503,46 @@ source = "d2449a4dc3e6edb93fa113e7758195c2a4d0a87c7c20c64783af87427356bdea"
 
 [[baselines]]
 profile = "macos"
+scenario = "world material independence"
+checkpoint = "independent-values"
+sha256 = "3ac6f5a7bfa781567a18d02eb0eaddb72447c8ca15fbd3ab422a9650bc973304"
+width = 1280
+height = 720
+size_bytes = 48877
+source = "60c38fcb6574a0f2f919d8f71d223d2ce8eb75eead018de7a9f4f15efedbc3ee"
+
+[[baselines]]
+profile = "macos"
+scenario = "world material independence"
+checkpoint = "left-changed"
+sha256 = "2fe966d0e0c9307f9e810d5d1ba7717e8594c29bd94bc29c2f259ac0f51ba14c"
+width = 1280
+height = 720
+size_bytes = 47460
+source = "60c38fcb6574a0f2f919d8f71d223d2ce8eb75eead018de7a9f4f15efedbc3ee"
+
+[[baselines]]
+profile = "macos"
+scenario = "world material independence"
+checkpoint = "left-faded"
+sha256 = "3474a63a78436c42386755c1fc6ef681e7a8a200d4fe7c1ed9a012e5c054c0ba"
+width = 1280
+height = 720
+size_bytes = 47269
+source = "60c38fcb6574a0f2f919d8f71d223d2ce8eb75eead018de7a9f4f15efedbc3ee"
+
+[[baselines]]
+profile = "macos"
+scenario = "world material independence"
+checkpoint = "left-restored"
+sha256 = "152b83eb14ab16a9e0b4a727c5ad6652c93336156823d83fefdaa83dd03aa899"
+width = 1280
+height = 720
+size_bytes = 48810
+source = "60c38fcb6574a0f2f919d8f71d223d2ce8eb75eead018de7a9f4f15efedbc3ee"
+
+[[baselines]]
+profile = "macos"
 scenario = "world primitives"
 checkpoint = "back"
 sha256 = "e834c2c170443db413b2013917812cb7004e1acac6ab9114dc74bef9234e3708"

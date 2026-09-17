@@ -361,3 +361,27 @@ state = "world-text.tinted-translucent"
 scenario = "world text ordering"
 checkpoint = "tinted-translucent"
 owner = "reactant-testing::world_text"
+
+[[mappings]]
+state = "world-materials.independent-values"
+scenario = "world material independence"
+checkpoint = "independent-values"
+owner = "reactant-testing::world_materials"
+
+[[mappings]]
+state = "world-materials.left-changed"
+scenario = "world material independence"
+checkpoint = "left-changed"
+owner = "reactant-testing::world_materials"
+
+[[mappings]]
+state = "world-materials.left-faded"
+scenario = "world material independence"
+checkpoint = "left-faded"
+owner = "reactant-testing::world_materials"
+
+[[mappings]]
+state = "world-materials.left-restored"
+scenario = "world material independence"
+checkpoint = "left-restored"
+owner = "reactant-testing::world_materials"

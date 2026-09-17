@@ -12,20 +12,30 @@ use crate::{
 #[derive(Default)]
 pub struct AssetDependencies {
   assets: BTreeMap<String, PreparedAsset>,
+  revision: u64,
 }
 
 impl AssetDependencies {
   /// Adds an asset, rejecting conflicting types for the same address.
   pub fn insert(&mut self, asset: PreparedAsset) {
     let key = self::address(&asset).to_owned();
-    if let Some(existing) = self.assets.get(&key) {
-      assert_eq!(
-        existing, &asset,
-        "asset address has conflicting kinds: {key}"
-      );
+    if let Some(existing) = self.assets.get_mut(&key) {
+      let merged = crate::material_dependencies::merge(existing, &asset);
+      if *existing != merged {
+        *existing = merged;
+        self.revision += 1;
+      }
     } else {
-      self.assets.insert(key, asset);
+      self
+        .assets
+        .insert(key, crate::material_dependencies::merge(&asset, &asset));
+      self.revision += 1;
     }
+  }
+
+  /// Changes whenever a new asset or required material property is discovered.
+  pub fn revision(&self) -> u64 {
+    self.revision
   }
 
   /// Returns the complete preparation set.
@@ -61,6 +71,7 @@ impl AssetDependencies {
     match command {
       CommandBody::SceneLoad(value) => self.insert(PreparedAsset::Scene(value.address.clone())),
       CommandBody::ObjectCreate(value) => self.object(&value.object),
+      CommandBody::RendererSetInstances(value) => self.material_instances(&value.instances),
       CommandBody::RendererSetMaterial(value) => {
         self.insert(PreparedAsset::Material(value.payload.address.clone()))
       }
@@ -92,7 +103,17 @@ impl AssetDependencies {
     }
   }
 
+  pub(crate) fn material_instances(&mut self, instances: &[crate::MaterialInstance]) {
+    for instance in instances {
+      self.insert(PreparedAsset::MaterialParameters {
+        address: instance.address.clone(),
+        parameters: instance.declarations(),
+      });
+    }
+  }
+
   fn object(&mut self, object: &GameObject) {
+    self.material_instances(&object.material_instances);
     match &object.kind {
       GameObjectKind::Mesh { address, materials } => {
         self.insert(PreparedAsset::Mesh(address.clone()));
@@ -201,6 +222,7 @@ pub fn address(asset: &PreparedAsset) -> &str {
     PreparedAsset::Prefab(value) | PreparedAsset::ParticleEffect(value) => value.as_str(),
     PreparedAsset::Mesh(value) => value.as_str(),
     PreparedAsset::Material(value) => value.as_str(),
+    PreparedAsset::MaterialParameters { address, .. } => address.as_str(),
     PreparedAsset::Texture(value) => value.as_str(),
     PreparedAsset::Sprite(value) => value.as_str(),
     PreparedAsset::VectorImage(value) => value.as_str(),

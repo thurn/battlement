@@ -22,12 +22,16 @@ pub mod assets;
 mod command_builders;
 pub mod commands;
 pub mod geometry;
+pub mod material;
+mod material_dependencies;
+mod material_validation;
 mod message_builders;
 pub mod messages;
 mod motion_asset_dependencies;
 mod object_builders;
 pub mod objects;
 pub mod render_order;
+pub use material::*;
 pub mod validation;
 
 pub use accessibility::*;

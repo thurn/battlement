@@ -156,13 +156,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 96;
+      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 97;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 97] = [
+      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 98] = [
         CoreCommandKind::ApplicationOpenUrl,
         CoreCommandKind::Diagnostics,
         CoreCommandKind::AssetsReplaceSet,
@@ -260,6 +260,7 @@ pub mod battlement {
         CoreCommandKind::GeometryObservationUpdate,
         CoreCommandKind::AccessibilityUpdate,
         CoreCommandKind::ObjectSetRenderOrder,
+        CoreCommandKind::RendererSetInstances,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -364,9 +365,10 @@ pub mod battlement {
         pub const GeometryObservationUpdate: Self = Self(94);
         pub const AccessibilityUpdate: Self = Self(95);
         pub const ObjectSetRenderOrder: Self = Self(96);
+        pub const RendererSetInstances: Self = Self(97);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 96;
+        pub const ENUM_MAX: u8 = 97;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::ApplicationOpenUrl,
           Self::Diagnostics,
@@ -465,6 +467,7 @@ pub mod battlement {
           Self::GeometryObservationUpdate,
           Self::AccessibilityUpdate,
           Self::ObjectSetRenderOrder,
+          Self::RendererSetInstances,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -566,6 +569,7 @@ pub mod battlement {
             Self::GeometryObservationUpdate => Some("GeometryObservationUpdate"),
             Self::AccessibilityUpdate => Some("AccessibilityUpdate"),
             Self::ObjectSetRenderOrder => Some("ObjectSetRenderOrder"),
+            Self::RendererSetInstances => Some("RendererSetInstances"),
             _ => None,
           }
         }
@@ -630,13 +634,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 84;
+      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 85;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 85] = [
+      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 86] = [
         CoreCommandPayload::NONE,
         CoreCommandPayload::ExternalUrlPayload,
         CoreCommandPayload::DiagnosticsPayload,
@@ -722,6 +726,7 @@ pub mod battlement {
         CoreCommandPayload::GeometryObservationUpdate,
         CoreCommandPayload::AccessibilityUpdate,
         CoreCommandPayload::ObjectRenderOrderPayload,
+        CoreCommandPayload::RendererInstancesPayload,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -814,9 +819,10 @@ pub mod battlement {
         pub const GeometryObservationUpdate: Self = Self(82);
         pub const AccessibilityUpdate: Self = Self(83);
         pub const ObjectRenderOrderPayload: Self = Self(84);
+        pub const RendererInstancesPayload: Self = Self(85);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 84;
+        pub const ENUM_MAX: u8 = 85;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ExternalUrlPayload,
@@ -903,6 +909,7 @@ pub mod battlement {
           Self::GeometryObservationUpdate,
           Self::AccessibilityUpdate,
           Self::ObjectRenderOrderPayload,
+          Self::RendererInstancesPayload,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -992,6 +999,7 @@ pub mod battlement {
             Self::GeometryObservationUpdate => Some("GeometryObservationUpdate"),
             Self::AccessibilityUpdate => Some("AccessibilityUpdate"),
             Self::ObjectRenderOrderPayload => Some("ObjectRenderOrderPayload"),
+            Self::RendererInstancesPayload => Some("RendererInstancesPayload"),
             _ => None,
           }
         }
@@ -2559,6 +2567,22 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn payload_as_renderer_instances_payload(
+          &self,
+        ) -> Option<RendererInstancesPayload<'a>> {
+          if self.payload_type() == CoreCommandPayload::RendererInstancesPayload {
+            let u = self.payload();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { RendererInstancesPayload::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CoreCommand<'_> {
@@ -2657,6 +2681,7 @@ pub mod battlement {
           CoreCommandPayload::GeometryObservationUpdate => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GeometryObservationUpdate>>("CoreCommandPayload::GeometryObservationUpdate", pos),
           CoreCommandPayload::AccessibilityUpdate => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<AccessibilityUpdate>>("CoreCommandPayload::AccessibilityUpdate", pos),
           CoreCommandPayload::ObjectRenderOrderPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ObjectRenderOrderPayload>>("CoreCommandPayload::ObjectRenderOrderPayload", pos),
+          CoreCommandPayload::RendererInstancesPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RendererInstancesPayload>>("CoreCommandPayload::RendererInstancesPayload", pos),
           _ => Ok(()),
         }
      })?
@@ -3587,6 +3612,16 @@ pub mod battlement {
             }
             CoreCommandPayload::ObjectRenderOrderPayload => {
               if let Some(x) = self.payload_as_object_render_order_payload() {
+                ds.field("payload", &x)
+              } else {
+                ds.field(
+                  "payload",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            CoreCommandPayload::RendererInstancesPayload => {
+              if let Some(x) = self.payload_as_renderer_instances_payload() {
                 ds.field("payload", &x)
               } else {
                 ds.field(

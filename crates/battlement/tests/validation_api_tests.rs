@@ -1,10 +1,11 @@
 use battlement::{
   AnimatorSpeedPayload, AudioClipAddress, AudioPlayPayload, CameraClearMode, CameraClearPayload,
   CameraClippingPayload, CameraState, Color, Command, CommandBody, GameObject, GameObjectKind,
-  MaterialAddress, MaterialAssignment, ParentScene, ParticlePlayPayload, PreparedAsset,
-  PropertyCommand, Quaternion, RepeatMode, RotationPayload, Scene, SceneAddress, Snapshot,
-  SpotAnglePayload, TextMeshProFontAddress, Tween, TweenRepeat, TweenScalePayload, Validate,
-  ValidationError, Vector3, WaitPayload,
+  MaterialAddress, MaterialAssignment, MaterialInstance, MaterialParameter,
+  MaterialParameterDeclaration, MaterialParameterKind, ParentScene, ParticlePlayPayload,
+  PreparedAsset, PropertyCommand, Quaternion, RepeatMode, RotationPayload, Scene, SceneAddress,
+  Snapshot, SpotAnglePayload, TextMeshProFontAddress, Tween, TweenRepeat, TweenScalePayload,
+  Validate, ValidationError, Vector3, WaitPayload,
 };
 
 const SESSION_ID: &str = "94fa422b-301d-442d-b9a7-10ea54318e78";
@@ -336,4 +337,45 @@ fn controller_settings_and_vibration_enforce_bounds() {
     command.validate(),
     Err(ValidationError::InvalidControllerInput)
   );
+}
+
+#[test]
+fn snapshot_requires_every_instance_parameter_in_the_prepared_declaration() {
+  let mut snapshot = base_snapshot();
+  let instance = MaterialInstance::new("material/card")
+    .parameter(MaterialParameter::<Color>::new("_Accent"), Color::WHITE);
+  let mut card = GameObject::new(
+    OBJECT_ID.parse().unwrap(),
+    GameObjectKind::Quad { materials: vec![] },
+  );
+  card.material_instances = vec![instance.clone()];
+  snapshot.objects.push(card);
+  for declaration in [
+    PreparedAsset::Material(instance.address.clone()),
+    PreparedAsset::MaterialParameters {
+      address: instance.address.clone(),
+      parameters: vec![MaterialParameterDeclaration {
+        name: "_Clip".into(),
+        kind: MaterialParameterKind::Float,
+      }],
+    },
+    PreparedAsset::MaterialParameters {
+      address: instance.address.clone(),
+      parameters: vec![MaterialParameterDeclaration {
+        name: "_Accent".into(),
+        kind: MaterialParameterKind::Float,
+      }],
+    },
+  ] {
+    snapshot.prepared_assets.push(declaration);
+    assert_eq!(snapshot.validate(), Err(ValidationError::InvalidReference));
+    snapshot.prepared_assets.pop();
+  }
+  snapshot
+    .prepared_assets
+    .push(PreparedAsset::MaterialParameters {
+      address: instance.address.clone(),
+      parameters: instance.declarations(),
+    });
+  assert_eq!(snapshot.validate(), Ok(()));
 }

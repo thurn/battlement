@@ -20,6 +20,7 @@ namespace Battlement
         private readonly HashSet<Guid> usedIds = new();
         private HashSet<Guid> uiIds = new();
         private readonly BattlementObjectFactory objectFactory;
+        private readonly BattlementPreparedAssets preparedAssets;
         private readonly GameObject persistentContainer;
         private HashSet<Guid>? replacementIds;
         private HashSet<Guid>? replacementSceneIds;
@@ -33,6 +34,7 @@ namespace Battlement
 
         public BattlementWorld(Scene hostScene, BattlementPreparedAssets preparedAssets)
         {
+            this.preparedAssets = preparedAssets;
             objectFactory = new BattlementObjectFactory(preparedAssets);
             persistentContainer = new GameObject("Battlement Persistent");
             SceneManager.MoveGameObjectToScene(persistentContainer, hostScene);
@@ -211,7 +213,7 @@ namespace Battlement
             foreach (BattlementGameObject description in descriptions)
             {
                 GameObject gameObject = RequireObject(description.Id);
-                BattlementObjectFactory.ApplyStableState(gameObject, description);
+                objectFactory.ApplyStableState(gameObject, description);
             }
         }
 
@@ -228,6 +230,7 @@ namespace Battlement
 
         public void CreateObject(BattlementGameObject description)
         {
+            preparedAssets.ValidateMaterialInstances(description.MaterialInstances);
             Transform container = ResolveContainer(description.ParentScene);
             GameObject? parent = description.ParentId is ObjectId parentId
                 ? RequireObject(parentId)
@@ -262,7 +265,7 @@ namespace Battlement
                     gameObject.transform.SetParent(parent.transform, false);
                 }
 
-                BattlementObjectFactory.ApplyStableState(gameObject, description);
+                objectFactory.ApplyStableState(gameObject, description);
             }
             catch
             {
@@ -348,6 +351,7 @@ namespace Battlement
             System.Action<GameObject>? afterStableState = null
         )
         {
+            preparedAssets.ValidateMaterialInstances(placement.MaterialInstances);
             Transform container = ResolveContainer(placement);
             GameObject? parent = placement.ParentId is ObjectId parentId
                 ? RequireObject(parentId)
@@ -378,7 +382,7 @@ namespace Battlement
                 registered = true;
                 if (parent != null)
                     gameObject.transform.SetParent(parent.transform, false);
-                BattlementObjectFactory.ApplyStableState(gameObject, placement);
+                objectFactory.ApplyStableState(gameObject, placement);
                 afterStableState?.Invoke(gameObject);
             }
             catch

@@ -52,6 +52,8 @@ pub struct GameObject {
   pub drag_mode: Option<DragMode>,
   /// Optional group-relative visual ordering; none preserves the host's authored ordering.
   pub render_order: Option<RenderOrder>,
+  /// Prepared renderer-local material overrides, unique by slot.
+  pub material_instances: Vec<crate::MaterialInstance>,
   /// Kind-specific object content and component state.
   pub kind: GameObjectKind,
 }
@@ -69,6 +71,7 @@ impl GameObject {
       pointer_events: Vec::new(),
       drag_mode: None,
       render_order: None,
+      material_instances: Vec::new(),
       kind: kind.into(),
     }
   }

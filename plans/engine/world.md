@@ -53,16 +53,17 @@ required Rust card-composition example.
 Typed material parameters are validated against prepared materials. Per-instance
 overrides must not mutate the shared asset or another card using it.
 
-A shared Motion value can drive dissolve on several sprites, while a separate
-opacity track fades text:
+Static overrides use the same typed declarations as the required prepared material:
 
 ```rust
 world::Sprite::new().texture(card.art)
-    .material(assets.dissolve)
-    .parameter(CardShader::Clip, dissolve_progress.clone())
+    .material(MaterialInstance::new(assets.dissolve)
+        .parameter(CardShader::Clip, 0.5))
 ```
 
-Apply the same value to the frame and other affected sprites. A sequence drives
+The Motion adapter must support one shared value driving dissolve on several
+sprites while a separate opacity track fades text. Apply that value to the frame
+and other affected sprites. A sequence drives
 that value, fades text, and schedules a sound or particle burst at a label. Exit
 retention keeps the necessary native objects alive until it finishes. Reverse
 dissolve uses the same properties with reversed targets. See

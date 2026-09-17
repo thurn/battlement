@@ -83,6 +83,7 @@ pub struct FakeObject {
   pointer_events: Vec<battlement::PointerEvent>,
   drag_mode: Option<battlement::DragMode>,
   render_order: Option<RenderOrder>,
+  material_instances: Vec<battlement::MaterialInstance>,
   pub(crate) kind: GameObjectKind,
   renderer_slots: Option<usize>,
   camera: Option<CameraState>,
@@ -181,12 +182,27 @@ impl FakeObject {
   /// Returns the material assigned to one renderer slot.
   #[must_use]
   pub fn material(&self, slot: u32) -> Option<&MaterialAddress> {
+    if let Some(instance) = self.material_instances.iter().find(|m| m.slot == slot) {
+      return Some(&instance.address);
+    }
     materials(&self.kind).and_then(|values| {
       values
         .iter()
         .find(|assignment| assignment.slot == slot)
         .map(|assignment| &assignment.address)
     })
+  }
+
+  /// Observes an explicit instance override, independently of the shared asset.
+  pub fn material_parameter(&self, slot: u32, name: &str) -> Option<&battlement::MaterialValue> {
+    self
+      .material_instances
+      .iter()
+      .find(|m| m.slot == slot)?
+      .parameters
+      .iter()
+      .find(|p| p.name == name)
+      .map(|p| &p.value)
   }
 
   /// Returns the current logical camera component, if present.
@@ -341,7 +357,10 @@ impl FakeWorld {
   /// Returns whether an asset belongs to the complete prepared set.
   #[must_use]
   pub fn is_prepared(&self, asset: &PreparedAsset) -> bool {
-    self.prepared_assets.iter().any(|value| value == asset)
+    self
+      .prepared_assets
+      .iter()
+      .any(|value| crate::material::matches(value, asset))
   }
 
   /// Returns whether pointer and keyboard input is enabled.
@@ -787,6 +806,22 @@ impl FakeWorld {
     self.descendants(id)
   }
 
+  pub(crate) fn set_material_instances(
+    &mut self,
+    id: battlement::ObjectId,
+    instances: Vec<battlement::MaterialInstance>,
+    catalog: &assets::FakeAssetCatalog,
+  ) {
+    let object = self.object(id).expect("material object");
+    crate::material::validate(
+      &instances,
+      object.renderer_slots,
+      catalog,
+      &self.prepared_assets,
+    );
+    self.require_object_mut(id).material_instances = instances;
+  }
+
   pub(crate) fn set_render_order(&mut self, id: battlement::ObjectId, order: Option<RenderOrder>) {
     let object = self.require_object_mut(id);
     let has_renderer = object.renderer_slots.is_some()
@@ -993,6 +1028,12 @@ impl FakeObject {
       ParentScene::Persistent => None,
     };
     let renderer_slots = world_validation::renderer_slots(&object.kind, catalog);
+    crate::material::validate(
+      &object.material_instances,
+      renderer_slots,
+      catalog,
+      prepared_assets,
+    );
     let has_renderer = renderer_slots.is_some()
       || matches!(
         object.kind,
@@ -1052,6 +1093,7 @@ impl FakeObject {
       pointer_events: object.pointer_events,
       drag_mode: object.drag_mode,
       render_order: object.render_order,
+      material_instances: object.material_instances,
       kind: object.kind,
       renderer_slots,
       camera,

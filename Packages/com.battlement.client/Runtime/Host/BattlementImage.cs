@@ -134,6 +134,24 @@ namespace Battlement
             UpdateGeometry();
         }
 
+        internal void WriteMaterialProperties(Material source, MaterialPropertyBlock block)
+        {
+            if (source.HasProperty("_MainTex"))
+                block.SetTexture("_MainTex", texture);
+            if (source.HasProperty("_BaseMap"))
+                block.SetTexture("_BaseMap", texture);
+            if (source.HasProperty("_Color"))
+                block.SetColor("_Color", color);
+            if (source.HasProperty("_BaseColor"))
+                block.SetColor("_BaseColor", color);
+        }
+
+        private void RefreshOverrides()
+        {
+            if (TryGetComponent(out BattlementMaterialInstances values))
+                values.Refresh();
+        }
+
         internal void SetTexture(IBattlementAssetLease lease)
         {
             if (lease.Value is not Texture preparedTexture)
@@ -162,6 +180,7 @@ namespace Battlement
 
             textureLease = lease;
             previousLease?.Dispose();
+            RefreshOverrides();
         }
 
         internal void SetSize(double newWidth, double newHeight)
@@ -191,12 +210,14 @@ namespace Battlement
             color.g = converted.g;
             color.b = converted.b;
             material!.SetColor(colorProperty, color);
+            RefreshOverrides();
         }
 
         internal void SetOpacity(double opacity)
         {
             color.a = ConvertOpacity(opacity);
             material!.SetColor(colorProperty, color);
+            RefreshOverrides();
         }
 
         internal void ApplyTint(UnityEngine.Color value)
@@ -205,12 +226,14 @@ namespace Battlement
             color.g = value.g;
             color.b = value.b;
             material!.SetColor(colorProperty, color);
+            RefreshOverrides();
         }
 
         internal void ApplyOpacity(float value)
         {
             color.a = value;
             material!.SetColor(colorProperty, color);
+            RefreshOverrides();
         }
 
         internal static UnityEngine.Color ConvertTint(RgbColor tint) =>

@@ -28,6 +28,12 @@ namespace Battlement
         /// <summary>A material assignable to a supported renderer.</summary>
         public sealed record Material(MaterialAddress Address) : PreparedAsset;
 
+        /// <summary>A material with required shader properties.</summary>
+        public sealed record MaterialParameters(
+            MaterialAddress Address,
+            System.Collections.Generic.IReadOnlyList<MaterialParameterDeclaration> Parameters
+        ) : PreparedAsset;
+
         /// <summary>A texture used by an image quad.</summary>
         public sealed record Texture(TextureAddress Address) : PreparedAsset;
 

@@ -38,6 +38,7 @@ pub struct Group {
   transform: LocalTransform,
   active: bool,
   pub(crate) render_order: Option<RenderOrder>,
+  pub(crate) material_instances: Vec<battlement::MaterialInstance>,
   children: Vec<Node>,
   reference: Option<ObjectRef>,
   click: Option<Callback<()>>,
@@ -76,6 +77,7 @@ impl Component for SceneRoot {
           active: true,
           clickable: false,
           render_order: None,
+          material_instances: Vec::new(),
         })
         .child(self.children.clone()),
       )
@@ -90,6 +92,7 @@ impl Group {
       transform: LocalTransform::default(),
       active: true,
       render_order: None,
+      material_instances: Vec::new(),
       children: Vec::new(),
       reference: None,
       click: None,
@@ -118,6 +121,7 @@ impl Group {
     object.local_transform = self.transform;
     object.active = self.active;
     object.render_order = self.render_order;
+    object.material_instances = self.material_instances;
     object
   }
 
@@ -203,6 +207,7 @@ impl Component for Group {
       active: self.active,
       clickable: self.click.is_some(),
       render_order: self.render_order,
+      material_instances: self.material_instances.clone(),
     })
     .child(self.children.clone());
     if let Some(id) = self.id {

@@ -488,3 +488,23 @@ screenshot = { name = "narrow-right-aligned" }
 accessibility_action = { target = { role = "button", name = "Tint and fade" }, action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "tinted-translucent" }
+
+[[scenarios]]
+name = "world material independence"
+fixture = "world-materials"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "independent-values" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change left card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "left-changed" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Fade artwork" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "left-faded" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Clear left overrides" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "left-restored" }

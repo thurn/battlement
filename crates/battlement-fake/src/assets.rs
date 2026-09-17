@@ -17,6 +17,7 @@ pub struct FakeAssetCatalog {
   prefabs: BTreeMap<String, FakePrefab>,
   particle_effects: BTreeSet<String>,
   materials: BTreeSet<String>,
+  material_parameters: BTreeMap<String, BTreeMap<String, battlement::MaterialValue>>,
   textures: BTreeSet<String>,
   sprites: BTreeSet<String>,
   vector_images: BTreeSet<String>,
@@ -74,6 +75,46 @@ impl FakeAssetCatalog {
     let address = address.into();
     self.insert_address(address.as_str());
     self.materials.insert(address.into_string());
+  }
+
+  /// Registers a shared material with the shader's named default values.
+  pub fn add_material_with_parameters(
+    &mut self,
+    address: impl Into<MaterialAddress>,
+    parameters: impl IntoIterator<Item = battlement::MaterialParameterValue>,
+  ) {
+    let address = address.into();
+    self.add_material(address.clone());
+    let mut values = BTreeMap::new();
+    for p in parameters {
+      assert!(
+        values.insert(p.name, p.value).is_none(),
+        "duplicate shader property"
+      );
+    }
+    self
+      .material_parameters
+      .insert(address.into_string(), values);
+  }
+  /// Observes the immutable source material, independently of renderer overrides.
+  pub fn material_parameter(
+    &self,
+    address: &MaterialAddress,
+    name: &str,
+  ) -> Option<&battlement::MaterialValue> {
+    self.material_parameters.get(address.as_str())?.get(name)
+  }
+  pub(crate) fn validate_material_parameters(
+    &self,
+    address: &MaterialAddress,
+    parameters: &[battlement::MaterialParameterDeclaration],
+  ) -> bool {
+    self.has_material(address)
+      && parameters.iter().all(|p| {
+        self
+          .material_parameter(address, &p.name)
+          .is_some_and(|value| value.kind() == p.kind)
+      })
   }
 
   /// Registers a texture address.

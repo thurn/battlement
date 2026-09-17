@@ -737,6 +737,8 @@ pub struct NativeObjectPlacement<'a> {
   pub drag_mode: NativeDragMode,
   /// Optional group-relative visual order.
   pub render_order: Option<RenderOrder>,
+  /// Prepared renderer-local values.
+  pub material_instances: &'a [battlement::MaterialInstance],
 }
 
 impl Default for NativeObjectPlacement<'_> {
@@ -749,6 +751,7 @@ impl Default for NativeObjectPlacement<'_> {
       pointer_events: &[],
       drag_mode: NativeDragMode::None,
       render_order: None,
+      material_instances: &[],
     }
   }
 }
@@ -888,6 +891,7 @@ impl MessageWriter {
     let value = world_wire::PreparedAsset::create(
       &mut self.builder,
       &world_wire::PreparedAssetArgs {
+        parameters: None,
         kind: match kind {
           NativePreparedAssetKind::Scene => world_wire::PreparedAssetKind::Scene,
           NativePreparedAssetKind::Prefab => world_wire::PreparedAssetKind::Prefab,
@@ -900,6 +904,28 @@ impl MessageWriter {
           }
         },
         address: Some(address),
+      },
+    );
+    PreparedAssetOffset {
+      builder_id: self.builder_id,
+      value,
+    }
+  }
+
+  /// Writes a material preparation requirement before dependent renderer commands.
+  pub fn prepared_material(
+    &mut self,
+    address: &str,
+    declarations: &[battlement::MaterialParameterDeclaration],
+  ) -> PreparedAssetOffset {
+    let address = self.builder.create_string(address);
+    let parameters = crate::material::declarations(&mut self.builder, declarations);
+    let value = world_wire::PreparedAsset::create(
+      &mut self.builder,
+      &world_wire::PreparedAssetArgs {
+        kind: world_wire::PreparedAssetKind::MaterialParameters,
+        address: Some(address),
+        parameters: Some(parameters),
       },
     );
     PreparedAssetOffset {
@@ -1971,6 +1997,32 @@ impl MessageWriter {
       blocking,
       wire::CoreCommandKind::ObjectSetRenderOrder,
       wire::CoreCommandPayload::ObjectRenderOrderPayload,
+      payload.as_union_value(),
+    )
+  }
+
+  /// Writes prepared renderer-local material values without an owned response.
+  pub fn set_material_instances(
+    &mut self,
+    command_id: [u8; 16],
+    blocking: bool,
+    object_id: [u8; 16],
+    values: &[battlement::MaterialInstance],
+  ) -> Result<CoreCommandOffset, ProtocolError> {
+    let object_id = common::Uuid::new(&object_id);
+    let instances = crate::material::instances(&mut self.builder, values);
+    let payload = command_wire::RendererInstancesPayload::create(
+      &mut self.builder,
+      &command_wire::RendererInstancesPayloadArgs {
+        object_id: Some(&object_id),
+        instances: Some(instances),
+      },
+    );
+    self.core_command(
+      command_id,
+      blocking,
+      wire::CoreCommandKind::RendererSetInstances,
+      wire::CoreCommandPayload::RendererInstancesPayload,
       payload.as_union_value(),
     )
   }
@@ -3608,6 +3660,10 @@ impl MessageWriter {
     let local_transform = common::LocalTransform::new(&position, &rotation, &scale);
     let object_id = common::Uuid::new(&object_id);
     let parent_id = placement.parent_id.map(|value| common::Uuid::new(&value));
+    let material_instances = Some(crate::material::instances(
+      &mut self.builder,
+      placement.material_instances,
+    ));
     let render_order =
       crate::response::write_render_order(&mut self.builder, placement.render_order);
     let value = world_wire::GameObject::create(
@@ -3618,6 +3674,7 @@ impl MessageWriter {
         parent_id: parent_id.as_ref(),
         active: placement.active,
         render_order,
+        material_instances,
         local_transform: Some(&local_transform),
         pointer_events: Some(pointer_events),
         drag_mode: match placement.drag_mode {

@@ -134,7 +134,8 @@ pub(crate) fn renderer_slots(
     | GameObjectKind::Capsule { .. }
     | GameObjectKind::Cylinder { .. }
     | GameObjectKind::Plane { .. }
-    | GameObjectKind::Quad { .. } => Some(1),
+    | GameObjectKind::Quad { .. }
+    | GameObjectKind::Image { .. } => Some(1),
     GameObjectKind::Mesh { address, .. } => catalog.mesh_slots(address),
     GameObjectKind::Prefab { address, .. } => catalog
       .prefab(address)
@@ -150,6 +151,10 @@ pub(crate) fn require_catalog_asset(catalog: &assets::FakeAssetCatalog, asset: &
     PreparedAsset::Prefab(address) => catalog.prefab(address).is_some(),
     PreparedAsset::ParticleEffect(address) => catalog.has_particle_effect(address),
     PreparedAsset::Material(address) => catalog.has_material(address),
+    PreparedAsset::MaterialParameters {
+      address,
+      parameters,
+    } => catalog.validate_material_parameters(address, parameters),
     PreparedAsset::Texture(address) => catalog.has_texture(address),
     PreparedAsset::Sprite(address) => catalog.has_sprite(address),
     PreparedAsset::VectorImage(address) => catalog.has_vector_image(address),
@@ -163,7 +168,9 @@ pub(crate) fn require_catalog_asset(catalog: &assets::FakeAssetCatalog, asset: &
 
 pub(crate) fn assert_prepared(prepared_assets: &[PreparedAsset], expected: PreparedAsset) {
   assert!(
-    prepared_assets.iter().any(|asset| asset == &expected),
+    prepared_assets
+      .iter()
+      .any(|asset| crate::material::matches(asset, &expected)),
     "asset is not prepared: {expected:?}"
   );
 }

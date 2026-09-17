@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Default Local Group
   m_GUID: 3ffe177645f3d45d1b4c07514af46d24
   m_SerializeEntries:
+  - m_GUID: 1cb980c4f3392447cb91fa2b7d4426a4
+    m_Address: reactant/world/card-material
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 53765348da515436a8f992cc2a80ae92
     m_Address: reactant/world/block
     m_ReadOnly: 0

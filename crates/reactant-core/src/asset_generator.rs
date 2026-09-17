@@ -414,6 +414,7 @@ fn prepared_asset(asset: &PreparedAsset) -> (&'static str, &str) {
     PreparedAsset::Scene(value) => ("Scene", value.as_str()),
     PreparedAsset::Prefab(value) => ("Prefab", value.as_str()),
     PreparedAsset::ParticleEffect(value) => ("ParticleEffect", value.as_str()),
+    PreparedAsset::MaterialParameters { address, .. } => ("Material", address.as_str()),
     PreparedAsset::Material(value) => ("Material", value.as_str()),
     PreparedAsset::Texture(value) => ("Texture", value.as_str()),
     PreparedAsset::Sprite(value) => ("Sprite", value.as_str()),
