@@ -56,6 +56,12 @@ pub fn create_engine() -> ReactantEngine {
 }
 
 fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineError> {
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("destruction-queue") {
+    return Ok(crate::destruction_queue_proof::app());
+  }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("presentation-lifetime") {
+    return Ok(crate::lifetime_proof::app());
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("presentation-identity") {
     return Ok(crate::identity_proof::app());
   }

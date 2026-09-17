@@ -116,7 +116,7 @@ pub use crate::{
   motion_variants::VariantOrchestration,
   overlay::{Overlay, OverlayHost},
   portal::{Portal, PortalTarget, create_portal},
-  presence::{AnimatePresence, Presence, PresenceMode},
+  presence::{AnimatePresence, Presence, PresenceMode, RetainedVisual},
   props::Missing,
   render::{Child, Children, Either, Fragment, Node, Render},
   required_props,
@@ -129,6 +129,7 @@ pub use crate::{
   },
   suspense::Suspense,
   variant_map::{VariantData, VariantKey, VariantName, VariantTarget, Variants},
+  visibility::VisibilityScope,
 };
 pub use battlement::{StaggerDirection, VariantWhen};
 pub use trox::LocalizedString;

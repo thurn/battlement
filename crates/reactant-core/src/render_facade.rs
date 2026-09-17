@@ -156,6 +156,8 @@ impl PreparedFacade {
     RenderPosition {
       descriptor,
       presentation_id: metadata.presentation_id,
+      hidden: false,
+      terminal_visual: false,
       key: metadata.key,
       host: Some(node),
       handlers: metadata.handlers,

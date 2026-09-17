@@ -42,6 +42,9 @@ fn find(
   ancestors: &mut Vec<Uuid>,
 ) -> Option<PresentationObservation> {
   for position in &tree.positions {
+    if position.terminal_visual {
+      continue;
+    }
     if position.presentation_id == Some(id) {
       let mut native_objects = Vec::new();
       if let Some(host) = &position.host {
@@ -76,6 +79,9 @@ fn find(
 
 fn hosts(tree: &RenderTree, objects: &mut Vec<ObjectId>) {
   for position in &tree.positions {
+    if position.terminal_visual {
+      continue;
+    }
     if let Some(host) = &position.host {
       objects.push(host.object_id);
     }

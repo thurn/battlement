@@ -1,21 +1,24 @@
-//! Logical presence retention and manual removal holds.
+//! Terminal visual retention after logical component destruction.
 
 use std::{
   any::{Any, TypeId},
   cell::{Cell, RefCell},
-  rc::Rc,
+  rc::{Rc, Weak},
 };
 
 use battlement::{MotionEventKind, MotionGeneration, MotionLifecycleEvent, MotionSlotId, ObjectId};
 
 use crate::{
+  hook_storage::HookOwner,
   key::ErasedKey,
   render::{Render, RenderSink},
   render_value::Sealed,
+  retained_visual::RetainedResources,
   variant_map::{ErasedVariantData, VariantData},
 };
 
 type PresenceCallback = dyn Fn(&mut dyn Any);
+pub(crate) type PresenceHold = (Rc<PresenceCell>, Rc<HookOwner>);
 
 thread_local! {
   static CURRENT: RefCell<PresenceRenderState> = const {
@@ -35,7 +38,7 @@ pub enum PresenceMode {
   PopLayout,
 }
 
-/// Retains keyed logical children while their exit work completes.
+/// Retains keyed native visuals after their logical children unmount.
 pub struct AnimatePresence<R = ()> {
   child: R,
   initial: bool,
@@ -44,11 +47,14 @@ pub struct AnimatePresence<R = ()> {
   on_exit_complete: Option<PresenceHandler>,
 }
 
-/// Stable component-local access to the nearest presence boundary.
-#[derive(Clone)]
+/// A logical-lifetime handle that can release an externally held exit.
 pub struct Presence {
   pub(crate) state: Rc<PresenceCell>,
-  generation: u64,
+}
+
+/// An explicit shared use of a terminal visual and its native resource descriptions.
+pub struct RetainedVisual {
+  state: Rc<PresenceCell>,
 }
 
 #[derive(Clone, Copy)]
@@ -62,6 +68,10 @@ pub(crate) struct PresenceCell {
   generation: Cell<u64>,
   released: Cell<Option<u64>>,
   dirty: Cell<bool>,
+  observers: Cell<usize>,
+  retained: Cell<usize>,
+  explicit: Cell<bool>,
+  resources: RefCell<Weak<RetainedResources>>,
 }
 
 #[derive(Clone)]
@@ -91,12 +101,13 @@ pub(crate) struct PresenceExit {
   pub(crate) key: ErasedKey,
   pub(crate) generation: u64,
   pub(crate) automatic: Vec<AutomaticExit>,
-  pub(crate) holds: Vec<Rc<PresenceCell>>,
+  pub(crate) holds: Vec<PresenceHold>,
+  pub(crate) resources: Rc<RetainedResources>,
 }
 
 #[derive(Clone)]
 pub(crate) struct AutomaticExit {
-  descriptor_id: ObjectId,
+  pub(crate) descriptor_id: ObjectId,
   slot: MotionSlotId,
   generation: MotionGeneration,
   terminal: bool,
@@ -198,8 +209,9 @@ impl Default for AnimatePresence<()> {
 }
 
 impl Presence {
-  pub(crate) fn new(state: Rc<PresenceCell>, generation: u64) -> Self {
-    Self { state, generation }
+  pub(crate) fn new(state: Rc<PresenceCell>, _generation: u64) -> Self {
+    state.observers.set(state.observers.get() + 1);
+    Self { state }
   }
 
   /// Reports whether the component belongs to the current output.
@@ -208,12 +220,31 @@ impl Presence {
     self.state.present.get()
   }
 
-  /// Releases this component's manual hold for the observed exit generation.
+  /// Retains the prepared native visual after this component is destroyed.
+  /// The last cloned handle releases the hold; it does not keep hooks alive.
+  pub fn retain_visual(&self) -> RetainedVisual {
+    assert!(
+      !crate::context::rendering(),
+      "retain visuals after committing their component"
+    );
+    assert!(
+      self.is_present(),
+      "retain a visual before logical destruction"
+    );
+    self.state.explicit.set(true);
+    self.state.retained.set(self.state.retained.get() + 1);
+    RetainedVisual {
+      state: Rc::clone(&self.state),
+    }
+  }
+
+  /// Releases this logical lifetime's legacy manual exit hold.
   pub fn safe_to_remove(&self) {
-    if self.state.present.get() || self.state.generation.get() != self.generation {
+    if self.state.present.get() {
       return;
     }
-    if self.state.released.replace(Some(self.generation)) != Some(self.generation) {
+    let generation = self.state.generation.get();
+    if self.state.released.replace(Some(generation)) != Some(generation) {
       self.state.dirty.set(true);
     }
   }
@@ -226,6 +257,10 @@ impl PresenceCell {
       generation: Cell::new(state.generation),
       released: Cell::new(state.present.then_some(state.generation)),
       dirty: Cell::new(false),
+      observers: Cell::new(0),
+      retained: Cell::new(0),
+      explicit: Cell::new(false),
+      resources: RefCell::new(Weak::new()),
     })
   }
 
@@ -240,7 +275,28 @@ impl PresenceCell {
   }
 
   pub(crate) fn ready(&self, generation: u64) -> bool {
-    self.released.get() == Some(generation)
+    let generation = if self.present.get() {
+      generation
+    } else {
+      self.generation.get()
+    };
+    let manual_released = self.released.get() == Some(generation) || self.observers.get() == 0;
+    let released = self.explicit.get() || manual_released;
+    released && self.retained.get() == 0
+  }
+
+  pub(crate) fn begin_exit(&self, generation: u64, resources: Rc<RetainedResources>) {
+    if self.present.get() {
+      self.prepare(PresenceRenderState {
+        present: false,
+        generation,
+      });
+    }
+    self.resources.replace(Rc::downgrade(&resources));
+  }
+
+  pub(crate) fn release_resources(&self) {
+    self.resources.replace(Weak::new());
   }
 
   pub(crate) fn dirty(&self) -> bool {
@@ -313,7 +369,10 @@ impl PresenceBoundaryState {
 impl PresenceExit {
   pub(crate) fn ready(&self) -> bool {
     self.automatic.iter().all(|value| value.terminal)
-      && self.holds.iter().all(|value| value.ready(self.generation))
+      && self
+        .holds
+        .iter()
+        .all(|(value, _)| value.ready(self.generation))
   }
 }
 
@@ -343,4 +402,50 @@ pub(crate) fn with_state<R>(state: PresenceRenderState, render: impl FnOnce() ->
     current.replace(previous);
     result
   })
+}
+
+impl RetainedVisual {
+  /// Native handles owned by this retained exit, independent of logical refs.
+  pub fn native_objects(&self) -> Vec<ObjectId> {
+    self
+      .state
+      .resources
+      .borrow()
+      .upgrade()
+      .map_or_else(Vec::new, |resources| {
+        resources.hosts.iter().map(|host| host.object_id).collect()
+      })
+  }
+}
+
+impl Clone for RetainedVisual {
+  fn clone(&self) -> Self {
+    self.state.retained.set(self.state.retained.get() + 1);
+    Self {
+      state: Rc::clone(&self.state),
+    }
+  }
+}
+
+impl Drop for RetainedVisual {
+  fn drop(&mut self) {
+    self.state.retained.set(self.state.retained.get() - 1);
+    self.state.dirty.set(true);
+  }
+}
+
+impl Clone for Presence {
+  fn clone(&self) -> Self {
+    Self::new(Rc::clone(&self.state), self.state.generation.get())
+  }
+}
+
+impl Drop for Presence {
+  fn drop(&mut self) {
+    let remaining = self.state.observers.get() - 1;
+    self.state.observers.set(remaining);
+    if remaining == 0 && !self.state.present.get() {
+      self.state.dirty.set(true);
+    }
+  }
 }

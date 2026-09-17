@@ -107,3 +107,55 @@ screen = "presentation-identity"
 [[states]]
 key = "presentation-identity.returned"
 screen = "presentation-identity"
+
+[[states]]
+key = "presentation-lifetime.initial"
+screen = "presentation-lifetime"
+
+[[states]]
+key = "presentation-lifetime.hidden"
+screen = "presentation-lifetime"
+
+[[states]]
+key = "presentation-lifetime.reversing"
+screen = "presentation-lifetime"
+
+[[states]]
+key = "presentation-lifetime.exiting"
+screen = "presentation-lifetime"
+
+[[states]]
+key = "presentation-lifetime.exit-completed"
+screen = "presentation-lifetime"
+
+[[states]]
+key = "presentation-lifetime.retained"
+screen = "presentation-lifetime"
+
+[[states]]
+key = "presentation-lifetime.one-use"
+screen = "presentation-lifetime"
+
+[[states]]
+key = "presentation-lifetime.released"
+screen = "presentation-lifetime"
+
+[[states]]
+key = "destruction-queue.initial"
+screen = "destruction-queue"
+
+[[states]]
+key = "destruction-queue.first-move"
+screen = "destruction-queue"
+
+[[states]]
+key = "destruction-queue.second-move"
+screen = "destruction-queue"
+
+[[states]]
+key = "destruction-queue.removed"
+screen = "destruction-queue"
+
+[[states]]
+key = "presentation-lifetime.stale-ignored"
+screen = "presentation-lifetime"

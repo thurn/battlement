@@ -56,6 +56,12 @@ impl HostAdapter for UiHostAdapter {
     Command::destroy_visual_element(object_id)
   }
 
+  fn inert(description: &mut UiElement) {
+    let visual = description.visual_element_mut();
+    visual.auto_focus = battlement::Prop::Set(false);
+    visual.inert = battlement::Prop::Set(true);
+  }
+
   fn hide(description: &mut UiElement) {
     let visual = description.visual_element_mut();
     visual.auto_focus = battlement::Prop::Set(false);

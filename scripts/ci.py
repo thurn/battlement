@@ -394,8 +394,9 @@ def test_runtime_integrations(
     rust_selection: ci_selection.RustSelection,
     unity_selection: unity_test_selection.Selection,
     ci_cache: CiCache,
+    native_build: Callable[[], None] | None = None,
 ) -> tuple[float, float]:
-    """Overlap independent Rust and Unity checks within their resource leases."""
+    """Overlap independent checks and player builds within their resource leases."""
     seconds: dict[str, float] = {}
 
     def rust() -> None:
@@ -407,7 +408,10 @@ def test_runtime_integrations(
     def unity() -> None:
         seconds["unity"] = run_selected_unity_tests(unity_selection, ci_cache)
 
-    run_parallel_steps([("Rust tests", rust), ("Unity tests", unity)], workers=2)
+    steps = [("Rust tests", rust), ("Unity tests", unity)]
+    if native_build is not None:
+        steps.append(("Native player builds", native_build))
+    run_parallel_steps(steps, workers=len(steps))
     return seconds["rust"], seconds["unity"]
 
 
@@ -848,6 +852,7 @@ def run_csharp_preflight(
 def build_standalone_samples(
     samples: list[str], ci_cache: CiCache,
     ditto_builds: DittoBuildLeases | None = None,
+    *, prepare_builder: bool = True,
 ) -> float:
     if not samples:
         return 0.0
@@ -889,25 +894,29 @@ def build_standalone_samples(
                 f"The {name} sample build modified tracked files:\n" + "\n".join(changed)
             )
 
-    ditto_preparation_seconds = 0.0
-    if platform.system() == "Darwin":
-        started = time.monotonic()
-        with ci_steps.span("Prepare standalone sample builder"):
-            environment = cargo_environment(None)
-            if ditto_builds is not None:
-                ditto_builds.binary = Path(environment["CARGO_TARGET_DIR"]) / "debug" / "rt"
-            subprocess.run(
-                ["cargo", "build", "-p", "rt"],
-                cwd=REPOSITORY_ROOT,
-                env=environment,
-                check=True,
-            )
-        ditto_preparation_seconds = time.monotonic() - started
+    ditto_preparation_seconds = (
+        prepare_standalone_builder(ditto_builds)
+        if prepare_builder and platform.system() == "Darwin" else 0.0
+    )
     run_parallel_steps(
         [(f"{name} standalone build", lambda name=name: build(name)) for name in samples],
         workers=standalone_sample_workers(),
     )
     return ditto_preparation_seconds
+
+
+def prepare_standalone_builder(ditto_builds: DittoBuildLeases | None) -> float:
+    """Compile the shared builder before concurrent tests acquire its Cargo target."""
+    started = time.monotonic()
+    with ci_steps.span("Prepare standalone sample builder"):
+        environment = cargo_environment(None)
+        if ditto_builds is not None:
+            ditto_builds.binary = Path(environment["CARGO_TARGET_DIR"]) / "debug" / "rt"
+        subprocess.run(
+            ["cargo", "build", "-p", "rt"],
+            cwd=REPOSITORY_ROOT, env=environment, check=True,
+        )
+    return time.monotonic() - started
 
 
 def run_ditto_validation(
@@ -1083,34 +1092,6 @@ def run_ci(
         "Lint Rust workspaces",
         function=lambda: lint_rust_workspaces(rust_selection, ci_cache),
     )
-    rust_test_seconds, unity_seconds = test_runtime_integrations(
-        rust_selection, unity_selection, ci_cache,
-    )
-    reactant_cli_seconds = 0.0
-    if full:
-        reactant_selected, reactant_reasons = ci_selection.select_reactant_assets(paths)
-        print(
-            "Reactant asset selection: "
-            + json.dumps({"selected": reactant_selected, "reasons": reactant_reasons}),
-            flush=True,
-        )
-        if reactant_selected:
-            reactant_cli_started = time.monotonic()
-            run_reactant_asset_fast_lane()
-            reactant_cli_seconds = time.monotonic() - reactant_cli_started
-    run_step(
-        "Test repository tooling",
-        function=lambda: ci_tooling.run(REPOSITORY_ROOT, performance=full and ditto),
-    )
-    if full:
-        print(
-            "Reactant asset fast-tier timing "
-            f"in-process+compile={rust_test_seconds:.3f}s "
-            f"cli/browser={reactant_cli_seconds:.3f}s "
-            f"Unity={unity_seconds:.3f}s "
-            f"total={rust_test_seconds + reactant_cli_seconds + unity_seconds:.3f}s",
-            flush=True,
-        )
     ditto_preparation_seconds = [0.0]
     invocation_id = os.environ.get("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
     ditto_builds = None
@@ -1127,23 +1108,48 @@ def run_ci(
             lease_evidence,
         )
     try:
+        native_build = None
         if full and platform.system() in {"Darwin", "Windows"}:
+            if native_samples and platform.system() == "Darwin":
+                ditto_preparation_seconds[0] = prepare_standalone_builder(ditto_builds)
+
             def build_samples() -> None:
-                if platform.system() == "Windows":
-                    ditto_preparation_seconds[0] = build_standalone_samples(
-                        native_samples, ci_cache
-                    )
-                    return
-                ditto_preparation_seconds[0] = build_standalone_samples(
-                    native_samples, ci_cache, ditto_builds
+                build_standalone_samples(
+                    native_samples, ci_cache, ditto_builds, prepare_builder=False,
                 )
 
-            run_step(
-                "Build standalone samples",
-                function=build_samples,
-            )
+            def native_build() -> None:
+                run_step("Build standalone samples", function=build_samples)
         elif full:
             run_step("Skip desktop full validation", function=skip_desktop_full_validation)
+        rust_test_seconds, unity_seconds = test_runtime_integrations(
+            rust_selection, unity_selection, ci_cache, native_build,
+        )
+        reactant_cli_seconds = 0.0
+        if full:
+            reactant_selected, reactant_reasons = ci_selection.select_reactant_assets(paths)
+            print(
+                "Reactant asset selection: "
+                + json.dumps({"selected": reactant_selected, "reasons": reactant_reasons}),
+                flush=True,
+            )
+            if reactant_selected:
+                reactant_cli_started = time.monotonic()
+                run_reactant_asset_fast_lane()
+                reactant_cli_seconds = time.monotonic() - reactant_cli_started
+        run_step(
+            "Test repository tooling",
+            function=lambda: ci_tooling.run(REPOSITORY_ROOT, performance=full and ditto),
+        )
+        if full:
+            print(
+                "Reactant asset fast-tier timing "
+                f"in-process+compile={rust_test_seconds:.3f}s "
+                f"cli/browser={reactant_cli_seconds:.3f}s "
+                f"Unity={unity_seconds:.3f}s "
+                f"total={rust_test_seconds + reactant_cli_seconds + unity_seconds:.3f}s",
+                flush=True,
+            )
         if full and platform.system() == "Darwin":
             if native_samples:
                 run_ditto_validation(

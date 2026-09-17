@@ -23,6 +23,7 @@ pub(crate) struct PresenceLifecycleState {
   reconnects: u32,
   events: Vec<String>,
   holds: Rc<RefCell<BTreeMap<u32, Presence>>>,
+  retained: Rc<RefCell<Vec<RetainedVisual>>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -42,7 +43,6 @@ pub(crate) struct PresenceLifecycle {
 #[derive(Clone)]
 struct RetainedPanel {
   route: u32,
-  manual_hold: Rc<Cell<bool>>,
   holds: Rc<RefCell<BTreeMap<u32, Presence>>>,
   #[builder(required)]
   record: StateSetter<MountRecord>,
@@ -59,6 +59,7 @@ impl Default for PresenceLifecycleState {
       reconnects: 0,
       events: vec!["boundary mounted".to_owned()],
       holds: Rc::new(RefCell::new(BTreeMap::new())),
+      retained: Rc::new(RefCell::new(Vec::new())),
     }
   }
 }
@@ -92,6 +93,9 @@ impl PartialEq for PresenceLifecycleState {
 
 impl PresenceLifecycleState {
   fn toggle_open(&mut self) {
+    if self.open {
+      self.retain_current();
+    }
     self.open = !self.open;
     self.events.push(if self.open {
       "modal reopened".to_owned()
@@ -101,6 +105,9 @@ impl PresenceLifecycleState {
   }
 
   fn route(&mut self) {
+    if self.open {
+      self.retain_current();
+    }
     self.route = self.route.wrapping_add(1);
     self.open = true;
     self.events.push(format!("route {} selected", self.route));
@@ -117,6 +124,9 @@ impl PresenceLifecycleState {
 
   fn toggle_hold(&mut self) {
     self.manual_hold.set(!self.manual_hold.get());
+    if !self.manual_hold.get() {
+      self.retained.borrow_mut().clear();
+    }
     self.events.push(if self.manual_hold.get() {
       "manual hold armed".to_owned()
     } else {
@@ -124,11 +134,17 @@ impl PresenceLifecycleState {
     });
   }
 
-  fn release(&mut self) {
-    if let Some(presence) = self.holds.borrow().get(&self.route).cloned() {
-      presence.safe_to_remove();
-      self.events.push("manual hold released".to_owned());
+  fn retain_current(&self) {
+    if self.manual_hold.get()
+      && let Some(presence) = self.holds.borrow().get(&self.route)
+    {
+      self.retained.borrow_mut().push(presence.retain_visual());
     }
+  }
+
+  fn release(&mut self) {
+    self.retained.borrow_mut().clear();
+    self.events.push("manual hold released".to_owned());
   }
 
   fn reconnect(&mut self) {
@@ -204,7 +220,6 @@ impl Component for PresenceLifecycle {
               Node::new(
                 RetainedPanel::new()
                   .route(self.state.route)
-                  .manual_hold(Rc::clone(&self.state.manual_hold))
                   .holds(Rc::clone(&self.state.holds))
                   .record(set_record.clone())
                   .key(self.state.route),
@@ -243,9 +258,6 @@ impl Component for RetainedPanel {
     let (counter, set_counter) = use_state(7_u32);
     let presence = use_presence();
     self.holds.borrow_mut().insert(self.route, presence.clone());
-    if !presence.is_present() && !self.manual_hold.get() {
-      presence.safe_to_remove();
-    }
     let route = self.route;
     let mounted_record = self.record.clone();
     let holds = Rc::clone(&self.holds);
@@ -274,24 +286,11 @@ impl Component for RetainedPanel {
       .style(panel())
       .animate(StyleTarget::new().opacity(1.0))
       .exit(
-        MotionTarget::new(StyleTarget::new().opacity(0.0))
-          .transition(
-            Transition::tween()
-              .duration_secs(0.32)
-              .ease(Easing::EaseInOut),
-          )
-          .on_complete(|game: &mut Game| {
-            game
-              .presence_lifecycle
-              .events
-              .push("panel animation completed".to_owned());
-          })
-          .on_cancel(|game: &mut Game| {
-            game
-              .presence_lifecycle
-              .events
-              .push("panel animation cancelled".to_owned());
-          }),
+        MotionTarget::new(StyleTarget::new().opacity(0.0)).transition(
+          Transition::tween()
+            .duration_secs(0.32)
+            .ease(Easing::EaseInOut),
+        ),
       )
       .child(Label::new(ls(format!("ROUTED PANEL {}", self.route))).style(panel_title()))
       .child(

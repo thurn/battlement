@@ -177,3 +177,67 @@ fn mixed_batches_render_ahead_without_menu_overtaking_and_cancel_owned_objects()
   assert_eq!(display.frame(), 0);
   assert_eq!(display.presentation_time(), Duration::from_millis(200));
 }
+
+struct DestroyingBoard(Rc<RefCell<Option<ObjectRef>>>);
+impl Component for DestroyingBoard {
+  fn render(&self) -> impl Render {
+    let stage = *reactant::use_game_state::<Queue>();
+    let reference = native_host::use_object_ref();
+    self.0.replace(Some(reference.clone()));
+    let app = app_context::use_app();
+    hooks::use_effect(
+      move || {
+        if stage == 1 || stage == 2 {
+          app.send(Command::new_v4(CommandBody::TimeWait(WaitPayload {
+            duration_ms: 200,
+          })));
+        }
+      },
+      stage,
+    );
+    SceneRoot::new(ParentScene::PrimaryScene).child((stage < 3).then(|| {
+      WorldGroup::new()
+        .position(Vector3::new(f64::from(stage), 0.0, 0.0))
+        .reference(reference)
+    }))
+  }
+}
+
+#[test]
+fn rendered_ahead_absence_detaches_logical_ref_but_preserves_queued_movement() {
+  let reference = Rc::new(RefCell::new(None));
+  let mut app = App::new("mixed/scene").ui(GameRoot::new(DestroyingBoard(reference.clone())));
+  let game = app.start_game::<Queue>(0, self::context);
+  let consumer = app.game_consumer::<Queue>();
+  consumer.resume_automatic_submission();
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("mixed/scene");
+  let mut display = Display::connect(app, assets);
+  display.poll();
+  let reference = reference.borrow().as_ref().unwrap().clone();
+  let native = reference.object_id().unwrap();
+  game.dispatch(3);
+  assert!(consumer.wait_for_worker_stopped(TIMEOUT));
+  for _ in 0..12 {
+    if game.status() == GameStatus::Ready {
+      break;
+    }
+    assert!(consumer.wait_for_output(TIMEOUT));
+    display.poll();
+  }
+  assert_eq!(game.accepted_state(), 3);
+  assert!(!reference.is_attached());
+  assert_eq!(
+    display.object(native).unwrap().local_transform().position.x,
+    1.0
+  );
+  assert_eq!(display.presentation_time(), Duration::ZERO);
+  display.advance_time(Duration::from_millis(200));
+  assert_eq!(
+    display.object(native).unwrap().local_transform().position.x,
+    2.0
+  );
+  display.advance_time(Duration::from_millis(200));
+  assert!(display.object(native).is_none());
+  assert_eq!(display.frame(), 0);
+}

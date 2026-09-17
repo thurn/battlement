@@ -138,6 +138,9 @@ pub(crate) fn build(
 
 fn collect_sources<'a>(tree: &'a RenderTree, sources: &mut HashMap<ObjectId, Source<'a>>) {
   for position in &tree.positions {
+    if position.hidden {
+      continue;
+    }
     let Some(semantic) = &position.semantic else {
       collect_sources(&position.children, sources);
       continue;
@@ -171,6 +174,9 @@ fn collect<'a>(
   roots: &mut Vec<ObjectId>,
 ) {
   for position in &tree.positions {
+    if position.hidden {
+      continue;
+    }
     if position
       .semantic
       .as_ref()
@@ -270,6 +276,9 @@ fn contents_text(tree: &RenderTree) -> String {
 
 fn append_contents(tree: &RenderTree, fragments: &mut Vec<String>) {
   for position in &tree.positions {
+    if position.hidden {
+      continue;
+    }
     let Some(semantic) = &position.semantic else {
       append_contents(&position.children, fragments);
       continue;
@@ -290,6 +299,9 @@ fn append_contents(tree: &RenderTree, fragments: &mut Vec<String>) {
 
 fn validate_tree_declarations(tree: &RenderTree) {
   for position in &tree.positions {
+    if position.hidden {
+      continue;
+    }
     if position.host.is_some()
       && let Some(semantic) = &position.semantic
     {
@@ -308,6 +320,9 @@ fn validate_tree_declarations(tree: &RenderTree) {
 fn validate_modals(trees: &[RenderTree]) {
   fn walk(tree: &RenderTree) {
     for position in &tree.positions {
+      if position.hidden {
+        continue;
+      }
       if matches!(
         position.overlay_reference,
         Some(OverlayReference::Modal { .. })
@@ -329,10 +344,12 @@ fn validate_modals(trees: &[RenderTree]) {
 }
 
 fn has_semantic_declaration(tree: &RenderTree) -> bool {
-  tree
-    .positions
-    .iter()
-    .any(|position| position.semantic.is_some() || has_semantic_declaration(&position.children))
+  tree.positions.iter().any(|position| {
+    if position.hidden {
+      return false;
+    }
+    position.semantic.is_some() || has_semantic_declaration(&position.children)
+  })
 }
 
 fn validate_memberships(

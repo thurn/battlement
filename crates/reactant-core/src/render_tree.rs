@@ -366,6 +366,9 @@ impl RenderTree {
     path: &mut Vec<EventNode<'a>>,
   ) -> bool {
     for position in &self.positions {
+      if position.hidden || position.terminal_visual {
+        continue;
+      }
       if let Some(host) = &position.host {
         path.push(EventNode {
           object_id: host.object_id,
@@ -628,6 +631,11 @@ impl RenderTree {
         if let Some(handler) = &presence.handler {
           handler.invoke(game);
         }
+        for exit in &presence.exits {
+          for (cell, _) in &exit.holds {
+            cell.release_resources();
+          }
+        }
         presence.notified = true;
         invoked = true;
       }
@@ -655,6 +663,13 @@ impl RenderTree {
 
   pub(crate) fn commit_hooks(&mut self) {
     for position in &mut self.positions {
+      if let Some(presence) = &position.presence {
+        for exit in &presence.exits {
+          for (cell, _) in &exit.holds {
+            cell.begin_exit(exit.generation, Rc::clone(&exit.resources));
+          }
+        }
+      }
       if let Some(component) = &mut position.component {
         component.commit();
       }

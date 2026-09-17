@@ -111,6 +111,9 @@ impl HostAdapter for WorldAdapter {
   fn scene_root(description: &WorldDescription) -> bool {
     description.root
   }
+  fn inert(description: &mut WorldDescription) {
+    description.clickable = false;
+  }
   fn hide(description: &mut WorldDescription) {
     description.active = false;
   }

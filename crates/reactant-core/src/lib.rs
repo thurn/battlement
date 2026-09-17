@@ -169,3 +169,6 @@ pub mod scale_to_fit;
 pub mod work_scope;
 
 pub mod app_output;
+
+mod retained_visual;
+pub mod visibility;

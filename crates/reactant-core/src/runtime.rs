@@ -357,6 +357,7 @@ impl<G: 'static> Reactant<G> {
             )
           })
           .collect::<Result<Vec<_>, _>>()?;
+        crate::retained_visual::prepare(&mut rendered);
         IdentityIndex::new(rendered.iter());
         for tree in &rendered {
           tree.validate_model(TypeId::of::<G>());
@@ -911,6 +912,7 @@ impl<G: 'static> Reactant<G> {
           })
           .collect::<Result<Vec<_>, _>>()?;
       }
+      crate::retained_visual::prepare(&mut rendered);
       IdentityIndex::new(rendered.iter());
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());

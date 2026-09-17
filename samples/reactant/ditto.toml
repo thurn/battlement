@@ -242,3 +242,89 @@ accessibility_action = { target = { role = "button", name = "Move card" }, actio
 accessibility_assert = { target = { role = "heading", name = "Card count: 3 at Source" }, role = "heading", name = "Card count: 3 at Source" }
 [[scenarios.steps]]
 screenshot = { name = "returned" }
+
+[[scenarios]]
+name = "presentation lifetime"
+fixture = "presentation-lifetime"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Increment card" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card count: 1" }, role = "heading", name = "Card count: 1" }
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Hide card" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 3 }
+[[scenarios.steps]]
+screenshot = { name = "hidden" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Show card" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 3 }
+[[scenarios.steps]]
+screenshot = { name = "reversing" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card count: 1" }, role = "heading", name = "Card count: 1" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Destroy card" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 6 }
+[[scenarios.steps]]
+screenshot = { name = "exiting" }
+[[scenarios.steps]]
+advance = { frames = 30 }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Active 1 / releases 0 / uses 0" }, role = "heading", name = "Active 1 / releases 0 / uses 0" }
+[[scenarios.steps]]
+screenshot = { name = "exit-completed" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Increment held" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Hold and destroy" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Active 0 / releases 0 / uses 2" }, role = "heading", name = "Active 0 / releases 0 / uses 2" }
+[[scenarios.steps]]
+screenshot = { name = "retained" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Deliver stale callback" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "stale-ignored" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Release one use" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Active 0 / releases 1 / uses 1" }, role = "heading", name = "Active 0 / releases 1 / uses 1" }
+[[scenarios.steps]]
+screenshot = { name = "one-use" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Release one use" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Active 0 / releases 2 / uses 0" }, role = "heading", name = "Active 0 / releases 2 / uses 0" }
+[[scenarios.steps]]
+screenshot = { name = "released" }
+
+[[scenarios]]
+name = "queued destruction"
+fixture = "destruction-queue"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Move then destroy" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 15 }
+[[scenarios.steps]]
+screenshot = { name = "first-move" }
+[[scenarios.steps]]
+advance = { frames = 30 }
+[[scenarios.steps]]
+screenshot = { name = "second-move" }
+[[scenarios.steps]]
+advance = { frames = 30 }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Presented stage 3" }, role = "heading", name = "Presented stage 3" }
+[[scenarios.steps]]
+screenshot = { name = "removed" }

@@ -205,6 +205,8 @@ pub(crate) struct RenderTree {
 pub(crate) struct RenderPosition {
   pub(crate) descriptor: TypeId,
   pub(crate) presentation_id: Option<uuid::Uuid>,
+  pub(crate) hidden: bool,
+  pub(crate) terminal_visual: bool,
   pub(crate) key: Option<ErasedKey>,
   pub(crate) host: Option<HostNode>,
   pub(crate) handlers: Vec<Handler>,
@@ -230,6 +232,7 @@ pub(crate) struct RenderPosition {
 }
 
 pub(crate) struct RenderSink<'a> {
+  pub(crate) direct_presence_children: bool,
   pub(crate) committed: &'a RenderTree,
   pub(crate) identities: &'a crate::identity_index::IdentityIndex<'a>,
   pub(crate) positions: Vec<RenderPosition>,
@@ -269,6 +272,7 @@ pub(crate) fn sink_with_scope<'a>(
   identities: &'a crate::identity_index::IdentityIndex<'a>,
 ) -> RenderSink<'a> {
   RenderSink {
+    direct_presence_children: false,
     committed,
     identities,
     positions: Vec::new(),
@@ -287,6 +291,7 @@ fn checkpointed_sink_with_scope<'a>(
   let mut pending_hook_lengths = Vec::new();
   committed.pending_hook_lengths(&mut pending_hook_lengths);
   RenderSink {
+    direct_presence_children: false,
     committed,
     identities,
     positions: Vec::new(),
@@ -351,6 +356,8 @@ impl<'a> RenderSink<'a> {
     self.positions.push(RenderPosition {
       descriptor,
       presentation_id: None,
+      hidden: false,
+      terminal_visual: false,
       key: Some(key),
       host: None,
       handlers: Vec::new(),
@@ -512,6 +519,8 @@ impl<'a> RenderSink<'a> {
       self.positions.push(RenderPosition {
         descriptor,
         presentation_id: None,
+        hidden: false,
+        terminal_visual: false,
         key: None,
         host: None,
         handlers: Vec::new(),
@@ -600,6 +609,8 @@ impl<'a> RenderSink<'a> {
       self.positions.push(RenderPosition {
         descriptor,
         presentation_id: None,
+        hidden: false,
+        terminal_visual: false,
         key: None,
         host: None,
         handlers: Vec::new(),
@@ -665,6 +676,8 @@ impl<'a> RenderSink<'a> {
       self.positions.push(RenderPosition {
         descriptor,
         presentation_id: None,
+        hidden: false,
+        terminal_visual: false,
         key: None,
         host: None,
         handlers: Vec::new(),
@@ -693,6 +706,9 @@ impl<'a> RenderSink<'a> {
   }
 
   pub(crate) fn push_empty<R: 'static>(&mut self) {
+    if self.direct_presence_children {
+      return;
+    }
     if self.error.is_some() {
       return;
     }
@@ -791,6 +807,8 @@ impl<'a> RenderSink<'a> {
     self.positions.push(RenderPosition {
       descriptor,
       presentation_id: None,
+      hidden: false,
+      terminal_visual: false,
       key: None,
       host: None,
       handlers: Vec::new(),
@@ -824,6 +842,14 @@ impl<'a> RenderSink<'a> {
     presence_render::push::<R>(self, config, render);
   }
 
+  pub(crate) fn push_structural<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
+    if self.direct_presence_children {
+      render(self);
+    } else {
+      self.push_nested::<R>(render);
+    }
+  }
+
   pub(crate) fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
     self.push_nested_descriptor(TypeId::of::<R>(), render);
   }
@@ -854,6 +880,8 @@ impl<'a> RenderSink<'a> {
     self.positions.push(RenderPosition {
       descriptor,
       presentation_id: None,
+      hidden: false,
+      terminal_visual: false,
       key: None,
       host: None,
       handlers: Vec::new(),
@@ -984,6 +1012,8 @@ impl<'a> RenderSink<'a> {
     self.positions.push(RenderPosition {
       descriptor,
       presentation_id: None,
+      hidden: false,
+      terminal_visual: false,
       key: None,
       host: None,
       handlers: Vec::new(),
@@ -1094,6 +1124,8 @@ impl<'a> RenderSink<'a> {
     self.positions.push(RenderPosition {
       descriptor,
       presentation_id: None,
+      hidden: false,
+      terminal_visual: false,
       key: None,
       host: None,
       handlers: Vec::new(),
@@ -1147,6 +1179,8 @@ impl<'a> RenderSink<'a> {
     self.positions.push(RenderPosition {
       descriptor,
       presentation_id: None,
+      hidden: false,
+      terminal_visual: false,
       key: None,
       host,
       handlers: Vec::new(),

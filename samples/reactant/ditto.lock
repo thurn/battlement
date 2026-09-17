@@ -183,6 +183,136 @@ source = "b772ef6d622e4d6789b856fcbe65f188de07ef0934734362f4225ccf97db41df"
 
 [[baselines]]
 profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "exit-completed"
+sha256 = "55a5bf12b6d042d9ed31afaea44bc079d89416026d4ac3acf5bbec4f6d125a09"
+width = 1280
+height = 720
+size_bytes = 38254
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "exiting"
+sha256 = "debd84be2b79af23c127985a11fcc1aba6557f37c495755aea32b8c43ea1d307"
+width = 1280
+height = 720
+size_bytes = 41271
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "hidden"
+sha256 = "63819d876a07a3141e649c030f348b32f169f65a246d22f8cbfa856a1fa874a5"
+width = 1280
+height = 720
+size_bytes = 38580
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "initial"
+sha256 = "f2827191c8828810aaa4d5cb34b5b9a9e525195bf461336dd87b7b1f3c8434a4"
+width = 1280
+height = 720
+size_bytes = 41356
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "one-use"
+sha256 = "ab12e9a419d8a84d58e13b675efba2f691f4ef9147fc59b4ea53fabfb6d63001"
+width = 1280
+height = 720
+size_bytes = 37821
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "released"
+sha256 = "eca3759c542f0f2c15af2b36b6d9c48370d78da52ca01f702b4d76c7b44328dc"
+width = 1280
+height = 720
+size_bytes = 35216
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "retained"
+sha256 = "da754c2e3046002a44f64762c5e0099a1fc2f58ea350ed2d12312916153b2d69"
+width = 1280
+height = 720
+size_bytes = 38131
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "reversing"
+sha256 = "3a7e388e371047d04aae497632d5709e85016bfb578dfc60c6c74c526b706ab6"
+width = 1280
+height = 720
+size_bytes = 41534
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation lifetime"
+checkpoint = "stale-ignored"
+sha256 = "da754c2e3046002a44f64762c5e0099a1fc2f58ea350ed2d12312916153b2d69"
+width = 1280
+height = 720
+size_bytes = 38131
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "queued destruction"
+checkpoint = "first-move"
+sha256 = "c24d49a5438db931677857f4750c001a65bc7a038e74937ce6de6a54f0f66684"
+width = 1280
+height = 720
+size_bytes = 29714
+source = "f1693fe53a3cd310320e8eea3fe687680a5135343536cc0868d6aa415fb1da17"
+
+[[baselines]]
+profile = "macos"
+scenario = "queued destruction"
+checkpoint = "initial"
+sha256 = "d1ff434151217894302d748c01a9582e30ea1850d630067cb7eee250944283a4"
+width = 1280
+height = 720
+size_bytes = 29812
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "queued destruction"
+checkpoint = "removed"
+sha256 = "cb60b819ab89bb1d70a42f1a3a7a9984d156901378f27e5f060af92e940300bf"
+width = 1280
+height = 720
+size_bytes = 29628
+source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
+
+[[baselines]]
+profile = "macos"
+scenario = "queued destruction"
+checkpoint = "second-move"
+sha256 = "0c6aec264a02ff57aa789d7445e78b1640d846404e4e689fdebe2c4a5455cf37"
+width = 1280
+height = 720
+size_bytes = 29771
+source = "f1693fe53a3cd310320e8eea3fe687680a5135343536cc0868d6aa415fb1da17"
+
+[[baselines]]
+profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "accepted-before-playback"
 sha256 = "8e19699a4cbcf42b651f981e652593b04b51e3403a031f3220b29d0dfc66608f"

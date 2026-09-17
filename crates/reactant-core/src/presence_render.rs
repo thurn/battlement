@@ -5,11 +5,10 @@ use battlement::{MotionLayer, OverlayLayer, OverlayPlacement, Prop, UiVisualElem
 use crate::{
   motion_lifecycle::{self, MotionCallbacks},
   presence::{
-    self, AutomaticExit, PresenceBoundaryState, PresenceConfig, PresenceExit, PresenceMode,
-    PresenceRenderState,
+    self, AutomaticExit, PresenceBoundaryState, PresenceConfig, PresenceExit, PresenceHold,
+    PresenceMode, PresenceRenderState,
   },
   render::{RenderPosition, RenderSink, RenderTree, sink_with_scope},
-  render_value::Sealed,
   ui_host_adapter,
 };
 
@@ -33,11 +32,16 @@ pub(crate) fn push<R: 'static>(
   let generation = previous_state
     .as_ref()
     .map_or(1, |value| value.generation.saturating_add(1));
-  let mut children = sink_with_scope(
-    previous_children,
-    sink.variant_scope.clone(),
-    sink.identities,
-  );
+  let previous_live = RenderTree {
+    positions: previous_children
+      .positions
+      .iter()
+      .filter(|position| !position.terminal_visual)
+      .cloned()
+      .collect(),
+  };
+  let mut children = sink_with_scope(&previous_live, sink.variant_scope.clone(), sink.identities);
+  children.direct_presence_children = true;
   presence::with_state(
     PresenceRenderState {
       present: true,
@@ -52,15 +56,7 @@ pub(crate) fn push<R: 'static>(
       return;
     }
   };
-  flatten_structural_children(&mut current);
   validate_keyed(&current);
-  stabilize_transparent_children(
-    &mut current,
-    previous_children,
-    generation,
-    &sink.variant_scope,
-    sink.identities,
-  );
   sink.pending.extend(pending);
   if previous.is_none() && !config.initial {
     suppress_initial(&mut current);
@@ -97,8 +93,7 @@ pub(crate) fn push<R: 'static>(
     }
     let existing = state.exits.iter().find(|exit| &exit.key == key).cloned();
     let exit_generation = existing.as_ref().map_or(generation, |exit| exit.generation);
-    let mut exiting =
-      rerender_retained(prior, exit_generation, &sink.variant_scope, sink.identities);
+    let mut exiting = prior.clone();
     mark_inert(&mut exiting);
     if config.mode == PresenceMode::PopLayout {
       mark_pop_layout(&mut exiting);
@@ -110,6 +105,7 @@ pub(crate) fn push<R: 'static>(
         generation: exit_generation,
         automatic,
         holds,
+        resources: crate::retained_visual::resources(&exiting),
       }
     });
     if !state
@@ -123,6 +119,8 @@ pub(crate) fn push<R: 'static>(
       freeze_exit_motion(&mut exiting, prior);
     }
     if !exit.ready() {
+      crate::retained_visual::freeze(&mut exiting);
+      exiting.terminal_visual = true;
       retained.push(exiting);
     }
   }
@@ -156,6 +154,8 @@ pub(crate) fn push<R: 'static>(
   sink.positions.push(RenderPosition {
     descriptor,
     presentation_id: None,
+    hidden: false,
+    terminal_visual: false,
     key: None,
     host: None,
     handlers: Vec::new(),
@@ -237,129 +237,21 @@ fn validate_keyed(tree: &RenderTree) {
   );
 }
 
-fn stabilize_transparent_children(
-  current: &mut RenderTree,
-  previous: &RenderTree,
-  generation: u64,
-  variant_scope: &crate::motion_variants::VariantScope,
-  identities: &crate::identity_index::IdentityIndex<'_>,
-) {
-  for position in &mut current.positions {
-    let Some(prior) = previous
-      .positions
-      .iter()
-      .find(|prior| prior.key == position.key && prior.descriptor == position.descriptor)
-    else {
-      continue;
-    };
-    if first_host_id(position) != first_host_id(prior) {
-      *position = rerender_position(position, prior, true, generation, variant_scope, identities);
-    }
-  }
-}
-
-fn first_host_id(position: &RenderPosition) -> Option<battlement::ObjectId> {
-  position
-    .host
-    .as_ref()
-    .map(|host| host.object_id)
-    .or_else(|| position.children.positions.iter().find_map(first_host_id))
-}
-
-fn flatten_structural_children(tree: &mut RenderTree) {
-  let positions = std::mem::take(&mut tree.positions);
-  for mut position in positions {
-    if is_structural_wrapper(&position) {
-      flatten_structural_children(&mut position.children);
-      tree.positions.extend(position.children.positions);
-    } else {
-      tree.positions.push(position);
-    }
-  }
-}
-
-fn is_structural_wrapper(position: &RenderPosition) -> bool {
-  position.key.is_none()
-    && position.host.is_none()
-    && position.handlers.is_empty()
-    && position.component.is_none()
-    && position.memo_value.is_none()
-    && position.provider.is_none()
-    && position.portal.is_none()
-    && position.portal_target.is_none()
-    && position.error_boundary.is_none()
-    && position.element_ref.is_none()
-    && position.suspense.is_none()
-    && position.retained_render.is_none()
-    && position.exit_blueprint.is_none()
-    && position.presence.is_none()
-}
-
-fn rerender_retained(
-  previous: &RenderPosition,
-  generation: u64,
-  variant_scope: &crate::motion_variants::VariantScope,
-  identities: &crate::identity_index::IdentityIndex<'_>,
-) -> RenderPosition {
-  rerender_position(
-    previous,
-    previous,
-    false,
-    generation,
-    variant_scope,
-    identities,
-  )
-}
-
-fn rerender_position(
-  source_position: &RenderPosition,
-  committed_position: &RenderPosition,
-  present: bool,
-  generation: u64,
-  variant_scope: &crate::motion_variants::VariantScope,
-  identities: &crate::identity_index::IdentityIndex<'_>,
-) -> RenderPosition {
-  let source = source_position
-    .retained_render
-    .clone()
-    .expect("AnimatePresence keyed children must retain their render value");
-  let committed = RenderTree {
-    positions: vec![committed_position.clone()],
-  };
-  let mut sink = sink_with_scope(&committed, variant_scope.clone(), identities);
-  presence::with_state(
-    PresenceRenderState {
-      present,
-      generation,
-    },
-    || source.render_owned(&mut sink),
-  );
-  let (tree, pending) = RenderSink::finish_child(sink).expect("retained presence render failed");
-  assert!(
-    pending.is_empty(),
-    "retained presence cannot suspend without its boundary"
-  );
-  let mut positions = tree.positions;
-  assert_eq!(
-    positions.len(),
-    1,
-    "retained keyed child changed cardinality"
-  );
-  positions.remove(0)
-}
-
 fn start_exit(
   position: &mut RenderPosition,
   custom: Option<&crate::variant_map::ErasedVariantData>,
-) -> (
-  Vec<AutomaticExit>,
-  Vec<std::rc::Rc<crate::presence::PresenceCell>>,
-) {
+) -> (Vec<AutomaticExit>, Vec<PresenceHold>) {
   let mut automatic = Vec::new();
   let mut holds = position
     .component
     .as_ref()
-    .map_or_else(Vec::new, |component| component.presence_holds());
+    .map_or_else(Vec::new, |component| {
+      component
+        .presence_holds()
+        .into_iter()
+        .map(|cell| (cell, std::rc::Rc::clone(&component.owner)))
+        .collect()
+    });
   if let (Some(host), Some(blueprint)) = (&mut position.host, &position.exit_blueprint) {
     let object_id = host.object_id;
     let visual = ui_host_adapter::element_mut(host).visual_element_mut();
@@ -379,6 +271,19 @@ fn start_exit(
           .map(|slot| AutomaticExit::new(descriptor.descriptor_id, slot.slot, slot.generation)),
       );
       visual.motion = Prop::Set(descriptor);
+    }
+  }
+  if let Some(presence) = &position.presence {
+    for exit in &presence.exits {
+      automatic.extend(exit.automatic.iter().cloned());
+      holds.extend(exit.holds.iter().cloned());
+    }
+  }
+  if let Some(suspense) = &mut position.suspense {
+    for child in &mut suspense.primary.positions {
+      let (child_automatic, child_holds) = start_exit(child, custom);
+      automatic.extend(child_automatic);
+      holds.extend(child_holds);
     }
   }
   for child in &mut position.children.positions {

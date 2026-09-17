@@ -85,7 +85,7 @@ impl Component for RetainedCard {
 }
 
 #[test]
-fn automatic_exit_retains_hooks_until_exact_generation_completion() {
+fn automatic_exit_retains_only_visuals_until_exact_generation_completion() {
   let mut fixture = Fixture::new(PresenceMode::Sync, false);
   let initial = fixture.start();
   let host_id = initial.children[0].object_id;
@@ -108,27 +108,31 @@ fn automatic_exit_retains_hooks_until_exact_generation_completion() {
     .expect("retained setter")
     .set(12);
   let update = fixture.poll();
-  assert!(!update.is_empty());
+  assert!(update.is_empty());
   let _ = update.into_groups();
-  assert_eq!(&*fixture.lifecycle.borrow(), &["mount"]);
+  assert_eq!(&*fixture.lifecycle.borrow(), &["mount", "unmount"]);
 
   let removed = fixture.complete(descriptor_id, generation);
   assert!(contains_destroy(removed, host_id));
   assert_eq!(fixture.game.completed, 1);
-  assert_eq!(fixture.game.slot_completed, 1);
+  assert_eq!(fixture.game.slot_completed, 0);
   let _ = fixture.poll().into_groups();
   assert_eq!(&*fixture.lifecycle.borrow(), &["mount", "unmount"]);
   fixture.shutdown();
 }
 
 #[test]
-fn manual_hold_reconnect_and_rapid_reopen_preserve_one_mount() {
+fn manual_hold_survives_transport_reconnect_but_reopen_starts_a_new_lifetime() {
   let mut fixture = Fixture::new(PresenceMode::Sync, true);
   let initial = fixture.start();
   let host_id = initial.children[0].object_id;
   let _ = fixture.poll().into_groups();
+  let old_presence = fixture.presence.borrow().as_ref().unwrap().clone();
   fixture.game.open = false;
   let (descriptor_id, generation, _) = exit_update(fixture.refresh());
+  let _ = fixture.poll().into_groups();
+  assert_eq!(&*fixture.lifecycle.borrow(), &["mount", "unmount"]);
+  assert!(!old_presence.is_present());
 
   let reconnect = fixture.start();
   let Prop::Set(reconnected) = &reconnect.children[0].element.visual_element().motion else {
@@ -136,39 +140,30 @@ fn manual_hold_reconnect_and_rapid_reopen_preserve_one_mount() {
   };
   assert_eq!(reconnected.generation, generation);
   fixture.game.open = true;
-  let reopened = fixture.refresh();
-  assert!(!contains_destroy(reopened, host_id));
+  assert!(contains_destroy(fixture.refresh(), host_id));
+  let _ = fixture.poll().into_groups();
+  assert_eq!(&*fixture.lifecycle.borrow(), &["mount", "unmount", "mount"]);
+  let reopened = fixture.start();
+  let new_host = reopened.children[0].object_id;
+  assert_ne!(host_id, new_host);
   let _ = fixture
     .terminal(descriptor_id, generation, MotionEventKind::Cancelled)
     .into_groups();
-  assert_eq!(fixture.game.completed, 0);
-  assert_eq!(fixture.game.slot_completed, 0);
-  assert_eq!(fixture.game.slot_cancelled, 1);
-  assert_eq!(&*fixture.lifecycle.borrow(), &["mount"]);
+  assert_eq!(fixture.game.slot_cancelled, 0);
 
   fixture.game.open = false;
-  let (descriptor_id, second_generation, _) = exit_update(fixture.refresh());
-  let second_reconnect = fixture.start();
-  let Prop::Set(reconnected) = &second_reconnect.children[0].element.visual_element().motion else {
-    panic!("second reconnect lost retained motion");
-  };
-  assert_eq!(reconnected.generation, second_generation);
-  fixture.sequence = 0;
-  let _ = fixture
-    .complete(descriptor_id, second_generation)
-    .into_groups();
-  assert_eq!(fixture.game.slot_completed, 1);
-  fixture
-    .presence
-    .borrow()
-    .as_ref()
-    .expect("exiting presence handle")
-    .safe_to_remove();
-  let removed = fixture.poll();
-  assert!(contains_destroy(removed, host_id));
+  let (descriptor_id, generation, _) = exit_update(fixture.refresh());
+  let _ = fixture.complete(descriptor_id, generation).into_groups();
+  old_presence.safe_to_remove();
+  assert!(fixture.poll().is_empty());
+  fixture.presence.borrow().as_ref().unwrap().safe_to_remove();
+  assert!(contains_destroy(fixture.poll(), new_host));
   assert_eq!(fixture.game.completed, 1);
   let _ = fixture.poll().into_groups();
-  assert_eq!(&*fixture.lifecycle.borrow(), &["mount", "unmount"]);
+  assert_eq!(
+    &*fixture.lifecycle.borrow(),
+    &["mount", "unmount", "mount", "unmount"]
+  );
   fixture.shutdown();
 }
 
@@ -226,7 +221,7 @@ fn wait_defers_the_next_key_and_pop_layout_marks_the_exiting_projection() {
   let (descriptor_id, generation, _) = exit_update(fixture.refresh());
   assert_eq!(&*fixture.lifecycle.borrow(), &["mount"]);
   let entered = fixture.terminal(descriptor_id, generation, MotionEventKind::Cancelled);
-  assert_eq!(fixture.game.slot_cancelled, 1);
+  assert_eq!(fixture.game.slot_cancelled, 0);
   assert!(
     entered
       .into_groups()

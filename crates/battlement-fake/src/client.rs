@@ -80,6 +80,7 @@ where
   pub(crate) session_id: battlement::SessionId,
   pub(crate) world: FakeWorld,
   pub(crate) ui_world: UiWorld,
+  pub(crate) accessibility: battlement::AccessibilitySnapshot,
   pub(crate) geometry_registry: GeometryRegistry,
   pub(crate) admitted_batches: HashSet<BatchId>,
   pub(crate) executed_commands: HashSet<CommandId>,
@@ -219,6 +220,7 @@ where
       session_id,
       world: FakeWorld::default(),
       ui_world: UiWorld::default(),
+      accessibility: battlement::AccessibilitySnapshot::default(),
       geometry_registry: GeometryRegistry::default(),
       admitted_batches: HashSet::new(),
       executed_commands: HashSet::new(),
@@ -280,6 +282,7 @@ where
     self.session_id = next_session;
     self.world = FakeWorld::default();
     self.ui_world = UiWorld::default();
+    self.accessibility = battlement::AccessibilitySnapshot::default();
     self.geometry_registry = GeometryRegistry::default();
     self.admitted_batches.clear();
     self.canceled_scopes.clear();
@@ -393,6 +396,12 @@ where
   #[must_use]
   pub fn ui_world(&self) -> &UiWorld {
     &self.ui_world
+  }
+
+  /// Returns the semantic tree most recently applied through the host transport.
+  #[must_use]
+  pub fn accessibility(&self) -> &battlement::AccessibilitySnapshot {
+    &self.accessibility
   }
 
   /// Activates a reachable world object through the coordinate-free input route.

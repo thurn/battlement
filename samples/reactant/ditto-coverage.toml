@@ -163,3 +163,81 @@ state = "presentation-identity.returned"
 scenario = "presentation identity"
 checkpoint = "returned"
 owner = "reactant-testing::presentation_identity"
+
+[[mappings]]
+state = "presentation-lifetime.initial"
+scenario = "presentation lifetime"
+checkpoint = "initial"
+owner = "reactant-testing::presentation_lifetime"
+
+[[mappings]]
+state = "presentation-lifetime.hidden"
+scenario = "presentation lifetime"
+checkpoint = "hidden"
+owner = "reactant-testing::presentation_lifetime"
+
+[[mappings]]
+state = "presentation-lifetime.reversing"
+scenario = "presentation lifetime"
+checkpoint = "reversing"
+owner = "reactant-testing::presentation_lifetime"
+
+[[mappings]]
+state = "presentation-lifetime.exiting"
+scenario = "presentation lifetime"
+checkpoint = "exiting"
+owner = "reactant-testing::presentation_lifetime"
+
+[[mappings]]
+state = "presentation-lifetime.exit-completed"
+scenario = "presentation lifetime"
+checkpoint = "exit-completed"
+owner = "reactant-testing::presentation_lifetime"
+
+[[mappings]]
+state = "presentation-lifetime.retained"
+scenario = "presentation lifetime"
+checkpoint = "retained"
+owner = "reactant-testing::presentation_lifetime"
+
+[[mappings]]
+state = "presentation-lifetime.one-use"
+scenario = "presentation lifetime"
+checkpoint = "one-use"
+owner = "reactant-testing::presentation_lifetime"
+
+[[mappings]]
+state = "presentation-lifetime.released"
+scenario = "presentation lifetime"
+checkpoint = "released"
+owner = "reactant-testing::presentation_lifetime"
+
+[[mappings]]
+state = "destruction-queue.initial"
+scenario = "queued destruction"
+checkpoint = "initial"
+owner = "reactant-testing::mixed_queue"
+
+[[mappings]]
+state = "destruction-queue.first-move"
+scenario = "queued destruction"
+checkpoint = "first-move"
+owner = "reactant-testing::mixed_queue"
+
+[[mappings]]
+state = "destruction-queue.second-move"
+scenario = "queued destruction"
+checkpoint = "second-move"
+owner = "reactant-testing::mixed_queue"
+
+[[mappings]]
+state = "destruction-queue.removed"
+scenario = "queued destruction"
+checkpoint = "removed"
+owner = "reactant-testing::mixed_queue"
+
+[[mappings]]
+state = "presentation-lifetime.stale-ignored"
+scenario = "presentation lifetime"
+checkpoint = "stale-ignored"
+owner = "reactant-testing::lifetime_fixture"

@@ -58,6 +58,9 @@ impl<'a> IdentityIndex<'a> {
 
   fn collect(&mut self, tree: &'a RenderTree, inherited: IdentityScope) {
     for position in &tree.positions {
+      if position.terminal_visual {
+        continue;
+      }
       let work = position
         .provider
         .as_ref()

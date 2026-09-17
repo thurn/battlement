@@ -88,6 +88,11 @@ where
     self.client.ui().deliver_event(event);
   }
 
+  /// Delivers native Motion lifecycle observations without advancing host time.
+  pub fn deliver_motion_events(&mut self, events: battlement::MotionEventBatch) {
+    self.client.submit_motion(events);
+  }
+
   /// Finds a live UI descendant by its authored name.
   #[must_use]
   pub fn find_ui(&self, root: ObjectId, name: &str) -> ObjectId {
@@ -105,6 +110,12 @@ where
     panic!("missing UI element named {name}");
   }
 
+  /// Reports whether a native UI element remains presented, including retained exits.
+  #[must_use]
+  pub fn contains_ui(&self, object_id: ObjectId) -> bool {
+    self.client.ui_world().element(object_id).is_some()
+  }
+
   /// Returns one live UI element for visible-state inspection.
   #[must_use]
   pub fn ui_element(
@@ -116,6 +127,12 @@ where
       .ui_world()
       .element(object_id)
       .unwrap_or_else(|| panic!("UI element does not exist: {object_id}"))
+  }
+
+  /// Returns the currently presented accessibility tree.
+  #[must_use]
+  pub fn accessibility(&self) -> &battlement::AccessibilitySnapshot {
+    self.client.accessibility()
   }
 
   /// Returns one world object when it is currently presented.

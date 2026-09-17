@@ -536,7 +536,7 @@ pub fn use_is_present() -> bool {
   self::use_presence_slot(false).is_present()
 }
 
-/// Returns presence state and acquires one manual hold while exiting.
+/// Returns a lifetime handle; keeping it outside the component holds its terminal visual.
 #[must_use]
 pub fn use_presence() -> Presence {
   self::use_presence_slot(true)
@@ -573,7 +573,7 @@ fn use_presence_slot(manual: bool) -> Presence {
     .as_any_mut()
     .downcast_mut::<PresenceSlot>()
     .expect("validated presence hook type");
-  slot.prepare(render_state, manual);
+  slot.prepare(manual);
   Presence::new(Rc::clone(&slot.state), render_state.generation)
 }
 

@@ -599,7 +599,11 @@ where
         .geometry_registry
         .apply_update(value)
         .unwrap_or_else(|error| panic!("geometry registry update failed: {error:?}")),
-      CommandBody::AccessibilityUpdate(_) => {}
+      CommandBody::AccessibilityUpdate(value) => {
+        if let Some(snapshot) = &value.snapshot {
+          self.accessibility = snapshot.clone();
+        }
+      }
       CommandBody::ApplicationOpenUrl(_) => {}
     }
   }

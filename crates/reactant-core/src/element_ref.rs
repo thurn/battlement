@@ -46,6 +46,7 @@ pub(crate) struct ElementRefRuntime {
 
 pub(crate) struct AttachmentSet {
   desired: HashMap<u64, DesiredAttachment>,
+  terminal_hosts: HashSet<ObjectId>,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -366,10 +367,20 @@ impl AttachmentSet {
     roots: impl IntoIterator<Item = (ObjectId, &'a RenderTree)>,
   ) -> Self {
     let mut desired = HashMap::new();
+    let mut terminal_hosts = HashSet::new();
     for (document_id, tree) in roots {
-      self::collect_tree(runtime_id, document_id, tree, &mut desired);
+      self::collect_tree(
+        runtime_id,
+        document_id,
+        tree,
+        &mut desired,
+        &mut terminal_hosts,
+      );
     }
-    Self { desired }
+    Self {
+      desired,
+      terminal_hosts,
+    }
   }
 
   pub(crate) fn commit(self, runtime: &mut ElementRefRuntime, reconnect: bool) {
@@ -403,13 +414,28 @@ impl AttachmentSet {
   ) -> Vec<Vec<CommandBody>> {
     runtime.actions[..count]
       .iter()
-      .filter_map(|queued| self.action_body(queued, layout))
+      .filter_map(|queued| self.action_body(queued, runtime, layout))
       .map(|body| vec![body])
       .collect()
   }
 
-  fn action_body(&self, queued: &QueuedAction, layout: &PortalLayout) -> Option<CommandBody> {
-    if !self.current(queued.target) {
+  fn action_body(
+    &self,
+    queued: &QueuedAction,
+    runtime: &ElementRefRuntime,
+    layout: &PortalLayout,
+  ) -> Option<CommandBody> {
+    let retained_effect = matches!(queued.action, VisualElementAction::ParticleStreaks { .. })
+      && self
+        .terminal_hosts
+        .contains(&queued.target.attachment.object_id)
+      && runtime
+        .attached
+        .get(&queued.target.identity)
+        .is_some_and(|reference| {
+          reference.inner.attachment.get() == Some(queued.target.attachment)
+        });
+    if !self.current(queued.target) && !retained_effect {
       return None;
     }
     let target = self::find_node(layout, queued.target.attachment.object_id)
@@ -565,8 +591,13 @@ fn collect_tree(
   document_id: ObjectId,
   tree: &RenderTree,
   desired: &mut HashMap<u64, DesiredAttachment>,
+  terminal_hosts: &mut HashSet<ObjectId>,
 ) {
   for position in &tree.positions {
+    if position.terminal_visual {
+      crate::retained_visual::collect_host_ids(position, terminal_hosts);
+      continue;
+    }
     if let Some(element_ref) = &position.element_ref {
       assert_eq!(
         element_ref.inner.runtime_id, runtime_id,
@@ -592,9 +623,21 @@ fn collect_tree(
       );
     }
     if let Some(suspense) = &position.suspense {
-      self::collect_tree(runtime_id, document_id, &suspense.primary, desired);
+      self::collect_tree(
+        runtime_id,
+        document_id,
+        &suspense.primary,
+        desired,
+        terminal_hosts,
+      );
     }
-    self::collect_tree(runtime_id, document_id, &position.children, desired);
+    self::collect_tree(
+      runtime_id,
+      document_id,
+      &position.children,
+      desired,
+      terminal_hosts,
+    );
   }
 }
 

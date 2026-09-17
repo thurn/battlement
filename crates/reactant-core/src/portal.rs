@@ -331,6 +331,7 @@ fn collect_portals<'a>(
   catalog: &mut PortalCatalog<'a>,
 ) {
   for position in &tree.positions {
+    let hidden = hidden || position.hidden;
     if let Some(host) = &position.host {
       catalog.has_objects |= !host.is_ui();
       assert!(
@@ -413,6 +414,7 @@ fn append_physical_hosts(
   hosts: &mut Vec<HostNode>,
 ) {
   for position in &tree.positions {
+    let start = hosts.len();
     if position.portal.is_some() {
       continue;
     }
@@ -457,6 +459,9 @@ fn append_physical_hosts(
         self::hide_roots(&mut hosts[start..]);
       }
       self::append_physical_hosts(&position.children, ranges, expanding, hosts);
+    }
+    if position.hidden {
+      self::hide_roots(&mut hosts[start..]);
     }
   }
 }

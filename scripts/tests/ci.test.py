@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
 import importlib.util
 import json
 import os
@@ -13,7 +13,7 @@ import sys
 import tempfile
 from threading import Barrier, Lock
 import tomllib
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -404,6 +404,8 @@ def _verify_selected_native_execution() -> None:
             function()
             return True
 
+    closed: list[bool] = []
+
     class DittoLeases:
         cache_root = Path("/tmp/battlement-ci-test-ditto")
 
@@ -411,7 +413,7 @@ def _verify_selected_native_execution() -> None:
             pass
 
         def close(self) -> None:
-            pass
+            closed.append(True)
 
     native_runs: list[tuple[str, ...]] = []
 
@@ -432,7 +434,8 @@ def _verify_selected_native_execution() -> None:
         assert isinstance(samples, list)
         native_runs.append(tuple(samples))
 
-    with (
+    tooling = Mock()
+    patches = (
         patch.object(ci, "CiCache", Cache),
         patch.object(ci, "sample_names", return_value=["ui"]),
         patch.object(ci, "sample_rust_workspaces", return_value=[]),
@@ -455,22 +458,37 @@ def _verify_selected_native_execution() -> None:
             return_value=("HEAD", ["samples/ui/rules/src/lib.rs"]),
         ),
         patch.object(web_selection, "validate_affected"),
-        patch.object(ci, "run_csharp_preflight"),
-        patch.object(ci, "check_cargo_lockfiles"),
-        patch.object(ci, "lint_rust_workspaces"),
+        patch.multiple(ci, run_csharp_preflight=lambda *_a: None,
+                       check_cargo_lockfiles=lambda *_a: None,
+                       lint_rust_workspaces=lambda *_a: None),
         patch.object(ci, "test_rust_workspaces", return_value=0.0),
-        patch.object(ci.ci_tooling, "run") as tooling,
+        patch.object(ci.ci_tooling, "run", tooling),
         patch.object(ci, "run_selected_unity_tests", return_value=0.0),
-        patch.object(ci, "build_standalone_samples", return_value=0.0),
+        patch.multiple(ci, build_standalone_samples=lambda *_a, **_k: 0.0,
+                       prepare_standalone_builder=lambda *_a: 0.0),
         patch.object(ci, "run_ditto_validation", side_effect=record_ditto),
         patch.object(ci, "DittoBuildLeases", DittoLeases),
         patch.object(ci.ditto_evidence, "invocation_root", return_value=Path("/tmp")),
         patch.object(ci, "refresh_tracked_file_metadata"),
         patch.object(ci, "run_step", side_effect=record_step),
         patch.object(ci.platform, "system", return_value="Darwin"),
-    ):
+    )
+    with ExitStack() as stack:
+        for patcher in patches:
+            stack.enter_context(patcher)
         ci.run_ci(full=True, use_ci_cache=False, ditto=True)
+        assert closed == [True]
+        tooling.assert_called_once_with(ci.REPOSITORY_ROOT, performance=True)
+        for failed_stage in ("prepare_standalone_builder", "test_runtime_integrations"):
+            with patch.object(ci, failed_stage, side_effect=RuntimeError(failed_stage)):
+                try:
+                    ci.run_ci(full=True, use_ci_cache=False, ditto=True)
+                except RuntimeError as error:
+                    assert str(error) == failed_stage
+                else:
+                    raise AssertionError("failed validation must stop the native gate")
 
+    assert closed == [True, True, True]
     assert native_runs == [("ui",)]
     tooling.assert_called_once_with(ci.REPOSITORY_ROOT, performance=True)
 
@@ -692,8 +710,8 @@ def _verify_unity_execution_selection(root: Path) -> None:
 
 
 def _verify_runtime_checks_overlap() -> None:
-    for failure in (None, "rust", "unity"):
-        barrier = Barrier(2, timeout=5)
+    for failure in (None, "rust", "unity", "native"):
+        barrier = Barrier(3, timeout=5)
         completed: list[str] = []
 
         def execute(name: str) -> float:
@@ -708,12 +726,14 @@ def _verify_runtime_checks_overlap() -> None:
             patch.object(ci, "run_selected_unity_tests", side_effect=lambda *_args: execute("unity")),
         ):
             try:
-                _rust, unity = ci.test_runtime_integrations(object(), object(), object())
+                _rust, unity = ci.test_runtime_integrations(
+                    object(), object(), object(), lambda: execute("native"),
+                )
                 assert failure is None
                 assert unity == 1.5
             except RuntimeError as error:
                 assert failure is not None and str(error) == failure
-        assert sorted(completed) == ["rust", "unity"]
+        assert sorted(completed) == ["native", "rust", "unity"]
 
 
 def _verify_unity_native_diagnostics_selection() -> None:

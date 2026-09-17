@@ -11,7 +11,7 @@ use crate::{
   geometry::GeometryTarget,
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::GeometryRuntime,
-  presence::{Presence, PresenceCell, PresenceRenderState},
+  presence::{Presence, PresenceCell},
 };
 
 #[derive(Clone)]
@@ -511,12 +511,11 @@ impl<T: 'static> HookSlot for RefSlot<T> {
 }
 
 impl PresenceSlot {
-  pub(crate) fn prepare(&mut self, state: PresenceRenderState, manual: bool) {
+  pub(crate) fn prepare(&mut self, manual: bool) {
     assert_eq!(
       self.manual, manual,
       "Reactant presence hook kind changed between manual and observed"
     );
-    self.state.prepare(state);
   }
 }
 

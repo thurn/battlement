@@ -55,6 +55,9 @@ pub trait HostAdapter: 'static {
   fn scene_root(_description: &Self::Description) -> bool {
     false
   }
+  /// Disables native input without changing the retained visual.
+  fn inert(_description: &mut Self::Description) {}
+
   /// Hides a retained host while a suspense fallback is visible.
   fn hide(description: &mut Self::Description);
 }
@@ -153,6 +156,9 @@ impl HostNode {
   pub(crate) fn scene_root(&self) -> bool {
     self.description.scene_root()
   }
+  pub(crate) fn inert(&mut self) {
+    self.description.inert();
+  }
   pub(crate) fn hide(&mut self) {
     self.description.hide();
   }
@@ -186,6 +192,7 @@ trait ErasedHostDescription {
   fn creates_children(&self) -> bool;
   fn object(&self, object_id: ObjectId, parent: Option<ObjectId>) -> Option<GameObject>;
   fn scene_root(&self) -> bool;
+  fn inert(&mut self);
   fn hide(&mut self);
 }
 
@@ -254,6 +261,9 @@ impl<A: HostAdapter> ErasedHostDescription for AdaptedHost<A> {
   }
   fn scene_root(&self) -> bool {
     A::scene_root(&self.description)
+  }
+  fn inert(&mut self) {
+    A::inert(&mut self.description);
   }
   fn hide(&mut self) {
     A::hide(&mut self.description);

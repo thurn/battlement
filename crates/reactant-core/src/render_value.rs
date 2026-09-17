@@ -86,7 +86,7 @@ impl<R: Render> Sealed for Option<R> {
   }
 
   fn render_into(&self, sink: &mut RenderSink<'_>) {
-    sink.push_nested::<OptionMarker>(|children| {
+    sink.push_structural::<OptionMarker>(|children| {
       if let Some(value) = self {
         value.render_into(children);
       }
@@ -94,7 +94,7 @@ impl<R: Render> Sealed for Option<R> {
   }
 
   fn render_owned(self, sink: &mut RenderSink<'_>) {
-    sink.push_nested::<OptionMarker>(|children| {
+    sink.push_structural::<OptionMarker>(|children| {
       if let Some(value) = self {
         value.render_owned(children);
       }
@@ -201,11 +201,11 @@ impl<R: Render> Sealed for Fragment<R> {
   }
 
   fn render_into(&self, sink: &mut RenderSink<'_>) {
-    sink.push_nested::<FragmentMarker>(|children| self.children.render_into(children));
+    sink.push_structural::<FragmentMarker>(|children| self.children.render_into(children));
   }
 
   fn render_owned(self, sink: &mut RenderSink<'_>) {
-    sink.push_nested::<FragmentMarker>(|children| self.children.render_owned(children));
+    sink.push_structural::<FragmentMarker>(|children| self.children.render_owned(children));
   }
 }
 
