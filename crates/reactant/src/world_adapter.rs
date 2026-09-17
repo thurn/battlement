@@ -23,9 +23,8 @@ impl HostAdapter for WorldAdapter {
   type Description = WorldDescription;
 
   fn requires_remount(previous: &WorldDescription, desired: &WorldDescription) -> bool {
-    previous.kind != desired.kind
-      || previous.scene != desired.scene
-      || previous.root != desired.root
+    let attachment_changed = previous.root && previous.scene != desired.scene;
+    previous.kind != desired.kind || previous.root != desired.root || attachment_changed
   }
 
   fn create_command(node: &HostNode, parent: ObjectId, _: u32) -> Command {

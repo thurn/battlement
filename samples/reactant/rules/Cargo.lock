@@ -665,6 +665,7 @@ dependencies = [
  "reactant-core",
  "reactant-rules",
  "reactant-ui",
+ "uuid",
 ]
 
 [[package]]

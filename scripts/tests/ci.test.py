@@ -47,6 +47,7 @@ def main() -> None:
         _verify_csharp_preflight()
         _verify_csharp_line_length_exclusions(root)
         _verify_unity_execution_selection(root)
+        _verify_runtime_checks_overlap()
         _verify_unity_native_diagnostics_selection()
         for name in ("tictactoe", "basic", "chess", "chess-ui"):
             sample = root / "samples" / name
@@ -644,7 +645,10 @@ def _verify_unity_execution_selection(root: Path) -> None:
         def __init__(self) -> None:
             self.calls: list[tuple[str, tuple[str, ...]]] = []
 
-        def run(self, step: str, inputs: tuple[str, ...], function: object) -> bool:
+        def run(
+            self, step: str, inputs: tuple[str, ...], function: object, *, lease: object,
+        ) -> bool:
+            assert lease is ci.unity_editor_lease
             self.calls.append((step, inputs))
             assert callable(function)
             function()
@@ -685,6 +689,31 @@ def _verify_unity_execution_selection(root: Path) -> None:
         assert ci.run_selected_unity_tests(native, cache) == 1.5
     assert executed == [ci.unity_test_selection.NATIVE_ASSEMBLIES]
     assert cache.calls[-1][0] == "unity-edit-mode-native-integration"
+
+
+def _verify_runtime_checks_overlap() -> None:
+    for failure in (None, "rust", "unity"):
+        barrier = Barrier(2, timeout=5)
+        completed: list[str] = []
+
+        def execute(name: str) -> float:
+            barrier.wait()
+            completed.append(name)
+            if failure == name:
+                raise RuntimeError(name)
+            return 1.5
+
+        with (
+            patch.object(ci, "test_rust_workspaces", side_effect=lambda *_args: execute("rust")),
+            patch.object(ci, "run_selected_unity_tests", side_effect=lambda *_args: execute("unity")),
+        ):
+            try:
+                _rust, unity = ci.test_runtime_integrations(object(), object(), object())
+                assert failure is None
+                assert unity == 1.5
+            except RuntimeError as error:
+                assert failure is not None and str(error) == failure
+        assert sorted(completed) == ["rust", "unity"]
 
 
 def _verify_unity_native_diagnostics_selection() -> None:

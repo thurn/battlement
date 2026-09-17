@@ -31,6 +31,7 @@ use crate::{
   geometry,
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::{GeometryPlan, GeometryRuntime},
+  identity_index::IdentityIndex,
   lifecycle::{self, EntryCheckpoint, FrozenResources, PlannedSession, RuntimeState},
   localization,
   motion_value_runtime::{self, MotionValueRuntime},
@@ -139,7 +140,7 @@ pub struct SessionUi<'a> {
 pub struct Reactant<G: 'static> {
   runtime_id: u64,
   context_defaults: Rc<RefCell<context::ContextDefaults>>,
-  roots: Vec<RootRegistration<G>>,
+  pub(crate) roots: Vec<RootRegistration<G>>,
   state: RuntimeState,
   outstanding: Option<DeliveryReceipt>,
   pub(crate) track_work_scopes: bool,
@@ -341,6 +342,7 @@ impl<G: 'static> Reactant<G> {
       assert!(retry < 25, "Reactant session geometry did not stabilize");
       let _geometry_runtime = geometry::enter_preview(&session_geometry, &self.geometry);
       let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
+        let identities = IdentityIndex::new(self.roots.iter().map(|root| &root.committed));
         let mut rendered = self
           .roots
           .iter()
@@ -348,12 +350,14 @@ impl<G: 'static> Reactant<G> {
             root.view.render(
               game,
               &root.committed,
+              &identities,
               Rc::clone(&self.context_defaults),
               Rc::clone(&self.resources),
               Some(Rc::clone(&resource_overlay)),
             )
           })
           .collect::<Result<Vec<_>, _>>()?;
+        IdentityIndex::new(rendered.iter());
         for tree in &rendered {
           tree.validate_model(TypeId::of::<G>());
         }
@@ -819,29 +823,22 @@ impl<G: 'static> Reactant<G> {
       ));
     }
     let mut transactions: Vec<LocalRenderTransaction> = Vec::with_capacity(self.roots.len());
-    for root in &mut self.roots {
+    let identities = IdentityIndex::new(self.roots.iter().map(|root| &root.committed));
+    for root in &self.roots {
       let local = resource_runtime::with_runtime(Rc::clone(&self.resources), None, || {
         context::with_runtime(Rc::clone(&self.context_defaults), || {
-          root.committed.rerender_local_state()
+          root.committed.rerender_local_state(&identities)
         })
       });
-      let local = match local {
-        Ok(local) => local,
-        Err(error) => {
-          for (root, transaction) in self.roots.iter_mut().zip(transactions) {
-            transaction.rollback(&mut root.committed);
-          }
-          return Err(error);
-        }
-      };
+      let local = local?;
       if !local.supported() {
-        for (root, transaction) in self.roots.iter_mut().zip(transactions) {
-          transaction.rollback(&mut root.committed);
-        }
         let rendered_generation = self.geometry.borrow().generation;
         return self.render_geometry(game, rendered_generation, 0, None, None, None);
       }
       transactions.push(local);
+    }
+    for (root, transaction) in self.roots.iter_mut().zip(&mut transactions) {
+      transaction.apply(&mut root.committed);
     }
     let rendered = self
       .roots
@@ -857,6 +854,19 @@ impl<G: 'static> Reactant<G> {
       Some(rendered),
       Some(transactions),
     )
+  }
+
+  fn rollback_local_render(
+    &mut self,
+    rendered: &mut [RenderTree],
+    transactions: Option<Vec<LocalRenderTransaction>>,
+  ) {
+    if let Some(transactions) = transactions {
+      for ((root, tree), transaction) in self.roots.iter_mut().zip(rendered).zip(transactions) {
+        transaction.rollback(tree);
+        root.committed = mem::take(tree);
+      }
+    }
   }
 
   fn render_geometry(
@@ -881,23 +891,27 @@ impl<G: 'static> Reactant<G> {
     });
     let frozen_actions = self.element_refs.borrow().queued_actions();
     let frozen_motion_commands = self.motion_values.borrow().queued_commands();
+    let has_initial = initial_rendered.is_some();
+    let mut rendered = initial_rendered.unwrap_or_default();
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
-      let mut rendered = match initial_rendered {
-        Some(rendered) => rendered,
-        None => self
+      if !has_initial {
+        let identities = IdentityIndex::new(self.roots.iter().map(|root| &root.committed));
+        rendered = self
           .roots
           .iter()
           .map(|root| {
             root.view.render(
               game,
               &root.committed,
+              &identities,
               Rc::clone(&self.context_defaults),
               Rc::clone(&self.resources),
               resources.as_ref().map(FrozenResources::overlay),
             )
           })
-          .collect::<Result<Vec<_>, _>>()?,
-      };
+          .collect::<Result<Vec<_>, _>>()?;
+      }
+      IdentityIndex::new(rendered.iter());
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
       }
@@ -944,26 +958,41 @@ impl<G: 'static> Reactant<G> {
             .is_some_and(|previous| previous.same_declaration(desired))
         })
         .collect::<Vec<_>>();
-      let groups = self
+      let external_roots = self
+        .external_portals
+        .active_roots(&previous, &desired, &documents);
+      let physical_roots = self
         .roots
         .iter()
         .zip(previous.roots.iter().zip(&desired.roots))
         .enumerate()
-        .map(|(index, (root, (previous, desired)))| {
-          if unchanged_roots[index] {
-            return Vec::new();
-          }
-          let groups =
-            reconcile::command_groups(root.document.root_id, &previous.hosts, &desired.hosts);
-          runtime_document::with_coverage_barrier(root.document.root_id, previous, desired, groups)
+        .filter(|(index, _)| !unchanged_roots[*index])
+        .map(|(_, (root, (previous, desired)))| {
+          (
+            root.document.root_id,
+            previous.hosts.as_slice(),
+            desired.hosts.as_slice(),
+          )
         })
-        .fold(Vec::new(), runtime_motion::merge_groups);
-      let groups = runtime_motion::merge_groups(
-        groups,
-        self
-          .external_portals
-          .active_groups(&previous, &desired, &documents),
-      );
+        .chain(
+          external_roots
+            .iter()
+            .map(|(id, previous, desired)| (*id, previous.as_slice(), desired.as_slice())),
+        )
+        .collect::<Vec<_>>();
+      let mut groups = if physical_roots.is_empty() {
+        Vec::new()
+      } else {
+        reconcile::forest_command_groups(&physical_roots)
+      };
+      for (root, (previous, desired)) in self
+        .roots
+        .iter()
+        .zip(previous.roots.iter().zip(&desired.roots))
+      {
+        groups =
+          runtime_document::with_coverage_barrier(root.document.root_id, previous, desired, groups);
+      }
       let groups = if previous.objects.is_empty() && desired.objects.is_empty() {
         groups
       } else {
@@ -1010,7 +1039,6 @@ impl<G: 'static> Reactant<G> {
           !same_accessibility(previous, &semantic_snapshot)
         });
       Ok((
-        rendered,
         groups,
         attachments,
         geometry,
@@ -1021,7 +1049,6 @@ impl<G: 'static> Reactant<G> {
       ))
     }));
     let (
-      mut rendered,
       mut groups,
       attachments,
       geometry,
@@ -1032,10 +1059,12 @@ impl<G: 'static> Reactant<G> {
     ) = match planned {
       Ok(Ok(value)) => value,
       Ok(Err(error)) => {
+        self.rollback_local_render(&mut rendered, local_transactions.take());
         self.committed_portals = Some(previous);
         return Err(error);
       }
       Err(payload) => {
+        self.rollback_local_render(&mut rendered, local_transactions.take());
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
       }

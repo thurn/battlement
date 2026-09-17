@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 import hashlib
 import json
@@ -329,20 +329,23 @@ class CiCache:
         step: str,
         pathspecs: Sequence[str],
         function: Callable[[], None],
+        *,
+        lease: Callable[[], AbstractContextManager] | None = None,
     ) -> bool:
         """Run a step on a cache miss and return whether execution was needed."""
+        invocation = self.invocation if lease is None else lease
         if not self.enabled:
             print(f"    {step}: CI Cache disabled", flush=True)
             self._emit("ci.cache_lookup", step=step, result="disabled")
             self.maintain()
-            with self.invocation():
+            with invocation():
                 function()
             return True
         if self._has_unstaged_inputs(pathspecs):
             print(f"    {step}: CI Cache bypassed for unstaged inputs", flush=True)
             self._emit("ci.cache_lookup", step=step, result="bypassed")
             self.maintain()
-            with self.invocation():
+            with invocation():
                 function()
             return True
         key = self._key(step, pathspecs)
@@ -354,7 +357,7 @@ class CiCache:
         with self._lock(lock, resource="cache-key", step=step, cache_key=key):
             if self._hit(marker, step, key):
                 return False
-            with self.invocation():
+            with invocation():
                 if self._hit(marker, step, key):
                     return False
                 print(f"    {step}: CI Cache miss {key[:12]}", flush=True)

@@ -113,8 +113,7 @@ fn replacing_physical_attachments_preserves_descendant_hooks_portals_and_refs() 
     let previous = self::object(&probe);
     display.click_ui(display.find_ui(root, control));
     let current = self::object(&probe);
-    assert_ne!(current, previous);
-    assert!(display.object(previous).is_none());
+    assert_eq!(current, previous);
     assert_eq!(reference.object_id(), Some(current));
     assert_eq!(
       display

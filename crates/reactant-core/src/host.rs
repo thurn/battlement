@@ -62,6 +62,7 @@ use battlement::{
   UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
 };
 use trox::LocalizedString;
+use uuid::Uuid;
 
 use crate::{
   animation_controls::{AnimationControls, AnimationScope},
@@ -332,6 +333,7 @@ macro_rules! facade {
             children: Vec::new(),
             handlers: Vec::new(),
             key: None,
+            presentation_id: None,
             element_ref: None,
             portal_target: None,
             motion: MotionProps::new(),
@@ -520,6 +522,14 @@ macro_rules! facade {
       #[must_use]
       pub fn overlay_placement(mut self, value: impl Into<Prop<OverlayPlacement>>) -> Self {
         self.state.host.visual_element_mut().overlay_placement = value.into();
+        self
+      }
+
+      /// Preserves this compatible host across logical parents and attachments.
+      #[must_use]
+      pub fn id(mut self, id: Uuid) -> Self {
+        assert!(!id.is_nil(), "presentation IDs cannot be nil");
+        self.state.presentation_id = Some(id);
         self
       }
 

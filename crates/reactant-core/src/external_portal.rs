@@ -116,6 +116,24 @@ impl ExternalPortalRegistry {
     desired: &PortalLayout,
     documents: &[UiDocument],
   ) -> Vec<Vec<CommandBody>> {
+    let roots = self.active_roots(previous, desired, documents);
+    if roots.is_empty() {
+      return Vec::new();
+    }
+    reconcile::forest_command_groups(
+      &roots
+        .iter()
+        .map(|(id, previous, desired)| (*id, previous.as_slice(), desired.as_slice()))
+        .collect::<Vec<_>>(),
+    )
+  }
+
+  pub(crate) fn active_roots(
+    &self,
+    previous: &PortalLayout,
+    desired: &PortalLayout,
+    documents: &[UiDocument],
+  ) -> Vec<(ObjectId, Vec<HostNode>, Vec<HostNode>)> {
     let mut prospective = self.caller_ui.clone();
     prospective.extend(documents.iter().cloned());
     for target in &self.targets {
@@ -127,24 +145,25 @@ impl ExternalPortalRegistry {
     }
     battlement::validate_documents(&prospective)
       .expect("Reactant rendered an invalid external portal hierarchy");
-    self.targets.iter().fold(Vec::new(), |groups, target| {
-      let previous_hosts = previous
-        .externals
-        .get(&target.target)
-        .map_or(&[][..], |root| root.hosts.as_slice());
-      let desired_hosts = desired
-        .externals
-        .get(&target.target)
-        .map_or(&[][..], |root| root.hosts.as_slice());
-      self::merge_groups(
-        groups,
-        reconcile::command_groups(
+    self
+      .targets
+      .iter()
+      .map(|target| {
+        let previous_hosts = previous
+          .externals
+          .get(&target.target)
+          .map_or(&[][..], |root| root.hosts.as_slice());
+        let desired_hosts = desired
+          .externals
+          .get(&target.target)
+          .map_or(&[][..], |root| root.hosts.as_slice());
+        (
           target.current_id,
-          &self::with_prefix(&target.prefix, previous_hosts),
-          &self::with_prefix(&target.prefix, desired_hosts),
-        ),
-      )
-    })
+          self::with_prefix(&target.prefix, previous_hosts),
+          self::with_prefix(&target.prefix, desired_hosts),
+        )
+      })
+      .collect()
   }
 
   pub(crate) fn commit(&mut self, prepared: PreparedExternal) -> Vec<Vec<CommandBody>> {

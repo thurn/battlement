@@ -390,6 +390,27 @@ def test_rust_workspaces(
     run_parallel_steps(steps, workers=RUST_WORKSPACE_WORKERS)
 
 
+def test_runtime_integrations(
+    rust_selection: ci_selection.RustSelection,
+    unity_selection: unity_test_selection.Selection,
+    ci_cache: CiCache,
+) -> tuple[float, float]:
+    """Overlap independent Rust and Unity checks within their resource leases."""
+    seconds: dict[str, float] = {}
+
+    def rust() -> None:
+        seconds["rust"] = run_step(
+            "Test Rust workspaces",
+            function=lambda: test_rust_workspaces(rust_selection, ci_cache),
+        )
+
+    def unity() -> None:
+        seconds["unity"] = run_selected_unity_tests(unity_selection, ci_cache)
+
+    run_parallel_steps([("Rust tests", rust), ("Unity tests", unity)], workers=2)
+    return seconds["rust"], seconds["unity"]
+
+
 def unity_editor() -> Path:
     if configured := os.environ.get("UNITY_EDITOR"):
         return Path(configured)
@@ -707,9 +728,8 @@ def run_selected_unity_tests(
         function=lambda: ci_cache.run(
             f"unity-edit-mode-{selection.scope.value}",
             selection.cache_inputs,
-            lambda: run_with_unity_lease(
-                lambda: run_unity_edit_mode_tests(selection.assemblies)
-            ),
+            lambda: run_unity_edit_mode_tests(selection.assemblies),
+            lease=unity_editor_lease,
         ),
     )
 
@@ -1063,9 +1083,8 @@ def run_ci(
         "Lint Rust workspaces",
         function=lambda: lint_rust_workspaces(rust_selection, ci_cache),
     )
-    rust_test_seconds = run_step(
-        "Test Rust workspaces",
-        function=lambda: test_rust_workspaces(rust_selection, ci_cache),
+    rust_test_seconds, unity_seconds = test_runtime_integrations(
+        rust_selection, unity_selection, ci_cache,
     )
     reactant_cli_seconds = 0.0
     if full:
@@ -1083,7 +1102,6 @@ def run_ci(
         "Test repository tooling",
         function=lambda: ci_tooling.run(REPOSITORY_ROOT, performance=full and ditto),
     )
-    unity_seconds = run_selected_unity_tests(unity_selection, ci_cache)
     if full:
         print(
             "Reactant asset fast-tier timing "

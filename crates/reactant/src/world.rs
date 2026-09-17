@@ -10,6 +10,8 @@ use reactant_core::{
   render::{Node, Render},
 };
 
+use uuid::Uuid;
+
 use crate::world_adapter::{WorldAdapter, WorldDescription};
 
 #[derive(Clone, PartialEq)]
@@ -30,6 +32,7 @@ pub struct Group {
   children: Vec<Node>,
   reference: Option<ObjectRef>,
   click: Option<Callback<()>>,
+  id: Option<Uuid>,
 }
 
 /// An opaque prepared prefab beneath a Reactant-owned transform.
@@ -79,7 +82,15 @@ impl Group {
       children: Vec::new(),
       reference: None,
       click: None,
+      id: None,
     }
+  }
+
+  /// Preserves the compatible native host across logical parents and attachments.
+  pub fn id(mut self, id: Uuid) -> Self {
+    assert!(!id.is_nil(), "presentation IDs cannot be nil");
+    self.id = Some(id);
+    self
   }
 
   /// Adds a logical child; UI contributions use a portal target.
@@ -147,6 +158,9 @@ impl Component for Group {
       clickable: self.click.is_some(),
     })
     .child(self.children.clone());
+    if let Some(id) = self.id {
+      host = host.id(id);
+    }
     if let Some(reference) = &self.reference {
       host = host.reference(reference.clone());
     }

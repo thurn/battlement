@@ -204,6 +204,7 @@ pub(crate) struct RenderTree {
 #[derive(Clone)]
 pub(crate) struct RenderPosition {
   pub(crate) descriptor: TypeId,
+  pub(crate) presentation_id: Option<uuid::Uuid>,
   pub(crate) key: Option<ErasedKey>,
   pub(crate) host: Option<HostNode>,
   pub(crate) handlers: Vec<Handler>,
@@ -230,6 +231,7 @@ pub(crate) struct RenderPosition {
 
 pub(crate) struct RenderSink<'a> {
   pub(crate) committed: &'a RenderTree,
+  pub(crate) identities: &'a crate::identity_index::IdentityIndex<'a>,
   pub(crate) positions: Vec<RenderPosition>,
   pub(crate) error: Option<RenderError>,
   pub(crate) pending: Vec<ResourceToken>,
@@ -261,12 +263,14 @@ fn motion_host(tree: &RenderTree) -> Option<ObjectId> {
   result
 }
 
-pub(crate) fn sink_with_scope(
-  committed: &RenderTree,
+pub(crate) fn sink_with_scope<'a>(
+  committed: &'a RenderTree,
   variant_scope: VariantScope,
-) -> RenderSink<'_> {
+  identities: &'a crate::identity_index::IdentityIndex<'a>,
+) -> RenderSink<'a> {
   RenderSink {
     committed,
+    identities,
     positions: Vec::new(),
     error: None,
     pending: Vec::new(),
@@ -275,14 +279,16 @@ pub(crate) fn sink_with_scope(
   }
 }
 
-fn checkpointed_sink_with_scope(
-  committed: &RenderTree,
+fn checkpointed_sink_with_scope<'a>(
+  committed: &'a RenderTree,
   variant_scope: VariantScope,
-) -> RenderSink<'_> {
+  identities: &'a crate::identity_index::IdentityIndex<'a>,
+) -> RenderSink<'a> {
   let mut pending_hook_lengths = Vec::new();
   committed.pending_hook_lengths(&mut pending_hook_lengths);
   RenderSink {
     committed,
+    identities,
     positions: Vec::new(),
     error: None,
     pending: Vec::new(),
@@ -292,8 +298,11 @@ fn checkpointed_sink_with_scope(
 }
 
 impl<'a> RenderSink<'a> {
-  pub(crate) fn new(committed: &'a RenderTree) -> Self {
-    checkpointed_sink_with_scope(committed, VariantScope::default())
+  pub(crate) fn new(
+    committed: &'a RenderTree,
+    identities: &'a crate::identity_index::IdentityIndex<'a>,
+  ) -> Self {
+    checkpointed_sink_with_scope(committed, VariantScope::default(), identities)
   }
 
   pub(crate) fn push_keyed<R: 'static>(
@@ -329,7 +338,7 @@ impl<'a> RenderSink<'a> {
       .find(|position| position.key.as_ref() == Some(&key))
       .filter(|position| position.descriptor == descriptor)
       .map_or(&empty, |position| &position.children);
-    let mut children = sink_with_scope(committed, self.variant_scope.clone());
+    let mut children = sink_with_scope(committed, self.variant_scope.clone(), self.identities);
     render(&mut children);
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -341,6 +350,7 @@ impl<'a> RenderSink<'a> {
     self.pending.extend(pending);
     self.positions.push(RenderPosition {
       descriptor,
+      presentation_id: None,
       key: Some(key),
       host: None,
       handlers: Vec::new(),
@@ -422,10 +432,12 @@ impl<'a> RenderSink<'a> {
     committed: &RenderTree,
     mut component: HookComponent,
     variant_scope: VariantScope,
+    identities: &crate::identity_index::IdentityIndex<'_>,
   ) -> Result<Option<(HookComponent, RenderTree)>, RenderError> {
     let mut retries = 0;
     loop {
-      let mut children = checkpointed_sink_with_scope(committed, variant_scope.checkpoint());
+      let mut children =
+        checkpointed_sink_with_scope(committed, variant_scope.checkpoint(), identities);
       let performance_started = crate::performance::start();
       let (rendered, render_retry) =
         hooks::render_component(component, || source.render_into(&mut children));
@@ -470,7 +482,7 @@ impl<'a> RenderSink<'a> {
       .unwrap_or_else(HookComponent::new);
     let mut retries = 0;
     loop {
-      let mut children = sink_with_scope(committed, self.variant_scope.clone());
+      let mut children = sink_with_scope(committed, self.variant_scope.clone(), self.identities);
       let performance_started = crate::performance::start();
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       crate::performance::component::<C>(performance_started);
@@ -499,6 +511,7 @@ impl<'a> RenderSink<'a> {
       self.pending.extend(pending);
       self.positions.push(RenderPosition {
         descriptor,
+        presentation_id: None,
         key: None,
         host: None,
         handlers: Vec::new(),
@@ -586,6 +599,7 @@ impl<'a> RenderSink<'a> {
       let matching = matching.expect("matching memo position exists");
       self.positions.push(RenderPosition {
         descriptor,
+        presentation_id: None,
         key: None,
         host: None,
         handlers: Vec::new(),
@@ -621,7 +635,7 @@ impl<'a> RenderSink<'a> {
       .unwrap_or_else(HookComponent::new);
     let mut retries = 0;
     loop {
-      let mut children = sink_with_scope(committed, self.variant_scope.clone());
+      let mut children = sink_with_scope(committed, self.variant_scope.clone(), self.identities);
       let performance_started = crate::performance::start();
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       crate::performance::component::<B>(performance_started);
@@ -650,6 +664,7 @@ impl<'a> RenderSink<'a> {
       self.pending.extend(pending);
       self.positions.push(RenderPosition {
         descriptor,
+        presentation_id: None,
         key: None,
         host: None,
         handlers: Vec::new(),
@@ -703,24 +718,38 @@ impl<'a> RenderSink<'a> {
       );
     }
     let descriptor = TypeId::of::<R>();
-    let matching = match &metadata.key {
-      Some(key) => self
-        .committed
-        .positions
-        .iter()
-        .find(|position| position.key.as_ref() == Some(key))
-        .filter(|position| position.descriptor == descriptor),
-      None => self.matching_position(descriptor),
+    let matching = if let Some(id) = metadata.presentation_id {
+      self.identities.matching(id, descriptor)
+    } else {
+      match &metadata.key {
+        Some(key) => self
+          .committed
+          .positions
+          .iter()
+          .find(|position| position.key.as_ref() == Some(key) && position.presentation_id.is_none())
+          .filter(|position| position.descriptor == descriptor),
+        None => self.matching_position(descriptor),
+      }
     };
-    let prepared =
-      render_facade::prepare(descriptor, metadata, element, matching, &self.variant_scope);
+    let prepared = render_facade::prepare(
+      descriptor,
+      metadata,
+      element,
+      matching,
+      &self.variant_scope,
+      self.identities,
+    );
     let empty = RenderTree::default();
     let committed = if prepared.remount {
       &empty
     } else {
       matching.map_or(&empty, |position| &position.children)
     };
-    let mut children = sink_with_scope(committed, prepared.resolved_variants.child_scope.clone());
+    let mut children = sink_with_scope(
+      committed,
+      prepared.resolved_variants.child_scope.clone(),
+      self.identities,
+    );
     render(&mut children);
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -749,7 +778,7 @@ impl<'a> RenderSink<'a> {
       .matching_position(descriptor)
       .filter(|position| position.portal.as_ref() == Some(&target))
       .map_or(&empty, |position| &position.children);
-    let mut children = sink_with_scope(committed, self.variant_scope.clone());
+    let mut children = sink_with_scope(committed, self.variant_scope.clone(), self.identities);
     render(&mut children);
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -761,6 +790,7 @@ impl<'a> RenderSink<'a> {
     self.pending.extend(pending);
     self.positions.push(RenderPosition {
       descriptor,
+      presentation_id: None,
       key: None,
       host: None,
       handlers: Vec::new(),
@@ -811,7 +841,7 @@ impl<'a> RenderSink<'a> {
     let committed = self
       .matching_position(descriptor)
       .map_or(&empty, |position| &position.children);
-    let mut children = sink_with_scope(committed, self.variant_scope.clone());
+    let mut children = sink_with_scope(committed, self.variant_scope.clone(), self.identities);
     provider.enter(|| render(&mut children));
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -823,6 +853,7 @@ impl<'a> RenderSink<'a> {
     self.pending.extend(pending);
     self.positions.push(RenderPosition {
       descriptor,
+      presentation_id: None,
       key: None,
       host: None,
       handlers: Vec::new(),
@@ -860,7 +891,7 @@ impl<'a> RenderSink<'a> {
     let committed = self
       .matching_position(descriptor)
       .map_or(&empty, |position| &position.children);
-    let mut children = sink_with_scope(committed, self.variant_scope.clone());
+    let mut children = sink_with_scope(committed, self.variant_scope.clone(), self.identities);
     render(&mut children);
     match Self::finish_child(children) {
       Ok((children, pending)) => {
@@ -901,7 +932,11 @@ impl<'a> RenderSink<'a> {
       &empty
     };
     let (children, error, report) = if let Some(error) = latched {
-      let mut children = sink_with_scope(fallback_committed, self.variant_scope.clone());
+      let mut children = sink_with_scope(
+        fallback_committed,
+        self.variant_scope.clone(),
+        self.identities,
+      );
       fallback(&error, &mut children);
       let (children, pending) = match Self::finish_child(children) {
         Ok(attempt) => attempt,
@@ -913,8 +948,11 @@ impl<'a> RenderSink<'a> {
       self.pending.extend(pending);
       (children, Some(error), None)
     } else {
-      let mut children =
-        checkpointed_sink_with_scope(primary_committed, self.variant_scope.clone());
+      let mut children = checkpointed_sink_with_scope(
+        primary_committed,
+        self.variant_scope.clone(),
+        self.identities,
+      );
       primary(&mut children);
       match children.finish_attempt() {
         Ok((children, pending)) => {
@@ -922,7 +960,11 @@ impl<'a> RenderSink<'a> {
           (children, None, None)
         }
         Err(error) => {
-          let mut children = sink_with_scope(fallback_committed, self.variant_scope.clone());
+          let mut children = sink_with_scope(
+            fallback_committed,
+            self.variant_scope.clone(),
+            self.identities,
+          );
           fallback(&error, &mut children);
           let (children, pending) = match Self::finish_child(children) {
             Ok(attempt) => attempt,
@@ -941,6 +983,7 @@ impl<'a> RenderSink<'a> {
     };
     self.positions.push(RenderPosition {
       descriptor,
+      presentation_id: None,
       key: None,
       host: None,
       handlers: Vec::new(),
@@ -995,8 +1038,11 @@ impl<'a> RenderSink<'a> {
     } else {
       &empty
     };
-    let mut primary_children =
-      checkpointed_sink_with_scope(primary_committed, self.variant_scope.clone());
+    let mut primary_children = checkpointed_sink_with_scope(
+      primary_committed,
+      self.variant_scope.clone(),
+      self.identities,
+    );
     primary(&mut primary_children);
     if primary_children.error.is_none() && !primary_children.pending.is_empty() {
       primary_children.rollback_pending_hooks();
@@ -1023,7 +1069,11 @@ impl<'a> RenderSink<'a> {
       RenderTree::default()
     };
     let children = if showing_fallback {
-      let mut fallback_children = sink_with_scope(fallback_committed, self.variant_scope.clone());
+      let mut fallback_children = sink_with_scope(
+        fallback_committed,
+        self.variant_scope.clone(),
+        self.identities,
+      );
       fallback(&mut fallback_children);
       let (children, fallback_pending) = match Self::finish_child(fallback_children) {
         Ok(attempt) => attempt,
@@ -1043,6 +1093,7 @@ impl<'a> RenderSink<'a> {
     };
     self.positions.push(RenderPosition {
       descriptor,
+      presentation_id: None,
       key: None,
       host: None,
       handlers: Vec::new(),
@@ -1085,12 +1136,17 @@ impl<'a> RenderSink<'a> {
       .committed
       .positions
       .get(self.positions.len())
-      .filter(|position| position.key.is_none() && position.descriptor == descriptor)
+      .filter(|position| {
+        position.key.is_none()
+          && position.presentation_id.is_none()
+          && position.descriptor == descriptor
+      })
   }
 
   pub(crate) fn push(&mut self, descriptor: TypeId, host: Option<HostNode>, children: RenderTree) {
     self.positions.push(RenderPosition {
       descriptor,
+      presentation_id: None,
       key: None,
       host,
       handlers: Vec::new(),

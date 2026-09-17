@@ -5,6 +5,7 @@
 use std::any::TypeId;
 
 use battlement::{Command, CommandBody, ObjectId, Validate};
+use uuid::Uuid;
 
 use crate::{
   callback::Callback,
@@ -21,6 +22,7 @@ pub struct NativeHost<A: HostAdapter> {
   children: Vec<Node>,
   handlers: Vec<Handler>,
   reference: Option<ElementRef>,
+  id: Option<Uuid>,
 }
 
 /// A committed object reference with the lifetime of its logical owner.
@@ -56,7 +58,15 @@ impl<A: HostAdapter> NativeHost<A> {
       children: Vec::new(),
       handlers: Vec::new(),
       reference: None,
+      id: None,
     }
+  }
+
+  /// Preserves this compatible host across logical parents and attachments.
+  pub fn id(mut self, id: Uuid) -> Self {
+    assert!(!id.is_nil(), "presentation IDs cannot be nil");
+    self.id = Some(id);
+    self
   }
 
   /// Appends logical children, including portal contributions.
@@ -90,10 +100,16 @@ impl<A: HostAdapter> Sealed for NativeHost<A> {
       return;
     }
     let descriptor = self.descriptor();
-    let matching = sink.matching_position(descriptor);
+    let matching = self.id.map_or_else(
+      || sink.matching_position(descriptor),
+      |id| sink.identities.matching(id, descriptor),
+    );
     let previous = matching.and_then(|position| position.host.as_ref());
     let mut host = HostNode::new::<A>(
-      previous.map_or_else(ObjectId::new_v4, |host| host.object_id),
+      previous.map_or_else(
+        || sink.identities.new_host_id(self.id),
+        |host| host.object_id,
+      ),
       self.description.clone(),
     );
     if let Some(object) = host.object(None) {
@@ -107,23 +123,22 @@ impl<A: HostAdapter> Sealed for NativeHost<A> {
     }
     let empty = RenderTree::default();
     let committed = matching.map_or(&empty, |position| &position.children);
-    let mut children = render::sink_with_scope(committed, sink.variant_scope.clone());
+    let mut children =
+      render::sink_with_scope(committed, sink.variant_scope.clone(), sink.identities);
     for child in &self.children {
       child.render_into(&mut children);
     }
-    let (mut children, pending) = match RenderSink::finish_child(children) {
+    let (children, pending) = match RenderSink::finish_child(children) {
       Ok(value) => value,
       Err(error) => {
         sink.error = Some(error);
         return;
       }
     };
-    if remount {
-      crate::object_layout::replace_descendants(&mut children);
-    }
     sink.pending.extend(pending);
     sink.push(descriptor, Some(host), children);
     let position = sink.positions.last_mut().expect("native host was appended");
+    position.presentation_id = self.id;
     position.handlers = self.handlers.clone();
     position.element_ref = self.reference.clone();
   }

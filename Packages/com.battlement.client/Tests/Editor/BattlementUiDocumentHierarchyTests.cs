@@ -270,7 +270,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void RejectedHierarchyAndIdentityOperationsMutateNothing()
+        public void CrossDocumentMovesPreserveHostsAndRejectInvalidHierarchyAndIdentity()
         {
             ObjectId firstDocumentId = Id("71d2bb7e-91ae-43a6-8543-b43ea3a82d70");
             ObjectId firstRootId = Id("10e81d38-2112-4366-adaf-7231265e04c9");
@@ -318,13 +318,6 @@ namespace Battlement.Tests
                 Assert.Throws<BattlementUiException>(() =>
                     documents.Update(
                         new CommandBody.VisualElement.Update(
-                            new VisualElementUpdate.Parent(childId, secondParentId)
-                        )
-                    )
-                );
-                Assert.Throws<BattlementUiException>(() =>
-                    documents.Update(
-                        new CommandBody.VisualElement.Update(
                             new VisualElementUpdate.Parent(firstParentId, childId)
                         )
                     )
@@ -346,8 +339,22 @@ namespace Battlement.Tests
                 Assert.That(documents.TryGet(detachedId, out _), Is.False);
                 Assert.That(firstParent!.childCount, Is.EqualTo(1));
 
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Parent(childId, secondParentId)
+                    )
+                );
+                Assert.That(documents.TryGet(childId, out VisualElement? moved), Is.True);
+                Assert.That(moved, Is.SameAs(child));
+                Assert.That(
+                    documents.TryGetGeometryTarget(childId, out _, out ObjectId panelId, out _),
+                    Is.True
+                );
+                Assert.That(panelId, Is.EqualTo(secondRootId));
                 documents.Destroy(new CommandBody.VisualElement.Destroy(firstParentId));
                 Assert.That(documents.TryGet(firstParentId, out _), Is.False);
+                Assert.That(documents.TryGet(childId, out _), Is.True);
+                documents.Destroy(new CommandBody.VisualElement.Destroy(secondParentId));
                 Assert.That(documents.TryGet(childId, out _), Is.False);
             }
             finally

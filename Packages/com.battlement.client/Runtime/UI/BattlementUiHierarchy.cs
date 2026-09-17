@@ -31,7 +31,7 @@ namespace Battlement.UI
 
             internal VisualElement Element { get; }
 
-            internal Guid DocumentRoot { get; }
+            internal Guid DocumentRoot { get; set; }
 
             internal Guid? ParentId { get; set; }
 
@@ -176,11 +176,6 @@ namespace Battlement.UI
             Guid oldParentId =
                 child.ParentId
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
-            if (child.DocumentRoot != parent.DocumentRoot)
-                throw Failure(
-                    CoreErrorCode.InvalidHierarchy,
-                    "UI elements cannot move between documents."
-                );
             if (child.Id == parent.Id || IsDescendant(parent.Id, child.Id))
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
@@ -207,6 +202,15 @@ namespace Battlement.UI
             oldParent.RemoveChildAt(plan.OldIndex);
             newParent.AddChild(plan.ObjectId, plan.NewIndex);
             child.ParentId = plan.NewParentId;
+            if (child.DocumentRoot != newParent.DocumentRoot)
+                SetDocumentRoot(child, newParent.DocumentRoot);
+        }
+
+        private void SetDocumentRoot(Entry entry, Guid root)
+        {
+            entry.DocumentRoot = root;
+            foreach (Guid child in entry.Children)
+                SetDocumentRoot(Require(child), root);
         }
 
         internal ReorderPlan PrepareReorder(ObjectId objectId, uint childIndex)

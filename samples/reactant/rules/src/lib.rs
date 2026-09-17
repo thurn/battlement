@@ -13,6 +13,7 @@ mod design_system;
 mod effects_stores;
 mod events_portals;
 mod gestures_drag;
+mod identity_proof;
 mod layout_gallery;
 mod layout_gallery_styles;
 mod layout_performance;

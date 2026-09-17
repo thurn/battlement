@@ -7,12 +7,12 @@ use std::{
 };
 
 use battlement::{
-  Action, ActionBody, ActionId, Batch, BatchFailed, BatchId, Command, CommandId, Connect,
-  ControllerButton, ControllerButtonPayload, ControllerDirection, ControllerNavigationPayload,
-  ControllerNavigationSource, CoreErrorCode, DragPayload, GeometryObservationBatch,
-  GeometryRegistry, ImageState, PhysicalKey, PointerButton, PointerButtonPayload, PointerEvent,
-  PointerPayload, Response, ResponseMessage, ScreenPosition, ScreenSize, UiEvent, UiEventAction,
-  UiEventDisposition, Validate, Vector3,
+  Action, ActionBody, ActionId, ActivationPayload, Batch, BatchFailed, BatchId, Command, CommandId,
+  Connect, ControllerButton, ControllerButtonPayload, ControllerDirection,
+  ControllerNavigationPayload, ControllerNavigationSource, CoreErrorCode, DragPayload,
+  GeometryObservationBatch, GeometryRegistry, ImageState, PhysicalKey, PointerButton,
+  PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
+  ScreenSize, UiEvent, UiEventAction, UiEventDisposition, Validate, Vector3,
 };
 use battlement_cloud_fake::diagnostics::DiagnosticsFake;
 use battlement_native::Engine;
@@ -393,6 +393,13 @@ where
   #[must_use]
   pub fn ui_world(&self) -> &UiWorld {
     &self.ui_world
+  }
+
+  /// Activates a reachable world object through the coordinate-free input route.
+  pub fn activate(&mut self, object_id: battlement::ObjectId) {
+    self.require_input_enabled();
+    self.require_clickable(object_id);
+    self.submit_action(ActionBody::Activate(ActivationPayload { object_id }));
   }
 
   /// Performs a complete semantic mouse click on one object.

@@ -33,7 +33,11 @@ pub(crate) fn push<R: 'static>(
   let generation = previous_state
     .as_ref()
     .map_or(1, |value| value.generation.saturating_add(1));
-  let mut children = sink_with_scope(previous_children, sink.variant_scope.clone());
+  let mut children = sink_with_scope(
+    previous_children,
+    sink.variant_scope.clone(),
+    sink.identities,
+  );
   presence::with_state(
     PresenceRenderState {
       present: true,
@@ -55,6 +59,7 @@ pub(crate) fn push<R: 'static>(
     previous_children,
     generation,
     &sink.variant_scope,
+    sink.identities,
   );
   sink.pending.extend(pending);
   if previous.is_none() && !config.initial {
@@ -92,7 +97,8 @@ pub(crate) fn push<R: 'static>(
     }
     let existing = state.exits.iter().find(|exit| &exit.key == key).cloned();
     let exit_generation = existing.as_ref().map_or(generation, |exit| exit.generation);
-    let mut exiting = rerender_retained(prior, exit_generation, &sink.variant_scope);
+    let mut exiting =
+      rerender_retained(prior, exit_generation, &sink.variant_scope, sink.identities);
     mark_inert(&mut exiting);
     if config.mode == PresenceMode::PopLayout {
       mark_pop_layout(&mut exiting);
@@ -149,6 +155,7 @@ pub(crate) fn push<R: 'static>(
   current.positions.extend(retained);
   sink.positions.push(RenderPosition {
     descriptor,
+    presentation_id: None,
     key: None,
     host: None,
     handlers: Vec::new(),
@@ -235,6 +242,7 @@ fn stabilize_transparent_children(
   previous: &RenderTree,
   generation: u64,
   variant_scope: &crate::motion_variants::VariantScope,
+  identities: &crate::identity_index::IdentityIndex<'_>,
 ) {
   for position in &mut current.positions {
     let Some(prior) = previous
@@ -245,7 +253,7 @@ fn stabilize_transparent_children(
       continue;
     };
     if first_host_id(position) != first_host_id(prior) {
-      *position = rerender_position(position, prior, true, generation, variant_scope);
+      *position = rerender_position(position, prior, true, generation, variant_scope, identities);
     }
   }
 }
@@ -291,8 +299,16 @@ fn rerender_retained(
   previous: &RenderPosition,
   generation: u64,
   variant_scope: &crate::motion_variants::VariantScope,
+  identities: &crate::identity_index::IdentityIndex<'_>,
 ) -> RenderPosition {
-  rerender_position(previous, previous, false, generation, variant_scope)
+  rerender_position(
+    previous,
+    previous,
+    false,
+    generation,
+    variant_scope,
+    identities,
+  )
 }
 
 fn rerender_position(
@@ -301,6 +317,7 @@ fn rerender_position(
   present: bool,
   generation: u64,
   variant_scope: &crate::motion_variants::VariantScope,
+  identities: &crate::identity_index::IdentityIndex<'_>,
 ) -> RenderPosition {
   let source = source_position
     .retained_render
@@ -309,7 +326,7 @@ fn rerender_position(
   let committed = RenderTree {
     positions: vec![committed_position.clone()],
   };
-  let mut sink = sink_with_scope(&committed, variant_scope.clone());
+  let mut sink = sink_with_scope(&committed, variant_scope.clone(), identities);
   presence::with_state(
     PresenceRenderState {
       present,

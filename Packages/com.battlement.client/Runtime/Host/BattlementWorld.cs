@@ -526,14 +526,6 @@ namespace Battlement
                     $"Object {id} cannot be parented beneath itself."
                 );
             }
-
-            if (gameObject.scene != parent.scene)
-            {
-                throw new BattlementWorldException(
-                    CoreErrorCode.InvalidHierarchy,
-                    $"Object {id} and parent {parentId} are in different scenes."
-                );
-            }
         }
 
         public void Reparent(ObjectId id, ObjectId? parentId, bool worldPositionStays)
@@ -557,6 +549,11 @@ namespace Battlement
             Transform parent = parentId is ObjectId value
                 ? RequireObject(value).transform
                 : placement;
+            if (target.gameObject.scene != parent.gameObject.scene)
+            {
+                target.SetParent(null, worldPositionStays);
+                SceneManager.MoveGameObjectToScene(target.gameObject, parent.gameObject.scene);
+            }
             target.SetParent(parent, worldPositionStays);
         }
 

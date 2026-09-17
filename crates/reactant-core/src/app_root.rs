@@ -10,6 +10,7 @@ use crate::{
   app_runtime::RuntimeSlot,
   application,
   context::ContextProvider,
+  identity_index::IdentityLifetime,
   key::KeyRenderExt,
   motion_config,
   render::{Node, Render},
@@ -56,10 +57,14 @@ impl<G: 'static> AppRoot<G> {
             ContextProvider::new()
               .context(AppHandle::new(&queue))
               .child(
-                orchestration
-                  .borrow()
-                  .provide(view(model))
-                  .key(observed.remount),
+                ContextProvider::new()
+                  .context(IdentityLifetime(observed.remount))
+                  .child(
+                    orchestration
+                      .borrow()
+                      .provide(view(model))
+                      .key(observed.remount),
+                  ),
               ),
           ),
         ),

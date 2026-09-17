@@ -133,3 +133,33 @@ state = "mixed-tree.restored"
 scenario = "mixed logical tree"
 checkpoint = "restored"
 owner = "reactant-testing::mixed_tree"
+
+[[mappings]]
+state = "presentation-identity.source"
+scenario = "presentation identity"
+checkpoint = "source"
+owner = "reactant-testing::presentation_identity"
+
+[[mappings]]
+state = "presentation-identity.world-click"
+scenario = "presentation identity"
+checkpoint = "world-click"
+owner = "reactant-testing::presentation_identity"
+
+[[mappings]]
+state = "presentation-identity.destination"
+scenario = "presentation identity"
+checkpoint = "destination"
+owner = "reactant-testing::presentation_identity"
+
+[[mappings]]
+state = "presentation-identity.portal"
+scenario = "presentation identity"
+checkpoint = "portal"
+owner = "reactant-testing::presentation_identity"
+
+[[mappings]]
+state = "presentation-identity.returned"
+scenario = "presentation identity"
+checkpoint = "returned"
+owner = "reactant-testing::presentation_identity"

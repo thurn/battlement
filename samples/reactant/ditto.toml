@@ -24,6 +24,7 @@ scene = "Assets/Scenes/ReactantSample.unity"
 rust_manifest = "rules/Cargo.toml"
 
 [aliases]
+identity_visual = "25300000-0000-4000-8000-000000000083"
 root = "25300000-0000-4000-8000-000000000004"
 
 [baseline]
@@ -203,3 +204,41 @@ accessibility_action = { target = { role = "button", name = "Toggle world" }, ac
 accessibility_assert = { target = { role = "heading", name = "Shared count: 3" }, role = "heading", name = "Shared count: 3" }
 [[scenarios.steps]]
 screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "presentation identity"
+fixture = "presentation-identity"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card count: 0 at Source" }, role = "heading", name = "Card count: 0 at Source" }
+[[scenarios.steps]]
+screenshot = { name = "source" }
+[[scenarios.steps]]
+click = { target = "identity_visual" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card count: 1 at Source" }, role = "heading", name = "Card count: 1 at Source" }
+[[scenarios.steps]]
+screenshot = { name = "world-click" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Move card" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card count: 1 at Destination" }, role = "heading", name = "Card count: 1 at Destination" }
+[[scenarios.steps]]
+screenshot = { name = "destination" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Increment card" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Move card" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card count: 2 at Portal" }, role = "heading", name = "Card count: 2 at Portal" }
+[[scenarios.steps]]
+screenshot = { name = "portal" }
+[[scenarios.steps]]
+click = { target = "identity_visual" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Move card" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card count: 3 at Source" }, role = "heading", name = "Card count: 3 at Source" }
+[[scenarios.steps]]
+screenshot = { name = "returned" }

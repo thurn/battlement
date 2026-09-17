@@ -2,23 +2,7 @@
 
 use battlement::{GameObject, ObjectId};
 
-use crate::{host_node::HostNode, render::RenderTree};
-
-/// Native destruction cascades through physical children, not logical owners.
-pub(crate) fn replace_descendants(tree: &mut RenderTree) {
-  for position in &mut tree.positions {
-    if position.portal.is_some() || position.host.as_ref().is_some_and(HostNode::scene_root) {
-      continue;
-    }
-    if let Some(host) = &mut position.host {
-      host.object_id = ObjectId::new_v4();
-    }
-    if let Some(suspense) = &mut position.suspense {
-      self::replace_descendants(&mut suspense.primary);
-    }
-    self::replace_descendants(&mut position.children);
-  }
-}
+use crate::host_node::HostNode;
 
 pub(crate) fn extract(roots: &mut [Vec<HostNode>]) -> Vec<HostNode> {
   let mut objects = Vec::new();

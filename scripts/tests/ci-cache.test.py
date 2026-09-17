@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 import multiprocessing
 import os
@@ -82,6 +83,7 @@ def main() -> None:
         _verify_maintenance_and_execution_do_not_deadlock(repository, cache_root)
         _verify_compiler_capacity_is_bounded(repository, cache_root, slots)
         _verify_failure_releases_capacity(repository, cache_root)
+        _verify_selected_resource_lease(repository, cache_root)
 
         replica = root / "replica"
         subprocess.run(["git", "clone", "--quiet", str(repository), str(replica)], check=True)
@@ -408,6 +410,41 @@ def _verify_compiler_capacity_is_bounded(
     assert maximum == 2
     release.set()
     _join(threads, errors)
+
+
+def _verify_selected_resource_lease(repository: Path, cache_root: Path) -> None:
+    for mode in ("cached", "disabled", "unstaged"):
+        for failure in (False, True):
+            events: list[str] = []
+
+            @contextmanager
+            def lease():
+                events.append("acquired")
+                try:
+                    yield
+                finally:
+                    events.append("released")
+
+            def execute() -> None:
+                assert events == ["acquired"]
+                events.append("executed")
+                if failure:
+                    raise RuntimeError("fixture")
+
+            cache = CiCache(repository, cache_root, {}, enabled=mode != "disabled")
+            step = f"selected-lease-{mode}-{failure}"
+            with (
+                patch.object(cache, "invocation", side_effect=AssertionError("double reservation")),
+                patch.object(cache, "_has_unstaged_inputs", return_value=mode == "unstaged"),
+            ):
+                try:
+                    cache.run(step, ("included.txt",), execute, lease=lease)
+                    assert not failure
+                except RuntimeError as error:
+                    assert failure and str(error) == "fixture"
+                if mode == "cached" and not failure:
+                    assert not cache.run(step, ("included.txt",), execute, lease=lease)
+            assert events == ["acquired", "executed", "released"]
 
 
 def _verify_failure_releases_capacity(repository: Path, cache_root: Path) -> None:

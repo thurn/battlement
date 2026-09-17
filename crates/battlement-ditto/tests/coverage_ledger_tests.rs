@@ -6,22 +6,22 @@ use std::{
 use battlement_ditto::coverage_ledger::{self, SampleStatus};
 
 #[test]
-fn repository_report_discovers_every_pending_migration() {
+fn repository_report_discovers_complete_coverage_for_every_sample() {
   let repository = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("../..");
   let report = coverage_ledger::check_repository(&repository).unwrap();
   assert_eq!(
     report
       .samples
       .iter()
-      .map(|sample| (sample.sample.as_str(), sample.state_count, &sample.status))
+      .map(|sample| (sample.sample.as_str(), &sample.status))
       .collect::<Vec<_>>(),
     vec![
-      ("basic", 3, &SampleStatus::Complete),
-      ("chess", 3, &SampleStatus::Complete),
-      ("chess-ui", 6, &SampleStatus::Complete),
-      ("reactant", 22, &SampleStatus::Complete),
-      ("tictactoe", 1, &SampleStatus::Complete),
-      ("ui", 24, &SampleStatus::Complete),
+      ("basic", &SampleStatus::Complete),
+      ("chess", &SampleStatus::Complete),
+      ("chess-ui", &SampleStatus::Complete),
+      ("reactant", &SampleStatus::Complete),
+      ("tictactoe", &SampleStatus::Complete),
+      ("ui", &SampleStatus::Complete),
     ]
   );
 }
@@ -294,6 +294,7 @@ impl Fixture {
   fn check(&self) {
     let report = coverage_ledger::check_repository(self.root()).unwrap();
     assert_eq!(report.samples[0].status, SampleStatus::Complete);
+    assert_eq!(report.samples[0].state_count, 2);
   }
 }
 

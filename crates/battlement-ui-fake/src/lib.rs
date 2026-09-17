@@ -784,9 +784,7 @@ impl UiWorld {
     {
       return Err(UiWorldError::InvalidHierarchy);
     }
-    if self.elements[&object_id].document_root_id != parent.document_root_id {
-      return Err(UiWorldError::InvalidHierarchy);
-    }
+    let document_root_id = parent.document_root_id;
     let destination_len =
       parent.children.len() - usize::from(self.elements[&object_id].parent_id == Some(parent_id));
     let index = child_index.map_or(destination_len, |value| value as usize);
@@ -818,6 +816,9 @@ impl UiWorld {
       .get_mut(&object_id)
       .expect("element disappeared")
       .parent_id = Some(parent_id);
+    if self.elements[&object_id].document_root_id != document_root_id {
+      self.set_document_root(object_id, document_root_id);
+    }
     self.clamp_tab_selection(old_parent);
     self.clamp_tab_selection(parent_id);
     if old_parent == parent_id {
@@ -855,6 +856,15 @@ impl UiWorld {
       );
     }
     Ok(())
+  }
+
+  fn set_document_root(&mut self, id: ObjectId, root: ObjectId) {
+    let element = self.elements.get_mut(&id).expect("moving subtree exists");
+    element.document_root_id = root;
+    let children = element.children.clone();
+    for child in children {
+      self.set_document_root(child, root);
+    }
   }
 
   fn is_descendant(&self, candidate: ObjectId, ancestor: ObjectId) -> bool {

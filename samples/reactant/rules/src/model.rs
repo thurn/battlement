@@ -8,6 +8,7 @@ use std::env;
 pub struct Game {
   pub(crate) screen: Screen,
   pub(crate) reversed: bool,
+  pub(crate) identity_location: u32,
   pub(crate) event_active: bool,
   pub(crate) event_trace: Vec<&'static str>,
   pub(crate) context_overridden: bool,
@@ -93,6 +94,7 @@ pub(crate) fn new() -> Game {
       Screen::Composition
     },
     reversed: false,
+    identity_location: 0,
     event_active: false,
     event_trace: Vec::new(),
     context_overridden: false,

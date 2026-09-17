@@ -10,6 +10,7 @@ use crate::{
   event_handler::Handler,
   host_facade::FacadeMetadata,
   host_node::HostNode,
+  identity_index::IdentityIndex,
   motion::MotionProps,
   motion_lifecycle::{self, MotionCallbackRegistration, MotionCallbacks},
   motion_variants::{ExitBlueprint, ResolvedVariants, VariantScope},
@@ -36,10 +37,14 @@ pub(crate) fn prepare(
   element: Box<UiElement>,
   matching: Option<&RenderPosition>,
   scope: &VariantScope,
+  identities: &IdentityIndex<'_>,
 ) -> Box<PreparedFacade> {
   let previous = matching.and_then(|position| position.host.as_ref());
   let mut node = ui_host_adapter::node(
-    previous.map_or_else(ObjectId::new_v4, |value| value.object_id),
+    previous.map_or_else(
+      || identities.new_host_id(metadata.presentation_id),
+      |value| value.object_id,
+    ),
     *element,
   );
   let remount = previous.is_some_and(|value| value.requires_remount(&node));
@@ -150,6 +155,7 @@ impl PreparedFacade {
     };
     RenderPosition {
       descriptor,
+      presentation_id: metadata.presentation_id,
       key: metadata.key,
       host: Some(node),
       handlers: metadata.handlers,

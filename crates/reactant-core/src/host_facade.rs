@@ -1,6 +1,7 @@
 use std::{any::TypeId, boxed::Box as Boxed, rc::Rc};
 
 use battlement::UiElement;
+use uuid::Uuid;
 
 use crate::{
   element_ref::ElementRef,
@@ -27,6 +28,7 @@ pub(crate) struct HostState<H> {
   pub(crate) children: Vec<Node>,
   pub(crate) handlers: Vec<Handler>,
   pub(crate) key: Option<ErasedKey>,
+  pub(crate) presentation_id: Option<Uuid>,
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) motion: MotionProps,
@@ -36,6 +38,7 @@ pub(crate) struct HostState<H> {
 
 pub(crate) struct FacadeMetadata {
   pub(crate) key: Option<ErasedKey>,
+  pub(crate) presentation_id: Option<Uuid>,
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) handlers: Vec<Handler>,
@@ -70,6 +73,7 @@ fn prepare_input<H: Clone + Into<UiElement>>(
   (
     Boxed::new(FacadeMetadata {
       key: state.key.clone(),
+      presentation_id: state.presentation_id,
       element_ref: state.element_ref.clone(),
       portal_target: state.portal_target.clone(),
       handlers: state.handlers.clone(),

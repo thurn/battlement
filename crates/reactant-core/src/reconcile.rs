@@ -46,21 +46,46 @@ pub(crate) fn command_groups(
   previous: &[HostNode],
   desired: &[HostNode],
 ) -> Vec<Vec<CommandBody>> {
-  let previous = TreeIndex::new(parent_id, previous);
-  let desired = TreeIndex::new(parent_id, desired);
+  self::forest_command_groups(&[(parent_id, previous, desired)])
+}
+
+pub(crate) fn forest_command_groups(
+  roots: &[(ObjectId, &[HostNode], &[HostNode])],
+) -> Vec<Vec<CommandBody>> {
+  let previous = TreeIndex::forest(roots.iter().map(|(id, previous, _)| (*id, *previous)));
+  let desired = TreeIndex::forest(roots.iter().map(|(id, _, desired)| (*id, *desired)));
   let mut plan = Plan::default();
   let mut current = previous.children.clone();
   let mut current_parents = previous.parents.clone();
-  self::plan_reparents(
-    parent_id,
+  self::prepare_new_parents(
+    roots[0].0,
     &previous,
     &desired,
     &mut current,
     &mut current_parents,
     &mut plan,
   );
-  self::plan_removals(parent_id, &previous, &desired, &mut current, &mut plan);
-  self::reconcile_children(parent_id, &previous, &desired, &mut current, &mut plan);
+  self::plan_reparents(
+    roots[0].0,
+    &previous,
+    &desired,
+    &mut current,
+    &mut current_parents,
+    &mut plan,
+  );
+  for (parent_id, _, _) in roots {
+    self::plan_removals(
+      *parent_id,
+      &previous,
+      &desired,
+      &mut current,
+      &current_parents,
+      &mut plan,
+    );
+  }
+  for (parent_id, _, _) in roots {
+    self::reconcile_children(*parent_id, &previous, &desired, &mut current, &mut plan);
+  }
   let constrained_parents = previous
     .nodes
     .iter()
@@ -69,8 +94,9 @@ pub(crate) fn command_groups(
     .collect();
   mutation::lower(
     plan
-      .reparents
+      .preparations
       .into_iter()
+      .chain(plan.reparents)
       .chain(plan.destroys)
       .chain(plan.placements)
       .chain(plan.properties)
@@ -84,6 +110,7 @@ pub(crate) fn command_groups(
 
 #[derive(Default)]
 struct Plan {
+  preparations: Vec<PlannedMutation>,
   reparents: Vec<PlannedMutation>,
   destroys: Vec<PlannedMutation>,
   placements: Vec<PlannedMutation>,
@@ -98,15 +125,78 @@ struct TreeIndex<'a> {
 }
 
 impl<'a> TreeIndex<'a> {
-  fn new(root_id: ObjectId, nodes: &'a [HostNode]) -> Self {
+  fn forest(roots: impl IntoIterator<Item = (ObjectId, &'a [HostNode])>) -> Self {
     let mut result = Self {
       nodes: HashMap::new(),
       parents: HashMap::new(),
       children: HashMap::new(),
       preorder: Vec::new(),
     };
-    self::collect_tree(root_id, nodes, &mut result);
+    for (root_id, nodes) in roots {
+      self::collect_tree(root_id, nodes, &mut result);
+    }
     result
+  }
+}
+
+fn prepare_new_parents(
+  root_id: ObjectId,
+  previous: &TreeIndex<'_>,
+  desired: &TreeIndex<'_>,
+  current: &mut HashMap<ObjectId, Vec<ObjectId>>,
+  parents: &mut HashMap<ObjectId, ObjectId>,
+  plan: &mut Plan,
+) {
+  let mut needed = HashSet::new();
+  for id in &desired.preorder {
+    if !previous.nodes.contains_key(id) {
+      continue;
+    }
+    let mut parent = desired.parents[id];
+    while !previous.children.contains_key(&parent) {
+      if !needed.insert(parent) {
+        break;
+      }
+      parent = desired.parents[&parent];
+    }
+  }
+  for id in &desired.preorder {
+    if !needed.contains(id) {
+      continue;
+    }
+    let parent = desired.parents[id];
+    if self::is_toggle_group(parent, previous, desired) && current[&parent].len() == 64 {
+      let departing = *current[&parent]
+        .iter()
+        .find(|child| desired.parents.get(child) != Some(&parent))
+        .expect("a new child of a full choice group replaces a departing child");
+      let staging_index = u32::try_from(current[&root_id].len()).expect("child index fits u32");
+      plan.preparations.push(PlannedMutation::move_host(
+        previous.nodes[&departing].move_command(root_id, staging_index),
+        departing,
+        parent,
+        root_id,
+      ));
+      self::remove_child(current, parent, departing);
+      current
+        .get_mut(&root_id)
+        .expect("staging root exists")
+        .push(departing);
+      parents.insert(departing, root_id);
+    }
+    let index = u32::try_from(current[&parent].len()).expect("child index fits u32");
+    let node = desired.nodes[id].without_children();
+    plan.preparations.push(PlannedMutation::create(
+      node.create_command(parent, index),
+      &node,
+      parent,
+    ));
+    current
+      .get_mut(&parent)
+      .expect("prepared parent exists")
+      .push(*id);
+    current.insert(*id, Vec::new());
+    parents.insert(*id, parent);
   }
 }
 
@@ -216,8 +306,8 @@ fn reparent_is_ready(
 ) -> bool {
   let parent_id = desired.parents[&object_id];
   assert!(
-    previous.children.contains_key(&parent_id),
-    "a reused host cannot move beneath a new host"
+    current.contains_key(&parent_id),
+    "a reused host requires a prepared parent"
   );
   if self::is_descendant(current, object_id, parent_id) {
     return false;
@@ -248,19 +338,22 @@ fn plan_removals(
   previous: &TreeIndex<'_>,
   desired: &TreeIndex<'_>,
   current: &mut HashMap<ObjectId, Vec<ObjectId>>,
+  parents: &HashMap<ObjectId, ObjectId>,
   plan: &mut Plan,
 ) {
   for object_id in &previous.children[&parent_id] {
-    if !desired.nodes.contains_key(object_id) {
-      self::remove_child(current, parent_id, *object_id);
+    if !desired.nodes.contains_key(object_id)
+      && (desired.nodes.contains_key(&parent_id) || !previous.nodes.contains_key(&parent_id))
+    {
+      let current_parent = parents[object_id];
+      self::remove_child(current, current_parent, *object_id);
       plan.destroys.push(PlannedMutation::destroy(
         previous.nodes[object_id].destroy_command(),
         *object_id,
-        parent_id,
+        current_parent,
       ));
-      continue;
     }
-    self::plan_removals(*object_id, previous, desired, current, plan);
+    self::plan_removals(*object_id, previous, desired, current, parents, plan);
   }
 }
 
@@ -276,7 +369,7 @@ fn reconcile_children(
   let mut anchor = None;
   for object_id in desired_children.iter().rev() {
     let child = desired.nodes[object_id];
-    if !previous.nodes.contains_key(object_id) {
+    if !current.contains_key(object_id) {
       let index = self::anchor_index(&current[&parent_id], anchor);
       self::create_subtree(child, parent_id, index, &mut plan.placements);
       current
@@ -301,11 +394,14 @@ fn reconcile_children(
     "Reactant hierarchy planning did not reach the desired child sequence"
   );
   for object_id in desired_children {
+    if !current.contains_key(object_id) {
+      continue;
+    }
+    self::reconcile_children(*object_id, previous, desired, current, plan);
     let Some(previous_child) = previous.nodes.get(object_id) else {
       continue;
     };
     let child = desired.nodes[object_id];
-    self::reconcile_children(*object_id, previous, desired, current, plan);
     let hierarchy_changed = previous.children[object_id] != desired.children[object_id];
     for command in previous_child.property_commands(child, hierarchy_changed) {
       plan

@@ -62,6 +62,11 @@ where
     self.client.poll();
   }
 
+  /// Activates a world object through the same coordinate-free route as native Ditto.
+  pub fn activate(&mut self, object_id: ObjectId) {
+    self.client.activate(object_id);
+  }
+
   /// Performs a semantic primary-pointer click on a world object.
   pub fn click(&mut self, object_id: ObjectId) {
     self.client.click(object_id);

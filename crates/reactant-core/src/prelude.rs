@@ -96,6 +96,7 @@ pub use crate::{
     ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, SliderInt,
     Stack, TabView, TextElement, TextField, ToggleButtonGroup, View,
   },
+  identity::IdentityRenderExt,
   key::{KeyRenderExt, Keyed},
   layout::{Layout, LayoutGroup, ReorderAxis, reorder_index},
   motion::{

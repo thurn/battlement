@@ -11,6 +11,7 @@ use crate::{
   action_context,
   app::App,
   app_delivery::{self, DeliveryMessage, DeliveryResponse},
+  runtime::{ReactantCommit, RenderError},
 };
 
 struct DeliveryUiEvent {
@@ -94,12 +95,8 @@ impl<G: 'static> App<G> {
     self.healthy = false;
     let _action = action_context::enter(Some(action_id));
     let commit = match action.body() {
-      CoreActionBodyView::PointerClick(pointer) => {
-        let _callback_scope = self.orchestration.borrow().enter();
-        let target = ObjectId::from_uuid(uuid::Uuid::from_bytes(pointer.object_id()))
-          .expect("validated world target");
-        self.runtime.activate_object(&mut self.model, target)
-      }
+      CoreActionBodyView::Activate(activation) => self.activate_world(activation.object_id()),
+      CoreActionBodyView::PointerClick(pointer) => self.activate_world(pointer.object_id()),
       CoreActionBodyView::ReducedMotionPreferenceChanged(preference) => {
         self.observations.borrow_mut().reduced_motion = match preference.value() {
           0 => ReducedMotionPreference::Unavailable,
@@ -133,6 +130,13 @@ impl<G: 'static> App<G> {
     self.settle(&mut response, Some(action_id), false);
     self.healthy = true;
     Ok(response)
+  }
+
+  fn activate_world(&mut self, target: [u8; 16]) -> Result<ReactantCommit, RenderError> {
+    let _callback_scope = self.orchestration.borrow().enter();
+    let target =
+      ObjectId::from_uuid(uuid::Uuid::from_bytes(target)).expect("validated world target");
+    self.runtime.activate_object(&mut self.model, target)
   }
 
   fn submit_ui_event_response(

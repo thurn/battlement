@@ -151,6 +151,12 @@ fn world_and_portal_share_one_counter_context_and_logical_event_path() {
     display.object(visual).unwrap().local_transform().position.x,
     2.0
   );
+  display.activate(visual);
+  assert_eq!(display.ui_element(details).text(), Some("Count 3"));
+  assert_eq!(
+    display.object(visual).unwrap().local_transform().position.x,
+    3.0
+  );
   assert_eq!(probe.mounts.get(), 1);
   assert_eq!(display.frame(), frames);
   assert_eq!(display.presentation_time(), time);

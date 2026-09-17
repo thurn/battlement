@@ -20,6 +20,7 @@ use crate::{
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::GeometryRuntime,
   hook_storage::{HookComponent, HookOwner},
+  identity_index::IdentityIndex,
   overlay::OverlayReference,
   portal::PortalTarget,
   render::{RenderPosition, RenderTree},
@@ -28,33 +29,31 @@ use crate::{
 };
 
 impl RenderTree {
-  pub(crate) fn rerender_local_state(&mut self) -> Result<LocalRenderTransaction, RenderError> {
+  pub(crate) fn rerender_local_state(
+    &self,
+    identities: &IdentityIndex<'_>,
+  ) -> Result<LocalRenderTransaction, RenderError> {
     let mut transaction = LocalRenderTransaction::default();
     let mut path = Vec::new();
-    match self.rerender_changed_components(true, &mut path, &mut transaction) {
+    match self.rerender_changed_components(true, &mut path, &mut transaction, identities) {
       Ok(LocalRender::Changed | LocalRender::Unchanged) => {
         transaction.supported = true;
         Ok(transaction)
       }
-      Ok(LocalRender::Unsupported) => {
-        transaction.rollback(self);
-        Ok(LocalRenderTransaction::default())
-      }
-      Err(error) => {
-        transaction.rollback(self);
-        Err(error)
-      }
+      Ok(LocalRender::Unsupported) => Ok(LocalRenderTransaction::default()),
+      Err(error) => Err(error),
     }
   }
 
   fn rerender_changed_components(
-    &mut self,
+    &self,
     incremental_allowed: bool,
     path: &mut Vec<usize>,
     transaction: &mut LocalRenderTransaction,
+    identities: &IdentityIndex<'_>,
   ) -> Result<LocalRender, RenderError> {
     let mut result = LocalRender::Unchanged;
-    for (index, position) in self.positions.iter_mut().enumerate() {
+    for (index, position) in self.positions.iter().enumerate() {
       path.push(index);
       let has_boundary = position.error_boundary.is_some() || position.suspense.is_some();
       if has_boundary && position.has_dirty_work() {
@@ -78,10 +77,6 @@ impl RenderTree {
           path.pop();
           return Ok(LocalRender::Unsupported);
         };
-        transaction.backups.push(LocalRenderBackup {
-          path: path.clone(),
-          position: position.clone(),
-        });
         let component = position
           .component
           .clone()
@@ -91,13 +86,19 @@ impl RenderTree {
           &position.children,
           component,
           scope.checkpoint(),
+          identities,
         )?;
         let Some((component, children)) = rerendered else {
           path.pop();
           return Ok(LocalRender::Unsupported);
         };
-        position.component = Some(component);
-        position.children = children;
+        let mut replacement = position.clone();
+        replacement.component = Some(component);
+        replacement.children = children;
+        transaction.backups.push(LocalRenderBackup {
+          path: path.clone(),
+          position: replacement,
+        });
         result = LocalRender::Changed;
         path.pop();
         continue;
@@ -105,14 +106,20 @@ impl RenderTree {
       let provider = position.provider.clone();
       let nested = if let Some(provider) = provider {
         provider.enter(|| {
-          position
-            .children
-            .rerender_changed_components(incremental_allowed, path, transaction)
+          position.children.rerender_changed_components(
+            incremental_allowed,
+            path,
+            transaction,
+            identities,
+          )
         })
       } else {
-        position
-          .children
-          .rerender_changed_components(incremental_allowed, path, transaction)
+        position.children.rerender_changed_components(
+          incremental_allowed,
+          path,
+          transaction,
+          identities,
+        )
       }?;
       path.pop();
       match nested {
@@ -343,6 +350,9 @@ impl RenderTree {
 
   pub(crate) fn remount_hosts(&mut self) {
     for position in &mut self.positions {
+      if position.presentation_id.is_some() {
+        continue;
+      }
       if let Some(host) = &mut position.host {
         host.object_id = ObjectId::new_v4();
       }
@@ -753,6 +763,15 @@ struct LocalRenderBackup {
 }
 
 impl LocalRenderTransaction {
+  pub(crate) fn apply(&mut self, tree: &mut RenderTree) {
+    for replacement in &mut self.backups {
+      std::mem::swap(
+        position_mut(tree, &replacement.path),
+        &mut replacement.position,
+      );
+    }
+  }
+
   pub(crate) fn supported(&self) -> bool {
     self.supported
   }

@@ -6,6 +6,7 @@ use battlement::UiDocument;
 
 use crate::{
   context,
+  identity_index::IdentityIndex,
   render::{Render, RenderTree},
   render_value,
   resource_cache::ResourceOverlay,
@@ -24,6 +25,7 @@ pub(crate) trait RootView<G> {
     &self,
     game: &G,
     committed: &RenderTree,
+    identities: &IdentityIndex<'_>,
     defaults: Rc<RefCell<context::ContextDefaults>>,
     resources: Rc<ResourceRuntime>,
     resource_overlay: Option<Rc<ResourceOverlay>>,
@@ -72,6 +74,7 @@ where
     &self,
     game: &G,
     committed: &RenderTree,
+    identities: &IdentityIndex<'_>,
     defaults: Rc<RefCell<context::ContextDefaults>>,
     resources: Rc<ResourceRuntime>,
     resource_overlay: Option<Rc<ResourceOverlay>>,
@@ -81,6 +84,7 @@ where
         render_value::lower(
           context::with_hooks_forbidden(|| (self.view)(game)),
           committed,
+          identities,
         )
       })
     })

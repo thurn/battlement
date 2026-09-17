@@ -608,6 +608,10 @@ impl FakeWorld {
         .children
         .retain(|child| *child != id);
     }
+    if let Some(parent_id) = parent_id {
+      let scene = self.require_object(parent_id).scene_id;
+      self.move_subtree_scene(id, scene);
+    }
     self.require_object_mut(id).parent_id = parent_id;
     if let Some(parent_id) = parent_id {
       self
@@ -624,24 +628,29 @@ impl FakeWorld {
     self.recompute_active_states();
   }
 
+  fn move_subtree_scene(&mut self, id: battlement::ObjectId, scene: Option<SceneId>) {
+    let object = self.require_object_mut(id);
+    object.scene_id = scene;
+    let children = object.children.clone();
+    for child in children {
+      self.move_subtree_scene(child, scene);
+    }
+  }
+
   pub(crate) fn validate_reparent(
     &self,
     id: battlement::ObjectId,
     parent_id: Option<battlement::ObjectId>,
   ) {
-    let object = self.require_object(id);
+    self.require_object(id);
     let Some(parent_id) = parent_id else {
       return;
     };
-    let parent = self.require_object(parent_id);
+    self.require_object(parent_id);
     assert!(id != parent_id, "object cannot parent itself: {id}");
     assert!(
       !self.is_descendant(parent_id, id),
       "object cannot be parented beneath its descendant: {id}"
-    );
-    assert!(
-      object.scene_id == parent.scene_id,
-      "object and parent must share placement: {id}"
     );
   }
 

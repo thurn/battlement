@@ -133,6 +133,56 @@ source = "0b313f80f5c789b6675f0f59ddda6f001503eeb3bb4bec6fd2f70e2e08275bb5"
 
 [[baselines]]
 profile = "macos"
+scenario = "presentation identity"
+checkpoint = "destination"
+sha256 = "ef28d424c1f1adf54931607b48842bd2eb6c3bdf36cefcb1e8f852af47320baa"
+width = 1280
+height = 720
+size_bytes = 94263
+source = "b772ef6d622e4d6789b856fcbe65f188de07ef0934734362f4225ccf97db41df"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation identity"
+checkpoint = "portal"
+sha256 = "61e9485b0e48449a1980e510f7f8fd82ba8db5880b69f52ad12ca2b69f0caae4"
+width = 1280
+height = 720
+size_bytes = 93828
+source = "b772ef6d622e4d6789b856fcbe65f188de07ef0934734362f4225ccf97db41df"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation identity"
+checkpoint = "returned"
+sha256 = "285753b0710b5aff8dbdce39c91e295666959658d8e5e67d22979c69c4b0861d"
+width = 1280
+height = 720
+size_bytes = 95125
+source = "b772ef6d622e4d6789b856fcbe65f188de07ef0934734362f4225ccf97db41df"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation identity"
+checkpoint = "source"
+sha256 = "52c15f0685d348f14b0431cbceba7014741e785c551469283b8d5a61e2bd4a46"
+width = 1280
+height = 720
+size_bytes = 95136
+source = "b772ef6d622e4d6789b856fcbe65f188de07ef0934734362f4225ccf97db41df"
+
+[[baselines]]
+profile = "macos"
+scenario = "presentation identity"
+checkpoint = "world-click"
+sha256 = "b8e173dd03f33715bb6b5de28b4d9b4d2d784372b8c35b18bd2a2cbe569a8a41"
+width = 1280
+height = 720
+size_bytes = 95010
+source = "b772ef6d622e4d6789b856fcbe65f188de07ef0934734362f4225ccf97db41df"
+
+[[baselines]]
+profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "accepted-before-playback"
 sha256 = "8e19699a4cbcf42b651f981e652593b04b51e3403a031f3220b29d0dfc66608f"

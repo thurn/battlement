@@ -7,6 +7,7 @@ use std::{any::TypeId, rc::Rc};
 use crate::{
   component::Component,
   context,
+  identity_index::IdentityIndex,
   key::StructuralRender,
   render::{Either, Fragment, Node, Render, RenderSink, RenderTree},
   render_error::SharedRenderError,
@@ -42,8 +43,9 @@ pub(crate) trait ErasedComponent {
 pub(crate) fn lower<R: Render>(
   value: R,
   committed: &RenderTree,
+  identities: &IdentityIndex<'_>,
 ) -> Result<RenderTree, RenderError> {
-  let mut sink = RenderSink::new(committed);
+  let mut sink = RenderSink::new(committed, identities);
   value.render_owned(&mut sink);
   sink.finish()
 }

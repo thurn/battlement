@@ -5,11 +5,12 @@ use battlement_ui::{
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
 #[test]
-fn rejected_placements_preserve_logical_hierarchy() {
+fn cross_document_moves_preserve_subtrees_while_cycles_are_rejected() {
   let first_document = ObjectId::new_v4();
   let first_root = ObjectId::new_v4();
   let parent = ObjectId::new_v4();
   let child = ObjectId::new_v4();
+  let grandchild = ObjectId::new_v4();
   let second_document = ObjectId::new_v4();
   let second_root = ObjectId::new_v4();
   let second_parent = ObjectId::new_v4();
@@ -17,8 +18,10 @@ fn rejected_placements_preserve_logical_hierarchy() {
   world
     .replace(vec![
       UiDocument::with_root_id(first_document, first_root).child(
-        UiNode::new(parent, UiVisualElement::new())
-          .child(UiNode::new(child, UiVisualElement::new())),
+        UiNode::new(parent, UiVisualElement::new()).child(
+          UiNode::new(child, UiVisualElement::new())
+            .child(UiNode::new(grandchild, UiLabel::new("grandchild"))),
+        ),
       ),
       UiDocument::with_root_id(second_document, second_root)
         .child(UiNode::new(second_parent, UiVisualElement::new())),
@@ -33,16 +36,32 @@ fn rejected_placements_preserve_logical_hierarchy() {
     }),
     Err(UiWorldError::InvalidHierarchy)
   );
-  assert_eq!(
-    world.update(VisualElementUpdate::Parent {
+  assert_eq!(world.element(parent).unwrap().children(), [child]);
+  world
+    .update(VisualElementUpdate::Parent {
       object_id: child,
       parent_id: second_parent,
       child_index: None,
-    }),
-    Err(UiWorldError::InvalidHierarchy)
+    })
+    .unwrap();
+  assert!(world.element(parent).unwrap().children().is_empty());
+  assert_eq!(
+    world.element(child).unwrap().parent_id(),
+    Some(second_parent)
   );
-  assert_eq!(world.element(parent).unwrap().children(), [child]);
-  assert_eq!(world.element(child).unwrap().parent_id(), Some(parent));
+  assert_eq!(
+    world.element(child).unwrap().document_root_id(),
+    second_root
+  );
+  assert_eq!(
+    world.element(grandchild).unwrap().document_root_id(),
+    second_root
+  );
+  world.destroy(parent).unwrap();
+  assert_eq!(
+    world.element(grandchild).unwrap().text(),
+    Some("grandchild")
+  );
 }
 
 #[test]

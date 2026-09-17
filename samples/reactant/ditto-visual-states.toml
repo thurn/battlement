@@ -87,3 +87,23 @@ screen = "mixed-tree"
 [[states]]
 key = "mixed-tree.restored"
 screen = "mixed-tree"
+
+[[states]]
+key = "presentation-identity.source"
+screen = "presentation-identity"
+
+[[states]]
+key = "presentation-identity.world-click"
+screen = "presentation-identity"
+
+[[states]]
+key = "presentation-identity.destination"
+screen = "presentation-identity"
+
+[[states]]
+key = "presentation-identity.portal"
+screen = "presentation-identity"
+
+[[states]]
+key = "presentation-identity.returned"
+screen = "presentation-identity"
