@@ -143,6 +143,12 @@ its part of the implementation; it links the relevant topics and starting code.
 
 ## Implementation order
 
+**Continuing after 21a:** first complete and promote
+[21a.1: Deterministic native hover and drag delivery](tasks/21a1-deterministic-pointer-input.md).
+Its reliability gate is mandatory before 21b. The continuation through task 34
+therefore has 18 executable leaves, starting with 21a.1; task-group pages remain
+indexes and existing assignment numbers are unchanged.
+
 Execute the tasks below serially. A task group links lettered leaf assignments;
 complete and integrate each leaf before the next, then continue to the next
 number. Each leaf builds on all earlier completed ones. Keep existing callers working when an API changes; a later sample

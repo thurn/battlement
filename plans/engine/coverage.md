@@ -768,6 +768,15 @@ scenes](fixtures.md), and [validation](validation.md).
   **Verify:** Real Unity release runs, not Rust-only or fake proof; retain exact
   reproducible inputs.
 
+- Deterministic native hover/drag through production picking and capture,
+  independent of OS focus, physical device events, and concurrent players.
+
+  **Task:** [21a.1](tasks/21a1-deterministic-pointer-input.md).
+
+  **Verify:** Exclusive session ownership, exact ordered consumption, native
+  intermediate outcomes, focus/concurrency stress, and clean failure/reset
+  evidence pass the task's reliability gate before enabling the capability.
+
 - Complete 300/500-card views, 30 layouts/tracks, fixed seeds/assets, concurrent
   AI, ten-minute warmed release captures.
 

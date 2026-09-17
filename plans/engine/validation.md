@@ -61,6 +61,12 @@ bounded event-driven waits; no fake-only direct call to a rules closure.
 
 ## Host conformance
 
+Controlled native hover/drag must satisfy the ownership, delivery, focus, and
+concurrency gate in [task 21a.1](tasks/21a1-deterministic-pointer-input.md).
+Keep capabilities disabled until that evidence passes; native host tests alone
+do not establish reliable Ditto delivery. Reuse its certified regression suite
+for later tasks and extend it only for new behavior.
+
 For each new host capability, cover logical behavior through the public driver
 and obtain focused native evidence for what the fake cannot establish. Reuse one
 scene across related capabilities. A fake result alone does not establish Unity

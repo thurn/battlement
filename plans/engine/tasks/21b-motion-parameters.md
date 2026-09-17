@@ -9,8 +9,9 @@
 - [World objects and input](../world.md)
 - [Validation](../validation.md)
 
-**Prerequisite:** [21a: Share UI/world motion sampling and command
-operations](21a-motion-drivers.md) is integrated.
+**Prerequisite:** [21a.1: Deterministic native hover and drag
+delivery](21a1-deterministic-pointer-input.md) is integrated, following 21a's
+shared Motion drivers.
 
 **Starting code:** UI Motion sampler/timeline; Reactant targets/values; world property
 writers; fake scheduling.

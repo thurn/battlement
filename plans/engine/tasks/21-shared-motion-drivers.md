@@ -14,6 +14,7 @@ across domains](20-world-focus-touch.md) is integrated.
 ## Assignments
 
 - [21a. Share UI/world motion sampling and command operations](21a-motion-drivers.md)
+- [21a.1. Prove deterministic native hover and drag delivery](21a1-deterministic-pointer-input.md)
 - [21b. Drive material, light, particle, and audio properties](21b-motion-parameters.md)
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Validation](../validation.md)
