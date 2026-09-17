@@ -278,11 +278,7 @@ fn reconcile_children(
     let child = desired.nodes[object_id];
     if !previous.nodes.contains_key(object_id) {
       let index = self::anchor_index(&current[&parent_id], anchor);
-      plan.placements.push(PlannedMutation::create(
-        child.create_command(parent_id, index),
-        child,
-        parent_id,
-      ));
+      self::create_subtree(child, parent_id, index, &mut plan.placements);
       current
         .get_mut(&parent_id)
         .expect("physical parent has a child sequence")
@@ -292,12 +288,10 @@ fn reconcile_children(
     }
     if !retained.contains(object_id)
       && let Some(index) = self::place_before(current, parent_id, *object_id, anchor)
+      && let Some(command) = child.index_command(index)
     {
       plan.placements.push(PlannedMutation::move_host(
-        child.index_command(index),
-        *object_id,
-        parent_id,
-        parent_id,
+        command, *object_id, parent_id, parent_id,
       ));
     }
     anchor = Some(*object_id);
@@ -313,7 +307,7 @@ fn reconcile_children(
     let child = desired.nodes[object_id];
     self::reconcile_children(*object_id, previous, desired, current, plan);
     let hierarchy_changed = previous.children[object_id] != desired.children[object_id];
-    if let Some(command) = previous_child.property_command(child, hierarchy_changed) {
+    for command in previous_child.property_commands(child, hierarchy_changed) {
       plan
         .properties
         .push(PlannedMutation::properties(command, *object_id));
@@ -410,5 +404,29 @@ fn collect_tree<'a>(parent_id: ObjectId, nodes: &'a [HostNode], result: &mut Tre
     result.parents.insert(node.object_id, parent_id);
     result.preorder.push(node.object_id);
     self::collect_tree(node.object_id, &node.children, result);
+  }
+}
+
+fn create_subtree(
+  node: &HostNode,
+  parent: ObjectId,
+  index: u32,
+  mutations: &mut Vec<PlannedMutation>,
+) {
+  if node.creates_children() {
+    mutations.push(PlannedMutation::create(
+      node.create_command(parent, index),
+      node,
+      parent,
+    ));
+  } else {
+    mutations.push(PlannedMutation::create(
+      node.create_command(parent, index),
+      &node.without_children(),
+      parent,
+    ));
+    for (index, child) in node.children.iter().enumerate() {
+      self::create_subtree(child, node.object_id, index as u32, mutations);
+    }
   }
 }

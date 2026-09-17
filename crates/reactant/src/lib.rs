@@ -11,6 +11,8 @@ mod game_hooks;
 mod game_output;
 mod game_session;
 pub mod prelude;
+pub mod world;
+mod world_adapter;
 
 pub use game_app::GameApp;
 pub use game_hooks::{GameRoot, use_game_prompt, use_game_state, use_game_status};

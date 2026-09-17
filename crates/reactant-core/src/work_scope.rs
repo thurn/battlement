@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use battlement::{
-  Batch, BatchId, BatchStart, CommandBody, ObjectId, ParallelCommandGroup, SessionId, Snapshot,
-  UiNode, VisualElementCreate,
+  Batch, BatchId, BatchStart, CommandBody, GameObject, ObjectId, ParallelCommandGroup, SessionId,
+  Snapshot, UiNode, VisualElementCreate,
 };
 
 use crate::{host_node::HostNode, render::RenderTree};
@@ -88,6 +88,14 @@ pub(crate) fn batches(
 
 pub(crate) fn target(command: &CommandBody) -> Option<ObjectId> {
   match command {
+    CommandBody::ObjectCreate(value) => Some(value.object.object_id),
+    CommandBody::ObjectDestroy(value) => Some(value.object_id),
+    CommandBody::ObjectSetActive(value) => Some(value.object_id),
+    CommandBody::ObjectReparent(value) => Some(value.object_id),
+    CommandBody::TransformSetLocalPosition(value) => Some(value.payload.object_id),
+    CommandBody::TransformSetLocalRotation(value) => Some(value.payload.object_id),
+    CommandBody::TransformSetLocalScale(value) => Some(value.payload.object_id),
+    CommandBody::InputSetPointerEvents(value) => Some(value.object_id),
     CommandBody::VisualElementCreate(value) => Some(value.node.object_id),
     CommandBody::VisualElementUpdate(value) => Some(value.object_id()),
     CommandBody::VisualElementDestroy(value) => Some(value.object_id),
@@ -116,7 +124,20 @@ pub(crate) fn extract_snapshot(
       &mut commands,
     );
   }
-  self::batches(snapshot.session_id, vec![commands], owners, true)
+  let mut objects = Vec::new();
+  snapshot.objects.retain(|object| {
+    if owners.contains_key(&object.object_id) {
+      objects.push(object.clone());
+      false
+    } else {
+      true
+    }
+  });
+  let mut groups = self::object_groups(objects);
+  if !commands.is_empty() {
+    groups.insert(0, commands);
+  }
+  self::batches(snapshot.session_id, groups, owners, true)
 }
 
 fn extract_nodes(
@@ -160,4 +181,19 @@ pub(crate) fn recovery(
 
 pub(crate) fn current() -> Option<u64> {
   crate::context::read_optional::<WorkScope>().map(|scope| scope.0)
+}
+
+pub(crate) fn object_groups(objects: Vec<GameObject>) -> Vec<Vec<CommandBody>> {
+  let mut depths = HashMap::new();
+  let mut groups = Vec::<Vec<CommandBody>>::new();
+  for object in objects {
+    let depth = object
+      .parent_id
+      .and_then(|parent| depths.get(&parent))
+      .map_or(0, |depth| depth + 1);
+    depths.insert(object.object_id, depth);
+    groups.resize_with(groups.len().max(depth + 1), Vec::new);
+    groups[depth].push(CommandBody::object_create(object));
+  }
+  groups
 }

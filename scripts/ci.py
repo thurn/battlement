@@ -267,6 +267,19 @@ def sample_rust_workspaces() -> list[Path]:
     return sorted(manifests, key=lambda path: path.as_posix())
 
 
+def check_cargo_lockfiles(workspaces: list[Path]) -> None:
+    """Reject stale locks before metadata discovery or builds can rewrite them."""
+    for manifest in [Path("Cargo.toml"), *workspaces]:
+        result = subprocess.run(
+            ["cargo", "metadata", "--locked", "--format-version", "1",
+             "--manifest-path", str(manifest)],
+            cwd=REPOSITORY_ROOT, stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"{manifest}: locked dependency resolution failed\n{result.stderr}")
+
+
 def cargo_environment(
     workspace: Path | None,
     concurrent_scope: str | None = None,
@@ -996,6 +1009,10 @@ def run_ci(
 ) -> None:
     samples = sample_names()
     sample_workspaces = sample_rust_workspaces()
+    run_step(
+        "Check Rust lockfiles",
+        function=lambda: check_cargo_lockfiles(sample_workspaces),
+    )
     ci_cache = CiCache(
         REPOSITORY_ROOT,
         CI_CACHE_ROOT,

@@ -97,3 +97,39 @@ state = "rules-prompts.stopped-menu"
 scenario = "queued prompt controls"
 checkpoint = "stopped-menu"
 owner = "reactant-testing::queued_input"
+
+[[mappings]]
+state = "mixed-tree.initial"
+scenario = "mixed logical tree"
+checkpoint = "initial"
+owner = "reactant-testing::mixed_tree"
+
+[[mappings]]
+state = "mixed-tree.portal-increment"
+scenario = "mixed logical tree"
+checkpoint = "portal-increment"
+owner = "reactant-testing::mixed_tree"
+
+[[mappings]]
+state = "mixed-tree.shared-update"
+scenario = "mixed logical tree"
+checkpoint = "shared-update"
+owner = "reactant-testing::mixed_tree"
+
+[[mappings]]
+state = "mixed-tree.world-only"
+scenario = "mixed logical tree"
+checkpoint = "world-only"
+owner = "reactant-testing::mixed_tree"
+
+[[mappings]]
+state = "mixed-tree.portal-only"
+scenario = "mixed logical tree"
+checkpoint = "portal-only"
+owner = "reactant-testing::mixed_tree"
+
+[[mappings]]
+state = "mixed-tree.restored"
+scenario = "mixed logical tree"
+checkpoint = "restored"
+owner = "reactant-testing::mixed_tree"

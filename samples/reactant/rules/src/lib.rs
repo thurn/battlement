@@ -17,6 +17,7 @@ mod layout_gallery;
 mod layout_gallery_styles;
 mod layout_performance;
 mod layout_reorder;
+mod mixed_proof;
 mod model;
 mod motion_performance;
 mod navigation;

@@ -32,6 +32,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
         root = Path(temporary)
         _verify_focused_cargo_target(root)
+        _verify_lockfile_preflight(root)
         _verify_cargo_target_isolation(root)
         _verify_cargo_targets_do_not_cross_checkouts(root)
         _verify_parallel_sample_target_isolation(root)
@@ -101,6 +102,40 @@ def _verify_focused_cargo_target(root: Path) -> None:
             [*command, manifest], env=environment, capture_output=True, text=True,
         )
         assert result.returncode == 2 and not result.stdout
+
+
+def _verify_lockfile_preflight(root: Path) -> None:
+    checkout = root / "lockfile-preflight"
+    sample = Path("samples/fixture/rules/Cargo.toml")
+    _cargo_test_checkout(checkout, "fn main() {}\n")
+    _cargo_test_checkout(checkout / sample.parent, "fn main() {}\n")
+    for manifest in [Path("Cargo.toml"), sample]:
+        subprocess.run(
+            ["cargo", "generate-lockfile", "--manifest-path", str(manifest)],
+            cwd=checkout, check=True, capture_output=True,
+        )
+    dependency = checkout / sample.parent / "dependency"
+    _manifest(dependency, '[package]\nname = "dependency"\nversion = "0.1.0"\nedition = "2024"\n')
+    (dependency / "src").mkdir()
+    (dependency / "src/lib.rs").write_text("pub fn value() -> u32 { 1 }\n")
+    manifest = checkout / sample.parent / "app/Cargo.toml"
+    manifest.write_text(manifest.read_text() + '\n[dependencies]\ndependency = { path = "../dependency" }\n')
+    lock = checkout / sample.parent / "Cargo.lock"
+    original = lock.read_bytes()
+    with patch.object(ci, "REPOSITORY_ROOT", checkout):
+        try:
+            ci.check_cargo_lockfiles([sample])
+        except RuntimeError as error:
+            assert str(sample) in str(error)
+        else:
+            raise AssertionError("stale sample lock passed preflight")
+        assert lock.read_bytes() == original
+        assert not list(checkout.rglob("target"))
+        subprocess.run(
+            ["cargo", "generate-lockfile", "--manifest-path", str(sample)],
+            cwd=checkout, check=True, capture_output=True,
+        )
+        ci.check_cargo_lockfiles([sample])
 
 
 def _verify_cargo_target_isolation(root: Path) -> None:
@@ -420,6 +455,7 @@ def _verify_selected_native_execution() -> None:
         ),
         patch.object(web_selection, "validate_affected"),
         patch.object(ci, "run_csharp_preflight"),
+        patch.object(ci, "check_cargo_lockfiles"),
         patch.object(ci, "lint_rust_workspaces"),
         patch.object(ci, "test_rust_workspaces", return_value=0.0),
         patch.object(ci.ci_tooling, "run") as tooling,

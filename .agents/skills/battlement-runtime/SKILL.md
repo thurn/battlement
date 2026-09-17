@@ -21,7 +21,7 @@ messages across the boundary only as needed.
 | Concrete engine composition | The selected `samples/*/rules/src/lib.rs` |
 
 Rust describes game state and commands; Unity renders and reports host input.
-Reactant produces UI documents and mutations above the UI protocol; it is not
+Reactant produces host descriptions and mutations above the protocol; it is not
 the Unity renderer. Use `battlement-reactant` when that layer owns the issue.
 
 For protocol changes, trace serialization, Unity consumption, returned events,

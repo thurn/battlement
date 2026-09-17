@@ -37,6 +37,7 @@ pub(crate) struct FrozenResources {
 }
 
 pub(crate) struct PlannedSession {
+  pub(crate) objects: Vec<battlement::GameObject>,
   pub(crate) documents: Vec<UiDocument>,
   pub(crate) retained_ui: Vec<Rc<RetainedUiSnapshot>>,
   pub(crate) committed: Vec<RenderTree>,

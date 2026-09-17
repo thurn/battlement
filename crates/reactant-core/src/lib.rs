@@ -1,6 +1,6 @@
-//! Declarative component rendering for Battlement UI documents.
+//! Shared declarative component rendering for Battlement hosts.
 //!
-//! Reactant renders Rust component structs into Battlement UI documents,
+//! Reactant renders Rust component structs into typed native host descriptions,
 //! reconciles them with the last committed tree, and emits the host mutation
 //! groups required to update Unity. Ordinary component code starts
 //! with the focused [`prelude`] and [`app::App`] owns engine integration.
@@ -93,7 +93,7 @@ mod host_events;
 mod host_facade;
 mod host_flex;
 mod host_grid;
-mod host_node;
+pub mod host_node;
 mod host_properties;
 mod host_stack;
 pub mod key;
@@ -111,6 +111,8 @@ pub mod motion_value;
 mod motion_value_runtime;
 mod motion_variants;
 mod mutation;
+pub mod native_host;
+mod object_layout;
 pub mod overlay;
 pub mod paint;
 mod performance;

@@ -240,7 +240,7 @@ pub(crate) struct RenderSink<'a> {
 fn motion_host(tree: &RenderTree) -> Option<ObjectId> {
   let mut result = None;
   for position in &tree.positions {
-    if let Some(host) = &position.host
+    if let Some(host) = position.host.as_ref().filter(|host| host.is_ui())
       && matches!(
         ui_host_adapter::element(host).visual_element().motion,
         Prop::Set(_)
@@ -1080,7 +1080,7 @@ impl<'a> RenderSink<'a> {
     }
   }
 
-  fn matching_position(&self, descriptor: TypeId) -> Option<&RenderPosition> {
+  pub(crate) fn matching_position(&self, descriptor: TypeId) -> Option<&RenderPosition> {
     self
       .committed
       .positions
@@ -1088,7 +1088,7 @@ impl<'a> RenderSink<'a> {
       .filter(|position| position.key.is_none() && position.descriptor == descriptor)
   }
 
-  fn push(&mut self, descriptor: TypeId, host: Option<HostNode>, children: RenderTree) {
+  pub(crate) fn push(&mut self, descriptor: TypeId, host: Option<HostNode>, children: RenderTree) {
     self.positions.push(RenderPosition {
       descriptor,
       key: None,

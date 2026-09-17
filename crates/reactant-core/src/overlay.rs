@@ -414,7 +414,7 @@ impl Sealed for Overlay {
 
 fn collect_modals(tree: &RenderTree, values: &mut Vec<battlement::ObjectId>) {
   for position in &tree.positions {
-    if let Some(host) = &position.host
+    if let Some(host) = position.host.as_ref().filter(|host| host.is_ui())
       && matches!(
         ui_host_adapter::element(host)
           .visual_element()
@@ -435,7 +435,7 @@ fn apply_order(
 ) {
   for position in &mut tree.positions {
     let mut child_rank = inherited_rank;
-    if let Some(host) = &mut position.host {
+    if let Some(host) = position.host.as_mut().filter(|host| host.is_ui()) {
       let overlay = ui_host_adapter::element(host)
         .visual_element()
         .overlay_placement

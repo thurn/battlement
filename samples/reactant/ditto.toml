@@ -161,3 +161,45 @@ accessibility_action = { target = { role = "button", name = "Stop prompts" }, ac
 advance = { frames = 1 }
 [[scenarios.steps]]
 screenshot = { name = "stopped-menu" }
+
+[[scenarios]]
+name = "mixed logical tree"
+fixture = "mixed-tree"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Shared count: 0" }, role = "heading", name = "Shared count: 0" }
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Increment shared count" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Shared count: 1" }, role = "heading", name = "Shared count: 1" }
+[[scenarios.steps]]
+screenshot = { name = "portal-increment" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Increment shared count" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Shared count: 2" }, role = "heading", name = "Shared count: 2" }
+[[scenarios.steps]]
+screenshot = { name = "shared-update" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle details" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "world-only" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle details" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle world" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Shared count: 2" }, role = "heading", name = "Shared count: 2" }
+[[scenarios.steps]]
+screenshot = { name = "portal-only" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Increment shared count" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle world" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Shared count: 3" }, role = "heading", name = "Shared count: 3" }
+[[scenarios.steps]]
+screenshot = { name = "restored" }

@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+battlement = { path = "../battlement" }
 reactant-core.workspace = true
 reactant-rules.workspace = true
 reactant-ui.workspace = true

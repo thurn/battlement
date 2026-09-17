@@ -6,3 +6,6 @@ pub use crate::{
   game_session::{DispatchResult, GameHandle, GameStatus},
 };
 pub use reactant_core::prelude::*;
+
+pub use crate::world::{Group as WorldGroup, Prefab, SceneRoot};
+pub use reactant_core::native_host::{ObjectRef, use_object_ref};

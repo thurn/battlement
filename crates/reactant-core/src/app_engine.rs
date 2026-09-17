@@ -1,7 +1,7 @@
 use std::{mem, rc::Rc, thread};
 
 use battlement::application::{ApplicationState, ReducedMotionPreference};
-use battlement::{ActionId, ScreenSize, SessionId, Snapshot, UiEventDisposition};
+use battlement::{ActionId, ObjectId, ScreenSize, SessionId, Snapshot, UiEventDisposition};
 use battlement_native::{
   ConnectView, CoreActionBodyView, CoreClientMessageView, Engine, EngineError, EngineResponse,
   FlatBufferSubmitError, UiEventActionView, UiEventResult,
@@ -94,6 +94,12 @@ impl<G: 'static> App<G> {
     self.healthy = false;
     let _action = action_context::enter(Some(action_id));
     let commit = match action.body() {
+      CoreActionBodyView::PointerClick(pointer) => {
+        let _callback_scope = self.orchestration.borrow().enter();
+        let target = ObjectId::from_uuid(uuid::Uuid::from_bytes(pointer.object_id()))
+          .expect("validated world target");
+        self.runtime.activate_object(&mut self.model, target)
+      }
       CoreActionBodyView::ReducedMotionPreferenceChanged(preference) => {
         self.observations.borrow_mut().reduced_motion = match preference.value() {
           0 => ReducedMotionPreference::Unavailable,

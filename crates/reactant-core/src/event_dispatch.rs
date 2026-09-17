@@ -9,6 +9,11 @@ use crate::{
   runtime::Root,
 };
 
+pub(crate) enum LogicalInput {
+  Ui(UiEvent),
+  WorldActivation(ObjectId),
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct EventNode<'a> {
   pub(crate) object_id: battlement::ObjectId,
@@ -41,9 +46,31 @@ pub(crate) fn dispatch<G: 'static>(
   runtime_id: u64,
   roots: &[&RenderTree],
   game: &mut G,
-  event: UiEvent,
+  input: LogicalInput,
 ) -> DispatchResult {
-  self::invoke_raw(runtime_id, roots, game, event)
+  match input {
+    LogicalInput::Ui(event) => self::invoke_raw(runtime_id, roots, game, event),
+    LogicalInput::WorldActivation(target) => {
+      let mut invoked = HandlerInvocations::default();
+      if let Some(path) = self::logical_path(runtime_id, roots, target) {
+        for node in path.iter().rev() {
+          for handler in node.handlers {
+            if handler.activate_world(game) {
+              invoked.local_only =
+                (!invoked.invoked || invoked.local_only) && handler.has_local_invalidation();
+              invoked.invoked = true;
+            }
+          }
+        }
+      }
+      DispatchResult {
+        disposition: disposition(false),
+        invoked: invoked.invoked,
+        local_invalidation: invoked.invoked && invoked.local_only,
+        prevented_by_reactant: false,
+      }
+    }
+  }
 }
 
 pub(crate) fn dispatch_view<G: 'static>(

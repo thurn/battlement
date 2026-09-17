@@ -122,6 +122,7 @@ impl ReactantEventResult {
 /// A prospective complete UI state for one session snapshot.
 #[must_use]
 pub struct SessionUi<'a> {
+  pub(crate) objects: Vec<battlement::GameObject>,
   pub(crate) runtime: &'a mut dyn SessionRuntime,
   pub(crate) documents: Vec<UiDocument>,
   pub(crate) retained_ui: Option<Vec<Rc<RetainedUiSnapshot>>>,
@@ -311,6 +312,7 @@ impl<G: 'static> Reactant<G> {
       }
     };
     Ok(SessionUi {
+      objects: planned.objects,
       runtime: self,
       documents: planned.documents,
       retained_ui: Some(planned.retained_ui),
@@ -406,23 +408,26 @@ impl<G: 'static> Reactant<G> {
         Ok((
           rendered,
           documents,
+          crate::object_layout::snapshot(&desired.objects),
           retained_ui,
           desired.externals,
           attachments,
           geometry,
         ))
       }));
-      let (committed, documents, retained_ui, externals, attachments, geometry) = match rendered {
-        Ok(Ok(value)) => value,
-        Ok(Err(error)) => return Err(error),
-        Err(payload) => panic::resume_unwind(payload),
-      };
+      let (committed, documents, objects, retained_ui, externals, attachments, geometry) =
+        match rendered {
+          Ok(Ok(value)) => value,
+          Ok(Err(error)) => return Err(error),
+          Err(payload) => panic::resume_unwind(payload),
+        };
       if geometry.requires_preview(&session_geometry.borrow()) {
         session_geometry = self.geometry.borrow().preview(&geometry);
         retry += 1;
         continue;
       }
       return Ok(PlannedSession {
+        objects,
         documents,
         retained_ui,
         committed,
@@ -440,6 +445,24 @@ impl<G: 'static> Reactant<G> {
     &mut self,
     game: &mut G,
     event: UiEvent,
+  ) -> Result<ReactantEventResult, RenderError> {
+    self.dispatch_input(game, event_dispatch::LogicalInput::Ui(event))
+  }
+
+  pub(crate) fn activate_object(
+    &mut self,
+    game: &mut G,
+    target: ObjectId,
+  ) -> Result<ReactantCommit, RenderError> {
+    self
+      .dispatch_input(game, event_dispatch::LogicalInput::WorldActivation(target))
+      .map(ReactantEventResult::into_commit)
+  }
+
+  fn dispatch_input(
+    &mut self,
+    game: &mut G,
+    event: event_dispatch::LogicalInput,
   ) -> Result<ReactantEventResult, RenderError> {
     self.require_active();
     self.active_entry(|runtime| {
@@ -941,6 +964,18 @@ impl<G: 'static> Reactant<G> {
           .external_portals
           .active_groups(&previous, &desired, &documents),
       );
+      let groups = if previous.objects.is_empty() && desired.objects.is_empty() {
+        groups
+      } else {
+        runtime_motion::merge_groups(
+          groups,
+          reconcile::command_groups(
+            self.roots[0].document.root_id,
+            &previous.objects,
+            &desired.objects,
+          ),
+        )
+      };
       let mut geometry_targets = Vec::new();
       for tree in &rendered {
         tree.geometry_targets(&mut geometry_targets);
@@ -1388,7 +1423,24 @@ impl<G: 'static> Reactant<G> {
         &mut commands,
       );
     }
-    (!commands.is_empty()).then(|| Batch::parallel(session, commands))
+    let objects = crate::object_layout::snapshot(&layout.objects)
+      .into_iter()
+      .filter(|object| self.current_work_owners.get(&object.object_id) == Some(&scope))
+      .collect();
+    let mut groups = crate::work_scope::object_groups(objects);
+    if !commands.is_empty() {
+      groups.insert(0, commands);
+    }
+    (!groups.is_empty()).then(|| {
+      Batch::new(
+        battlement::BatchId::new_v4(),
+        session,
+        groups
+          .into_iter()
+          .map(battlement::ParallelCommandGroup::from_bodies)
+          .collect(),
+      )
+    })
   }
 
   fn install_rendered(

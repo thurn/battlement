@@ -63,3 +63,27 @@ screen = "rules-prompts"
 [[states]]
 key = "rules-prompts.stopped-menu"
 screen = "rules-prompts"
+
+[[states]]
+key = "mixed-tree.initial"
+screen = "mixed-tree"
+
+[[states]]
+key = "mixed-tree.portal-increment"
+screen = "mixed-tree"
+
+[[states]]
+key = "mixed-tree.shared-update"
+screen = "mixed-tree"
+
+[[states]]
+key = "mixed-tree.world-only"
+screen = "mixed-tree"
+
+[[states]]
+key = "mixed-tree.portal-only"
+screen = "mixed-tree"
+
+[[states]]
+key = "mixed-tree.restored"
+screen = "mixed-tree"

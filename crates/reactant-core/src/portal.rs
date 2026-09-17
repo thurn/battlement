@@ -8,7 +8,7 @@ use std::{
 };
 
 use battlement::{
-  Display, ObjectId, Overflow, PickingMode, Prop, StyleValue, UiElement, UiEventKind, UiEventPhase,
+  ObjectId, Overflow, PickingMode, Prop, StyleValue, UiElement, UiEventKind, UiEventPhase,
   UiEventSubscription, UiVisualElementProperties,
 };
 
@@ -80,6 +80,7 @@ pub(crate) struct PortalLayout {
   pub(crate) attachments: HashMap<PortalTarget, ObjectId>,
   pub(crate) externals: HashMap<PortalTarget, PortalRoot>,
   pub(crate) roots: Vec<PortalRoot>,
+  pub(crate) objects: Vec<HostNode>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -123,10 +124,15 @@ pub(crate) fn layout(
       "a referenced Reactant portal target is not attached"
     );
   }
-  let roots = trees
+  let mut roots = trees
     .iter()
     .map(|tree| self::physical_hosts(tree, &catalog.ranges, &mut Vec::new()))
     .collect::<Vec<_>>();
+  let objects = if catalog.has_objects {
+    crate::object_layout::extract(&mut roots)
+  } else {
+    Vec::new()
+  };
   self::validate_overlay_hosts(&roots, &catalog.attachments);
   let externals = external_targets
     .into_iter()
@@ -148,6 +154,7 @@ pub(crate) fn layout(
     })
     .collect::<HashMap<_, _>>();
   let mut physical_hosts = HashSet::new();
+  self::collect_unique_host_ids(&objects, &mut physical_hosts);
   for root in &roots {
     self::collect_unique_host_ids(root, &mut physical_hosts);
   }
@@ -169,6 +176,7 @@ pub(crate) fn layout(
     attachments: catalog.attachments,
     externals,
     roots,
+    objects,
   }
 }
 
@@ -302,6 +310,7 @@ pub(crate) fn changed_attachments(
 struct PortalCatalog<'a> {
   attachments: HashMap<PortalTarget, ObjectId>,
   logical_hosts: HashSet<ObjectId>,
+  has_objects: bool,
   object_targets: HashMap<ObjectId, PortalTarget>,
   ranges: HashMap<PortalTarget, Vec<PortalRange<'a>>>,
   referenced: HashSet<PortalTarget>,
@@ -323,6 +332,7 @@ fn collect_portals<'a>(
 ) {
   for position in &tree.positions {
     if let Some(host) = &position.host {
+      catalog.has_objects |= !host.is_ui();
       assert!(
         catalog.logical_hosts.insert(host.object_id),
         "Reactant hosts must have unique IDs"
@@ -453,10 +463,17 @@ fn append_physical_hosts(
 
 fn hide_roots(hosts: &mut [HostNode]) {
   for host in hosts {
-    let visual = ui_host_adapter::element_mut(host).visual_element_mut();
-    visual.auto_focus = Prop::Set(false);
-    visual.inert = Prop::Set(true);
-    visual.style.display = Prop::Set(StyleValue::Value(Display::None));
+    host.hide();
+    self::hide_scene_attachments(&mut host.children);
+  }
+}
+
+fn hide_scene_attachments(hosts: &mut [HostNode]) {
+  for host in hosts {
+    if host.scene_root() {
+      host.hide();
+    }
+    self::hide_scene_attachments(&mut host.children);
   }
 }
 
@@ -535,6 +552,7 @@ fn collect_coverage_kinds(
 
 fn external_root(mut hosts: Vec<HostNode>, trees: &[&RenderTree]) -> PortalRoot {
   for host in &mut hosts {
+    assert!(host.is_ui(), "external UI portals accept UI hosts");
     let subscriptions = self::coverage_subscriptions(std::slice::from_ref(host), trees);
     let visual = ui_host_adapter::element_mut(host).visual_element_mut();
     let mut combined = match &visual.event_subscriptions {

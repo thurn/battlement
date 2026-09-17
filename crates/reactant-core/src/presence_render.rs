@@ -175,7 +175,7 @@ pub(crate) fn push<R: 'static>(
 }
 
 fn mark_pop_layout(position: &mut RenderPosition) {
-  if let Some(host) = &mut position.host
+  if let Some(host) = position.host.as_mut().filter(|host| host.is_ui())
     && let battlement::Prop::Set(descriptor) = &mut ui_host_adapter::element_mut(host)
       .visual_element_mut()
       .motion
@@ -203,7 +203,7 @@ fn mark_inert_descendants(position: &mut RenderPosition, inherited: bool) {
     inherited
   };
   let mut child_inherited = inherited;
-  if let Some(host) = &mut position.host {
+  if let Some(host) = position.host.as_mut().filter(|host| host.is_ui()) {
     let visual = ui_host_adapter::element_mut(host).visual_element_mut();
     if !inherited {
       visual.auto_focus = Prop::Set(false);
@@ -373,7 +373,10 @@ fn start_exit(
 }
 
 fn freeze_exit_motion(current: &mut RenderPosition, previous: &RenderPosition) {
-  if let (Some(current_host), Some(previous_host)) = (&mut current.host, &previous.host) {
+  if let (Some(current_host), Some(previous_host)) = (
+    current.host.as_mut().filter(|host| host.is_ui()),
+    previous.host.as_ref().filter(|host| host.is_ui()),
+  ) {
     let previous_motion = &ui_host_adapter::element(previous_host)
       .visual_element()
       .motion;
@@ -412,7 +415,7 @@ fn freeze_exit_motion(current: &mut RenderPosition, previous: &RenderPosition) {
 
 fn suppress_initial(tree: &mut RenderTree) {
   for position in &mut tree.positions {
-    if let Some(host) = &mut position.host
+    if let Some(host) = position.host.as_mut().filter(|host| host.is_ui())
       && let Prop::Set(descriptor) = &mut ui_host_adapter::element_mut(host)
         .visual_element_mut()
         .motion

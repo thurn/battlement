@@ -129,6 +129,7 @@ impl SessionUi<'_> {
     mut snapshot: Snapshot,
     discover_assets: bool,
   ) -> (Snapshot, ReactantCommit) {
+    snapshot.objects.append(&mut self.objects);
     asset_generator::merge_into_snapshot(&mut snapshot);
     let external = self
       .external

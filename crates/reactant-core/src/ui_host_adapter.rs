@@ -48,12 +48,20 @@ impl HostAdapter for UiHostAdapter {
     Command::move_visual_element(object_id, parent_id, child_index)
   }
 
-  fn index_command(object_id: ObjectId, child_index: u32) -> Command {
-    Command::update_visual_element_index(object_id, child_index)
+  fn index_command(object_id: ObjectId, child_index: u32) -> Option<Command> {
+    Some(Command::update_visual_element_index(object_id, child_index))
   }
 
   fn destroy_command(object_id: ObjectId) -> Command {
     Command::destroy_visual_element(object_id)
+  }
+
+  fn hide(description: &mut UiElement) {
+    let visual = description.visual_element_mut();
+    visual.auto_focus = battlement::Prop::Set(false);
+    visual.inert = battlement::Prop::Set(true);
+    visual.style.display =
+      battlement::Prop::Set(battlement::StyleValue::Value(battlement::Display::None));
   }
 
   fn constrains_children(description: &UiElement) -> bool {

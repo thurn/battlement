@@ -13,6 +13,66 @@ source = "7c7c44a7dbb7647dfc4d33843b0320031dab4db3636dc3973f62a0678f29122a"
 
 [[baselines]]
 profile = "macos"
+scenario = "mixed logical tree"
+checkpoint = "initial"
+sha256 = "7ab4bafb46ba7ef41a59845f625ba2c877550da2bf72f000120ac7b0216579b3"
+width = 1280
+height = 720
+size_bytes = 97492
+source = "5fce72960f17872e263dffb758929474e55cde5b94bc91f78a5891a4c9c55b0d"
+
+[[baselines]]
+profile = "macos"
+scenario = "mixed logical tree"
+checkpoint = "portal-increment"
+sha256 = "d85bd789631ac7df5060fb83f45b60257ae8beddd1127ce630c121fd4b8c8890"
+width = 1280
+height = 720
+size_bytes = 97102
+source = "f8ea603fa00adb5881a6921423bf46685d707cbcee989656e42a8005f58be652"
+
+[[baselines]]
+profile = "macos"
+scenario = "mixed logical tree"
+checkpoint = "portal-only"
+sha256 = "7f7ecb1e60ec9177fc9f312a6d97acfc358d57e2a7c710288f440606df9fb1d3"
+width = 1280
+height = 720
+size_bytes = 98933
+source = "f8ea603fa00adb5881a6921423bf46685d707cbcee989656e42a8005f58be652"
+
+[[baselines]]
+profile = "macos"
+scenario = "mixed logical tree"
+checkpoint = "restored"
+sha256 = "dba1aeabf232fe0a5d4e06dbe69b07e7c6d9b9616e2fb1985ba42922f7d04a23"
+width = 1280
+height = 720
+size_bytes = 97446
+source = "f8ea603fa00adb5881a6921423bf46685d707cbcee989656e42a8005f58be652"
+
+[[baselines]]
+profile = "macos"
+scenario = "mixed logical tree"
+checkpoint = "shared-update"
+sha256 = "982b4271cf0864824cf63e12c0ee25e9421fa867655f28b166280bf9fd8c4a82"
+width = 1280
+height = 720
+size_bytes = 97529
+source = "f8ea603fa00adb5881a6921423bf46685d707cbcee989656e42a8005f58be652"
+
+[[baselines]]
+profile = "macos"
+scenario = "mixed logical tree"
+checkpoint = "world-only"
+sha256 = "133607b7d7c4417fbb97e4b345c207e38496927b69b8b1fa7bceeb00358cf0ab"
+width = 1280
+height = 720
+size_bytes = 95635
+source = "f8ea603fa00adb5881a6921423bf46685d707cbcee989656e42a8005f58be652"
+
+[[baselines]]
+profile = "macos"
 scenario = "ordered game batches"
 checkpoint = "game-canceled"
 sha256 = "ffe30f9dfbbe76b4073296ca61170f5262e829864f4ebd4561a874da0bc8c968"
