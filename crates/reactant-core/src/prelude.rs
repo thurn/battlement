@@ -72,6 +72,7 @@ pub use crate::{
     Tabs, Text,
   },
   context::{ContextProvider, Provided},
+  display_store::DisplayStore,
   element_ref::{ElementRef, use_element_ref},
   error_boundary::{ErrorBoundary, NoErrorHandler, NoReset},
   event::{ElementTarget, EventPhase, ReactantEvent},
@@ -87,9 +88,10 @@ pub use crate::{
   },
   hooks::{
     Callback, Dependencies, IntoEffectCleanup, ReducerDispatch, Ref, StateSetter, use_callback,
-    use_context, use_effect, use_effect_always, use_external_store, use_id, use_is_present,
-    use_memo, use_presence, use_reducer, use_reducer_with, use_ref, use_ref_with,
-    use_required_context, use_state, use_state_with,
+    use_context, use_effect, use_effect_always, use_external_store, use_external_store_selector,
+    use_external_store_selector_with, use_id, use_is_present, use_memo, use_presence, use_reducer,
+    use_reducer_with, use_ref, use_ref_with, use_required_context, use_required_context_selector,
+    use_state, use_state_with,
   },
   host::{
     Box, DropdownField, Flex, Grid, GroupBox, Label, LocalizedChoice, MinMaxSlider, PopupWindow,

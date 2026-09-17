@@ -141,10 +141,6 @@ pub(crate) trait HookSlot {
     None
   }
 
-  fn stabilize_store(&mut self) -> bool {
-    false
-  }
-
   fn freeze_store_wake(&mut self) {}
 
   fn unmount_store(&mut self) {}
@@ -256,14 +252,6 @@ impl HookComponent {
         .iter_mut()
         .filter_map(|slot| slot.take_geometry_effect_operation(runtime)),
     );
-  }
-
-  pub(crate) fn stabilize_stores(&mut self) -> bool {
-    let mut retry = false;
-    for slot in &mut self.slots {
-      retry |= slot.stabilize_store();
-    }
-    retry
   }
 
   pub(crate) fn freeze_store_wakes(&mut self) {

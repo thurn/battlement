@@ -47,8 +47,6 @@ where
   rendered_source: S,
   rendered_snapshot: S::Snapshot,
   active: Rc<RefCell<Option<StoreGeneration>>>,
-  provisional_source: Option<S>,
-  provisional: Option<StoreGeneration>,
   committed: bool,
   frozen_wake: bool,
 }
@@ -82,26 +80,20 @@ where
   S: ExternalStore,
 {
   pub(crate) fn new(source: S) -> Self {
-    let snapshot = context::with_hooks_forbidden(|| source.snapshot());
+    let snapshot = crate::store_snapshot::read(&source);
     Self {
       committed_source: source.clone(),
       committed_snapshot: snapshot.clone(),
       rendered_source: source,
       rendered_snapshot: snapshot,
       active: Rc::new(RefCell::new(None)),
-      provisional_source: None,
-      provisional: None,
       committed: false,
       frozen_wake: false,
     }
   }
 
   pub(crate) fn prepare(&mut self, source: S) {
-    if self.provisional_source.as_ref() != Some(&source) {
-      self.provisional = None;
-      self.provisional_source = None;
-    }
-    self.rendered_snapshot = context::with_hooks_forbidden(|| source.snapshot());
+    self.rendered_snapshot = crate::store_snapshot::read(&source);
     self.rendered_source = source;
   }
 
@@ -111,31 +103,6 @@ where
 
   fn source_changed(&self) -> bool {
     !self.committed || self.committed_source != self.rendered_source
-  }
-
-  fn stabilize(&mut self) -> bool {
-    if !self.source_changed() {
-      return false;
-    }
-    if self.provisional.is_none() {
-      let wake = Arc::new(AtomicBool::new(false));
-      let notify = StoreNotify {
-        wake: Arc::clone(&wake),
-      };
-      let subscription = context::with_hooks_forbidden(|| self.rendered_source.subscribe(notify));
-      self.provisional_source = Some(self.rendered_source.clone());
-      self.provisional = Some(StoreGeneration {
-        wake,
-        _subscription: subscription,
-      });
-    }
-    self
-      .provisional
-      .as_ref()
-      .expect("provisional Reactant store subscription exists")
-      .wake
-      .swap(false, Ordering::AcqRel);
-    context::with_hooks_forbidden(|| self.rendered_source.snapshot()) != self.rendered_snapshot
   }
 
   fn freeze_wake(&mut self) {
@@ -149,8 +116,6 @@ where
 
   fn unsubscribe(&mut self) {
     self.frozen_wake = false;
-    self.provisional_source = None;
-    self.provisional = None;
     let active = self.active.borrow_mut().take();
     drop(active);
   }
@@ -165,35 +130,30 @@ where
   }
 
   fn clone_box(&self) -> Box<dyn HookSlot> {
-    assert!(
-      self.committed && self.provisional.is_none(),
-      "Reactant cannot clone an uncommitted external store"
-    );
-    Box::new(Self {
-      committed_source: self.committed_source.clone(),
-      committed_snapshot: self.committed_snapshot.clone(),
-      rendered_source: self.committed_source.clone(),
-      rendered_snapshot: self.committed_snapshot.clone(),
-      active: Rc::clone(&self.active),
-      provisional_source: None,
-      provisional: None,
-      committed: true,
-      frozen_wake: self.frozen_wake,
-    })
+    Box::new(self.clone())
   }
 
   fn commit(&mut self) {
     if self.source_changed() {
-      let next = self
-        .provisional
-        .take()
-        .expect("changed Reactant store has a provisional subscription");
+      let wake = Arc::new(AtomicBool::new(false));
+      let subscription = context::with_hooks_forbidden(|| {
+        self.rendered_source.subscribe(StoreNotify {
+          wake: Arc::clone(&wake),
+        })
+      });
+      if context::with_hooks_forbidden(|| self.rendered_source.snapshot()) != self.rendered_snapshot
+      {
+        wake.store(true, Ordering::Release);
+      }
+      let next = StoreGeneration {
+        wake,
+        _subscription: subscription,
+      };
       let previous = self.active.borrow_mut().replace(next);
       drop(previous);
     }
     self.committed_source.clone_from(&self.rendered_source);
     self.committed_snapshot.clone_from(&self.rendered_snapshot);
-    self.provisional_source = None;
     self.committed = true;
     self.frozen_wake = false;
   }
@@ -201,8 +161,6 @@ where
   fn discard_pending(&mut self) {
     self.rendered_source.clone_from(&self.committed_source);
     self.rendered_snapshot.clone_from(&self.committed_snapshot);
-    self.provisional_source = None;
-    self.provisional = None;
     self.frozen_wake = false;
   }
 
@@ -212,8 +170,7 @@ where
 
   fn has_pending_change(&self) -> bool {
     self.frozen_wake
-      && context::with_hooks_forbidden(|| self.committed_source.snapshot())
-        != self.committed_snapshot
+      && crate::store_snapshot::read(&self.committed_source) != self.committed_snapshot
   }
 
   fn context_changed(&self) -> bool {
@@ -228,10 +185,6 @@ where
     TypeId::of::<(S, S::Snapshot)>()
   }
 
-  fn stabilize_store(&mut self) -> bool {
-    self.stabilize()
-  }
-
   fn freeze_store_wake(&mut self) {
     self.freeze_wake();
   }
@@ -244,4 +197,145 @@ where
 struct StoreGeneration {
   wake: Arc<AtomicBool>,
   _subscription: Subscription,
+}
+
+impl<S: ExternalStore> Clone for StoreSlot<S> {
+  fn clone(&self) -> Self {
+    assert!(
+      self.committed,
+      "Reactant cannot clone an uncommitted external store"
+    );
+    Self {
+      committed_source: self.committed_source.clone(),
+      committed_snapshot: self.committed_snapshot.clone(),
+      rendered_source: self.committed_source.clone(),
+      rendered_snapshot: self.committed_snapshot.clone(),
+      active: Rc::clone(&self.active),
+      committed: true,
+      frozen_wake: self.frozen_wake,
+    }
+  }
+}
+
+/// Reads selected store data, suppressing reevaluation when the selected value is equal.
+pub fn use_external_store_selector<S, V>(
+  source: S,
+  select: impl Fn(&S::Snapshot) -> V + 'static,
+) -> V
+where
+  S: ExternalStore,
+  V: Clone + PartialEq + 'static,
+{
+  self::use_external_store_selector_with(source, select, PartialEq::eq)
+}
+
+/// Reads selected store data with an explicit comparison for consumer updates.
+pub fn use_external_store_selector_with<S, V>(
+  source: S,
+  select: impl Fn(&S::Snapshot) -> V + 'static,
+  equal: impl Fn(&V, &V) -> bool + 'static,
+) -> V
+where
+  S: ExternalStore,
+  V: Clone + 'static,
+{
+  let select: Selector<S, V> = Rc::new(select);
+  let equal: Equal<V> = Rc::new(equal);
+  crate::hooks::use_slot(
+    HookKind::Store,
+    TypeId::of::<(S, V, SelectorMarker)>(),
+    |_| SelectedStoreSlot::new(source.clone(), select.clone(), equal.clone()),
+    |slot| {
+      slot.store.prepare(source.clone());
+      slot.rendered_value = context::with_hooks_forbidden(|| select(&slot.store.rendered_snapshot));
+      slot.rendered_select = select.clone();
+      slot.rendered_equal = equal.clone();
+      slot.rendered_value.clone()
+    },
+  )
+}
+
+type Selector<S, V> = Rc<dyn Fn(&<S as ExternalStore>::Snapshot) -> V>;
+type Equal<V> = Rc<dyn Fn(&V, &V) -> bool>;
+
+struct SelectorMarker;
+struct SelectedStoreSlot<S: ExternalStore, V> {
+  store: StoreSlot<S>,
+  committed_value: V,
+  rendered_value: V,
+  committed_select: Selector<S, V>,
+  rendered_select: Selector<S, V>,
+  committed_equal: Equal<V>,
+  rendered_equal: Equal<V>,
+}
+
+impl<S: ExternalStore, V: Clone + 'static> SelectedStoreSlot<S, V> {
+  fn new(source: S, select: Selector<S, V>, equal: Equal<V>) -> Self {
+    let store = StoreSlot::new(source);
+    let value = context::with_hooks_forbidden(|| select(&store.rendered_snapshot));
+    Self {
+      store,
+      committed_value: value.clone(),
+      rendered_value: value,
+      committed_select: select.clone(),
+      rendered_select: select,
+      committed_equal: equal.clone(),
+      rendered_equal: equal,
+    }
+  }
+}
+
+impl<S: ExternalStore, V: Clone + 'static> HookSlot for SelectedStoreSlot<S, V> {
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+  fn clone_box(&self) -> Box<dyn HookSlot> {
+    Box::new(Self {
+      store: self.store.clone(),
+      committed_value: self.committed_value.clone(),
+      rendered_value: self.committed_value.clone(),
+      committed_select: self.committed_select.clone(),
+      rendered_select: self.committed_select.clone(),
+      committed_equal: self.committed_equal.clone(),
+      rendered_equal: self.committed_equal.clone(),
+    })
+  }
+  fn commit(&mut self) {
+    self.store.commit();
+    self.committed_value.clone_from(&self.rendered_value);
+    self.committed_select = self.rendered_select.clone();
+    self.committed_equal = self.rendered_equal.clone();
+  }
+  fn discard_pending(&mut self) {
+    self.store.discard_pending();
+    self.rendered_value.clone_from(&self.committed_value);
+    self.rendered_select = self.committed_select.clone();
+    self.rendered_equal = self.committed_equal.clone();
+  }
+  fn has_pending(&self) -> bool {
+    self.store.has_pending()
+  }
+  fn has_pending_change(&self) -> bool {
+    self.store.has_pending()
+      && context::with_hooks_forbidden(|| {
+        let snapshot = crate::store_snapshot::read(&self.store.committed_source);
+        let value = (self.committed_select)(&snapshot);
+        !(self.committed_equal)(&self.committed_value, &value)
+      })
+  }
+  fn context_changed(&self) -> bool {
+    false
+  }
+  fn kind(&self) -> HookKind {
+    HookKind::Store
+  }
+  fn value_type(&self) -> TypeId {
+    TypeId::of::<(S, V, SelectorMarker)>()
+  }
+  fn freeze_store_wake(&mut self) {
+    self.store.freeze_store_wake();
+  }
+  fn unmount_store(&mut self) {
+    self.store.unmount_store();
+  }
 }

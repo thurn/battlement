@@ -34,6 +34,7 @@ mod sample_constants;
 mod sample_navigation;
 mod sample_shell;
 mod screens;
+mod selector_proof;
 mod session_proof;
 mod state_identity;
 mod styles_decorations;

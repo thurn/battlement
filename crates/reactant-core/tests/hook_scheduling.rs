@@ -294,7 +294,7 @@ fn public_hook_lifecycle_matrix_and_transactional_failures() {
       }
     }
   }
-  self::store_retry_applies_queued_state_once();
+  self::subscription_recheck_keeps_queued_state_applied_once();
   self::unconsumed_session_poisons_without_committing();
   self::callback_failure_poisons_without_committing();
 }
@@ -452,7 +452,7 @@ fn exercise_entry(source: Source, entry: Entry) {
   let _ = reactant.shutdown(&mut game).into_groups();
 }
 
-fn store_retry_applies_queued_state_once() {
+fn subscription_recheck_keeps_queued_state_applied_once() {
   let first = TestStore::new(0);
   let second = TestStore::new(10);
   second
@@ -498,9 +498,19 @@ fn store_retry_applies_queued_state_once() {
 
   assert_eq!(
     world.element(label).unwrap().text(),
+    Some("state=1 reducer=0 store=10 theme=0 memo=0")
+  );
+  assert_eq!(renders.get(), 2);
+  self::apply(&mut world, reactant.poll(&mut game).unwrap());
+  assert_eq!(
+    world.element(label).unwrap().text(),
     Some("state=1 reducer=0 store=11 theme=0 memo=0")
   );
-  assert_eq!(renders.get(), 3, "the subscription recheck retries once");
+  assert_eq!(
+    renders.get(),
+    3,
+    "subscription recheck schedules a later render"
+  );
   assert!(reactant.poll(&mut game).unwrap().is_empty());
   let _ = reactant.shutdown(&mut game).into_groups();
 }

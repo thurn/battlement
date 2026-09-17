@@ -159,3 +159,43 @@ screen = "destruction-queue"
 [[states]]
 key = "presentation-lifetime.stale-ignored"
 screen = "presentation-lifetime"
+
+[[states]]
+key = "stable-selectors.initial"
+screen = "stable-selectors"
+
+[[states]]
+key = "stable-selectors.settings"
+screen = "stable-selectors"
+
+[[states]]
+key = "stable-selectors.moved"
+screen = "stable-selectors"
+
+[[states]]
+key = "stable-selectors.score"
+screen = "stable-selectors"
+
+[[states]]
+key = "stable-selectors.returned"
+screen = "stable-selectors"
+
+[[states]]
+key = "stable-props.initial"
+screen = "stable-props"
+
+[[states]]
+key = "stable-props.settings"
+screen = "stable-props"
+
+[[states]]
+key = "stable-props.moved"
+screen = "stable-props"
+
+[[states]]
+key = "stable-props.score"
+screen = "stable-props"
+
+[[states]]
+key = "stable-props.returned"
+screen = "stable-props"

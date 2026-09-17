@@ -454,17 +454,11 @@ impl<'a> RenderSink<'a> {
       if !pending.is_empty() {
         return Ok(None);
       }
-      let store_retry = !render_retry && component.stabilize_stores();
-      if render_retry || store_retry {
+      if render_retry {
         retries += 1;
         assert!(
           retries <= hooks::retry_limit(),
-          "{}",
-          if store_retry {
-            "Reactant external store did not stabilize"
-          } else {
-            "Reactant render-phase update retry limit exceeded"
-          }
+          "Reactant render-phase update retry limit exceeded"
         );
         continue;
       }
@@ -501,17 +495,11 @@ impl<'a> RenderSink<'a> {
           return;
         }
       };
-      let store_retry = !render_retry && component.stabilize_stores();
-      if render_retry || store_retry {
+      if render_retry {
         retries += 1;
         assert!(
           retries <= hooks::retry_limit(),
-          "{}",
-          if store_retry {
-            "Reactant external store did not stabilize"
-          } else {
-            "Reactant render-phase update retry limit exceeded"
-          }
+          "Reactant render-phase update retry limit exceeded"
         );
         continue;
       }
@@ -658,17 +646,11 @@ impl<'a> RenderSink<'a> {
           return;
         }
       };
-      let store_retry = !render_retry && component.stabilize_stores();
-      if render_retry || store_retry {
+      if render_retry {
         retries += 1;
         assert!(
           retries <= hooks::retry_limit(),
-          "{}",
-          if store_retry {
-            "Reactant external store did not stabilize"
-          } else {
-            "Reactant render-phase update retry limit exceeded"
-          }
+          "Reactant render-phase update retry limit exceeded"
         );
         continue;
       }

@@ -843,7 +843,7 @@ impl RenderPosition {
     let component_dirty = self
       .component
       .as_ref()
-      .is_some_and(|component| component.has_pending() || component.context_changed());
+      .is_some_and(|component| component.has_pending_change() || component.context_changed());
     if component_dirty {
       return true;
     }

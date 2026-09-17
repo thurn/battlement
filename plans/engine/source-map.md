@@ -25,7 +25,7 @@ These are starting points, not instructions to load whole directories.
 | Native tree mutation planning | [reconcile.rs](../../crates/reactant-core/src/reconcile.rs), [UI host adapter](../../crates/reactant-core/src/ui_host_adapter.rs) |
 | Hooks and context | [hooks.rs](../../crates/reactant-core/src/hooks.rs), [context.rs](../../crates/reactant-core/src/context.rs) |
 | Keys, refs, portals, presence | [key.rs](../../crates/reactant-core/src/key.rs), [element_ref.rs](../../crates/reactant-core/src/element_ref.rs), [portal.rs](../../crates/reactant-core/src/portal.rs), [presence.rs](../../crates/reactant-core/src/presence.rs) |
-| Stores and subscriptions | [external_store.rs](../../crates/reactant-core/src/external_store.rs) |
+| Stores and subscriptions | [external_store.rs](../../crates/reactant-core/src/external_store.rs), [display_store.rs](../../crates/reactant-core/src/display_store.rs); rendered-game selectors: [game_hooks.rs](../../crates/reactant/src/game_hooks.rs) |
 | Motion targets/controls/layout | [motion.rs](../../crates/reactant-core/src/motion.rs), [animation_controls.rs](../../crates/reactant-core/src/animation_controls.rs), [layout.rs](../../crates/reactant-core/src/layout.rs) |
 | Input and focus | [event_dispatch.rs](../../crates/reactant-core/src/event_dispatch.rs), [focus.rs](../../crates/reactant-core/src/focus.rs) |
 | Existing asynchronous executor | [executor.rs](../../crates/reactant-core/src/executor.rs); this is the resource spawner, not the new rules executor |

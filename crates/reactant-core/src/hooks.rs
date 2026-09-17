@@ -18,6 +18,9 @@ use crate::hook_storage::{
 use crate::presence::{self, Presence, PresenceCell};
 use crate::{action_context, context, hook_id};
 
+pub use crate::context_selector::use_required_context_selector;
+pub use crate::external_store::{use_external_store_selector, use_external_store_selector_with};
+
 const RENDER_RETRY_LIMIT: usize = 25;
 
 thread_local! {

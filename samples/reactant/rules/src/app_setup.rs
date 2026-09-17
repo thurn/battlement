@@ -56,6 +56,12 @@ pub fn create_engine() -> ReactantEngine {
 }
 
 fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineError> {
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("stable-selectors") {
+    return Ok(crate::selector_proof::app(false));
+  }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("stable-props") {
+    return Ok(crate::selector_proof::app(true));
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("destruction-queue") {
     return Ok(crate::destruction_queue_proof::app());
   }

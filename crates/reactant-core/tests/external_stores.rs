@@ -3,7 +3,6 @@ mod runtime_support;
 use std::{
   collections::HashMap,
   num::NonZeroU64,
-  panic::{self, AssertUnwindSafe},
   sync::{
     Arc, Mutex,
     atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -189,14 +188,17 @@ fn subscribe_recheck_closes_the_race_and_reuses_the_subscription() {
   let label = initial.ui[0].children[0].object_id;
   let mut world = UiWorld::default();
   world.replace(initial.ui).unwrap();
-  assert_eq!(world.element(label).unwrap().text(), Some("store 1"));
+  assert_eq!(world.element(label).unwrap().text(), Some("store 0"));
   assert_eq!(store.state.subscriptions.load(Ordering::Relaxed), 1);
   assert_eq!(
     renders.load(Ordering::Relaxed),
-    2,
-    "the stale render retried"
+    1,
+    "subscription changes wait for the next complete render"
   );
 
+  self::apply(&mut world, reactant.poll(&mut ()).unwrap());
+  assert_eq!(world.element(label).unwrap().text(), Some("store 1"));
+  assert_eq!(renders.load(Ordering::Relaxed), 2);
   assert!(reactant.refresh(&mut ()).unwrap().is_empty());
   assert_eq!(store.state.subscriptions.load(Ordering::Relaxed), 1);
   let _ = reactant.shutdown(&mut ()).into_groups();
@@ -311,29 +313,32 @@ fn source_swaps_overlap_and_retired_wakes_cannot_dirty_the_new_generation() {
 }
 
 #[test]
-fn retry_exhaustion_panics_and_poisons_the_runtime() {
+fn a_changing_snapshot_does_not_retry_a_render() {
   let store = TestStore::new("unstable", 0, Arc::default());
   store.state.unstable.store(true, Ordering::Relaxed);
   let document = self::document();
   let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_store = store.clone();
+  let renders = Arc::new(AtomicUsize::new(0));
+  let view_renders = renders.clone();
   reactant.register_root(document.clone(), move |_: &()| StoreView {
     store: view_store.clone(),
-    renders: Arc::default(),
+    renders: view_renders.clone(),
   });
-
-  let failure = panic::catch_unwind(AssertUnwindSafe(|| {
-    let _ = reactant.begin_session(&mut ());
-  }));
-  assert!(failure.is_err());
+  let initial = self::begin(&mut reactant, &mut (), &document);
+  let label = initial.ui[0].children[0].object_id;
+  let mut world = UiWorld::default();
+  world.replace(initial.ui).unwrap();
+  assert_eq!(world.element(label).unwrap().text(), Some("unstable 0"));
+  assert_eq!(renders.load(Ordering::Relaxed), 1);
+  assert_eq!(store.state.snapshot_reads.load(Ordering::Relaxed), 2);
+  self::apply(&mut world, reactant.poll(&mut ()).unwrap());
+  assert_eq!(world.element(label).unwrap().text(), Some("unstable 3"));
+  assert_eq!(renders.load(Ordering::Relaxed), 2);
+  assert_eq!(store.state.snapshot_reads.load(Ordering::Relaxed), 4);
+  let _ = reactant.shutdown(&mut ()).into_groups();
   assert_eq!(store.state.subscriptions.load(Ordering::Relaxed), 1);
   assert_eq!(store.state.unsubscriptions.load(Ordering::Relaxed), 1);
-  assert!(
-    panic::catch_unwind(AssertUnwindSafe(|| {
-      let _ = reactant.begin_session(&mut ());
-    }))
-    .is_err()
-  );
 }
 
 fn begin<G: 'static>(reactant: &mut Reactant<G>, game: &mut G, document: &UiDocument) -> Snapshot {

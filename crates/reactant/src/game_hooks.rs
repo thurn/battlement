@@ -68,6 +68,38 @@ pub fn use_game_state<G: Game>() -> Rc<G::State> {
     .unwrap_or_else(|_| panic!("game state type mismatch"))
 }
 
+/// Selects part of the immutable rendered game state using value equality.
+pub fn use_game_selector<G: Game, V: Clone + PartialEq + 'static>(
+  select: impl Fn(&G::State) -> V + 'static,
+) -> V {
+  self::use_game_selector_with::<G, V>(select, PartialEq::eq)
+}
+
+/// Selects rendered game state with an explicit comparison for subscriber updates.
+pub fn use_game_selector_with<G: Game, V: Clone + 'static>(
+  select: impl Fn(&G::State) -> V + 'static,
+  equal: impl Fn(&V, &V) -> bool + 'static,
+) -> V {
+  hooks::use_required_context_selector::<ApplicationContext, V>(
+    move |application| {
+      let context = application
+        .value::<Option<GameRenderContext>>()
+        .and_then(|context| (*context).clone())
+        .expect("no game is attached");
+      assert!(
+        context.game == TypeId::of::<G>(),
+        "attached game type mismatch"
+      );
+      let state = context
+        .state
+        .downcast::<G::State>()
+        .unwrap_or_else(|_| panic!("game state type mismatch"));
+      select(&state)
+    },
+    equal,
+  )
+}
+
 /// Reads the rendered prompt; resolved human prompts close immediately.
 pub fn use_game_prompt<G: Game>() -> Option<Rc<PresentedPrompt<G::Prompt<'static>>>> {
   let context = self::context::<G>();

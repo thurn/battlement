@@ -328,6 +328,7 @@ impl<G: 'static> Reactant<G> {
   }
 
   fn plan_session(&mut self, game: &mut G) -> Result<PlannedSession, RenderError> {
+    let _store_snapshots = crate::store_snapshot::enter(self.runtime_id);
     let _element_runtime =
       element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
     let _motion_runtime = motion_value_runtime::enter_runtime(self.runtime_id, &self.motion_values);
@@ -770,6 +771,7 @@ impl<G: 'static> Reactant<G> {
   ) -> Result<ReactantCommit, RenderError> {
     let _motion_runtime = motion_value_runtime::enter_runtime(self.runtime_id, &self.motion_values);
     runtime_motion::invoke_ready_presence(&mut self.roots, game);
+    self.freeze_store_wakes();
     let rendered_generation = self.geometry.borrow().generation;
     self.render_geometry(game, rendered_generation, 0, resources, None, None)
   }
@@ -806,6 +808,8 @@ impl<G: 'static> Reactant<G> {
   }
 
   fn render_local_state(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
+    self.freeze_store_wakes();
+    let _store_snapshots = crate::store_snapshot::enter(self.runtime_id);
     let _motion_runtime = motion_value_runtime::enter_runtime(self.runtime_id, &self.motion_values);
     if runtime_motion::invoke_ready_presence(&mut self.roots, game) {
       let rendered_generation = self.geometry.borrow().generation;
@@ -879,6 +883,7 @@ impl<G: 'static> Reactant<G> {
     initial_rendered: Option<Vec<RenderTree>>,
     mut local_transactions: Option<Vec<LocalRenderTransaction>>,
   ) -> Result<ReactantCommit, RenderError> {
+    let _store_snapshots = crate::store_snapshot::enter(self.runtime_id);
     assert!(retry < 25, "Reactant geometry render did not stabilize");
     let geometry_revision = self.geometry.borrow().revision();
     let bindings = self.external_portals.active_bindings();

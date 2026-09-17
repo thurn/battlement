@@ -241,3 +241,63 @@ state = "presentation-lifetime.stale-ignored"
 scenario = "presentation lifetime"
 checkpoint = "stale-ignored"
 owner = "reactant-testing::lifetime_fixture"
+
+[[mappings]]
+state = "stable-selectors.initial"
+scenario = "stable selectors"
+checkpoint = "initial"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-selectors.settings"
+scenario = "stable selectors"
+checkpoint = "settings"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-selectors.moved"
+scenario = "stable selectors"
+checkpoint = "moved"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-selectors.score"
+scenario = "stable selectors"
+checkpoint = "score"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-selectors.returned"
+scenario = "stable selectors"
+checkpoint = "returned"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-props.initial"
+scenario = "explicit props"
+checkpoint = "initial"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-props.settings"
+scenario = "explicit props"
+checkpoint = "settings"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-props.moved"
+scenario = "explicit props"
+checkpoint = "moved"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-props.score"
+scenario = "explicit props"
+checkpoint = "score"
+owner = "reactant-testing::stable_stores"
+
+[[mappings]]
+state = "stable-props.returned"
+scenario = "explicit props"
+checkpoint = "returned"
+owner = "reactant-testing::stable_stores"
