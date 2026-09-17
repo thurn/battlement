@@ -10,6 +10,7 @@ fn owned_and_direct_pointer_settings_are_verified_and_clearable() {
       interaction_layer: i32::MIN,
       order: u32::MAX,
       capture_on_press: true,
+      focusable: true,
     }),
     None,
   ] {
@@ -61,7 +62,8 @@ fn owned_and_direct_pointer_settings_are_verified_and_clearable() {
         payload.settings().map(|s| WorldPointerSettings {
           interaction_layer: s.interaction_layer(),
           order: s.order(),
-          capture_on_press: s.capture_on_press()
+          capture_on_press: s.capture_on_press(),
+          focusable: s.focusable(),
         }),
         settings
       );

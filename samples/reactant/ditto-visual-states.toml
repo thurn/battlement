@@ -307,3 +307,23 @@ screen = "pointer-routing"
 [[states]]
 key = "pointer-routing.removed"
 screen = "pointer-routing"
+
+[[states]]
+key = "world-navigation.first-focused"
+screen = "world-navigation"
+
+[[states]]
+key = "world-navigation.second-focused"
+screen = "world-navigation"
+
+[[states]]
+key = "world-navigation.modal"
+screen = "world-navigation"
+
+[[states]]
+key = "world-navigation.restored"
+screen = "world-navigation"
+
+[[states]]
+key = "world-navigation.removed-repaired"
+screen = "world-navigation"

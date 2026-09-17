@@ -421,6 +421,20 @@ namespace Battlement
                         "Physical key input has no deterministic semantic delivery contract."
                     );
                     break;
+                case DittoStepAction.Navigation navigation:
+                    presentationReady = false;
+                    if (runner.DispatchDittoNavigation(navigation.Action))
+                    {
+                        phase = Phase.ActionPresentation;
+                        phaseStarted = now();
+                    }
+                    else
+                        FailStep(
+                            step,
+                            DittoErrorCode.InputUnreachable,
+                            "No eligible semantic focus route."
+                        );
+                    break;
                 case DittoStepAction.Advance advance:
                     advanceFrames = advance.Frames;
                     phase = Phase.FrameAdvance;

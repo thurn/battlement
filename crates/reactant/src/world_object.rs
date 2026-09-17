@@ -92,6 +92,16 @@ impl<P> WorldObject<P> {
     self.group = self.group.events(events);
     self
   }
+  /// Makes this host eligible for keyboard/controller navigation.
+  pub fn focusable(mut self, focusable: bool) -> Self {
+    self.group = self.group.focusable(focusable);
+    self
+  }
+  /// Installs semantic activation, focus, and navigation callbacks.
+  pub fn navigation(mut self, events: crate::world::NavigationHandlers) -> Self {
+    self.group = self.group.navigation(events);
+    self
+  }
   /// Higher interaction layers win before visible depth is compared.
   pub fn interaction_layer(mut self, layer: i32) -> Self {
     self.group = self.group.interaction_layer(layer);

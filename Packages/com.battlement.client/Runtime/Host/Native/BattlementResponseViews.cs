@@ -5117,7 +5117,8 @@ namespace Battlement
                 ? new WorldPointerSettings(
                     settings.InteractionLayer,
                     settings.Order,
-                    settings.CaptureOnPress
+                    settings.CaptureOnPress,
+                    settings.Focusable
                 )
                 : null;
 

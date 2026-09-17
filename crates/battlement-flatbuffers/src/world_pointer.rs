@@ -12,6 +12,7 @@ pub(crate) fn write<'a>(
       interaction_layer: value.interaction_layer,
       order: value.order,
       capture_on_press: value.capture_on_press,
+      focusable: value.focusable,
     },
   )
 }

@@ -11,6 +11,7 @@ pub enum StepName {
   Hover,
   Drag,
   Key,
+  Navigation,
   Advance,
   Wait,
   Assert,
@@ -159,4 +160,18 @@ pub struct AssertionResult {
   pub expected: bool,
   pub observed: bool,
   pub passed: bool,
+}
+
+/// A synchronous semantic focus action; no device events or time are synthesized.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum NavigationAction {
+  Left,
+  Right,
+  Up,
+  Down,
+  Next,
+  Previous,
+  Activate,
+  Cancel,
 }

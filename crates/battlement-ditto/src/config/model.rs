@@ -168,6 +168,9 @@ pub struct Step {
 /// A supported scenario action.
 #[derive(Clone, Debug, PartialEq)]
 pub enum StepKind {
+  Navigation {
+    action: crate::wire::common::NavigationAction,
+  },
   Click {
     target: InputTarget,
   },

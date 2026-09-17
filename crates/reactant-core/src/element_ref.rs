@@ -40,6 +40,7 @@ pub struct ElementRef {
 
 pub(crate) struct ElementRefRuntime {
   next_identity: u64,
+  issued_presentation_ids: HashSet<ObjectId>,
   native_leases: crate::native_identity_lease::NativeIdentityLeases,
   attached: HashMap<u64, ElementRef>,
   actions: Vec<QueuedAction>,
@@ -48,6 +49,7 @@ pub(crate) struct ElementRefRuntime {
 pub(crate) struct AttachmentSet {
   desired: HashMap<u64, DesiredAttachment>,
   terminal_hosts: HashSet<ObjectId>,
+  presentation_hosts: HashSet<ObjectId>,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -316,6 +318,7 @@ impl ElementRefRuntime {
   pub(crate) fn new() -> Rc<RefCell<Self>> {
     Rc::new(RefCell::new(Self {
       next_identity: 0,
+      issued_presentation_ids: HashSet::new(),
       native_leases: Default::default(),
       attached: HashMap::new(),
       actions: Vec::new(),
@@ -384,6 +387,7 @@ impl AttachmentSet {
   ) -> Self {
     let mut desired = HashMap::new();
     let mut terminal_hosts = HashSet::new();
+    let mut presentation_hosts = HashSet::new();
     for (document_id, tree) in roots {
       self::collect_tree(
         runtime_id,
@@ -391,15 +395,20 @@ impl AttachmentSet {
         tree,
         &mut desired,
         &mut terminal_hosts,
+        &mut presentation_hosts,
       );
     }
     Self {
       desired,
       terminal_hosts,
+      presentation_hosts,
     }
   }
 
   pub(crate) fn commit(self, runtime: &mut ElementRefRuntime, reconnect: bool) {
+    runtime
+      .issued_presentation_ids
+      .extend(self.presentation_hosts);
     let desired_ids = self.desired.keys().copied().collect::<HashSet<_>>();
     for (identity, desired) in &self.desired {
       desired
@@ -562,13 +571,17 @@ pub(crate) fn enter_runtime(
   }))
 }
 
-pub(crate) fn native_identity_retained(object_id: ObjectId) -> bool {
+pub(crate) fn native_identity_unavailable(object_id: ObjectId) -> bool {
   CURRENT_RUNTIME.with(|current| {
     current
       .borrow()
       .as_ref()
       .and_then(|context| context.runtime.upgrade())
-      .is_some_and(|runtime| runtime.borrow().native_leases.contains(object_id))
+      .is_some_and(|runtime| {
+        let runtime = runtime.borrow();
+        runtime.issued_presentation_ids.contains(&object_id)
+          || runtime.native_leases.contains(object_id)
+      })
   })
 }
 
@@ -618,8 +631,16 @@ fn collect_tree(
   tree: &RenderTree,
   desired: &mut HashMap<u64, DesiredAttachment>,
   terminal_hosts: &mut HashSet<ObjectId>,
+  presentation_hosts: &mut HashSet<ObjectId>,
 ) {
   for position in &tree.positions {
+    if let Some(host) = &position.host
+      && position
+        .presentation_id
+        .is_some_and(|id| ObjectId::from_uuid(id) == Ok(host.object_id))
+    {
+      presentation_hosts.insert(host.object_id);
+    }
     if position.terminal_visual {
       crate::retained_visual::collect_host_ids(position, terminal_hosts);
       continue;
@@ -655,6 +676,7 @@ fn collect_tree(
         &suspense.primary,
         desired,
         terminal_hosts,
+        presentation_hosts,
       );
     }
     self::collect_tree(
@@ -663,6 +685,7 @@ fn collect_tree(
       &position.children,
       desired,
       terminal_hosts,
+      presentation_hosts,
     );
   }
 }

@@ -101,6 +101,23 @@ where
     self.client.capture_losses()
   }
 
+  /// Observes current semantic focus without advancing time or frames.
+  pub fn focused(&self) -> Option<ObjectId> {
+    self.client.focused()
+  }
+  /// Moves focus using current displayed geometry, without synthesizing a pointer.
+  pub fn navigate(&mut self, direction: battlement::NavigationDirection) {
+    self.client.navigate(direction);
+  }
+  /// Activates the current eligible focus owner; advances no time or frame.
+  pub fn activate_focused(&mut self) {
+    self.client.activate_focused();
+  }
+  /// Cancels through the focused logical route, including a modal's dismiss behavior.
+  pub fn cancel_navigation(&mut self) {
+    self.client.cancel_navigation();
+  }
+
   /// Activates a world object through the same coordinate-free route as native Ditto.
   pub fn activate(&mut self, object_id: ObjectId) {
     self.client.activate(object_id);

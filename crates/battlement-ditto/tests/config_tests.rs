@@ -6,6 +6,28 @@ use battlement_ditto::config::{
 };
 
 #[test]
+fn semantic_navigation_is_explicit_and_rejects_unknown_actions() {
+  for action in [
+    "left", "right", "up", "down", "next", "previous", "activate", "cancel",
+  ] {
+    let source = MINIMAL_SUITE.replace(
+      "screenshot = { name = \"connected\" }",
+      &format!("navigation = {{ action = {action:?} }}"),
+    );
+    let suite = Fixture::new(&source).load().unwrap();
+    assert!(matches!(
+      suite.scenarios[0].steps.last().unwrap().action,
+      StepKind::Navigation { .. }
+    ));
+  }
+  let source = MINIMAL_SUITE.replace(
+    "screenshot = { name = \"connected\" }",
+    "navigation = { action = \"teleport\" }",
+  );
+  assert!(Fixture::new(&source).load().is_err());
+}
+
+#[test]
 fn complete_suite_applies_member_defaults_and_preserves_exact_decimals() {
   let fixture = Fixture::new(FULL_SUITE);
   let suite = fixture.load().unwrap();

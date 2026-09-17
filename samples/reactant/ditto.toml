@@ -590,3 +590,29 @@ pointer_action = { target = { role = "button", name = "Hide or show card" }, act
 pointer_action = { target = { role = "button", name = "Remove or restore card" }, action = "click" }
 [[scenarios.steps]]
 screenshot = { name = "removed" }
+
+[[scenarios]]
+name = "world focus and navigation"
+fixture = "world-navigation"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+screenshot = { name = "first-focused" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+screenshot = { name = "second-focused" }
+[[scenarios.steps]]
+navigation = { action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "modal" }
+[[scenarios.steps]]
+navigation = { action = "cancel" }
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+[[scenarios.steps]]
+navigation = { action = "cancel" }
+[[scenarios.steps]]
+screenshot = { name = "removed-repaired" }

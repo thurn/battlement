@@ -31,6 +31,7 @@ namespace Battlement
         public event Action<Camera?>? InputCameraChanged;
 
         public Camera? InputCamera => input.Camera;
+        internal IEnumerable<BattlementIdentity> Identities => objects.Values;
 
         public BattlementWorld(Scene hostScene, BattlementPreparedAssets preparedAssets)
         {

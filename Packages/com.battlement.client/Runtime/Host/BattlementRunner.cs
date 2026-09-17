@@ -34,6 +34,7 @@ namespace Battlement
         private List<BattlementModule> selectedModules = new();
 
         private BattlementConfiguredRuntime? configuredRuntime;
+        private BattlementWorldFocusInput? worldFocus;
         private readonly BattlementGeometryFrames geometryFrames = new();
         private readonly BattlementResponseStream responses = new();
         private readonly BattlementSessionState session = new();
@@ -246,14 +247,10 @@ namespace Battlement
             return false;
         }
 
-        internal bool DispatchDittoKey(PhysicalKey key, bool pressed)
+        internal bool DispatchDittoNavigation(DittoNavigationAction action)
         {
             EnsureMainThread();
-            if (!CanEmitInput)
-                return false;
-            if (!IsGlobalKeyEnabled(key))
-                return true;
-            return EmitAction(pressed ? new ActionBody.KeyDown(key) : new ActionBody.KeyUp(key));
+            return CanEmitInput && worldFocus?.Dispatch(action) == true;
         }
 
         internal BattlementNativeTransport DittoNativeTransport =>
@@ -482,12 +479,12 @@ namespace Battlement
                 BattlementPanelInputCoordinator panelInput = new BattlementPanelInputCoordinator();
                 runtime.SetPanelInput(panelInput);
                 BattlementKeyboardInput keyboardInput = new BattlementKeyboardInput(
-                    IsGlobalKeyEnabled,
+                    key => IsGlobalKeyEnabled(key) || worldFocus?.Enables(key) == true,
                     EmitAction
                 );
                 runtime.SetKeyboardInput(keyboardInput);
                 BattlementControllerInput controllerInput = new BattlementControllerInput(
-                    () => world.ControllerInput,
+                    () => worldFocus?.Settings(world.ControllerInput) ?? world.ControllerInput,
                     () => pointerInput.NavigationTiming,
                     EmitAction
                 );
@@ -542,9 +539,19 @@ namespace Battlement
                     () => dittoMotionClock.IsInstant
                 );
                 runtime.SetUiDocuments(uiDocuments);
+                worldFocus = new BattlementWorldFocusInput(
+                    world,
+                    uiDocuments.Navigation,
+                    uiDocuments.HasPointerModal,
+                    EmitUiEvent
+                );
                 pointerInput.ConfigureLogical(
                     EmitUiEvent,
-                    uiDocuments.BlocksWorldPointer,
+                    (id, position) =>
+                        uiDocuments.BlocksWorldPointer(
+                            BattlementPointerDevices.UiPointerId(id),
+                            position
+                        ),
                     uiDocuments.HasPointerModal
                 );
                 uiDocuments.SetWorldCaptureResolver(pointerInput.IsWorldCaptured);
@@ -993,6 +1000,7 @@ namespace Battlement
 
             configuredRuntime.BatchScheduler.Advance();
             configuredRuntime.UiDocuments.Advance();
+            worldFocus?.Refresh(CanEmitInput);
             PublishApplicationState();
             PublishReducedMotionPreference();
             bool physicalInputAvailable = CanEmitInput && !dittoInputActive;
@@ -2088,6 +2096,7 @@ namespace Battlement
         {
             session.SetInputEnabled(isEnabled);
             configuredRuntime?.UiDocuments.SetInputEnabled(isEnabled);
+            worldFocus?.Refresh(isEnabled);
             if (!isEnabled)
             {
                 configuredRuntime?.PointerInput.CancelPresses();
@@ -2109,6 +2118,8 @@ namespace Battlement
                 return false;
             }
 
+            if (worldFocus?.TryHandle(body) == true)
+                return CanEmitInput;
             SubmitCoreAction(body, actionId, currentSession);
             return CanEmitInput && session.LastSession == currentSession;
         }

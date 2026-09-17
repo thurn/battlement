@@ -19,6 +19,7 @@
 /artifacts/ditto-ci/
 /baselines/
 /.logs/
+.ditto.lock.lease
 
 # Uncomment this line if you wish to ignore the asset store tools plugin.
 # /[Aa]ssets/AssetStoreTools*

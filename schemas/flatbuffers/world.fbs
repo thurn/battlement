@@ -216,7 +216,7 @@ enum GameObjectKind:ubyte {
 enum RenderOrderKind:ubyte { Group, Layer }
 table RenderOrder { kind:RenderOrderKind; order:short; }
 
-table WorldPointerSettings { interaction_layer:int; order:uint; capture_on_press:bool; }
+table WorldPointerSettings { interaction_layer:int; order:uint; capture_on_press:bool; focusable:bool; }
 
 table GameObject {
   object_id:Uuid (required);

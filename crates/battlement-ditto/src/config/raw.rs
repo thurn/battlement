@@ -161,6 +161,7 @@ pub(super) struct RawStep {
   pub hover: Option<RawHover>,
   pub drag: Option<RawDrag>,
   pub key: Option<RawKey>,
+  pub navigation: Option<RawNavigation>,
   pub advance: Option<RawAdvance>,
   pub wait: Option<RawWait>,
   #[serde(rename = "assert")]
@@ -359,4 +360,10 @@ impl RawDecimal {
   pub fn span(&self) -> Range<usize> {
     self.0.span()
   }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RawNavigation {
+  pub action: crate::wire::common::NavigationAction,
 }

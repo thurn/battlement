@@ -25,6 +25,7 @@ pub use crate::world_visuals::{Mesh, Sprite};
 pub use reactant_core::local_point::{
   LocalPoint, LocalPointTarget, PointTracking, ResolvedLocalPoint,
 };
+pub use reactant_core::navigation_handlers::NavigationHandlers;
 pub use reactant_core::pointer_handlers::PointerHandlers;
 
 #[derive(Clone, PartialEq)]
@@ -48,6 +49,7 @@ pub struct Group {
   reference: Option<ObjectRef>,
   click: Option<Callback<()>>,
   events: PointerHandlers,
+  navigation: NavigationHandlers,
   pointer: battlement::WorldPointerSettings,
   id: Option<Uuid>,
 }
@@ -105,6 +107,7 @@ impl Group {
       reference: None,
       click: None,
       events: PointerHandlers::new(),
+      navigation: NavigationHandlers::new(),
       pointer: battlement::WorldPointerSettings::default(),
       id: None,
     }
@@ -120,7 +123,7 @@ impl Group {
       "static objects cannot attach render refs"
     );
     assert!(
-      self.click.is_none() && self.events.is_empty(),
+      self.click.is_none() && self.events.is_empty() && self.navigation.is_empty(),
       "static objects cannot attach logical callbacks"
     );
     assert!(
@@ -188,6 +191,16 @@ impl Group {
     self.events = events;
     self
   }
+  /// Makes this live world host eligible for keyboard/controller navigation.
+  pub fn focusable(mut self, focusable: bool) -> Self {
+    self.pointer.focusable = focusable;
+    self
+  }
+  /// Installs semantic activation, focus, and navigation callbacks.
+  pub fn navigation(mut self, events: NavigationHandlers) -> Self {
+    self.navigation = events;
+    self
+  }
   /// Higher interaction layers win before visible depth is compared.
   pub fn interaction_layer(mut self, layer: i32) -> Self {
     self.pointer.interaction_layer = layer;
@@ -232,13 +245,15 @@ impl Component for Group {
       active: self.active,
       clickable: self.click.is_some()
         || !self.events.is_empty()
+        || self.pointer.focusable
         || matches!(self.kind, GameObjectKind::BoxHitRegion { .. }),
       world_pointer: Some(self.pointer),
       render_order: self.render_order,
       material_instances: self.material_instances.clone(),
     })
     .child(self.children.clone())
-    .events(self.events.clone());
+    .events(self.events.clone())
+    .navigation(self.navigation.clone());
     if let Some(id) = self.id {
       host = host.id(id);
     }

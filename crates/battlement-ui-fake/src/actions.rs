@@ -133,7 +133,7 @@ impl UiWorld {
   }
 }
 
-fn focusable(target: &crate::UiElementState) -> bool {
+pub(crate) fn focusable(target: &crate::UiElementState) -> bool {
   target.is_focusable().unwrap_or(matches!(
     target.kind(),
     UiElementKind::TextField

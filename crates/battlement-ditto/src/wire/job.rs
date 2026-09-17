@@ -157,6 +157,9 @@ pub struct ResolvedStep {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub enum StepKind {
+  Navigation {
+    action: crate::wire::common::NavigationAction,
+  },
   Click {
     target: InputTarget,
   },

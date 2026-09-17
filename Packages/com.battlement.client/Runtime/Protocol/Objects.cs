@@ -66,7 +66,8 @@ namespace Battlement
     public sealed record WorldPointerSettings(
         int InteractionLayer = 0,
         uint Order = 0,
-        bool CaptureOnPress = false
+        bool CaptureOnPress = false,
+        bool Focusable = false
     );
 
     /// <summary>The concrete content created for a game object.</summary>

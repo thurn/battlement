@@ -273,8 +273,29 @@ pub fn dialog(
     semantic = semantic.action(AccessibilityAction::Dismiss);
     interaction = self::accessible(
       "dialog-dismiss",
-      on_dismiss.map(|action| (action == AccessibilityAction::Dismiss).then_some(())),
+      on_dismiss
+        .clone()
+        .map(|action| (action == AccessibilityAction::Dismiss).then_some(())),
     );
+    interaction.handlers.push(Handler::event_callback(
+      "dialog-cancel",
+      battlement::UiEventKind::NavigationCancel,
+      crate::event_handler::HandlerPhase::Default,
+      |body| match body {
+        battlement::UiEventBody::NavigationCancel(v) => v,
+        _ => unreachable!(),
+      },
+      on_dismiss.map(
+        |event: crate::event::ReactantEvent<battlement::NavigationEvent>| {
+          if event.default_prevented() {
+            return None;
+          }
+          event.prevent_default();
+          event.stop_propagation();
+          Some(())
+        },
+      ),
+    ));
   }
   ControlBehavior {
     semantic,

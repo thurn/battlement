@@ -463,3 +463,33 @@ state = "pointer-routing.removed"
 scenario = "unified pointer routing"
 checkpoint = "removed"
 owner = "reactant-testing::geometric_pointer"
+
+[[mappings]]
+state = "world-navigation.first-focused"
+scenario = "world focus and navigation"
+checkpoint = "first-focused"
+owner = "reactant-testing::world_navigation"
+
+[[mappings]]
+state = "world-navigation.second-focused"
+scenario = "world focus and navigation"
+checkpoint = "second-focused"
+owner = "reactant-testing::world_navigation"
+
+[[mappings]]
+state = "world-navigation.modal"
+scenario = "world focus and navigation"
+checkpoint = "modal"
+owner = "reactant-testing::world_navigation"
+
+[[mappings]]
+state = "world-navigation.restored"
+scenario = "world focus and navigation"
+checkpoint = "restored"
+owner = "reactant-testing::world_navigation"
+
+[[mappings]]
+state = "world-navigation.removed-repaired"
+scenario = "world focus and navigation"
+checkpoint = "removed-repaired"
+owner = "reactant-testing::world_navigation"

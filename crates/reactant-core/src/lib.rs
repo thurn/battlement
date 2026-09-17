@@ -118,6 +118,7 @@ mod motion_variants;
 mod mutation;
 pub mod native_host;
 mod native_identity_lease;
+pub mod navigation_handlers;
 mod object_layout;
 pub mod overlay;
 pub mod paint;

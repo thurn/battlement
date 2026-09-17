@@ -107,6 +107,12 @@ impl<A: HostAdapter> NativeHost<A> {
     self
   }
 
+  /// Installs semantic focus and navigation callbacks.
+  pub fn navigation(mut self, events: crate::navigation_handlers::NavigationHandlers) -> Self {
+    self.handlers.extend(events.handlers);
+    self
+  }
+
   /// Handles activation along the host's logical ancestry.
   pub fn on_click(mut self, callback: Callback<()>) -> Self {
     self.handlers.push(Handler::world_activation(callback));

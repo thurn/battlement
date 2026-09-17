@@ -573,6 +573,56 @@ source = "81cf9a3ae678e26f1e459bfa1b038359ad9a6d64dfbadcca34d002dbfe1ef3d5"
 
 [[baselines]]
 profile = "macos"
+scenario = "world focus and navigation"
+checkpoint = "first-focused"
+sha256 = "e812bd070866d335239acf8c189debc6e8a1af904aaef0ba5bc378372cb02d2c"
+width = 1280
+height = 720
+size_bytes = 51493
+source = "bc827a2d7d63113ac6121b9dd31d8b509e5b9c6f6338b5abe13dbb1f977e0c18"
+
+[[baselines]]
+profile = "macos"
+scenario = "world focus and navigation"
+checkpoint = "modal"
+sha256 = "ea47f1961401ae647e8090b428e12275801f596ac33c1bda6e9695ebabbe4186"
+width = 1280
+height = 720
+size_bytes = 38591
+source = "bc827a2d7d63113ac6121b9dd31d8b509e5b9c6f6338b5abe13dbb1f977e0c18"
+
+[[baselines]]
+profile = "macos"
+scenario = "world focus and navigation"
+checkpoint = "removed-repaired"
+sha256 = "0eb5b144f5644a025fb86b6bb61a134a4f646cceb1da5ea26e07f423f09b3683"
+width = 1280
+height = 720
+size_bytes = 45597
+source = "bc827a2d7d63113ac6121b9dd31d8b509e5b9c6f6338b5abe13dbb1f977e0c18"
+
+[[baselines]]
+profile = "macos"
+scenario = "world focus and navigation"
+checkpoint = "restored"
+sha256 = "2632c27d528a6222e4208d381118b48052b7a97da1d26f7bab3865b723ebccd3"
+width = 1280
+height = 720
+size_bytes = 51420
+source = "bc827a2d7d63113ac6121b9dd31d8b509e5b9c6f6338b5abe13dbb1f977e0c18"
+
+[[baselines]]
+profile = "macos"
+scenario = "world focus and navigation"
+checkpoint = "second-focused"
+sha256 = "81998d5b5403f3aecf64edecfc5f4aaee5ef27964d4ae819bed7ecfde46eaaac"
+width = 1280
+height = 720
+size_bytes = 51541
+source = "bc827a2d7d63113ac6121b9dd31d8b509e5b9c6f6338b5abe13dbb1f977e0c18"
+
+[[baselines]]
+profile = "macos"
 scenario = "world hit regions and anchors"
 checkpoint = "attached"
 sha256 = "a525ae149bdf02b65456488a5a0eb91e8feb3682cae2608cc3deaae9b6e7dc8f"

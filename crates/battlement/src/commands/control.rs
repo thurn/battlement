@@ -57,6 +57,8 @@ pub struct WorldPointerSettings {
   pub order: u32,
   /// Capture the primary pointer after an unprevented press.
   pub capture_on_press: bool,
+  /// Allows semantic keyboard/controller focus and activation.
+  pub focusable: bool,
 }
 
 /// Replaces a world's logical pointer route without replacing its host.

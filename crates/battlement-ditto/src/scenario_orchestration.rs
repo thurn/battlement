@@ -502,6 +502,7 @@ fn step_kind(kind: &StepKind) -> StepName {
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
     StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
     StepKind::PointerAction { .. } => StepName::PointerAction,
+    StepKind::Navigation { .. } => StepName::Navigation,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,
   }

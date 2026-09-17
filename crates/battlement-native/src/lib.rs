@@ -45,14 +45,14 @@ pub const NATIVE_ABI_DIGEST: &str =
   "5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14";
 /// SHA-256 of the canonical wire-contract manifest.
 pub const WIRE_CONTRACT_DIGEST: &str =
-  "86a774a629a67f5ffc5437f4f3e8a60a502627677b7a13991847494854c8befe";
+  "3ea351bdcff5944127735d22a31a0fd733b3fd9b32b6b7115fb01131554aba35";
 
 #[doc(hidden)]
 pub static NATIVE_ABI_DIGEST_C: &[u8; 65] =
   b"5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14\0";
 #[doc(hidden)]
 pub static WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
-  b"86a774a629a67f5ffc5437f4f3e8a60a502627677b7a13991847494854c8befe\0";
+  b"3ea351bdcff5944127735d22a31a0fd733b3fd9b32b6b7115fb01131554aba35\0";
 
 #[doc(hidden)]
 pub fn wire_contract_digest_for_factory<F, E>(_: F) -> *const core::ffi::c_char

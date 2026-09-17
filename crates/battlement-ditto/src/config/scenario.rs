@@ -161,6 +161,7 @@ fn step_value(
     raw.hover.is_some(),
     raw.drag.is_some(),
     raw.key.is_some(),
+    raw.navigation.is_some(),
     raw.advance.is_some(),
     raw.wait.is_some(),
     raw.assertion.is_some(),
@@ -209,6 +210,10 @@ fn step_value(
       format!("{key}.key"),
       "physical key input has no deterministic semantic delivery contract",
     ));
+  } else if let Some(navigation) = raw.navigation.take() {
+    StepKind::Navigation {
+      action: navigation.action,
+    }
   } else if let Some(advance) = raw.advance.take() {
     StepKind::Advance {
       frames: advance_step(validation, &key, scenario_motion, advance.frames)?,

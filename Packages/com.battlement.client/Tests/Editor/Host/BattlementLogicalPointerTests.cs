@@ -32,6 +32,191 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void SemanticKeyboardAndControllerFocusUseDisplayedGeometryAndRepairRemoval()
+        {
+            Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+            Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+            using var harness = BattlementTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var first = new ObjectId(Guid.NewGuid());
+            var second = new ObjectId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            Connect(
+                harness,
+                session,
+                cameraId,
+                Region(first, 1) with
+                {
+                    WorldPointer = new WorldPointerSettings(0, 1, true, true),
+                    LocalTransform = new LocalTransform(
+                        new Battlement.Vector3(-2, 0, 0),
+                        Quaternion.Identity,
+                        Battlement.Vector3.One
+                    ),
+                },
+                Region(second, 2) with
+                {
+                    WorldPointer = new WorldPointerSettings(0, 2, true, true),
+                    LocalTransform = new LocalTransform(
+                        new Battlement.Vector3(2, 0, 0),
+                        Quaternion.Identity,
+                        Battlement.Vector3.One
+                    ),
+                }
+            );
+            harness.Runner.RunFrame();
+            Press(keyboard.rightArrowKey);
+            harness.Runner.RunFrame();
+            Assert.That(
+                Events(harness).Last(e => e.Body is UiEventBody.Focus).TargetId,
+                Is.EqualTo(first)
+            );
+            Release(keyboard.rightArrowKey);
+            harness.Runner.RunFrame();
+            Press(gamepad.dpad.right);
+            harness.Runner.RunFrame();
+            Assert.That(
+                Events(harness).Last(e => e.Body is UiEventBody.Focus).TargetId,
+                Is.EqualTo(second)
+            );
+            Release(gamepad.dpad.right);
+            harness.Runner.RunFrame();
+            Press(gamepad.buttonSouth);
+            harness.Runner.RunFrame();
+            Assert.That(
+                Events(harness).Last(e => e.Body is UiEventBody.Click).Body,
+                Is.EqualTo(new UiEventBody.Click(new ClickEvent.NavigationSubmit()))
+            );
+            Assert.That(Events(harness).Count(e => e.Body is UiEventBody.PointerDown), Is.Zero);
+            Release(gamepad.buttonSouth);
+            harness.Runner.RunFrame();
+            Object.DestroyImmediate(Identity(second).gameObject);
+            harness.Runner.RunFrame();
+            Assert.That(
+                Events(harness).Last(e => e.Body is UiEventBody.Focus).TargetId,
+                Is.EqualTo(first)
+            );
+            Assert.That(Events(harness).Count(e => e.Body is UiEventBody.Click), Is.EqualTo(1));
+            Assert.That(
+                harness.Runner.DispatchDittoNavigation(DittoNavigationAction.Activate),
+                Is.True
+            );
+            Assert.That(Events(harness).Count(e => e.Body is UiEventBody.Click), Is.EqualTo(2));
+            Assert.That(Events(harness).Count(e => e.Body is UiEventBody.PointerDown), Is.Zero);
+        }
+
+        [Test]
+        public void IneligibleWorldControlPreservesExistingKeyboardAndControllerBindings()
+        {
+            Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+            Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+            using var harness = BattlementTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var region = Region(new ObjectId(Guid.NewGuid()), 1) with
+            {
+                IsActive = false,
+                WorldPointer = new WorldPointerSettings(0, 1, true, true),
+            };
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.SnapshotResponse(
+                    session,
+                    objects: new[] { region },
+                    globalKeys: new[] { PhysicalKey.ArrowRight, PhysicalKey.Enter },
+                    controllerInput: new ControllerInputSettings(new[] { ControllerButton.South })
+                )
+            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
+            harness.Runner.Connect();
+            harness.Runner.RunFrame();
+            Press(keyboard.rightArrowKey);
+            Press(keyboard.enterKey);
+            Press(gamepad.buttonSouth);
+            Press(gamepad.dpad.right);
+            harness.Runner.RunFrame();
+            ActionBody[] actions = harness.Transport.Actions.Select(a => a.Body).ToArray();
+            Assert.That(
+                actions.OfType<ActionBody.KeyDown>().Select(a => a.Key),
+                Is.EquivalentTo(new[] { PhysicalKey.ArrowRight, PhysicalKey.Enter })
+            );
+            Assert.That(
+                actions.OfType<ActionBody.ControllerButtonDown>().Select(a => a.Button),
+                Is.EqualTo(new[] { ControllerButton.South })
+            );
+            Assert.That(
+                actions.OfType<ActionBody.ControllerNavigate>().Select(a => a.Direction),
+                Is.EqualTo(new[] { ControllerDirection.Right })
+            );
+            Assert.That(Events(harness), Is.Empty);
+        }
+
+        [Test]
+        public void TwoNativeTouchesKeepSeparateCaptureAndCancellationDoesNotClick()
+        {
+            InputSystem.RemoveDevice(mouse);
+            Touchscreen touchscreen = InputSystem.AddDevice<Touchscreen>();
+            using var harness = BattlementTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var first = new ObjectId(Guid.NewGuid());
+            var second = new ObjectId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            Connect(
+                harness,
+                session,
+                cameraId,
+                Region(first, 1) with
+                {
+                    LocalTransform = new LocalTransform(
+                        new Battlement.Vector3(-2, 0, 0),
+                        Quaternion.Identity,
+                        Battlement.Vector3.One
+                    ),
+                },
+                Region(second, 2) with
+                {
+                    LocalTransform = new LocalTransform(
+                        new Battlement.Vector3(2, 0, 0),
+                        Quaternion.Identity,
+                        Battlement.Vector3.One
+                    ),
+                }
+            );
+            Camera camera = Identity(cameraId).GetComponent<Camera>();
+            UnityEngine.Vector2 left = camera.WorldToScreenPoint(
+                Identity(first).transform.position
+            );
+            UnityEngine.Vector2 right = camera.WorldToScreenPoint(
+                Identity(second).transform.position
+            );
+            BeginTouch(11, left, queueEventOnly: true, screen: touchscreen);
+            BeginTouch(12, right, queueEventOnly: true, screen: touchscreen);
+            InputSystem.Update();
+            harness.Runner.RunFrame();
+            Assert.That(
+                Events(harness).Count(e => e.Body is UiEventBody.PointerCapture),
+                Is.EqualTo(2)
+            );
+            CancelTouch(11, left, screen: touchscreen);
+            harness.Runner.RunFrame();
+            Assert.That(
+                Events(harness).Single(e => e.Body is UiEventBody.PointerCaptureOut).TargetId,
+                Is.EqualTo(first)
+            );
+            EndTouch(12, right, screen: touchscreen);
+            harness.Runner.RunFrame();
+            Assert.That(
+                Events(harness).Single(e => e.Body is UiEventBody.Click).TargetId,
+                Is.EqualTo(second)
+            );
+            Assert.That(
+                Events(harness).Count(e => e.Body is UiEventBody.PointerCaptureOut),
+                Is.EqualTo(2)
+            );
+        }
+
+        [Test]
         public void GeometricWorldOrderAndCaptureSurviveReparentButNotHideOrDestroy()
         {
             using var harness = BattlementTestHarness.Create();

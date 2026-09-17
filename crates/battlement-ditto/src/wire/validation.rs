@@ -276,6 +276,7 @@ fn validate_step<'a>(
       capability(job, Capability::Click)?;
       input_target(target)
     }
+    StepKind::Navigation { .. } => Ok(()),
     StepKind::Hover { .. } => anyhow::bail!("hover has no deterministic delivery contract"),
     StepKind::Drag { .. } => anyhow::bail!("drag has no deterministic delivery contract"),
     StepKind::Key { .. } => {

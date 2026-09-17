@@ -66,6 +66,32 @@ namespace Battlement
             return samples;
         }
 
+        internal static int UiPointerId(int worldPointerId)
+        {
+            if (worldPointerId == 0)
+                return UnityEngine.UIElements.PointerId.mousePointerId;
+            foreach (Touchscreen screen in InputSystem.devices.OfType<Touchscreen>())
+                for (int index = 0; index < screen.touches.Count; index++)
+                    if (screen.touches[index].touchId.ReadValue() == worldPointerId)
+                        return UnityEngine.UIElements.PointerId.touchPointerIdBase
+                            + Mathf.Min(
+                                index,
+                                UnityEngine.UIElements.PointerId.touchPointerCount - 1
+                            );
+            return worldPointerId;
+        }
+
+        internal static int WorldPointerId(int uiPointerId)
+        {
+            if (uiPointerId == UnityEngine.UIElements.PointerId.mousePointerId)
+                return 0;
+            int index = uiPointerId - UnityEngine.UIElements.PointerId.touchPointerIdBase;
+            foreach (Touchscreen screen in InputSystem.devices.OfType<Touchscreen>())
+                if (index >= 0 && index < screen.touches.Count)
+                    return screen.touches[index].touchId.ReadValue();
+            return uiPointerId;
+        }
+
         private static void AddTouches(
             IDictionary<int, BattlementPointerSample> samples,
             IReadOnlyCollection<int> knownPointerIds,

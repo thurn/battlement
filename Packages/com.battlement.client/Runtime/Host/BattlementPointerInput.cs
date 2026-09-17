@@ -28,7 +28,8 @@ namespace Battlement
         private Func<bool> modalBlocked = () => false;
         private Func<int, UnityEngine.Vector2, bool> blocksWorld = (_, _) => false;
 
-        internal bool IsWorldCaptured(int id) => logical?.IsCaptured(id) == true;
+        internal bool IsWorldCaptured(int id) =>
+            logical?.IsCaptured(BattlementPointerDevices.WorldPointerId(id)) == true;
 
         internal void ConfigureLogical(
             Func<UiEvent, UiEventDisposition?> emitEvent,

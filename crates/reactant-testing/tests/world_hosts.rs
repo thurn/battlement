@@ -20,10 +20,15 @@ const MESH: ObjectId = object_id!("32100000-0000-4000-8000-000000000004");
 const LIGHT: ObjectId = object_id!("32100000-0000-4000-8000-000000000005");
 const CAMERA: ObjectId = object_id!("32100000-0000-4000-8000-000000000006");
 
-struct Scene(Rc<RefCell<Option<ObjectRef>>>);
+struct Scene(
+  Rc<RefCell<Option<ObjectRef>>>,
+  Rc<RefCell<Option<ObjectRef>>>,
+);
 
 impl Component for Scene {
   fn render(&self) -> impl Render {
+    let front_ref = native_host::use_object_ref();
+    self.1.replace(Some(front_ref.clone()));
     let mesh_ref = native_host::use_object_ref();
     self.0.replace(Some(mesh_ref.clone()));
     let (changed, change) = hooks::use_state(false);
@@ -52,6 +57,7 @@ impl Component for Scene {
                   "test/front-a"
                 })
                 .id(*FRONT.as_uuid())
+                .reference(front_ref)
                 .size(if changed { 3.0 } else { 2.0 }, 4.0)
             }),
             world::Sprite::new()
@@ -95,10 +101,18 @@ impl Component for Scene {
   }
 }
 
-fn fixture() -> (Display<App>, ObjectId, Rc<RefCell<Option<ObjectRef>>>) {
+struct Fixture {
+  display: Display<App>,
+  root: ObjectId,
+  mesh: Rc<RefCell<Option<ObjectRef>>>,
+  front: Rc<RefCell<Option<ObjectRef>>>,
+}
+
+fn fixture() -> Fixture {
   let mesh = Rc::new(RefCell::new(None));
+  let front = Rc::new(RefCell::new(None));
   let app = App::new("test/scene")
-    .ui(Scene(mesh.clone()))
+    .ui(Scene(mesh.clone(), front.clone()))
     .camera(|camera| {
       world::Camera::new()
         .orthographic(5.0)
@@ -112,12 +126,19 @@ fn fixture() -> (Display<App>, ObjectId, Rc<RefCell<Option<ObjectRef>>>) {
   assets.add_mesh("test/mesh-a", 1);
   assets.add_mesh("test/mesh-b", 1);
   assets.add_material("test/material");
-  (Display::connect(app, assets), root, mesh)
+  Fixture {
+    display: Display::connect(app, assets),
+    root,
+    mesh,
+    front,
+  }
 }
 
 #[test]
 fn typed_hosts_keep_explicit_geometry_and_update_existing_components() {
-  let (mut display, root, _) = self::fixture();
+  let Fixture {
+    mut display, root, ..
+  } = self::fixture();
   assert_eq!(
     display.object(GROUP).unwrap().local_transform().position,
     Vector3::new(2.0, 3.0, 4.0)
@@ -154,16 +175,24 @@ fn typed_hosts_keep_explicit_geometry_and_update_existing_components() {
 
 #[test]
 fn conditional_faces_replace_independently_and_reconnect_with_prepared_geometry() {
-  let (mut display, root, mesh) = self::fixture();
+  let Fixture {
+    mut display,
+    root,
+    mesh,
+    front,
+  } = self::fixture();
   let back = display.object(BACK).unwrap().local_transform();
   let face = display.find_ui(root, "face");
   for _ in 0..3 {
+    let previous = front.borrow().as_ref().unwrap().object_id().unwrap();
     display.click_ui(face);
-    assert!(display.object(FRONT).is_none());
+    assert!(display.object(previous).is_none());
     assert_eq!(display.object(BACK).unwrap().local_transform(), back);
     assert!(display.object(GROUP).is_some());
     display.click_ui(face);
-    assert!(display.object(FRONT).is_some());
+    let current = front.borrow().as_ref().unwrap().object_id().unwrap();
+    assert_ne!(current, previous);
+    assert!(display.object(current).is_some());
   }
   let change = display.find_ui(root, "change");
   display.click_ui(change);
@@ -181,7 +210,9 @@ fn conditional_faces_replace_independently_and_reconnect_with_prepared_geometry(
 
 #[test]
 fn missing_mesh_fails_asset_loading_before_dependent_replacement() {
-  let (mut display, root, _) = self::fixture();
+  let Fixture {
+    mut display, root, ..
+  } = self::fixture();
   let mesh = display.object(MESH).unwrap().kind().clone();
   let missing = display.find_ui(root, "missing");
   let failure = panic::catch_unwind(AssertUnwindSafe(|| display.click_ui(missing)));

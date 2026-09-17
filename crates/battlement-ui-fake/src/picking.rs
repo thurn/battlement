@@ -7,6 +7,26 @@ use battlement_ui::{
 };
 
 impl UiWorld {
+  /// Eligible focus targets in stable document traversal order, with displayed bounds.
+  pub fn focus_targets(&self, root: ObjectId, viewport: Rect) -> Vec<(ObjectId, Rect)> {
+    let mut entries = Vec::new();
+    self.pick_rects(root, viewport, viewport, &mut entries);
+    entries
+      .retain(|(id, _)| self.input_eligible(*id) && crate::actions::focusable(&self.elements[id]));
+    let sequential = entries
+      .iter()
+      .any(|(id, _)| self.elements[id].tab_index().unwrap_or(0) >= 0);
+    if sequential {
+      entries.retain(|(id, _)| self.elements[id].tab_index().unwrap_or(0) >= 0);
+    }
+    entries.sort_by_key(|(id, _)| self.elements[id].tab_index().unwrap_or(0));
+    entries
+  }
+  /// Sets keyboard focus after semantic input arbitration.
+  pub fn set_semantic_focus(&mut self, target: Option<ObjectId>) {
+    self.focused = target;
+  }
+
   /// Picks inline pixel/percentage rectangles in a document; native tests own USS and text measurement.
   pub fn pick(&self, root: ObjectId, point: PanelPoint, viewport: Rect) -> Option<ObjectId> {
     let mut entries = Vec::new();

@@ -98,6 +98,12 @@ namespace Battlement.UI
                 mounted: true
             );
 
+        internal void ShowSemanticFocus()
+        {
+            foreach (PanelBinding panel in panels.Values)
+                SetNavigationModality(panel.Root);
+        }
+
         public void Refresh() => RefreshState(repairFocus: true, settleAutoFocus: true);
 
         public void RefreshModalBoundary() =>

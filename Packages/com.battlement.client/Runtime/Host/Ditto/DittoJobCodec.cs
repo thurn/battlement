@@ -195,6 +195,7 @@ namespace Battlement
                 "hover" => new DittoStepAction.Hover(TargetBody(body)),
                 "drag" => Drag(body),
                 "key" => Key(body),
+                "navigation" => Navigation(body),
                 "advance" => Advance(body),
                 "wait" => new DittoStepAction.Wait(Condition(body)),
                 "assert" => new DittoStepAction.Assert(Condition(body)),
@@ -207,6 +208,24 @@ namespace Battlement
                 "video" => new DittoStepAction.Video(Video(body)),
                 _ => throw new JsonSerializationException($"Unknown action {variant.Name}."),
             };
+        }
+
+        private static DittoStepAction.Navigation Navigation(JObject value)
+        {
+            Exact(value, "action");
+            DittoNavigationAction action = String(Field(value, "action")) switch
+            {
+                "left" => DittoNavigationAction.Left,
+                "right" => DittoNavigationAction.Right,
+                "up" => DittoNavigationAction.Up,
+                "down" => DittoNavigationAction.Down,
+                "next" => DittoNavigationAction.Next,
+                "previous" => DittoNavigationAction.Previous,
+                "activate" => DittoNavigationAction.Activate,
+                "cancel" => DittoNavigationAction.Cancel,
+                _ => throw new JsonSerializationException("Unknown semantic navigation action."),
+            };
+            return new DittoStepAction.Navigation(action);
         }
 
         private static DittoStepAction.PointerAction PointerActionStep(JObject value)

@@ -7547,6 +7547,7 @@ pub mod battlement {
         pub const VT_INTERACTION_LAYER: ::flatbuffers::VOffsetT = 4;
         pub const VT_ORDER: ::flatbuffers::VOffsetT = 6;
         pub const VT_CAPTURE_ON_PRESS: ::flatbuffers::VOffsetT = 8;
+        pub const VT_FOCUSABLE: ::flatbuffers::VOffsetT = 10;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7565,6 +7566,7 @@ pub mod battlement {
           let mut builder = WorldPointerSettingsBuilder::new(_fbb);
           builder.add_order(args.order);
           builder.add_interaction_layer(args.interaction_layer);
+          builder.add_focusable(args.focusable);
           builder.add_capture_on_press(args.capture_on_press);
           builder.finish()
         }
@@ -7605,6 +7607,18 @@ pub mod battlement {
               .unwrap()
           }
         }
+        #[inline]
+        pub fn focusable(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(WorldPointerSettings::VT_FOCUSABLE, Some(false))
+              .unwrap()
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for WorldPointerSettings<'_> {
@@ -7617,6 +7631,7 @@ pub mod battlement {
             .visit_field::<i32>("interaction_layer", Self::VT_INTERACTION_LAYER, false)?
             .visit_field::<u32>("order", Self::VT_ORDER, false)?
             .visit_field::<bool>("capture_on_press", Self::VT_CAPTURE_ON_PRESS, false)?
+            .visit_field::<bool>("focusable", Self::VT_FOCUSABLE, false)?
             .finish();
           Ok(())
         }
@@ -7625,6 +7640,7 @@ pub mod battlement {
         pub interaction_layer: i32,
         pub order: u32,
         pub capture_on_press: bool,
+        pub focusable: bool,
       }
       impl<'a> Default for WorldPointerSettingsArgs {
         #[inline]
@@ -7633,6 +7649,7 @@ pub mod battlement {
             interaction_layer: 0,
             order: 0,
             capture_on_press: false,
+            focusable: false,
           }
         }
       }
@@ -7665,6 +7682,12 @@ pub mod battlement {
           );
         }
         #[inline]
+        pub fn add_focusable(&mut self, focusable: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(WorldPointerSettings::VT_FOCUSABLE, focusable, false);
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> WorldPointerSettingsBuilder<'a, 'b, A> {
@@ -7687,6 +7710,7 @@ pub mod battlement {
           ds.field("interaction_layer", &self.interaction_layer());
           ds.field("order", &self.order());
           ds.field("capture_on_press", &self.capture_on_press());
+          ds.field("focusable", &self.focusable());
           ds.finish()
         }
       }

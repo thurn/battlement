@@ -49,6 +49,18 @@ namespace Battlement
         Detail,
     }
 
+    internal enum DittoNavigationAction
+    {
+        Left,
+        Right,
+        Up,
+        Down,
+        Next,
+        Previous,
+        Activate,
+        Cancel,
+    }
+
     internal enum DittoPointerAction
     {
         Click,
@@ -151,6 +163,8 @@ namespace Battlement
             DittoAccessibilityTarget Target,
             global::Battlement.AccessibilityAction Action
         ) : DittoStepAction;
+
+        internal sealed record Navigation(DittoNavigationAction Action) : DittoStepAction;
 
         internal sealed record PointerAction(
             DittoAccessibilityTarget Target,

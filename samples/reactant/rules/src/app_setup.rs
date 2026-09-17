@@ -56,6 +56,9 @@ pub fn create_engine() -> ReactantEngine {
 }
 
 fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineError> {
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("world-navigation") {
+    return Ok(crate::navigation_proof::app());
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("pointer-routing") {
     return Ok(crate::pointer_proof::app());
   }

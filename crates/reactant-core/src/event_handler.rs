@@ -37,6 +37,21 @@ impl Handler {
     )
   }
 
+  pub(crate) fn semantic_activation(callback: Callback<()>) -> Self {
+    let mut handler = Self::world_activation(callback.clone());
+    handler.slot = "semantic_activation";
+    handler.native_callback = None;
+    handler.callback = Rc::new(move |game, _, _, _, body| {
+      if matches!(
+        body.as_ref(),
+        UiEventBody::Click(battlement::ClickEvent::NavigationSubmit)
+      ) {
+        callback.call(game, ());
+      }
+    });
+    handler
+  }
+
   pub(crate) fn native_view_callback<G: 'static>(
     slot: &'static str,
     native_kind: UiEventKind,

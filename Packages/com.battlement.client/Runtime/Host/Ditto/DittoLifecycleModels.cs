@@ -56,6 +56,7 @@ namespace Battlement
         Hover,
         Drag,
         Key,
+        Navigation,
         Advance,
         Wait,
         Assert,

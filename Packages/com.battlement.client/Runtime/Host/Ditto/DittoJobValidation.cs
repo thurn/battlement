@@ -237,6 +237,8 @@ namespace Battlement
                         "physical key input has no deterministic semantic delivery contract"
                     );
                     break;
+                case DittoStepAction.Navigation:
+                    break;
                 case DittoStepAction.Advance advance:
                     Require(advance.Frames > 0, "frame advance must be positive");
                     Require(

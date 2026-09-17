@@ -34,6 +34,7 @@ use crate::{
   world::FakeWorld,
 };
 
+mod navigation;
 mod pointer;
 mod pointer_legacy;
 pub mod ui;
@@ -98,6 +99,7 @@ where
   pub(crate) particle_occurrences: Vec<ParticleOccurrence>,
   pub(crate) next_action_number: u128,
   pub(crate) pointers: pointer::Pointers,
+  navigation: navigation::Navigation,
   hovered: Option<PointerState>,
   pressed: Option<PressedPointer>,
   drag: Option<ActiveDrag>,
@@ -239,6 +241,7 @@ where
       particle_occurrences: Vec::new(),
       next_action_number: 1,
       pointers: pointer::Pointers::default(),
+      navigation: navigation::Navigation::default(),
       hovered: None,
       pressed: None,
       drag: None,
@@ -1154,6 +1157,7 @@ where
 
   fn clear_device_state(&mut self) {
     self.pointers = pointer::Pointers::default();
+    self.navigation = navigation::Navigation::default();
     self.hovered = None;
     self.pressed = None;
     self.drag = None;
@@ -1163,6 +1167,7 @@ where
 
   pub(crate) fn reconcile_device_state(&mut self) {
     self.reconcile_geometric_pointers();
+    self.reconcile_navigation();
     if !self.world.input_enabled() {
       self.clear_device_state();
       return;

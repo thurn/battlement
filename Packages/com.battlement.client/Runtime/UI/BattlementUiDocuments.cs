@@ -443,6 +443,8 @@ namespace Battlement.UI
         }
 
         internal IEnumerable<UIDocument> InputDocuments => hierarchy.InputDocuments;
+        internal BattlementUiNavigation Navigation =>
+            new(() => InputDocuments, focusCoordinator.ShowSemanticFocus);
 
         internal void SetWorldCaptureResolver(Func<int, bool> captured) =>
             eventObserver.WorldCaptured = captured;
