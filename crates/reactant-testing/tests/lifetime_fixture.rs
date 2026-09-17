@@ -1,7 +1,4 @@
-use battlement::{
-  MotionEventBatch, MotionEventKind, MotionLifecycleEvent, MotionSequence, ObjectId, Prop,
-  UiVisualElementProperties, object_id,
-};
+use battlement::{ObjectId, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::app::App;
 use reactant_testing::Display;
@@ -55,37 +52,7 @@ fn native_fixture_shared_holds_survive_stale_callback_and_ancestor_updates() {
     .parent_id()
     .unwrap();
   self::click(&mut display, "Destroy card");
-  let Prop::Set(descriptor) = display
-    .ui_element(card)
-    .element()
-    .visual_element()
-    .motion
-    .clone()
-  else {
-    panic!("exit motion missing")
-  };
-  let events = descriptor
-    .slots
-    .iter()
-    .enumerate()
-    .map(|(index, slot)| MotionLifecycleEvent {
-      sequence: MotionSequence(index as u64 + 1),
-      descriptor_id: descriptor.descriptor_id,
-      slot: slot.slot,
-      generation: slot.generation,
-      elapsed_micros: 400_000,
-      kind: MotionEventKind::Completed,
-    })
-    .collect::<Vec<_>>();
-  display.deliver_motion_events(MotionEventBatch {
-    first_sequence: MotionSequence(1),
-    last_sequence: MotionSequence(events.len() as u64),
-    events,
-    samples: Vec::new(),
-    value_samples: Vec::new(),
-    playback_events: Vec::new(),
-    gesture_events: Vec::new(),
-  });
+  display.advance_time(std::time::Duration::from_millis(400));
   display.poll();
   assert!(!display.contains_ui(card));
   self::click(&mut display, "Increment held");

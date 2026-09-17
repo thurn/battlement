@@ -30,12 +30,15 @@ namespace Battlement
 
         public event Action<Camera?>? InputCameraChanged;
 
+        internal BattlementWorldMotion Motion { get; }
+
         public Camera? InputCamera => input.Camera;
         internal IEnumerable<BattlementIdentity> Identities => objects.Values;
 
         public BattlementWorld(Scene hostScene, BattlementPreparedAssets preparedAssets)
         {
             this.preparedAssets = preparedAssets;
+            Motion = new BattlementWorldMotion(this);
             objectFactory = new BattlementObjectFactory(preparedAssets);
             persistentContainer = new GameObject("Battlement Persistent");
             SceneManager.MoveGameObjectToScene(persistentContainer, hostScene);
@@ -157,6 +160,7 @@ namespace Battlement
 
         public void ReplaceObjects(IReadOnlyList<BattlementGameObject> descriptions)
         {
+            using var replacingMotion = Motion.Rebuild();
             HashSet<Guid> allowedIds =
                 replacementIds
                 ?? throw new InvalidOperationException("Object replacement was not prepared.");
@@ -215,11 +219,13 @@ namespace Battlement
             {
                 GameObject gameObject = RequireObject(description.Id);
                 objectFactory.ApplyStableState(gameObject, description);
+                Motion.Created(description.Id);
             }
         }
 
         public void ReplaceObjects(IReadOnlyList<BattlementDirectSnapshotObject> descriptions)
         {
+            using var replacingMotion = Motion.Rebuild();
             HashSet<Guid> allowedIds =
                 replacementIds
                 ?? throw new InvalidOperationException("Object replacement was not prepared.");
@@ -231,6 +237,7 @@ namespace Battlement
 
         public void CreateObject(BattlementGameObject description)
         {
+            BattlementWorldMotionTarget.Validate(description.Id, description.Motion);
             preparedAssets.ValidateMaterialInstances(description.MaterialInstances);
             Transform container = ResolveContainer(description.ParentScene);
             GameObject? parent = description.ParentId is ObjectId parentId
@@ -267,6 +274,7 @@ namespace Battlement
                 }
 
                 objectFactory.ApplyStableState(gameObject, description);
+                Motion.Created(description.Id);
             }
             catch
             {
@@ -392,6 +400,7 @@ namespace Battlement
                     gameObject.transform.SetParent(parent.transform, false);
                 objectFactory.ApplyStableState(gameObject, placement);
                 afterStableState?.Invoke(gameObject);
+                Motion.Created(placement.ObjectId);
             }
             catch
             {
@@ -536,6 +545,7 @@ namespace Battlement
             {
                 if (objects.TryGetValue(childId, out BattlementIdentity identity))
                 {
+                    Motion.Remove(new ObjectId(childId));
                     BattlementOwnedResources.Release(identity.gameObject);
                     objects.Remove(childId);
                 }
@@ -864,6 +874,7 @@ namespace Battlement
                 && ReferenceEquals(registered, identity)
             )
             {
+                Motion.Remove(new ObjectId(identity.Id));
                 objects.Remove(identity.Id);
             }
         }
@@ -887,6 +898,7 @@ namespace Battlement
                 DestroyUnityObject(persistentContainer);
             }
 
+            Motion.Dispose();
             isDisposed = true;
         }
 
@@ -965,8 +977,9 @@ namespace Battlement
             objects.Clear();
         }
 
-        private static void ReleaseAndDestroy(BattlementIdentity identity)
+        private void ReleaseAndDestroy(BattlementIdentity identity)
         {
+            Motion.Remove(new ObjectId(identity.Id));
             identity.gameObject.SetActive(false);
             BattlementOwnedResources.Release(identity.gameObject);
             DestroyUnityObject(identity.gameObject);

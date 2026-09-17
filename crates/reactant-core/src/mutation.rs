@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use battlement::{Command, CommandBody, ObjectId};
+use battlement::{Command, ObjectId};
 
 use crate::host_node::HostNode;
 
@@ -10,7 +10,7 @@ pub(crate) fn lower(
   previous_preorder: &[ObjectId],
   desired_preorder: &[ObjectId],
   constrained_parents: &HashSet<ObjectId>,
-) -> Vec<Vec<CommandBody>> {
+) -> Vec<Vec<Command>> {
   let previous_ordinals = self::ordinals(previous_preorder);
   let desired_ordinals = self::ordinals(desired_preorder);
   let mut mutations = planned
@@ -44,7 +44,7 @@ pub(crate) struct PlannedMutation {
   old_parent: Option<ObjectId>,
   new_parent: Option<ObjectId>,
   created: HashSet<ObjectId>,
-  body: CommandBody,
+  body: Command,
   conflicts: HashSet<ObjectId>,
 }
 
@@ -60,7 +60,7 @@ impl PlannedMutation {
       old_parent: None,
       new_parent: Some(parent_id),
       created,
-      body: command.body,
+      body: command,
       conflicts,
     }
   }
@@ -77,7 +77,7 @@ impl PlannedMutation {
       old_parent: Some(old_parent),
       new_parent: Some(new_parent),
       created: HashSet::new(),
-      body: command.body,
+      body: command,
       conflicts: HashSet::from([object_id, old_parent, new_parent]),
     }
   }
@@ -89,7 +89,7 @@ impl PlannedMutation {
       old_parent: None,
       new_parent: None,
       created: HashSet::new(),
-      body: command.body,
+      body: command,
       conflicts: HashSet::from([object_id]),
     }
   }
@@ -101,7 +101,7 @@ impl PlannedMutation {
       old_parent: Some(old_parent),
       new_parent: None,
       created: HashSet::new(),
-      body: command.body,
+      body: command,
       conflicts: HashSet::from([object_id, old_parent]),
     }
   }
@@ -115,7 +115,7 @@ struct Mutation {
   old_parent: Option<ObjectId>,
   new_parent: Option<ObjectId>,
   created: HashSet<ObjectId>,
-  body: CommandBody,
+  body: Command,
   conflicts: HashSet<ObjectId>,
   dependencies: Vec<usize>,
 }
@@ -269,7 +269,7 @@ fn is_ancestor(
   false
 }
 
-fn groups(mutations: Vec<Mutation>) -> Vec<Vec<CommandBody>> {
+fn groups(mutations: Vec<Mutation>) -> Vec<Vec<Command>> {
   let mut pending = mutations.into_iter().map(Some).collect::<Vec<_>>();
   let mut completed = HashSet::new();
   let mut result = Vec::new();

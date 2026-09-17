@@ -228,6 +228,39 @@ properties! {
   ClipPolygon => ("clip_polygon", ClipPolygon, "calc", "none", Structured, SelfWidth, None),
   Mask => ("mask", Discrete, "asset", "none", Discrete, None, None),
   Layout => ("layout", Vector3, "projection", "identity", Numeric, None, None),
+  LocalPositionX => ("local_position_x", Scalar, "world-unit", "0", Numeric, None, Sum),
+  LocalPositionY => ("local_position_y", Scalar, "world-unit", "0", Numeric, None, Sum),
+  LocalPositionZ => ("local_position_z", Scalar, "world-unit", "0", Numeric, None, Sum),
+  LocalRotationX => ("local_rotation_x", Scalar, "degrees", "0", Numeric, None, Sum),
+  LocalRotationY => ("local_rotation_y", Scalar, "degrees", "0", Numeric, None, Sum),
+  LocalRotationZ => ("local_rotation_z", Scalar, "degrees", "0", Numeric, None, Sum),
+  LocalScaleX => ("local_scale_x", Scalar, "number", "1", Numeric, None, Multiply),
+  LocalScaleY => ("local_scale_y", Scalar, "number", "1", Numeric, None, Multiply),
+  LocalScaleZ => ("local_scale_z", Scalar, "number", "1", Numeric, None, Multiply),
+  LocalOffsetX => ("local_offset_x", Scalar, "world-unit", "0", Numeric, None, Sum),
+  LocalOffsetY => ("local_offset_y", Scalar, "world-unit", "0", Numeric, None, Sum),
+  LocalOffsetZ => ("local_offset_z", Scalar, "world-unit", "0", Numeric, None, Sum),
+  LocalTiltX => ("local_tilt_x", Scalar, "degrees", "0", Numeric, None, Sum),
+  LocalTiltY => ("local_tilt_y", Scalar, "degrees", "0", Numeric, None, Sum),
+  LocalTiltZ => ("local_tilt_z", Scalar, "degrees", "0", Numeric, None, Sum),
+  LocalScaleFactorX => ("local_scale_factor_x", Scalar, "number", "1", Numeric, None, Multiply),
+  LocalScaleFactorY => ("local_scale_factor_y", Scalar, "number", "1", Numeric, None, Multiply),
+  LocalScaleFactorZ => ("local_scale_factor_z", Scalar, "number", "1", Numeric, None, Multiply),
+
+}
+
+impl MotionProperty {
+  /// Whether this property belongs to a world transform writer.
+  #[must_use]
+  pub fn is_world_transform(self) -> bool {
+    self >= Self::LocalPositionX && self <= Self::LocalScaleFactorZ
+  }
+
+  /// Whether this property is an interaction contribution after base placement.
+  #[must_use]
+  pub fn is_local_offset(self) -> bool {
+    self >= Self::LocalOffsetX && self <= Self::LocalScaleFactorZ
+  }
 }
 
 #[cfg(test)]

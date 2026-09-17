@@ -22,6 +22,7 @@ namespace Battlement
 
         internal DragMode? DragMode { get; private set; }
         internal WorldPointerSettings? WorldPointer { get; set; }
+        internal MotionDescriptor? Motion { get; set; }
         internal event System.Action? PointerUnavailable;
         internal bool HasPointerEvents => pointerEvents.Count != 0;
 

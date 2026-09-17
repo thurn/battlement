@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
+use battlement::{Command, ObjectId};
 #[cfg(test)]
-use battlement::{Command, UiNode};
-use battlement::{CommandBody, ObjectId};
+use battlement::{CommandBody, UiNode};
 
 #[cfg(test)]
 use crate::ui_host_adapter;
@@ -24,7 +24,6 @@ pub(crate) fn commands(
   )
   .into_iter()
   .flatten()
-  .map(Command::new_v4)
   .collect()
 }
 
@@ -39,19 +38,22 @@ pub(crate) fn ui_command_groups(
     &ui_host_adapter::from_ui_nodes(previous),
     &ui_host_adapter::from_ui_nodes(desired),
   )
+  .into_iter()
+  .map(|group| group.into_iter().map(|command| command.body).collect())
+  .collect()
 }
 
 pub(crate) fn command_groups(
   parent_id: ObjectId,
   previous: &[HostNode],
   desired: &[HostNode],
-) -> Vec<Vec<CommandBody>> {
+) -> Vec<Vec<Command>> {
   self::forest_command_groups(&[(parent_id, previous, desired)])
 }
 
 pub(crate) fn forest_command_groups(
   roots: &[(ObjectId, &[HostNode], &[HostNode])],
-) -> Vec<Vec<CommandBody>> {
+) -> Vec<Vec<Command>> {
   let previous = TreeIndex::forest(roots.iter().map(|(id, previous, _)| (*id, *previous)));
   let desired = TreeIndex::forest(roots.iter().map(|(id, _, desired)| (*id, *desired)));
   let mut plan = Plan::default();

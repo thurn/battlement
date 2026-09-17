@@ -285,7 +285,9 @@ namespace Battlement
             int infiniteMotion =
                 (configuredRuntime?.UiDocuments.DittoActiveInfiniteTimelineCount ?? 0)
                 + (configuredRuntime?.BatchScheduler.InfiniteOperationCount ?? 0);
-            int heldMotion = configuredRuntime?.UiDocuments.DittoActiveHeldTimelineCount ?? 0;
+            int heldMotion =
+                (configuredRuntime?.UiDocuments.DittoActiveHeldTimelineCount ?? 0)
+                + (configuredRuntime?.BatchScheduler.HeldOperationCount ?? 0);
             bool deferredUi = configuredRuntime?.UiDocuments.DittoHasPendingDeferredWork == true;
             return new DittoWorkObservation(
                 dittoStateVersion + (configuredRuntime?.BatchScheduler.ActivityVersion ?? 0),
@@ -2230,6 +2232,7 @@ namespace Battlement
                 $"[Battlement/Ditto-trace] ui-input-dispatch object={value.TargetId.Value} "
                     + $"kind={value.Body.GetType().Name} available={CanEmitInput}"
             );
+            configuredRuntime?.World.Motion.Handle(value);
             if (!CanEmitInput || session.LastSession is not SessionId currentSession)
             {
                 return null;

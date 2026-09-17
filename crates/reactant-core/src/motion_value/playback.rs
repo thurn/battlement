@@ -283,6 +283,15 @@ impl AnimationPlayback {
     }
   }
 
+  /// Registers a callback for native playback failure.
+  pub fn on_failed(&self, callback: impl FnOnce() + 'static) {
+    if *self.inner.reported.borrow() == Some(PlaybackOutcome::Failed) {
+      callback();
+    } else {
+      self.inner.callbacks.borrow_mut().failed = Some(Box::new(callback));
+    }
+  }
+
   fn terminal(&self, outcome: PlaybackOutcome, command: MotionPlaybackCommand) {
     if self.inner.terminal.borrow().is_some() {
       return;

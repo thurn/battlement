@@ -7,6 +7,7 @@ mod actions;
 mod assets;
 mod choice_groups;
 mod hierarchy;
+mod motion;
 mod picking;
 
 use std::{

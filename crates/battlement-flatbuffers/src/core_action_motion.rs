@@ -124,6 +124,7 @@ pub(crate) fn write<'a>(
             MotionPlaybackOutcome::Completed => wire::MotionPlaybackOutcome::Completed,
             MotionPlaybackOutcome::Stopped => wire::MotionPlaybackOutcome::Stopped,
             MotionPlaybackOutcome::Cancelled => wire::MotionPlaybackOutcome::Cancelled,
+            MotionPlaybackOutcome::Failed => wire::MotionPlaybackOutcome::Failed,
           },
         },
       )

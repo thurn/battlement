@@ -170,7 +170,7 @@ namespace Battlement
             for (int index = 0; index < records.Count; index++)
             {
                 MotionPlaybackEvent value = records[index];
-                if ((uint)value.Outcome > (uint)MotionPlaybackOutcome.Cancelled)
+                if ((uint)value.Outcome > (uint)MotionPlaybackOutcome.Failed)
                     throw new InvalidDataException("Unknown Motion playback outcome.");
                 Wire.MotionPlaybackEvent.StartMotionPlaybackEvent(builder);
                 Wire.MotionPlaybackEvent.AddOutcome(

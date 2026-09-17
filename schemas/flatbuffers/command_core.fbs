@@ -280,3 +280,6 @@ table DebugUiPayload { surface:DebugUiSurface; visible:bool; }
 table BoxHitRegionPayload { object_id:Uuid (required); region:BoxHitRegionObject (required); }
 
 table WorldPointerPayload { object_id:Uuid (required); settings:WorldPointerSettings; }
+
+// Installs, replaces, or clears the shared Motion descriptor of a world host.
+table WorldMotionPayload { object_id:Uuid (required); motion:MotionDescriptor; }

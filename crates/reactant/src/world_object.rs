@@ -136,3 +136,10 @@ impl<P: Clone + 'static> Component for WorldObject<P> {
     self.description()
   }
 }
+
+impl<P: Clone + 'static> reactant_core::prelude::MotionComponent for WorldObject<P> {
+  fn with_motion(mut self, motion: reactant_core::motion::MotionProps) -> Self {
+    self.group = reactant_core::prelude::MotionComponent::with_motion(self.group, motion);
+    self
+  }
+}

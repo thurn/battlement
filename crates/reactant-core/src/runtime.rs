@@ -11,7 +11,7 @@ use std::{
 };
 
 use battlement::{
-  self, AccessibilitySnapshot, AccessibilityUpdate, ActionId, Batch, CommandBody,
+  self, AccessibilitySnapshot, AccessibilityUpdate, ActionId, Batch, Command, CommandBody,
   GeometryGeneration, GeometryObservationBatch, MotionEventBatch, MotionSequence, ObjectId,
   SessionId, Snapshot, UiDocument, UiEvent, UiEventDisposition,
 };
@@ -70,7 +70,7 @@ pub struct Root {
 /// An ordered native mutation commit.
 #[must_use]
 pub struct ReactantCommit {
-  pub(crate) groups: Option<Vec<Vec<CommandBody>>>,
+  pub(crate) groups: Option<Vec<Vec<Command>>>,
   pub(crate) receipt: Option<DeliveryReceipt>,
   pub(crate) work_owners: HashMap<ObjectId, u64>,
   pub(crate) independent: bool,
@@ -1102,12 +1102,12 @@ impl<G: 'static> Reactant<G> {
     let next_accessibility =
       (!semantic_snapshot.nodes.is_empty()).then(|| semantic_snapshot.clone());
     if sent_accessibility {
-      groups.push(vec![CommandBody::AccessibilityUpdate(
+      groups.push(vec![Command::new_v4(CommandBody::AccessibilityUpdate(
         AccessibilityUpdate {
           snapshot: accessibility_changed.then_some(semantic_snapshot),
           announcements,
         },
-      )]);
+      ))]);
     }
     if let Some(resources) = &mut resources {
       self.apply_resources_transaction(resources);
@@ -1323,7 +1323,7 @@ impl<G: 'static> Reactant<G> {
     panic!("Reactant runtime is poisoned by an undelivered commit");
   }
 
-  fn create_commit(&mut self, groups: Vec<Vec<CommandBody>>) -> ReactantCommit {
+  fn create_commit(&mut self, groups: Vec<Vec<Command>>) -> ReactantCommit {
     let motion_owners = self.motion_values.borrow_mut().take_owners();
     if groups.is_empty() {
       return ReactantCommit::empty();
@@ -1473,7 +1473,7 @@ impl<G: 'static> Reactant<G> {
         session,
         groups
           .into_iter()
-          .map(battlement::ParallelCommandGroup::from_bodies)
+          .map(battlement::ParallelCommandGroup::new)
           .collect(),
       )
     })
@@ -1685,12 +1685,12 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
       let mut groups = geometry.command_groups(groups);
       let has_accessibility = !semantic_snapshot.nodes.is_empty();
       if has_accessibility {
-        groups.push(vec![CommandBody::AccessibilityUpdate(
+        groups.push(vec![Command::new_v4(CommandBody::AccessibilityUpdate(
           AccessibilityUpdate {
             snapshot: Some(semantic_snapshot.clone()),
             announcements: Vec::new(),
           },
-        )]);
+        ))]);
       }
       let _discarded_announcements = announcement::take();
       self.geometry.borrow_mut().commit(geometry);

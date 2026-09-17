@@ -6,19 +6,6 @@ using System.Linq;
 
 namespace Battlement
 {
-    /// <summary>Work started by a command that Battlement can poll and cancel.</summary>
-    public interface IBattlementCommandOperation
-    {
-        /// <summary>Gets whether the operation has no natural completion.</summary>
-        bool IsInfinite { get; }
-
-        /// <summary>Advances the operation and reports whether it has completed.</summary>
-        bool IsComplete(TimeSpan now);
-
-        /// <summary>Cancels the operation without firing completion behavior.</summary>
-        void Cancel();
-    }
-
     /// <summary>Owns command identities and work that can outlive command launch.</summary>
     internal sealed class BattlementOperationRegistry
     {
@@ -48,7 +35,10 @@ namespace Battlement
             executedCommands.Clear();
         }
 
-        public int FiniteOperationCount => operations.Count(operation => !operation.IsInfinite);
+        public int FiniteOperationCount =>
+            operations.Count(operation => !operation.IsInfinite && !operation.IsHeld);
+
+        public int HeldOperationCount => operations.Count(operation => operation.IsHeld);
 
         public int InfiniteOperationCount => operations.Count(operation => operation.IsInfinite);
 
@@ -388,7 +378,7 @@ namespace Battlement
 
         private void Remove(TrackedOperation operation) => operations.Remove(operation);
 
-        private sealed class TrackedOperation : IBattlementCommandOperation
+        private sealed class TrackedOperation : IBattlementHeldCommandOperation
         {
             private BattlementConflictKey[] keys;
             private readonly TrackedOperation[] blockers;
@@ -442,6 +432,13 @@ namespace Battlement
             public bool IsBlocking { get; }
 
             public Guid? TargetObjectId { get; private set; }
+
+            public bool IsHeld =>
+                !isComplete
+                && (
+                    inner is IBattlementHeldCommandOperation { IsHeld: true }
+                    || blockers.Any(blocker => blocker.IsHeld)
+                );
 
             public bool IsInfinite =>
                 !isComplete

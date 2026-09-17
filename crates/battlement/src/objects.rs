@@ -56,6 +56,8 @@ pub struct GameObject {
   pub material_instances: Vec<crate::MaterialInstance>,
   /// Logical pointer routing, or legacy core actions when absent.
   pub world_pointer: Option<crate::WorldPointerSettings>,
+  /// Shared native Motion playback for this transform host.
+  pub motion: Option<Box<crate::MotionDescriptor>>,
   /// Kind-specific object content and component state.
   pub kind: GameObjectKind,
 }
@@ -75,6 +77,7 @@ impl GameObject {
       render_order: None,
       material_instances: Vec::new(),
       world_pointer: None,
+      motion: None,
       kind: kind.into(),
     }
   }

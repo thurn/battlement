@@ -120,6 +120,7 @@ public enum CoreCommandKind : byte
   RendererSetInstances = 97,
   BoxHitRegionSetGeometry = 98,
   InputSetWorldPointer = 99,
+  MotionSetWorldDescriptor = 100,
 };
 
 public enum CoreCommandPayload : byte
@@ -212,6 +213,7 @@ public enum CoreCommandPayload : byte
   RendererInstancesPayload = 85,
   BoxHitRegionPayload = 86,
   WorldPointerPayload = 87,
+  WorldMotionPayload = 88,
 };
 
 
@@ -484,6 +486,9 @@ static public class CoreCommandPayloadVerify
       case CoreCommandPayload.WorldPointerPayload:
         result = Battlement.FlatBuffers.Generated.WorldPointerPayloadVerify.Verify(verifier, tablePos);
         break;
+      case CoreCommandPayload.WorldMotionPayload:
+        result = Battlement.FlatBuffers.Generated.WorldMotionPayloadVerify.Verify(verifier, tablePos);
+        break;
       default: result = true;
         break;
     }
@@ -647,6 +652,7 @@ public struct CoreCommand : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.RendererInstancesPayload PayloadAsRendererInstancesPayload() { return Payload<Battlement.FlatBuffers.Generated.RendererInstancesPayload>().Value; }
   public Battlement.FlatBuffers.Generated.BoxHitRegionPayload PayloadAsBoxHitRegionPayload() { return Payload<Battlement.FlatBuffers.Generated.BoxHitRegionPayload>().Value; }
   public Battlement.FlatBuffers.Generated.WorldPointerPayload PayloadAsWorldPointerPayload() { return Payload<Battlement.FlatBuffers.Generated.WorldPointerPayload>().Value; }
+  public Battlement.FlatBuffers.Generated.WorldMotionPayload PayloadAsWorldMotionPayload() { return Payload<Battlement.FlatBuffers.Generated.WorldMotionPayload>().Value; }
 
   public static void StartCoreCommand(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddCommandId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> commandIdOffset) { builder.AddStruct(0, commandIdOffset.Value, 0); }

@@ -33,6 +33,7 @@ namespace Battlement
             DirectObjectActive = null;
             DirectRenderOrder = null;
             DirectWorldPointer = null;
+            DirectWorldMotion = null;
             DirectMaterialInstances = null;
             DirectBoxHitRegionCreate = null;
             DirectBoxHitRegionGeometry = null;
@@ -463,6 +464,14 @@ namespace Battlement
         internal BattlementDirectObjectActive? DirectObjectActive { get; }
         internal BattlementDirectRenderOrder? DirectRenderOrder { get; }
         internal BattlementDirectWorldPointer? DirectWorldPointer { get; }
+        internal BattlementDirectWorldMotion? DirectWorldMotion { get; }
+
+        internal BattlementCommandExecution(
+            CommandId id,
+            bool isBlocking,
+            BattlementDirectWorldMotion value
+        )
+            : this(id, isBlocking) => DirectWorldMotion = value;
 
         internal BattlementCommandExecution(
             CommandId id,
@@ -2113,7 +2122,8 @@ namespace Battlement
             DragMode? dragMode,
             RenderOrder? renderOrder = null,
             IReadOnlyList<MaterialInstance>? materialInstances = null,
-            WorldPointerSettings? worldPointer = null
+            WorldPointerSettings? worldPointer = null,
+            MotionDescriptor? motion = null
         ) =>
             (
                 ObjectId,
@@ -2135,6 +2145,7 @@ namespace Battlement
                 DragMode,
                 MaterialInstances,
                 WorldPointer,
+                Motion,
                 RenderOrder
             ) = (
                 objectId,
@@ -2156,6 +2167,7 @@ namespace Battlement
                 dragMode,
                 materialInstances,
                 worldPointer,
+                motion,
                 renderOrder
             );
 
@@ -2178,6 +2190,7 @@ namespace Battlement
         internal DragMode? DragMode { get; }
         internal RenderOrder? RenderOrder { get; }
         internal WorldPointerSettings? WorldPointer { get; }
+        internal MotionDescriptor? Motion { get; }
         internal IReadOnlyList<MaterialInstance>? MaterialInstances { get; }
     }
 
@@ -3118,6 +3131,23 @@ namespace Battlement
                             BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "destroyed object")
                         )
                     )
+                );
+                return true;
+            }
+            if (command.Kind == Wire.CoreCommandKind.MotionSetWorldDescriptor)
+            {
+                Wire.WorldMotionPayload payload = command.PayloadAsWorldMotionPayload();
+                var host = new ObjectId(
+                    BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "world motion object")
+                );
+                MotionDescriptor? descriptor = payload.Motion is Wire.MotionDescriptor motion
+                    ? BattlementFlatBufferRetainedCopy.ReadMotionDescriptor(motion)
+                    : null;
+                BattlementWorldMotionTarget.Validate(host, descriptor);
+                execution = new BattlementCommandExecution(
+                    commandId,
+                    command.Blocking,
+                    new BattlementDirectWorldMotion(host, descriptor)
                 );
                 return true;
             }
@@ -4397,6 +4427,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.GeometryObservationUpdate:
                     break;
+                case Wire.CoreCommandKind.MotionSetWorldDescriptor:
                 case Wire.CoreCommandKind.InputSetWorldPointer:
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                     break;
@@ -5077,6 +5108,13 @@ namespace Battlement
             var pointerEvents = new PointerEvent[value.PointerEventsLength];
             for (int index = 0; index < pointerEvents.Length; index++)
                 pointerEvents[index] = (PointerEvent)(byte)value.PointerEvents(index);
+            MotionDescriptor? motion = value.Motion is Wire.MotionDescriptor descriptor
+                ? BattlementFlatBufferRetainedCopy.ReadMotionDescriptor(descriptor)
+                : null;
+            BattlementWorldMotionTarget.Validate(
+                new ObjectId(BattlementFlatBufferCore.ReadUuid(value.ObjectId, "created object")),
+                motion
+            );
             return new BattlementDirectObjectPlacement(
                 new ObjectId(BattlementFlatBufferCore.ReadUuid(value.ObjectId, "created object")),
                 (byte)parentScene.Kind,
@@ -5108,7 +5146,8 @@ namespace Battlement
                     value.MaterialInstancesLength,
                     value.MaterialInstances
                 ),
-                ReadWorldPointer(value.WorldPointer)
+                ReadWorldPointer(value.WorldPointer),
+                motion
             );
         }
 

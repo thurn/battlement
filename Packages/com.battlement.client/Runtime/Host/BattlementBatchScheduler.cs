@@ -32,6 +32,8 @@ namespace Battlement
 
         public bool HasInfiniteOperations => operations.HasInfiniteOperations;
 
+        public int HeldOperationCount => operations.HeldOperationCount;
+
         public int FiniteOperationCount => operations.FiniteOperationCount;
 
         public int InfiniteOperationCount => operations.InfiniteOperationCount;

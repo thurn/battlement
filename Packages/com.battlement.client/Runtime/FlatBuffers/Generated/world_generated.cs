@@ -1659,8 +1659,9 @@ public struct GameObject : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.MaterialInstance? MaterialInstances(int j) { int o = __p.__offset(26); return o != 0 ? (Battlement.FlatBuffers.Generated.MaterialInstance?)(new Battlement.FlatBuffers.Generated.MaterialInstance()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int MaterialInstancesLength { get { int o = __p.__offset(26); return o != 0 ? __p.__vector_len(o) : 0; } }
   public Battlement.FlatBuffers.Generated.WorldPointerSettings? WorldPointer { get { int o = __p.__offset(28); return o != 0 ? (Battlement.FlatBuffers.Generated.WorldPointerSettings?)(new Battlement.FlatBuffers.Generated.WorldPointerSettings()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionDescriptor? Motion { get { int o = __p.__offset(30); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionDescriptor?)(new Battlement.FlatBuffers.Generated.MotionDescriptor()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
-  public static void StartGameObject(FlatBufferBuilder builder) { builder.StartTable(13); }
+  public static void StartGameObject(FlatBufferBuilder builder) { builder.StartTable(14); }
   public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }
   public static void AddParentScene(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ParentScene> parentSceneOffset) { builder.AddOffset(1, parentSceneOffset.Value, 0); }
   public static void AddParentId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> parentIdOffset) { builder.AddStruct(2, parentIdOffset.Value, 0); }
@@ -1684,6 +1685,7 @@ public struct GameObject : IFlatbufferObject
   public static VectorOffset CreateMaterialInstancesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Battlement.FlatBuffers.Generated.MaterialInstance>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartMaterialInstancesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddWorldPointer(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.WorldPointerSettings> worldPointerOffset) { builder.AddOffset(12, worldPointerOffset.Value, 0); }
+  public static void AddMotion(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionDescriptor> motionOffset) { builder.AddOffset(13, motionOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.GameObject> EndGameObject(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 4);  // object_id
@@ -1714,6 +1716,7 @@ static public class GameObjectVerify
       && verifier.VerifyTable(tablePos, 24 /*RenderOrder*/, Battlement.FlatBuffers.Generated.RenderOrderVerify.Verify, false)
       && verifier.VerifyVectorOfTables(tablePos, 26 /*MaterialInstances*/, Battlement.FlatBuffers.Generated.MaterialInstanceVerify.Verify, false)
       && verifier.VerifyTable(tablePos, 28 /*WorldPointer*/, Battlement.FlatBuffers.Generated.WorldPointerSettingsVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 30 /*Motion*/, Battlement.FlatBuffers.Generated.MotionDescriptorVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

@@ -3,9 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use battlement::asset_dependencies::AssetDependencies;
-use battlement::{
-  self, CommandBody, ObjectId, Snapshot, UiDocument, UiElementKind, UiNode, Validate,
-};
+use battlement::{self, Command, ObjectId, Snapshot, UiDocument, UiElementKind, UiNode, Validate};
 
 use crate::{
   host_node::HostNode,
@@ -24,7 +22,7 @@ pub(crate) struct SessionExternal {
 }
 
 pub(crate) struct PreparedExternal {
-  pub(crate) groups: Vec<Vec<CommandBody>>,
+  pub(crate) groups: Vec<Vec<Command>>,
   bindings: Vec<CommittedBinding>,
   caller_ui: Vec<UiDocument>,
 }
@@ -115,7 +113,7 @@ impl ExternalPortalRegistry {
     previous: &PortalLayout,
     desired: &PortalLayout,
     documents: &[UiDocument],
-  ) -> Vec<Vec<CommandBody>> {
+  ) -> Vec<Vec<Command>> {
     let roots = self.active_roots(previous, desired, documents);
     if roots.is_empty() {
       return Vec::new();
@@ -166,7 +164,7 @@ impl ExternalPortalRegistry {
       .collect()
   }
 
-  pub(crate) fn commit(&mut self, prepared: PreparedExternal) -> Vec<Vec<CommandBody>> {
+  pub(crate) fn commit(&mut self, prepared: PreparedExternal) -> Vec<Vec<Command>> {
     self.caller_ui = prepared.caller_ui;
     for binding in prepared.bindings {
       let target = self
@@ -337,10 +335,7 @@ fn is_container(kind: UiElementKind) -> bool {
   )
 }
 
-fn merge_groups(
-  mut merged: Vec<Vec<CommandBody>>,
-  groups: Vec<Vec<CommandBody>>,
-) -> Vec<Vec<CommandBody>> {
+fn merge_groups(mut merged: Vec<Vec<Command>>, groups: Vec<Vec<Command>>) -> Vec<Vec<Command>> {
   for (index, group) in groups.into_iter().enumerate() {
     if index == merged.len() {
       merged.push(group);

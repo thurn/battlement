@@ -56,6 +56,7 @@ namespace Battlement
             this.motionClock = motionClock;
             this.setInputEnabled = setInputEnabled;
             this.uiDocuments = uiDocuments;
+            world.Motion.Bind(uiDocuments);
             this.updateGeometry = updateGeometry;
             this.updateDirectGeometry = updateDirectGeometry;
             this.modules = modules;
@@ -199,11 +200,11 @@ namespace Battlement
             if (command.DirectMotion is BattlementDirectMotionCommand motion)
                 return ExecuteUi(() => ApplyDirectMotion(motion));
             if (command.DirectMotionValue is BattlementDirectMotionValueCommand motionValue)
-                return ExecuteUi(() => ApplyDirectMotionValue(motionValue));
+                return ApplyDirectMotionValue(motionValue, command.IsBlocking);
             if (command.DirectMotionControl is BattlementDirectMotionControlCommand motionControl)
-                return ExecuteUi(() => ApplyDirectMotionControl(motionControl));
+                return ApplyDirectMotionControl(motionControl, command.IsBlocking);
             if (command.DirectMotionScope is BattlementDirectMotionScopeCommand motionScope)
-                return ExecuteUi(() => uiDocuments.ApplyScope(motionScope));
+                return uiDocuments.ApplyScope(motionScope, command.IsBlocking);
             if (command.DirectSetMaterial is BattlementDirectSetMaterial material)
             {
                 return LaunchDirect(() =>
@@ -252,6 +253,12 @@ namespace Battlement
                     return null;
                 });
             }
+            if (command.DirectWorldMotion is BattlementDirectWorldMotion worldMotion)
+                return LaunchDirect(() =>
+                {
+                    world.Motion.Install(worldMotion.ObjectId, worldMotion.Motion);
+                    return null;
+                });
             if (command.DirectWorldPointer is BattlementDirectWorldPointer pointer)
             {
                 return LaunchDirect(() =>
@@ -465,32 +472,40 @@ namespace Battlement
             }
         }
 
-        private void ApplyDirectMotionValue(BattlementDirectMotionValueCommand command)
+        private IBattlementCommandOperation? ApplyDirectMotionValue(
+            BattlementDirectMotionValueCommand command,
+            bool blocking
+        )
         {
             MotionValueOperationKind kind = command.Kind;
             bool hasValue = kind != MotionValueOperationKind.Stop;
             bool animates = kind == MotionValueOperationKind.Animate;
-            uiDocuments.ApplyValue(
+            return uiDocuments.ApplyValue(
                 command.ValueId,
                 kind,
                 hasValue ? command.ReadValue() : null,
                 animates ? command.PlaybackId : default,
                 animates ? command.Generation : 0,
-                animates ? command.ReadTransition() : null
+                animates ? command.ReadTransition() : null,
+                blocking
             );
         }
 
-        private void ApplyDirectMotionControl(BattlementDirectMotionControlCommand command)
+        private IBattlementCommandOperation? ApplyDirectMotionControl(
+            BattlementDirectMotionControlCommand command,
+            bool blocking
+        )
         {
             MotionControlOperationKind kind = command.Kind;
             bool hasTarget =
                 kind is MotionControlOperationKind.Start or MotionControlOperationKind.Set;
-            uiDocuments.ApplyControl(
+            return uiDocuments.ApplyControl(
                 command.ControlId,
                 kind,
                 kind == MotionControlOperationKind.Start ? command.PlaybackId : default,
                 kind == MotionControlOperationKind.Start ? command.Generation : 0,
-                hasTarget ? command.ReadTarget() : null
+                hasTarget ? command.ReadTarget() : null,
+                blocking
             );
         }
 

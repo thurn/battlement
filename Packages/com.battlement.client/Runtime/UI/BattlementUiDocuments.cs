@@ -257,6 +257,7 @@ namespace Battlement.UI
                 focusCoordinator.Refresh();
                 accessibility.Refresh();
                 lifecycleEvents.SetInputEnabled(true);
+                RestoreNativeMotion?.Invoke();
                 if (preserveMotion)
                     motionWorld.EndReconnect();
             }
@@ -353,6 +354,7 @@ namespace Battlement.UI
                 focusCoordinator.Refresh();
                 accessibility.Refresh();
                 lifecycleEvents.SetInputEnabled(true);
+                RestoreNativeMotion?.Invoke();
                 if (preserveMotion)
                     motionWorld.EndReconnect();
             }
@@ -482,6 +484,8 @@ namespace Battlement.UI
         }
 
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
+        internal BattlementMotionWorld MotionWorld => motionWorld;
+        internal System.Action? RestoreNativeMotion { get; set; }
 
         internal BattlementAccessibilityManager AccessibilityForTests => accessibility;
 
@@ -544,14 +548,24 @@ namespace Battlement.UI
 
         internal void Apply(MotionValueOperation operation) => motionWorld.Apply(operation);
 
-        internal void ApplyValue(
+        internal IBattlementCommandOperation? ApplyValue(
             ObjectId valueId,
             MotionValueOperationKind kind,
             MotionValue? value,
             ObjectId playbackId,
             uint generation,
-            TransitionDefinition? transition
-        ) => motionWorld.ApplyValue(valueId, kind, value, playbackId, generation, transition);
+            TransitionDefinition? transition,
+            bool blocking = false
+        ) =>
+            motionWorld.ApplyValue(
+                valueId,
+                kind,
+                value,
+                playbackId,
+                generation,
+                transition,
+                blocking
+            );
 
         internal void Apply(MotionValuePlaybackOperation operation) => motionWorld.Apply(operation);
 
@@ -562,18 +576,21 @@ namespace Battlement.UI
 
         internal void Apply(MotionControlOperation operation) => motionWorld.Apply(operation);
 
-        internal void ApplyControl(
+        internal IBattlementCommandOperation? ApplyControl(
             ObjectId controlId,
             MotionControlOperationKind kind,
             ObjectId playbackId,
             uint generation,
-            MotionControlTarget? target
-        ) => motionWorld.ApplyControl(controlId, kind, playbackId, generation, target);
+            MotionControlTarget? target,
+            bool blocking = false
+        ) => motionWorld.ApplyControl(controlId, kind, playbackId, generation, target, blocking);
 
         internal void Apply(MotionScopeOperation operation) => motionWorld.Apply(operation);
 
-        internal void ApplyScope(IBattlementMotionScopeView operation) =>
-            motionWorld.ApplyScope(operation);
+        internal IBattlementCommandOperation? ApplyScope(
+            IBattlementMotionScopeView operation,
+            bool blocking = false
+        ) => motionWorld.ApplyScope(operation, blocking);
 
         internal void Apply(MotionDragControlOperation operation) => motionWorld.Apply(operation);
 

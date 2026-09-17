@@ -9,6 +9,9 @@ namespace Battlement
 {
     internal static partial class BattlementFlatBufferRetainedCopy
     {
+        internal static MotionDescriptor ReadMotionDescriptor(Wire.MotionDescriptor value) =>
+            UiProperties.MotionDescriptor(value);
+
         private sealed partial class UiProperties
         {
             private Prop<MotionDescriptor> MotionProperty(Wire.UiPropertyKey key) =>
@@ -22,7 +25,7 @@ namespace Battlement
                         )
                 );
 
-            private static MotionDescriptor MotionDescriptor(Wire.MotionDescriptor value)
+            internal static MotionDescriptor MotionDescriptor(Wire.MotionDescriptor value)
             {
                 var slots = new MotionSlotDescriptor[value.SlotsLength];
                 for (int index = 0; index < slots.Length; index++)

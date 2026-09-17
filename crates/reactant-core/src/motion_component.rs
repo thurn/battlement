@@ -4,6 +4,7 @@ use std::any::TypeId;
 
 use crate::{
   component::Component,
+  key::StructuralRender,
   motion::{InitialValue, MotionProps, MotionTarget, Transition},
   render::{Render, RenderSink},
   render_value::Sealed,
@@ -63,6 +64,36 @@ pub trait MotionComponentExt: MotionComponent + Clone {
     Custom: VariantData,
   {
     ForwardedMotion::new(self, MotionProps::new().variants(value))
+  }
+
+  /// Selects the hover target for the forwarded host.
+  #[must_use]
+  fn while_hover(self, value: impl Into<MotionTarget>) -> ForwardedMotion<Self> {
+    ForwardedMotion::new(self, MotionProps::new().while_hover(value))
+  }
+
+  /// Selects the press target for the forwarded host.
+  #[must_use]
+  fn while_tap(self, value: impl Into<MotionTarget>) -> ForwardedMotion<Self> {
+    ForwardedMotion::new(self, MotionProps::new().while_tap(value))
+  }
+
+  /// Selects the focus target for the forwarded host.
+  #[must_use]
+  fn while_focus(self, value: impl Into<MotionTarget>) -> ForwardedMotion<Self> {
+    ForwardedMotion::new(self, MotionProps::new().while_focus(value))
+  }
+
+  /// Selects the visible focus target for the forwarded host.
+  #[must_use]
+  fn while_focus_visible(self, value: impl Into<MotionTarget>) -> ForwardedMotion<Self> {
+    ForwardedMotion::new(self, MotionProps::new().while_focus_visible(value))
+  }
+
+  /// Selects the drag target for the forwarded host.
+  #[must_use]
+  fn while_drag(self, value: impl Into<MotionTarget>) -> ForwardedMotion<Self> {
+    ForwardedMotion::new(self, MotionProps::new().while_drag(value))
   }
 
   /// Selects one named animate target on the forwarded host.
@@ -126,6 +157,43 @@ pub trait MotionComponentExt: MotionComponent + Clone {
 impl<T: MotionComponent + Clone> MotionComponentExt for T {}
 
 impl<C> ForwardedMotion<C> {
+  /// Selects the hover target for the forwarded host.
+  #[must_use]
+  pub fn while_hover(mut self, value: impl Into<MotionTarget>) -> Self {
+    self.motion = self.motion.merge(MotionProps::new().while_hover(value));
+    self
+  }
+
+  /// Selects the press target for the forwarded host.
+  #[must_use]
+  pub fn while_tap(mut self, value: impl Into<MotionTarget>) -> Self {
+    self.motion = self.motion.merge(MotionProps::new().while_tap(value));
+    self
+  }
+
+  /// Selects the focus target for the forwarded host.
+  #[must_use]
+  pub fn while_focus(mut self, value: impl Into<MotionTarget>) -> Self {
+    self.motion = self.motion.merge(MotionProps::new().while_focus(value));
+    self
+  }
+
+  /// Selects the visible focus target for the forwarded host.
+  #[must_use]
+  pub fn while_focus_visible(mut self, value: impl Into<MotionTarget>) -> Self {
+    self.motion = self
+      .motion
+      .merge(MotionProps::new().while_focus_visible(value));
+    self
+  }
+
+  /// Selects the drag target for the forwarded host.
+  #[must_use]
+  pub fn while_drag(mut self, value: impl Into<MotionTarget>) -> Self {
+    self.motion = self.motion.merge(MotionProps::new().while_drag(value));
+    self
+  }
+
   fn new(component: C, motion: MotionProps) -> Self {
     Self { component, motion }
   }
@@ -239,6 +307,8 @@ impl<C> ForwardedMotion<C> {
 }
 
 impl<C> Render for ForwardedMotion<C> where C: MotionComponent + Clone {}
+
+impl<C> StructuralRender for ForwardedMotion<C> where C: MotionComponent + Clone {}
 
 #[allow(private_interfaces)]
 impl<C> Sealed for ForwardedMotion<C>

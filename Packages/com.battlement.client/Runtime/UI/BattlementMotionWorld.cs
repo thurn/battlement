@@ -113,16 +113,26 @@ namespace Battlement.UI
             if (motion.IsUnset && descriptorByHost.TryGetValue(hostId.Value, out Guid currentId))
                 nextMotion = descriptors[currentId].Descriptor;
             BattlementPaintAdmission.Validate(target, paint, nextMotion);
+            if (motion.IsSet)
+                BattlementMotionPropertyWriter.Configure(target, assets);
+            return Prepare(BattlementUiMotionTarget.For(target), hostId, motion);
+        }
+
+        public BattlementPreparedMotionAdmission? Prepare(
+            IBattlementMotionTarget target,
+            ObjectId hostId,
+            Prop<MotionDescriptor> motion
+        )
+        {
+            ThrowIfDisposed();
             if (motion.IsUnset)
                 return null;
             if (motion.IsReset)
                 return new BattlementPreparedMotionAdmission(this, hostId.Value, null);
-
             MotionDescriptor descriptor = motion.Value;
-            BattlementMotionPropertyWriter.Configure(target, assets);
             BattlementMotionValidator.Validate(descriptor, hostId);
-            BattlementMotionDescriptorValidator.ValidateCapabilities(descriptor);
-            BattlementMotionGraph.ValidateDescriptor(descriptor);
+            BattlementMotionDescriptorValidator.ValidateCapabilities(descriptor, target);
+            BattlementMotionGraph.ValidateDescriptor(descriptor, target.Supports);
             graph.ValidateReplacement(descriptor);
             DescriptorState? previous = descriptors.TryGetValue(
                 descriptor.DescriptorId.Value,
@@ -141,16 +151,19 @@ namespace Battlement.UI
                 descriptorByHost.TryGetValue(hostId.Value, out Guid existingId)
                 && existingId != descriptor.DescriptorId.Value
             )
-                throw Invalid("A UI host cannot own two motion descriptors.");
+                throw Invalid("A host cannot own two motion descriptors.");
 
             var prepared = new DescriptorState(
                 descriptor,
                 target,
                 ClockMicros(descriptor.Clock),
                 previous,
-                sharedLayouts.Origin(descriptor, target, previous, descriptors.Values),
+                target is BattlementUiMotionTarget ui
+                    ? sharedLayouts.Origin(descriptor, ui.Element, previous, descriptors.Values)
+                    : null,
                 reconnect.Active
             );
+            ValidateActiveControl(prepared);
             return new BattlementPreparedMotionAdmission(this, hostId.Value, prepared);
         }
 
@@ -183,7 +196,7 @@ namespace Battlement.UI
                 if (gestures.Remove(descriptorId, out BattlementGestureState gesture))
                     gesture.Dispose();
                 descriptor.Dispose();
-                BattlementMotionPropertyWriter.Release(descriptor.Target);
+                descriptor.Properties.Release();
                 graph.Remove(descriptor.Descriptor.DescriptorId);
             }
         }
@@ -196,7 +209,7 @@ namespace Battlement.UI
             foreach (DescriptorState descriptor in descriptors.Values)
             {
                 descriptor.Dispose();
-                BattlementMotionPropertyWriter.Release(descriptor.Target);
+                descriptor.Properties.Release();
             }
             descriptors.Clear();
             descriptorByHost.Clear();
@@ -234,7 +247,7 @@ namespace Battlement.UI
                 if (gestures.Remove(descriptorId, out BattlementGestureState gesture))
                     gesture.Dispose();
                 descriptor.Dispose();
-                BattlementMotionPropertyWriter.Release(descriptor.Target);
+                descriptor.Properties.Release();
                 graph.Remove(descriptor.Descriptor.DescriptorId);
             }
         }
@@ -252,14 +265,15 @@ namespace Battlement.UI
 
         public void Apply(MotionValueOperation operation) => graph.Apply(operation);
 
-        public void ApplyValue(
+        public IBattlementCommandOperation? ApplyValue(
             ObjectId valueId,
             MotionValueOperationKind kind,
             MotionValue? value,
             ObjectId playbackId,
             uint generation,
-            TransitionDefinition? transition
-        ) => graph.ApplyValue(valueId, kind, value, playbackId, generation, transition);
+            TransitionDefinition? transition,
+            bool blocking = false
+        ) => graph.ApplyValue(valueId, kind, value, playbackId, generation, transition, blocking);
 
         public void Apply(MotionValuePlaybackOperation operation)
         {
@@ -332,72 +346,53 @@ namespace Battlement.UI
             switch (operation.Command)
             {
                 case MotionControlCommand.Start start:
-                    RemoveActiveControl(
-                        operation.ControlId.Value,
-                        clearSlots: true,
-                        MotionPlaybackOutcome.Cancelled
-                    );
-                    var addresses = new List<MotionPlaybackAddress>();
-                    var active = new ActiveControl(
+                    ApplyControl(
+                        operation.ControlId,
+                        MotionControlOperationKind.Start,
                         start.PlaybackId,
                         start.Generation,
-                        start.Target,
-                        addresses
+                        start.Target
                     );
-                    activeControls[operation.ControlId.Value] = active;
-                    imperativePlaybacks.Register(start.PlaybackId, start.Generation, addresses);
-                    installingControls.Add(operation.ControlId.Value);
-                    try
-                    {
-                        foreach (DescriptorState binding in ControlBindings(operation.ControlId))
-                            addresses.Add(InstallActiveControl(binding, active));
-                    }
-                    finally
-                    {
-                        installingControls.Remove(operation.ControlId.Value);
-                    }
                     break;
                 case MotionControlCommand.Set set:
-                    RemoveActiveControl(
-                        operation.ControlId.Value,
-                        clearSlots: true,
-                        MotionPlaybackOutcome.Cancelled
+                    ApplyControl(
+                        operation.ControlId,
+                        MotionControlOperationKind.Set,
+                        default,
+                        0,
+                        set.Value
                     );
-                    foreach (DescriptorState binding in ControlBindings(operation.ControlId))
-                        BattlementMotionControlUtilities.ApplyImmediately(
-                            binding,
-                            BattlementMotionControlUtilities.Resolve(binding, set.Value)
-                        );
                     break;
                 case MotionControlCommand.Stop:
-                    RemoveActiveControl(
-                        operation.ControlId.Value,
-                        clearSlots: false,
-                        MotionPlaybackOutcome.Stopped
+                    ApplyControl(
+                        operation.ControlId,
+                        MotionControlOperationKind.Stop,
+                        default,
+                        0,
+                        null
                     );
-                    foreach (DescriptorState binding in ControlBindings(operation.ControlId))
-                        StopImperative(binding);
                     break;
                 case MotionControlCommand.Clear:
-                    RemoveActiveControl(
-                        operation.ControlId.Value,
-                        clearSlots: false,
-                        MotionPlaybackOutcome.Cancelled
+                    ApplyControl(
+                        operation.ControlId,
+                        MotionControlOperationKind.Clear,
+                        default,
+                        0,
+                        null
                     );
-                    foreach (DescriptorState binding in ControlBindings(operation.ControlId))
-                        ClearImperative(binding);
                     break;
                 default:
                     throw Invalid("Unknown animation-controls operation.");
             }
         }
 
-        public void ApplyControl(
+        public IBattlementCommandOperation? ApplyControl(
             ObjectId controlId,
             MotionControlOperationKind kind,
             ObjectId playbackId,
             uint generation,
-            MotionControlTarget? target
+            MotionControlTarget? target,
+            bool blocking = false
         )
         {
             if (
@@ -405,12 +400,31 @@ namespace Battlement.UI
                 && target is null
             )
                 throw Invalid("A motion control target is absent.");
+            if (
+                blocking
+                && kind == MotionControlOperationKind.Start
+                && ControlBindings(controlId).Length == 0
+            )
+                throw Invalid("Blocking Motion controls require a mounted target.");
+            if (target is not null)
+                foreach (DescriptorState binding in ControlBindings(controlId))
+                    ValidateImperative(
+                        binding,
+                        BattlementMotionControlUtilities.Resolve(binding, target),
+                        blocking
+                    );
             switch (kind)
             {
                 case MotionControlOperationKind.Start:
-                    RemoveActiveControl(controlId.Value, true, MotionPlaybackOutcome.Cancelled);
+                    RemoveActiveControl(controlId.Value, false, MotionPlaybackOutcome.Cancelled);
                     var addresses = new List<MotionPlaybackAddress>();
-                    var active = new ActiveControl(playbackId, generation, target!, addresses);
+                    var active = new ActiveControl(
+                        playbackId,
+                        generation,
+                        target!,
+                        addresses,
+                        blocking
+                    );
                     activeControls[controlId.Value] = active;
                     imperativePlaybacks.Register(playbackId, generation, addresses);
                     installingControls.Add(controlId.Value);
@@ -445,6 +459,7 @@ namespace Battlement.UI
                 default:
                     throw Invalid("Unknown animation-controls operation.");
             }
+            return kind == MotionControlOperationKind.Start ? RunningOperation(playbackId) : null;
         }
 
         public void Apply(MotionScopeOperation operation)
@@ -495,6 +510,9 @@ namespace Battlement.UI
                         }
                     }
                     foreach (var group in selected.Values)
+                    foreach (var step in group.Targets)
+                        ValidateImperative(group.Descriptor, step.Target, false);
+                    foreach (var group in selected.Values)
                         addresses.AddRange(
                             InstallImperatives(group.Descriptor, group.Targets, start.Generation)
                         );
@@ -527,13 +545,16 @@ namespace Battlement.UI
             }
         }
 
-        public void ApplyScope(IBattlementMotionScopeView operation)
+        public IBattlementCommandOperation? ApplyScope(
+            IBattlementMotionScopeView operation,
+            bool blocking = false
+        )
         {
             DescriptorState? root = descriptors.Values.FirstOrDefault(value =>
                 value.Descriptor.ScopeRoot && value.Descriptor.ScopeId == operation.ScopeId
             );
             if (root is null)
-                return;
+                return null;
             switch (operation.Kind)
             {
                 case MotionScopeOperationKind.Start:
@@ -574,6 +595,9 @@ namespace Battlement.UI
                         }
                     }
                     foreach (var group in selected.Values)
+                    foreach (var step in group.Targets)
+                        ValidateImperative(group.Descriptor, step.Target, blocking);
+                    foreach (var group in selected.Values)
                         addresses.AddRange(
                             InstallImperatives(
                                 group.Descriptor,
@@ -591,7 +615,7 @@ namespace Battlement.UI
                             operation.PlaybackId.Value,
                             MotionPlaybackOutcome.Completed
                         );
-                    break;
+                    return RunningOperation(operation.PlaybackId);
                 case MotionScopeOperationKind.Set:
                     MotionSelector setSelector = operation.ReadSelector();
                     MotionTargetDescriptor setTarget = operation.ReadTarget();
@@ -620,6 +644,7 @@ namespace Battlement.UI
                 default:
                     throw Invalid("Unknown animation-scope operation.");
             }
+            return null;
         }
 
         public void Apply(MotionDragControlOperation operation)
@@ -886,7 +911,7 @@ namespace Battlement.UI
                     slot.Definition.Slot,
                     slot.Definition.Generation,
                     slot.LastElapsedMicros,
-                    slot.CaptureValues(descriptor.Target)
+                    slot.CaptureValues(descriptor.Properties)
                 );
             }
             pendingSamples.Clear();
@@ -977,6 +1002,15 @@ namespace Battlement.UI
                 : null;
         }
 
+        internal void SetNativeGesture(ObjectId hostId, MotionLayer layer, bool active)
+        {
+            if (
+                descriptorByHost.TryGetValue(hostId.Value, out Guid id)
+                && descriptors.TryGetValue(id, out DescriptorState descriptor)
+            )
+                descriptor.SetGestureLayer(layer, active, ClockMicros(descriptor.Descriptor.Clock));
+        }
+
         public void SetFocusVisible(ObjectId hostId, bool value)
         {
             if (!descriptorByHost.TryGetValue(hostId.Value, out Guid descriptorId))
@@ -1007,7 +1041,11 @@ namespace Battlement.UI
             )
             {
                 if (!reconnect.Active)
-                    previous.CancelActiveSlots(this, ClockMicros(previous.Descriptor.Clock));
+                    previous.CancelActiveSlots(
+                        this,
+                        ClockMicros(previous.Descriptor.Clock),
+                        prepared
+                    );
                 if (
                     gestures.Remove(
                         prepared.Descriptor.DescriptorId.Value,
@@ -1020,7 +1058,7 @@ namespace Battlement.UI
             descriptors[prepared.Descriptor.DescriptorId.Value] = prepared;
             reconnect.Restored(prepared.Descriptor.DescriptorId.Value);
             descriptorByHost[hostId] = prepared.Descriptor.DescriptorId.Value;
-            graph.Replace(prepared.Descriptor, prepared.Target);
+            graph.Replace(prepared.Descriptor, prepared.Properties);
             EnsurePlayerLoop();
             prepared.SynchronizeStaticStyles();
             if (reconnect.Active)
@@ -1029,7 +1067,7 @@ namespace Battlement.UI
                 prepared.ApplyInitialPresentation(IsReduced(prepared.Descriptor));
             if (!reconnect.Active)
                 prepared.EmitActivated(this);
-            if (prepared.Descriptor.Gestures is not null)
+            if (prepared.Descriptor.Gestures is not null && prepared.Element is not null)
             {
                 Guid descriptorId = prepared.Descriptor.DescriptorId.Value;
                 gestures[descriptorId] = new BattlementGestureState(
@@ -1070,6 +1108,19 @@ namespace Battlement.UI
         private DescriptorState[] ControlBindings(ObjectId controlId) =>
             descriptors.Values.Where(value => value.Descriptor.ControlId == controlId).ToArray();
 
+        private void ValidateActiveControl(DescriptorState descriptor)
+        {
+            if (
+                descriptor.Descriptor.ControlId is ObjectId controlId
+                && activeControls.TryGetValue(controlId.Value, out ActiveControl active)
+            )
+                ValidateImperative(
+                    descriptor,
+                    BattlementMotionControlUtilities.Resolve(descriptor, active.Target),
+                    active.Blocking
+                );
+        }
+
         private void AttachActiveControl(DescriptorState descriptor)
         {
             if (
@@ -1078,6 +1129,7 @@ namespace Battlement.UI
                 || !activeControls.TryGetValue(controlId.Value, out ActiveControl active)
             )
                 return;
+            ValidateActiveControl(descriptor);
             installingControls.Add(controlId.Value);
             try
             {
@@ -1148,13 +1200,107 @@ namespace Battlement.UI
         private void Sample(bool layout)
         {
             ThrowIfDisposed();
+            List<(DescriptorState Descriptor, Exception Failure)>? failures = null;
             foreach (DescriptorState descriptor in descriptors.Values)
-                descriptor.Sample(
-                    ClockMicros(descriptor.Descriptor.Clock),
-                    layout,
-                    IsReduced(descriptor.Descriptor),
-                    this
-                );
+            {
+                try
+                {
+                    descriptor.Sample(
+                        ClockMicros(descriptor.Descriptor.Clock),
+                        layout,
+                        IsReduced(descriptor.Descriptor),
+                        this
+                    );
+                }
+                catch (Exception failure)
+                {
+                    if (
+                        !imperativePlaybacks.OwnsDescriptor(
+                            descriptor.Descriptor.DescriptorId.Value
+                        )
+                    )
+                        throw;
+                    pendingSamples.RemoveAll(sample =>
+                        ReferenceEquals(sample.Descriptor, descriptor)
+                    );
+                    (failures ??= new()).Add((descriptor, failure));
+                }
+            }
+            if (failures is null)
+                return;
+            foreach ((DescriptorState descriptor, Exception failure) in failures)
+            {
+                foreach (
+                    Guid playback in imperativePlaybacks.FailDescriptor(
+                        descriptor.Descriptor.DescriptorId.Value,
+                        failure,
+                        CancelAddress
+                    )
+                )
+                    ForgetActiveControl(playback);
+                RemoveHost(descriptor.Descriptor.HostId);
+            }
+        }
+
+        private void CancelAddress(MotionPlaybackAddress address)
+        {
+            if (
+                descriptors.TryGetValue(address.DescriptorId.Value, out DescriptorState descriptor)
+                && descriptor.FindSlot(address.Slot)?.Definition.Generation == address.Generation
+            )
+                Cancel(address.DescriptorId, address.Slot, address.Generation);
+        }
+
+        internal IBattlementCommandOperation? RunningOperation(ObjectId playbackId) =>
+            imperativePlaybacks.Operation(
+                playbackId,
+                descriptors,
+                CompleteImperativePlaybacks,
+                playback =>
+                {
+                    foreach (MotionPlaybackAddress address in playback.Addresses)
+                        if (
+                            descriptors.TryGetValue(
+                                address.DescriptorId.Value,
+                                out DescriptorState descriptor
+                            )
+                            && descriptor.FindSlot(address.Slot)?.Definition.Generation
+                                == address.Generation
+                        )
+                            Cancel(address.DescriptorId, address.Slot, address.Generation);
+                    FinishImperative(playbackId.Value, MotionPlaybackOutcome.Cancelled);
+                }
+            );
+
+        private static void ValidateImperative(
+            DescriptorState descriptor,
+            MotionTargetDescriptor target,
+            bool blocking
+        )
+        {
+            var proposed = descriptor.Descriptor with
+            {
+                Slots = new[]
+                {
+                    new MotionSlotDescriptor(
+                        1,
+                        1,
+                        MotionLayer.Animate,
+                        target,
+                        new MotionCallbackSubscriptions(false, false, false, false, false, false)
+                    ),
+                },
+            };
+            BattlementMotionValidator.Validate(proposed, proposed.HostId);
+            BattlementMotionDescriptorValidator.ValidateCapabilities(
+                proposed,
+                descriptor.Properties
+            );
+            if (
+                blocking
+                && target.Tracks.Any(track => track.Transition.Repeat is MotionRepeat.Forever)
+            )
+                throw Invalid("An infinite Motion playback must be nonblocking.");
         }
 
         private bool IsReduced(MotionDescriptor descriptor) =>
@@ -1241,7 +1387,7 @@ namespace Battlement.UI
             uint generation
         )
         {
-            var slots = descriptor.Descriptor.Slots.ToList();
+            var replacements = new List<MotionSlotDescriptor>();
             var addresses = new List<MotionPlaybackAddress>();
             foreach ((MotionTargetDescriptor target, ulong offset) in targets)
             {
@@ -1250,8 +1396,7 @@ namespace Battlement.UI
                 uint actualGeneration = previousSlot is null
                     ? generation
                     : Math.Max(generation, checked(previousSlot.Definition.Generation + 1));
-                slots.RemoveAll(value => value.Slot == slot);
-                slots.Add(
+                replacements.Add(
                     new MotionSlotDescriptor(
                         slot,
                         actualGeneration,
@@ -1268,13 +1413,22 @@ namespace Battlement.UI
                     )
                 );
             }
+            List<MotionSlotDescriptor> slots = BattlementMotionOwnership.RetainDisjoint(
+                descriptor,
+                replacements,
+                out var retained
+            );
+            slots.AddRange(replacements);
             MotionDescriptor updated = descriptor.Descriptor with { Slots = slots };
             var prepared = new DescriptorState(
                 updated,
-                descriptor.Target,
+                descriptor.Properties,
                 ClockMicros(updated.Clock),
-                descriptor
+                descriptor,
+                retainUnchangedSlots: true
             );
+            foreach ((ulong slot, SlotState previous) in retained)
+                prepared.RetainPlayback(slot, previous, ClockMicros(updated.Clock));
             Commit(updated.HostId.Value, prepared);
             return addresses;
         }
@@ -1298,9 +1452,10 @@ namespace Battlement.UI
                 updated.HostId.Value,
                 new DescriptorState(
                     updated,
-                    descriptor.Target,
+                    descriptor.Properties,
                     ClockMicros(updated.Clock),
-                    descriptor
+                    descriptor,
+                    retainUnchangedSlots: true
                 )
             );
         }
@@ -1328,7 +1483,8 @@ namespace Battlement.UI
             ObjectId PlaybackId,
             uint Generation,
             MotionControlTarget Target,
-            List<MotionPlaybackAddress> Addresses
+            List<MotionPlaybackAddress> Addresses,
+            bool Blocking
         );
     }
 }

@@ -62,6 +62,53 @@ where
         ScheduledOperation::from_command(&command, batch_id, self.presentation_ms, &self.world)
       {
         self.schedule_operation(operation);
+      } else if let CommandBody::MotionControl(value) = &command.body {
+        if let Some(motion) = self.motion.control(
+          value,
+          command.blocking,
+          &mut self.world,
+          &mut self.ui_world,
+          self.presentation_ms * 1000,
+        ) {
+          self.schedule_operation(ScheduledOperation::from_motion(
+            &command,
+            batch_id,
+            self.presentation_ms,
+            motion,
+          ));
+        }
+      } else if let CommandBody::MotionScope(value) = &command.body {
+        if let Some(motion) = self.motion.scope(
+          value,
+          command.blocking,
+          &mut self.world,
+          &mut self.ui_world,
+          self.presentation_ms * 1000,
+        ) {
+          self.schedule_operation(ScheduledOperation::from_motion(
+            &command,
+            batch_id,
+            self.presentation_ms,
+            motion,
+          ));
+        }
+      } else if let CommandBody::MotionValue(value) = &command.body {
+        if let Some(motion) =
+          self
+            .motion
+            .value(value, command.blocking, self.presentation_ms * 1000)
+        {
+          self.schedule_operation(ScheduledOperation::from_motion(
+            &command,
+            batch_id,
+            self.presentation_ms,
+            motion,
+          ));
+        }
+      } else if let CommandBody::MotionValuePlayback(value) = &command.body {
+        self
+          .motion
+          .value_playback(*value, self.presentation_ms * 1000);
       } else {
         self.execute_body(&command.body, command.command_id);
       }
@@ -141,7 +188,14 @@ where
           "object create used a live UI identity: {}",
           value.object.object_id
         );
-        self.world.create_object(value.object.clone(), &self.assets)
+        self.world.create_object(value.object.clone(), &self.assets);
+        self.motion.install(
+          value.object.object_id,
+          value.object.motion.as_deref().cloned(),
+          &mut self.world,
+          &mut self.ui_world,
+          self.presentation_ms * 1000,
+        );
       }
       CommandBody::ObjectDestroy(value) => self.world.destroy_object(value.object_id),
       CommandBody::ObjectSetRenderOrder(value) => self
@@ -536,12 +590,23 @@ where
         let audio = self.world.audio_mut(value.payload.audio_command_id);
         audio.volume = tween::scalar(audio.volume, value.payload.volume, value.payload.tween);
       }
-      CommandBody::MotionValue(_)
+      CommandBody::MotionSetWorldDescriptor(value) => self.motion.install(
+        value.object_id,
+        value.motion.as_deref().cloned(),
+        &mut self.world,
+        &mut self.ui_world,
+        self.presentation_ms * 1000,
+      ),
+      CommandBody::MotionPlayback(value) => {
+        self.motion.playback(*value, self.presentation_ms * 1000)
+      }
+      CommandBody::MotionControlledClock(value) => self.motion.controlled(*value),
+      CommandBody::MotionScope(_)
+      | CommandBody::MotionValue(_)
       | CommandBody::MotionValuePlayback(_)
-      | CommandBody::MotionPlayback(_)
-      | CommandBody::MotionControlledClock(_)
-      | CommandBody::MotionControl(_)
-      | CommandBody::MotionScope(_) => {}
+      | CommandBody::MotionControl(_) => {
+        unreachable!("Motion operations are scheduled by execute_command")
+      }
       CommandBody::TimeWait(_) => {}
       CommandBody::OperationCancel(value) => assert!(
         self.executed_commands.contains(&value.command_id),
@@ -582,6 +647,12 @@ where
           .ui_world
           .create(value.as_ref().clone())
           .unwrap_or_else(|error| panic!("UI create failed: {error:?}"));
+        self.motion.install_tree(
+          &value.node,
+          &mut self.world,
+          &mut self.ui_world,
+          self.presentation_ms * 1000,
+        );
       }
       CommandBody::VisualElementUpdate(value) => {
         assert!(
@@ -595,6 +666,15 @@ where
           .ui_world
           .update(value.as_ref().clone())
           .unwrap_or_else(|error| panic!("UI update failed: {error:?}"));
+        if let battlement::VisualElementUpdate::Properties { element, .. } = value.as_ref() {
+          self.motion.apply_property(
+            value.object_id(),
+            &element.visual_element().motion,
+            &mut self.world,
+            &mut self.ui_world,
+            self.presentation_ms * 1000,
+          );
+        }
       }
       CommandBody::VisualElementDestroy(value) => {
         assert!(

@@ -1,6 +1,6 @@
 //! Runtime helpers for Motion transport and presence boundaries.
 
-use battlement::{CommandBody, MotionEventBatch, MotionSequence};
+use battlement::{Command, MotionEventBatch, MotionSequence};
 
 use crate::root_view::RootRegistration;
 
@@ -53,9 +53,9 @@ pub(crate) fn invoke_ready_presence<G: 'static>(
 }
 
 pub(crate) fn merge_groups(
-  mut merged: Vec<Vec<CommandBody>>,
-  groups: Vec<Vec<CommandBody>>,
-) -> Vec<Vec<CommandBody>> {
+  mut merged: Vec<Vec<Command>>,
+  groups: Vec<Vec<Command>>,
+) -> Vec<Vec<Command>> {
   for (index, group) in groups.into_iter().enumerate() {
     if index == merged.len() {
       merged.push(group);

@@ -350,6 +350,25 @@ pub(crate) fn write_command<'a>(
         payload.as_union_value(),
       )
     }
+    CommandBody::MotionSetWorldDescriptor(body) => {
+      let motion = body
+        .motion
+        .as_ref()
+        .map(|value| crate::response_motion_descriptor::write_descriptor(builder, value))
+        .transpose()?;
+      let payload = command_wire::WorldMotionPayload::create(
+        builder,
+        &command_wire::WorldMotionPayloadArgs {
+          object_id: Some(&uuid(body.object_id.as_uuid())),
+          motion,
+        },
+      );
+      (
+        wire::CoreCommandKind::MotionSetWorldDescriptor,
+        wire::CoreCommandPayload::WorldMotionPayload,
+        payload.as_union_value(),
+      )
+    }
     CommandBody::InputSetWorldPointer(body) => {
       let settings = body
         .settings
@@ -2372,6 +2391,11 @@ fn write_game_object<'a>(
   let world_pointer = value
     .world_pointer
     .map(|v| crate::world_pointer::write(builder, v));
+  let motion = value
+    .motion
+    .as_ref()
+    .map(|descriptor| crate::response_motion_descriptor::write_descriptor(builder, descriptor))
+    .transpose()?;
   Ok(world_wire::GameObject::create(
     builder,
     &world_wire::GameObjectArgs {
@@ -2382,6 +2406,7 @@ fn write_game_object<'a>(
       render_order,
       material_instances,
       world_pointer,
+      motion,
       local_transform: Some(&local_transform),
       pointer_events: Some(pointer_events),
       drag_mode: match value.drag_mode {
@@ -3148,6 +3173,7 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     }
     wire::CoreCommandKind::BoxHitRegionSetGeometry => wire::CoreCommandPayload::BoxHitRegionPayload,
     wire::CoreCommandKind::InputSetWorldPointer => wire::CoreCommandPayload::WorldPointerPayload,
+    wire::CoreCommandKind::MotionSetWorldDescriptor => wire::CoreCommandPayload::WorldMotionPayload,
     wire::CoreCommandKind::RendererSetInstances => {
       wire::CoreCommandPayload::RendererInstancesPayload
     }
@@ -3303,6 +3329,12 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
       {
         crate::material::validate_asset(asset)?;
       }
+    }
+    wire::CoreCommandKind::MotionSetWorldDescriptor => {
+      let body = value
+        .payload_as_world_motion_payload()
+        .expect("kind/payload checked");
+      require_uuid(body.object_id(), "world motion object")?;
     }
     wire::CoreCommandKind::InputSetWorldPointer => {
       require_uuid(

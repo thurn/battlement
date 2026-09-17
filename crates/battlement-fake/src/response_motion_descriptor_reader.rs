@@ -22,7 +22,9 @@ pub(crate) fn motion(
   })
 }
 
-fn descriptor(value: wire::MotionDescriptor<'_>) -> Result<battlement::MotionDescriptor, String> {
+pub(crate) fn descriptor(
+  value: wire::MotionDescriptor<'_>,
+) -> Result<battlement::MotionDescriptor, String> {
   Ok(battlement::MotionDescriptor {
     descriptor_id: object_id(value.descriptor_id())?,
     host_id: object_id(value.host_id())?,

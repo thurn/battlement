@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine.UIElements;
 
 namespace Battlement.UI
 {
@@ -41,7 +40,10 @@ namespace Battlement.UI
                 .Values.Where(playback => playback.IsFiniteActive)
                 .Select(playback => playback.ReadinessDiagnostic());
 
-        public static void ValidateDescriptor(MotionDescriptor descriptor)
+        public static void ValidateDescriptor(
+            MotionDescriptor descriptor,
+            Func<MotionProperty, bool>? supports = null
+        )
         {
             IReadOnlyList<MotionValueDescriptor> values =
                 descriptor.Values ?? Array.Empty<MotionValueDescriptor>();
@@ -79,7 +81,7 @@ namespace Battlement.UI
                     throw Invalid("Graph composition supports scale factors.");
                 if (!properties.Add(binding.Property))
                     throw Invalid("Motion-value bindings repeat a host property.");
-                if (!BattlementMotionPropertyWriter.Supports(binding.Property))
+                if (!(supports ?? BattlementMotionPropertyWriter.Supports)(binding.Property))
                     throw Invalid(
                         $"Motion property {binding.Property} has no renderer capability."
                     );
@@ -121,7 +123,7 @@ namespace Battlement.UI
             }
         }
 
-        public void Replace(MotionDescriptor descriptor, VisualElement target)
+        public void Replace(MotionDescriptor descriptor, IBattlementMotionTarget target)
         {
             if (registrations.TryGetValue(descriptor.DescriptorId.Value, out Registration previous))
                 ClearContributions(previous);
@@ -144,6 +146,8 @@ namespace Battlement.UI
                 ClearContributions(registration);
             registrations.Clear();
             nodes.Clear();
+            foreach (ValuePlayback playback in playbacks.Values)
+                playback.Cancel();
             playbacks.Clear();
             order.Clear();
             samples.Clear();
@@ -157,19 +161,19 @@ namespace Battlement.UI
             frame++;
             LastEvaluationCount = 0;
             clockSamples.Clear();
-            foreach (
-                (Guid id, ValuePlayback playback) in playbacks.Count == 0
+            KeyValuePair<Guid, ValuePlayback>[] active =
+                playbacks.Count == 0
                     ? Array.Empty<KeyValuePair<Guid, ValuePlayback>>()
-                    : playbacks.ToArray()
-            )
+                    : playbacks.ToArray();
+            foreach ((Guid id, ValuePlayback playback) in active)
             {
-                playback.Sample(clock(new MotionClockSource.Unscaled()).ElapsedMicros);
-                if (playback.Outcome is MotionPlaybackOutcome outcome)
+                try
                 {
-                    playbackEvents.Add(
-                        new MotionPlaybackEvent(new ObjectId(id), playback.Generation, outcome)
-                    );
-                    playbacks.Remove(id);
+                    playback.Sample(clock(new MotionClockSource.Unscaled()).ElapsedMicros);
+                }
+                catch (Exception failure)
+                {
+                    playback.Fail(failure);
                 }
             }
             foreach (NodeState node in order)
@@ -181,6 +185,16 @@ namespace Battlement.UI
                 LastEvaluationCount++;
             }
             ApplyBindings();
+            foreach ((Guid id, ValuePlayback playback) in active)
+                if (
+                    playback.Terminal
+                    && playbacks.TryGetValue(id, out ValuePlayback current)
+                    && ReferenceEquals(playback, current)
+                )
+                {
+                    QueuePlaybackEvent(id, playback);
+                    playbacks.Remove(id);
+                }
             CaptureSubscriptions();
         }
 
@@ -232,15 +246,18 @@ namespace Battlement.UI
             }
         }
 
-        public void ApplyValue(
+        public IBattlementCommandOperation? ApplyValue(
             ObjectId valueId,
             MotionValueOperationKind kind,
             MotionValue? value,
             ObjectId playbackId,
             uint generation,
-            TransitionDefinition? transition
+            TransitionDefinition? transition,
+            bool blocking = false
         )
         {
+            if (blocking && transition?.Repeat is MotionRepeat.Forever)
+                throw Invalid("An infinite Motion playback must be nonblocking.");
             if (!nodes.TryGetValue(valueId.Value, out NodeState node))
                 throw Invalid("The motion value does not exist.");
             if (node.Descriptor.Source is not MotionValueSource.Mutable)
@@ -287,6 +304,25 @@ namespace Battlement.UI
                 default:
                     throw Invalid("Unknown motion-value command.");
             }
+            if (kind != MotionValueOperationKind.Animate)
+                return null;
+            ValuePlayback running = playbacks[playbackId.Value];
+            return new RunningMotion(
+                running,
+                () => transition!.Repeat is MotionRepeat.Forever,
+                () => { },
+                () =>
+                {
+                    running.Cancel();
+                    QueuePlaybackEvent(playbackId.Value, running);
+                    if (
+                        playbacks.TryGetValue(playbackId.Value, out ValuePlayback current)
+                        && ReferenceEquals(current, running)
+                    )
+                        playbacks.Remove(playbackId.Value);
+                },
+                () => running.IsHeld
+            );
         }
 
         public void SetLocal(ObjectId valueId, MotionValue value)
@@ -399,7 +435,12 @@ namespace Battlement.UI
                     .Select(pair => pair.Key)
                     .ToArray()
             )
+            {
+                ValuePlayback playback = playbacks[id];
+                playback.Cancel();
+                QueuePlaybackEvent(id, playback);
                 playbacks.Remove(id);
+            }
         }
 
         private void Append(Guid id, HashSet<Guid> visited)
@@ -413,43 +454,76 @@ namespace Battlement.UI
 
         private void ApplyBindings()
         {
+            List<ObjectId>? failed = null;
             foreach (Registration registration in registrations.Values)
-            foreach (
-                MotionValueBinding binding in registration.Descriptor.ValueBindings
-                    ?? Array.Empty<MotionValueBinding>()
-            )
             {
-                NodeState node = nodes[binding.ValueId.Value];
-                if (binding.Composition == MotionBindingComposition.Compose)
+                try
                 {
-                    MotionValue contribution =
-                        reducedMotion(registration.Descriptor)
-                        && BattlementMotionPropertyWriter.IsSpatial(binding.Property)
-                            ? ReducedValue(registration.Descriptor, binding.Property)
-                            : Adapt(binding.Property, node.SnapshotValue());
-                    BattlementMotionContributions.Set(
-                        registration.Target,
-                        binding.Property,
-                        contribution
-                    );
-                    continue;
+                    foreach (
+                        MotionValueBinding binding in registration.Descriptor.ValueBindings
+                            ?? Array.Empty<MotionValueBinding>()
+                    )
+                        ApplyBinding(registration, binding);
                 }
-                if (!reducedMotion(registration.Descriptor) && node.TryScalar(out double scalar))
+                catch (Exception failure)
                 {
-                    BattlementMotionPropertyWriter.WriteAdaptedScalar(
-                        registration.Target,
-                        binding.Property,
-                        scalar
-                    );
-                    continue;
+                    var affected = new HashSet<Guid>();
+                    void Include(Guid id)
+                    {
+                        if (!affected.Add(id))
+                            return;
+                        foreach (Guid source in Dependencies(nodes[id].Descriptor.Source))
+                            Include(source);
+                    }
+                    foreach (
+                        MotionValueBinding binding in registration.Descriptor.ValueBindings
+                            ?? Array.Empty<MotionValueBinding>()
+                    )
+                        Include(binding.ValueId.Value);
+                    bool handled = false;
+                    foreach (ValuePlayback playback in playbacks.Values)
+                        if (affected.Contains(playback.Node.Descriptor.ValueId.Value))
+                        {
+                            playback.Fail(failure);
+                            handled = true;
+                        }
+                    if (!handled)
+                        throw;
+                    (failed ??= new List<ObjectId>()).Add(registration.Descriptor.DescriptorId);
                 }
-                MotionValue value =
-                    reducedMotion(registration.Descriptor)
-                    && BattlementMotionPropertyWriter.IsSpatial(binding.Property)
-                        ? ReducedValue(registration.Descriptor, binding.Property)
-                        : Adapt(binding.Property, node.SnapshotValue());
-                BattlementMotionPropertyWriter.Write(registration.Target, binding.Property, value);
             }
+            if (failed is not null)
+                foreach (ObjectId id in failed)
+                    Remove(id);
+        }
+
+        private void ApplyBinding(Registration registration, MotionValueBinding binding)
+        {
+            NodeState node = nodes[binding.ValueId.Value];
+            bool suppress =
+                reducedMotion(registration.Descriptor)
+                && registration.Target.IsSpatial(binding.Property);
+            if (binding.Composition == MotionBindingComposition.Compose)
+            {
+                registration.Target.SetContribution(
+                    binding.Property,
+                    suppress
+                        ? ReducedValue(binding.Property, node)
+                        : Adapt(binding.Property, node.SnapshotValue())
+                );
+                return;
+            }
+            if (!suppress && node.TryScalar(out double scalar))
+            {
+                registration.Target.WriteAdaptedScalar(binding.Property, scalar);
+                return;
+            }
+            registration.Target.Write(
+                binding.Property,
+                suppress
+                    ? ReducedValue(binding.Property, node)
+                    : Adapt(binding.Property, node.SnapshotValue())
+            );
         }
 
         private static void ClearContributions(Registration registration)
@@ -459,14 +533,16 @@ namespace Battlement.UI
                     ?? Array.Empty<MotionValueBinding>()
             )
                 if (binding.Composition == MotionBindingComposition.Compose)
-                    BattlementMotionContributions.Remove(registration.Target, binding.Property);
+                    registration.Target.RemoveContribution(binding.Property);
         }
 
-        private static MotionValue ReducedValue(
-            MotionDescriptor descriptor,
-            MotionProperty property
-        )
+        private MotionValue ReducedValue(MotionProperty property, NodeState node)
         {
+            if (property >= MotionProperty.LocalPositionX && property <= MotionProperty.LocalScaleZ)
+                return playbacks
+                        .Values.FirstOrDefault(playback => ReferenceEquals(playback.Node, node))
+                        ?.Target
+                    ?? node.SnapshotValue();
             return property switch
             {
                 MotionProperty.X or MotionProperty.Y or MotionProperty.Z => new MotionValue.Length(
@@ -474,7 +550,17 @@ namespace Battlement.UI
                 ),
                 MotionProperty.Translate => new MotionValue.Vector2(new double[] { 0, 0 }),
                 MotionProperty.Scale => new MotionValue.Vector2(new double[] { 1, 1 }),
-                MotionProperty.ScaleX or MotionProperty.ScaleY => new MotionValue.Scalar(1),
+                MotionProperty.ScaleX
+                or MotionProperty.ScaleY
+                or MotionProperty.LocalScaleFactorX
+                or MotionProperty.LocalScaleFactorY
+                or MotionProperty.LocalScaleFactorZ => new MotionValue.Scalar(1),
+                MotionProperty.LocalOffsetX
+                or MotionProperty.LocalOffsetY
+                or MotionProperty.LocalOffsetZ
+                or MotionProperty.LocalTiltX
+                or MotionProperty.LocalTiltY
+                or MotionProperty.LocalTiltZ => new MotionValue.Scalar(0),
                 MotionProperty.Rotate
                 or MotionProperty.RotateX
                 or MotionProperty.RotateY
@@ -659,7 +745,10 @@ namespace Battlement.UI
         private static BattlementUiException Invalid(string message) =>
             new(CoreErrorCode.InvalidProperty, message);
 
-        private sealed record Registration(MotionDescriptor Descriptor, VisualElement Target);
+        private sealed record Registration(
+            MotionDescriptor Descriptor,
+            IBattlementMotionTarget Target
+        );
 
         private sealed class NodeState
         {
@@ -675,6 +764,7 @@ namespace Battlement.UI
             private double previousScalar;
             private double? scalarSpringTarget;
             private double scalarSpringOrigin;
+            private double scalarSpringIncomingVelocity;
 
             public NodeState(MotionValueDescriptor descriptor)
             {
@@ -852,12 +942,13 @@ namespace Battlement.UI
                 {
                     scalarSpringTarget = target;
                     scalarSpringOrigin = scalarValue;
+                    scalarSpringIncomingVelocity = scalarVelocity;
                     springAnchor = now;
                 }
                 MotionScalarSample sample = BattlementMotionScalarSampler.Sample(
                     scalarSpringOrigin,
                     target,
-                    scalarVelocity,
+                    scalarSpringIncomingVelocity,
                     scalarSpringTransition!,
                     now - springAnchor
                 );
@@ -1057,7 +1148,7 @@ namespace Battlement.UI
                 };
         }
 
-        private sealed class ValuePlayback
+        private sealed class ValuePlayback : IMotionPlaybackStatus
         {
             private readonly MotionValue origin;
             private readonly MotionValue target;
@@ -1095,9 +1186,13 @@ namespace Battlement.UI
 
             public NodeState Node { get; }
 
+            public MotionValue Target => target;
+
             public uint Generation { get; }
 
             public bool Terminal => Outcome is not null;
+
+            public bool IsHeld => !Terminal && paused;
 
             public bool IsFiniteActive => !paused && transition.Repeat is not MotionRepeat.Forever;
 
@@ -1107,6 +1202,14 @@ namespace Battlement.UI
                 $"motion-value={Node.Descriptor.ValueId.Value},elapsed-ms={held / 1000}";
 
             public MotionPlaybackOutcome? Outcome { get; private set; }
+
+            public Exception? Failure { get; private set; }
+
+            public void Fail(Exception failure)
+            {
+                Failure = failure;
+                Outcome = MotionPlaybackOutcome.Failed;
+            }
 
             public void Sample(ulong now)
             {
@@ -1252,7 +1355,7 @@ namespace Battlement.UI
 
             public void Stop() => Outcome = MotionPlaybackOutcome.Stopped;
 
-            public void Cancel() => Outcome = MotionPlaybackOutcome.Cancelled;
+            public void Cancel() => Outcome ??= MotionPlaybackOutcome.Cancelled;
         }
     }
 }

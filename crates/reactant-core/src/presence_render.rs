@@ -254,8 +254,8 @@ fn start_exit(
     });
   if let (Some(host), Some(blueprint)) = (&mut position.host, &position.exit_blueprint) {
     let object_id = host.object_id;
-    let visual = ui_host_adapter::element_mut(host).visual_element_mut();
-    if let Prop::Set(previous) = &visual.motion
+    let motion = host.motion_mut();
+    if let Prop::Set(previous) = motion
       && let Some(descriptor) = blueprint.descriptor(object_id, previous, custom)
     {
       position.motion_callback_history = motion_lifecycle::carry_registrations(
@@ -270,7 +270,7 @@ fn start_exit(
           .iter()
           .map(|slot| AutomaticExit::new(descriptor.descriptor_id, slot.slot, slot.generation)),
       );
-      visual.motion = Prop::Set(descriptor);
+      *motion = Prop::Set(descriptor);
     }
   }
   if let Some(presence) = &position.presence {
@@ -295,21 +295,15 @@ fn start_exit(
 }
 
 fn freeze_exit_motion(current: &mut RenderPosition, previous: &RenderPosition) {
-  if let (Some(current_host), Some(previous_host)) = (
-    current.host.as_mut().filter(|host| host.is_ui()),
-    previous.host.as_ref().filter(|host| host.is_ui()),
-  ) {
-    let previous_motion = &ui_host_adapter::element(previous_host)
-      .visual_element()
-      .motion;
+  if let (Some(current_host), Some(previous_host)) = (current.host.as_mut(), previous.host.as_ref())
+  {
+    let previous_motion = previous_host.motion();
     let exiting = matches!(
       previous_motion,
       Prop::Set(value) if value.slots.iter().any(|slot| slot.layer == MotionLayer::Exit)
     );
     if exiting {
-      ui_host_adapter::element_mut(current_host)
-        .visual_element_mut()
-        .motion = previous_motion.clone();
+      *current_host.motion_mut() = previous_motion.clone();
       current.exit_blueprint = previous.exit_blueprint.clone();
       current.motion_callbacks = previous.motion_callbacks.clone();
       current.motion_callback_history = previous.motion_callback_history.clone();
@@ -337,10 +331,8 @@ fn freeze_exit_motion(current: &mut RenderPosition, previous: &RenderPosition) {
 
 fn suppress_initial(tree: &mut RenderTree) {
   for position in &mut tree.positions {
-    if let Some(host) = position.host.as_mut().filter(|host| host.is_ui())
-      && let Prop::Set(descriptor) = &mut ui_host_adapter::element_mut(host)
-        .visual_element_mut()
-        .motion
+    if let Some(host) = position.host.as_mut()
+      && let Prop::Set(descriptor) = host.motion_mut()
     {
       descriptor.initial = None;
       descriptor.initial_disabled = true;

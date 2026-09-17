@@ -39,6 +39,9 @@ impl ReactantCommit {
     let groups = self.take_groups();
     self.acknowledge();
     groups
+      .into_iter()
+      .map(|group| group.into_iter().map(|command| command.body).collect())
+      .collect()
   }
 
   /// Consumes this commit into one Battlement batch, or no batch when empty.
@@ -49,10 +52,7 @@ impl ReactantCommit {
       Batch::new(
         BatchId::new_v4(),
         session_id,
-        groups
-          .into_iter()
-          .map(ParallelCommandGroup::from_bodies)
-          .collect(),
+        groups.into_iter().map(ParallelCommandGroup::new).collect(),
       )
     });
     self.acknowledge();
@@ -85,7 +85,7 @@ impl ReactantCommit {
     }
   }
 
-  pub(crate) fn new(groups: Vec<Vec<battlement::CommandBody>>, receipt: DeliveryReceipt) -> Self {
+  pub(crate) fn new(groups: Vec<Vec<Command>>, receipt: DeliveryReceipt) -> Self {
     Self {
       groups: Some(groups),
       receipt: Some(receipt),
@@ -100,7 +100,7 @@ impl ReactantCommit {
     }
   }
 
-  fn take_groups(&mut self) -> Vec<Vec<battlement::CommandBody>> {
+  fn take_groups(&mut self) -> Vec<Vec<Command>> {
     self
       .groups
       .take()
@@ -251,15 +251,7 @@ where
   }
   let groups = groups
     .into_iter()
-    .map(|bodies| {
-      ParallelCommandGroup::new(
-        bodies
-          .into_iter()
-          .map(Command::new_v4)
-          .map(C::from)
-          .collect(),
-      )
-    })
+    .map(|bodies| ParallelCommandGroup::new(bodies.into_iter().map(C::from).collect()))
     .collect();
   let mut batch = Batch::new(BatchId::new_v4(), response.session_id, groups);
   if let Some(action_id) = action_id {

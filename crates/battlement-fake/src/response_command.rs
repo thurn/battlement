@@ -748,6 +748,19 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
         enabled: body.enabled(),
       })
     }
+    Kind::MotionSetWorldDescriptor => {
+      let value = value
+        .payload_as_world_motion_payload()
+        .ok_or_else(|| "world motion payload is missing".to_owned())?;
+      CommandBody::MotionSetWorldDescriptor(battlement::WorldMotionPayload {
+        object_id: object_id(value.object_id())?,
+        motion: value
+          .motion()
+          .map(crate::response_motion_descriptor_reader::descriptor)
+          .transpose()?
+          .map(Box::new),
+      })
+    }
     Kind::InputSetWorldPointer => {
       let value = value
         .payload_as_world_pointer_payload()

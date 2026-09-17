@@ -166,6 +166,7 @@ fn playback_owned(event: wire::MotionPlaybackEvent<'_>) -> battlement::MotionPla
       wire::MotionPlaybackOutcome::Completed => battlement::MotionPlaybackOutcome::Completed,
       wire::MotionPlaybackOutcome::Stopped => battlement::MotionPlaybackOutcome::Stopped,
       wire::MotionPlaybackOutcome::Cancelled => battlement::MotionPlaybackOutcome::Cancelled,
+      wire::MotionPlaybackOutcome::Failed => battlement::MotionPlaybackOutcome::Failed,
       _ => unreachable!("Motion view validates playback outcomes"),
     },
   }
@@ -593,7 +594,7 @@ fn validate_batch(value: wire::MotionEventBatch<'_>) -> Result<(), ProtocolError
   }
 
   for event in value.playback_events() {
-    if nil(event.playback_id()) || event.outcome().0 > wire::MotionPlaybackOutcome::Cancelled.0 {
+    if nil(event.playback_id()) || event.outcome().0 > wire::MotionPlaybackOutcome::Failed.0 {
       return Err(error("invalid Motion playback event"));
     }
   }
@@ -620,7 +621,7 @@ fn validate_batch(value: wire::MotionEventBatch<'_>) -> Result<(), ProtocolError
 }
 
 fn validate_property_value(value: wire::MotionPropertyValue<'_>) -> Result<(), ProtocolError> {
-  if value.property().0 > wire::MotionProperty::Layout.0 {
+  if value.property().0 > wire::MotionProperty::LocalScaleFactorZ.0 {
     return Err(error("unknown Motion property"));
   }
   let valid = match value.value_type() {

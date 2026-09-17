@@ -4,6 +4,7 @@ use battlement::{BatchId, Command, CommandBody, Easing, RepeatMode, Tween, Tween
 
 use crate::{
   interpolation::{OperationValue, ease},
+  motion_playbacks::RunningMotion,
   presentation::OperationKey,
   world::FakeWorld,
 };
@@ -18,9 +19,34 @@ pub(crate) struct ScheduledOperation {
   started_ms: u64,
   timing: Timing,
   value: OperationValue,
+  motion: Option<RunningMotion>,
 }
 
 impl ScheduledOperation {
+  pub(crate) fn from_motion(
+    command: &Command,
+    batch_id: BatchId,
+    started_ms: u64,
+    motion: RunningMotion,
+  ) -> Self {
+    assert!(
+      !command.blocking || !motion.infinite,
+      "infinite Motion cannot block a command batch"
+    );
+    Self {
+      command_id: command.command_id,
+      batch_id,
+      scope: None,
+      retention: None,
+      blocking: command.blocking,
+      key: None,
+      started_ms,
+      timing: Timing::wait(0),
+      value: OperationValue::Wait,
+      motion: Some(motion),
+    }
+  }
+
   pub(crate) fn from_command(
     command: &Command,
     batch_id: BatchId,
@@ -213,22 +239,41 @@ impl ScheduledOperation {
       started_ms,
       timing,
       value,
+      motion: None,
     })
   }
 
   pub(crate) fn advance(&self, world: &mut FakeWorld, now_ms: u64) -> bool {
+    if let Some(motion) = &self.motion {
+      return motion.outcome().is_some();
+    }
     let (factor, complete) = self.timing.factor(now_ms.saturating_sub(self.started_ms));
     self.value.apply(world, factor);
     complete
   }
 
+  pub(crate) fn failure(&self) -> Option<String> {
+    self.motion.as_ref().and_then(RunningMotion::failure)
+  }
+
   pub(crate) fn deadline_ms(&self) -> Option<u64> {
+    if self.motion.is_some() {
+      return None;
+    }
     self.timing.finite_duration_ms().map(|duration| {
       self
         .started_ms
         .checked_add(duration)
         .expect("operation deadline overflowed")
     })
+  }
+}
+
+impl Drop for ScheduledOperation {
+  fn drop(&mut self) {
+    if let Some(motion) = &self.motion {
+      motion.cancel();
+    }
   }
 }
 

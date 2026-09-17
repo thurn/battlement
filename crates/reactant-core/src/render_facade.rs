@@ -103,41 +103,12 @@ impl PreparedFacade {
     } = *self;
     let duration_micros = metadata.motion.resolved_duration_micros(&resolved_variants);
     resolved_variants.complete(scope, duration_micros);
-    if metadata.motion != MotionProps::new() || resolved_variants.descriptor.is_some() {
-      let prior_generation = previous_motion
-        .as_ref()
-        .map_or(MotionGeneration(1), |value| value.generation);
-      let mut descriptor = metadata.motion.descriptor(
-        node.object_id,
-        prior_generation,
-        &resolved_variants,
-        previous_motion.as_ref(),
-      );
-      ui_host_adapter::element_mut(&mut node)
-        .visual_element_mut()
-        .motion = if previous_motion
-        .as_ref()
-        .is_some_and(|previous| &descriptor == previous)
-      {
-        Prop::Set(descriptor)
-      } else {
-        if let Some(previous) = &previous_motion {
-          let generation = MotionGeneration(
-            previous
-              .generation
-              .0
-              .checked_add(1)
-              .expect("motion generation exhausted"),
-          );
-          set_motion_generation(&mut descriptor, generation);
-        }
-        Prop::Set(descriptor)
-      };
-    } else if previous_motion.is_some() {
-      ui_host_adapter::element_mut(&mut node)
-        .visual_element_mut()
-        .motion = Prop::Reset;
-    }
+    *node.motion_mut() = self::descriptor(
+      &metadata.motion,
+      &resolved_variants,
+      node.object_id,
+      previous_motion.as_ref(),
+    );
     let mut kinds = metadata
       .handlers
       .iter()
@@ -182,6 +153,38 @@ impl PreparedFacade {
       children,
     }
   }
+}
+
+pub(crate) fn descriptor(
+  motion: &MotionProps,
+  resolved: &ResolvedVariants,
+  host: ObjectId,
+  previous: Option<&MotionDescriptor>,
+) -> Prop<MotionDescriptor> {
+  if *motion == MotionProps::new() && resolved.descriptor.is_none() {
+    return if previous.is_some() {
+      Prop::Reset
+    } else {
+      Prop::Unset
+    };
+  }
+  let generation = previous.map_or(MotionGeneration(1), |value| value.generation);
+  let mut descriptor = motion.descriptor(host, generation, resolved, previous);
+  if let Some(previous) = previous
+    && &descriptor != previous
+  {
+    set_motion_generation(
+      &mut descriptor,
+      MotionGeneration(
+        previous
+          .generation
+          .0
+          .checked_add(1)
+          .expect("motion generation exhausted"),
+      ),
+    );
+  }
+  Prop::Set(descriptor)
 }
 
 fn set_motion_generation(descriptor: &mut MotionDescriptor, generation: MotionGeneration) {

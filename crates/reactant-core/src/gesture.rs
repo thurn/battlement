@@ -325,6 +325,18 @@ impl DragConstraints {
 }
 
 impl MotionProps {
+  /// Whether this host needs native pointer picking for local gesture playback.
+  pub fn has_pointer_gestures(&self) -> bool {
+    let targets = [
+      &self.gestures.hover,
+      &self.gestures.tap,
+      &self.gestures.drag_target,
+    ];
+    targets.iter().any(|target| target.is_some())
+      || self.gestures.pan
+      || self.gestures.drag.is_some()
+  }
+
   /// Sets the locally activated hover target.
   #[must_use]
   pub fn while_hover(mut self, value: impl Into<MotionTarget>) -> Self {

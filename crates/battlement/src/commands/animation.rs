@@ -82,3 +82,12 @@ pub struct AnimatorSpeedPayload {
   /// Nonnegative playback speed.
   pub speed: f64,
 }
+
+/// Installs, replaces, or clears native Motion on a world transform host.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WorldMotionPayload {
+  /// Native world host identity.
+  pub object_id: crate::ObjectId,
+  /// Complete descriptor, or none to release its playback.
+  pub motion: Option<Box<crate::MotionDescriptor>>,
+}

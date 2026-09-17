@@ -12,7 +12,11 @@ use crate::{
   element_ref::{self, ElementRef},
   event_handler::Handler,
   host_node::{HostAdapter, HostNode},
+  motion::MotionProps,
+  motion_lifecycle,
+  motion_variants::ExitBlueprint,
   render::{self, Node, Render, RenderSink, RenderTree},
+  render_facade,
   render_value::Sealed,
 };
 
@@ -23,6 +27,7 @@ pub struct NativeHost<A: HostAdapter> {
   handlers: Vec<Handler>,
   reference: Option<ElementRef>,
   id: Option<Uuid>,
+  motion: MotionProps,
 }
 
 /// A committed object reference with the lifetime of its logical owner.
@@ -79,7 +84,14 @@ impl<A: HostAdapter> NativeHost<A> {
       handlers: Vec::new(),
       reference: None,
       id: None,
+      motion: MotionProps::new(),
     }
+  }
+
+  /// Forwards native Motion targets, controls, and inherited configuration.
+  pub fn motion(mut self, motion: MotionProps) -> Self {
+    self.motion = motion;
+    self
   }
 
   /// Preserves this compatible host across logical parents and attachments.
@@ -145,8 +157,9 @@ impl<A: HostAdapter> Sealed for NativeHost<A> {
       self.description.clone(),
     );
     let object = host.object(None);
+    let world_host = object.is_some();
     assert!(
-      self.reference.is_none() || object.is_some(),
+      self.reference.is_none() || world_host,
       "ObjectRef requires a world GameObject host"
     );
     if let Some(object) = object {
@@ -158,10 +171,21 @@ impl<A: HostAdapter> Sealed for NativeHost<A> {
     if remount {
       host.object_id = ObjectId::new_v4();
     }
+    let resolved = sink.variant_scope.resolve(&self.motion);
+    let previous_motion = previous.and_then(|host| host.motion_descriptor());
+    let callbacks = self.motion.callbacks(&resolved);
+    let exit_blueprint = ExitBlueprint::new(self.motion.clone(), sink.variant_scope.clone());
+    let history = matching.map_or_else(Vec::new, |position| {
+      motion_lifecycle::carry_registrations(
+        &position.motion_callback_history,
+        previous_motion,
+        &position.motion_callbacks,
+      )
+    });
     let empty = RenderTree::default();
     let committed = matching.map_or(&empty, |position| &position.children);
     let mut children =
-      render::sink_with_scope(committed, sink.variant_scope.clone(), sink.identities);
+      render::sink_with_scope(committed, resolved.child_scope.clone(), sink.identities);
     for child in &self.children {
       child.render_into(&mut children);
     }
@@ -172,11 +196,24 @@ impl<A: HostAdapter> Sealed for NativeHost<A> {
         return;
       }
     };
+    resolved.complete(
+      &sink.variant_scope,
+      self.motion.resolved_duration_micros(&resolved),
+    );
+    *host.motion_mut() =
+      render_facade::descriptor(&self.motion, &resolved, host.object_id, previous_motion);
+    assert!(
+      host.motion_descriptor().is_none() || world_host,
+      "Native Motion requires a world GameObject host"
+    );
     sink.pending.extend(pending);
     sink.push(descriptor, Some(host), children);
     let position = sink.positions.last_mut().expect("native host was appended");
     position.presentation_id = self.id;
     position.handlers = self.handlers.clone();
     position.element_ref = self.reference.clone();
+    position.motion_callbacks = callbacks;
+    position.motion_callback_history = history;
+    position.exit_blueprint = exit_blueprint;
   }
 }

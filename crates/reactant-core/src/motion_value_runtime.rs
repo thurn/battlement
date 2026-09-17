@@ -6,7 +6,7 @@ use std::{
 };
 
 use battlement::{
-  CommandBody, MotionPlaybackEvent, MotionPlaybackOutcome, MotionValueSample, ObjectId,
+  Command, CommandBody, MotionPlaybackEvent, MotionPlaybackOutcome, MotionValueSample, ObjectId,
 };
 
 thread_local! {
@@ -62,10 +62,10 @@ impl MotionValueRuntime {
     self.commands.truncate(length);
   }
 
-  pub(crate) fn command_groups(&self, length: usize) -> Vec<Vec<CommandBody>> {
+  pub(crate) fn command_groups(&self, length: usize) -> Vec<Vec<Command>> {
     self.commands[..length]
       .iter()
-      .map(|(_, body)| vec![body.clone()])
+      .map(|(_, body)| vec![Command::new_v4(body.clone()).nonblocking()])
       .collect()
   }
 

@@ -155,6 +155,7 @@ namespace Battlement
             ApplyLocalTransform(gameObject.transform, description.LocalTransform);
             BattlementRenderOrder.Apply(gameObject, description.RenderOrder);
             gameObject.GetComponent<BattlementIdentity>().WorldPointer = description.WorldPointer;
+            gameObject.GetComponent<BattlementIdentity>().Motion = description.Motion;
             BattlementMaterialInstances.Apply(
                 gameObject,
                 preparedAssets,
@@ -193,6 +194,7 @@ namespace Battlement
             );
             BattlementRenderOrder.Apply(gameObject, description.RenderOrder);
             gameObject.GetComponent<BattlementIdentity>().WorldPointer = description.WorldPointer;
+            gameObject.GetComponent<BattlementIdentity>().Motion = description.Motion;
             BattlementMaterialInstances.Apply(
                 gameObject,
                 preparedAssets,

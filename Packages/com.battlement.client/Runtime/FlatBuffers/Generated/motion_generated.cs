@@ -112,6 +112,24 @@ public enum MotionProperty : ushort
   ClipPolygon = 96,
   Mask = 97,
   Layout = 98,
+  LocalPositionX = 99,
+  LocalPositionY = 100,
+  LocalPositionZ = 101,
+  LocalRotationX = 102,
+  LocalRotationY = 103,
+  LocalRotationZ = 104,
+  LocalScaleX = 105,
+  LocalScaleY = 106,
+  LocalScaleZ = 107,
+  LocalOffsetX = 108,
+  LocalOffsetY = 109,
+  LocalOffsetZ = 110,
+  LocalTiltX = 111,
+  LocalTiltY = 112,
+  LocalTiltZ = 113,
+  LocalScaleFactorX = 114,
+  LocalScaleFactorY = 115,
+  LocalScaleFactorZ = 116,
 };
 
 public enum MotionTransformKind : byte
@@ -272,6 +290,7 @@ public enum MotionPlaybackOutcome : byte
   Completed = 0,
   Stopped = 1,
   Cancelled = 2,
+  Failed = 3,
 };
 
 public enum StepPosition : byte

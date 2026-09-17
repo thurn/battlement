@@ -279,6 +279,12 @@ where
       .operations
       .iter()
       .filter_map(ScheduledOperation::deadline_ms)
+      .chain(
+        self
+          .motion
+          .deadline(self.presentation_ms * 1000)
+          .map(|value| value.div_ceil(1000)),
+      )
       .filter(|deadline| *deadline > self.presentation_ms)
       .min()
   }
@@ -289,16 +295,58 @@ where
     }
     self.presentation_advancing = true;
     self.advance_batches();
+    while let Some(events) = self.motion.drain() {
+      self.submit_motion(events);
+      self.advance_batches();
+    }
     self.presentation_advancing = false;
   }
 
   fn advance_batches(&mut self) {
     loop {
+      let frame = self.frame();
+      self.motion.sample(
+        &mut self.world,
+        &mut self.ui_world,
+        self.presentation_ms * 1000,
+        frame,
+      );
+      if let Some(events) = self.motion.drain() {
+        self.submit_motion(events);
+      }
       let operations = std::mem::take(&mut self.operations);
-      self.operations = operations
-        .into_iter()
-        .filter(|operation| !operation.advance(&mut self.world, self.presentation_ms))
-        .collect();
+      let mut failures = Vec::new();
+      for operation in operations {
+        if !operation.advance(&mut self.world, self.presentation_ms) {
+          self.operations.push(operation);
+        } else if let Some(message) = operation.failure() {
+          failures.push((
+            operation.batch_id,
+            operation.command_id,
+            operation.blocking,
+            message,
+          ));
+        }
+      }
+      for (batch, command, blocking, message) in failures {
+        if blocking {
+          for pending in &mut self.scheduled_batches {
+            if pending.batch_id == batch {
+              pending.groups.clear();
+            }
+          }
+          self
+            .operations
+            .retain(|operation| operation.batch_id != batch);
+        }
+        self.submit_presentation_failure(
+          batch,
+          command,
+          battlement::CoreErrorCode::InvalidProperty,
+          &message,
+          blocking,
+        );
+      }
 
       let mut progressed = false;
       for index in 0..self.scheduled_batches.len() {

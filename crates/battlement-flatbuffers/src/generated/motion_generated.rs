@@ -26,13 +26,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_MOTION_PROPERTY: u16 = 98;
+      pub const ENUM_MAX_MOTION_PROPERTY: u16 = 116;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_MOTION_PROPERTY: [MotionProperty; 99] = [
+      pub const ENUM_VALUES_MOTION_PROPERTY: [MotionProperty; 117] = [
         MotionProperty::AlignContent,
         MotionProperty::AlignItems,
         MotionProperty::AlignSelf,
@@ -132,6 +132,24 @@ pub mod battlement {
         MotionProperty::ClipPolygon,
         MotionProperty::Mask,
         MotionProperty::Layout,
+        MotionProperty::LocalPositionX,
+        MotionProperty::LocalPositionY,
+        MotionProperty::LocalPositionZ,
+        MotionProperty::LocalRotationX,
+        MotionProperty::LocalRotationY,
+        MotionProperty::LocalRotationZ,
+        MotionProperty::LocalScaleX,
+        MotionProperty::LocalScaleY,
+        MotionProperty::LocalScaleZ,
+        MotionProperty::LocalOffsetX,
+        MotionProperty::LocalOffsetY,
+        MotionProperty::LocalOffsetZ,
+        MotionProperty::LocalTiltX,
+        MotionProperty::LocalTiltY,
+        MotionProperty::LocalTiltZ,
+        MotionProperty::LocalScaleFactorX,
+        MotionProperty::LocalScaleFactorY,
+        MotionProperty::LocalScaleFactorZ,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -238,9 +256,27 @@ pub mod battlement {
         pub const ClipPolygon: Self = Self(96);
         pub const Mask: Self = Self(97);
         pub const Layout: Self = Self(98);
+        pub const LocalPositionX: Self = Self(99);
+        pub const LocalPositionY: Self = Self(100);
+        pub const LocalPositionZ: Self = Self(101);
+        pub const LocalRotationX: Self = Self(102);
+        pub const LocalRotationY: Self = Self(103);
+        pub const LocalRotationZ: Self = Self(104);
+        pub const LocalScaleX: Self = Self(105);
+        pub const LocalScaleY: Self = Self(106);
+        pub const LocalScaleZ: Self = Self(107);
+        pub const LocalOffsetX: Self = Self(108);
+        pub const LocalOffsetY: Self = Self(109);
+        pub const LocalOffsetZ: Self = Self(110);
+        pub const LocalTiltX: Self = Self(111);
+        pub const LocalTiltY: Self = Self(112);
+        pub const LocalTiltZ: Self = Self(113);
+        pub const LocalScaleFactorX: Self = Self(114);
+        pub const LocalScaleFactorY: Self = Self(115);
+        pub const LocalScaleFactorZ: Self = Self(116);
 
         pub const ENUM_MIN: u16 = 0;
-        pub const ENUM_MAX: u16 = 98;
+        pub const ENUM_MAX: u16 = 116;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::AlignContent,
           Self::AlignItems,
@@ -341,6 +377,24 @@ pub mod battlement {
           Self::ClipPolygon,
           Self::Mask,
           Self::Layout,
+          Self::LocalPositionX,
+          Self::LocalPositionY,
+          Self::LocalPositionZ,
+          Self::LocalRotationX,
+          Self::LocalRotationY,
+          Self::LocalRotationZ,
+          Self::LocalScaleX,
+          Self::LocalScaleY,
+          Self::LocalScaleZ,
+          Self::LocalOffsetX,
+          Self::LocalOffsetY,
+          Self::LocalOffsetZ,
+          Self::LocalTiltX,
+          Self::LocalTiltY,
+          Self::LocalTiltZ,
+          Self::LocalScaleFactorX,
+          Self::LocalScaleFactorY,
+          Self::LocalScaleFactorZ,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -444,6 +498,24 @@ pub mod battlement {
             Self::ClipPolygon => Some("ClipPolygon"),
             Self::Mask => Some("Mask"),
             Self::Layout => Some("Layout"),
+            Self::LocalPositionX => Some("LocalPositionX"),
+            Self::LocalPositionY => Some("LocalPositionY"),
+            Self::LocalPositionZ => Some("LocalPositionZ"),
+            Self::LocalRotationX => Some("LocalRotationX"),
+            Self::LocalRotationY => Some("LocalRotationY"),
+            Self::LocalRotationZ => Some("LocalRotationZ"),
+            Self::LocalScaleX => Some("LocalScaleX"),
+            Self::LocalScaleY => Some("LocalScaleY"),
+            Self::LocalScaleZ => Some("LocalScaleZ"),
+            Self::LocalOffsetX => Some("LocalOffsetX"),
+            Self::LocalOffsetY => Some("LocalOffsetY"),
+            Self::LocalOffsetZ => Some("LocalOffsetZ"),
+            Self::LocalTiltX => Some("LocalTiltX"),
+            Self::LocalTiltY => Some("LocalTiltY"),
+            Self::LocalTiltZ => Some("LocalTiltZ"),
+            Self::LocalScaleFactorX => Some("LocalScaleFactorX"),
+            Self::LocalScaleFactorY => Some("LocalScaleFactorY"),
+            Self::LocalScaleFactorZ => Some("LocalScaleFactorZ"),
             _ => None,
           }
         }
@@ -1509,16 +1581,17 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_MOTION_PLAYBACK_OUTCOME: u8 = 2;
+      pub const ENUM_MAX_MOTION_PLAYBACK_OUTCOME: u8 = 3;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_MOTION_PLAYBACK_OUTCOME: [MotionPlaybackOutcome; 3] = [
+      pub const ENUM_VALUES_MOTION_PLAYBACK_OUTCOME: [MotionPlaybackOutcome; 4] = [
         MotionPlaybackOutcome::Completed,
         MotionPlaybackOutcome::Stopped,
         MotionPlaybackOutcome::Cancelled,
+        MotionPlaybackOutcome::Failed,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1529,16 +1602,23 @@ pub mod battlement {
         pub const Completed: Self = Self(0);
         pub const Stopped: Self = Self(1);
         pub const Cancelled: Self = Self(2);
+        pub const Failed: Self = Self(3);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 2;
-        pub const ENUM_VALUES: &'static [Self] = &[Self::Completed, Self::Stopped, Self::Cancelled];
+        pub const ENUM_MAX: u8 = 3;
+        pub const ENUM_VALUES: &'static [Self] = &[
+          Self::Completed,
+          Self::Stopped,
+          Self::Cancelled,
+          Self::Failed,
+        ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
           match self {
             Self::Completed => Some("Completed"),
             Self::Stopped => Some("Stopped"),
             Self::Cancelled => Some("Cancelled"),
+            Self::Failed => Some("Failed"),
             _ => None,
           }
         }

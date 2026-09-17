@@ -693,7 +693,7 @@ impl StyleTarget {
     self
   }
 
-  fn bind(mut self, property: MotionProperty, binding: ErasedMotionValue) -> Self {
+  pub(crate) fn bind(mut self, property: MotionProperty, binding: ErasedMotionValue) -> Self {
     let entry = StyleTargetEntry {
       property,
       values: Vec::new(),

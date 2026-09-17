@@ -122,6 +122,8 @@ pub enum PlaybackOutcome {
   Stopped,
   /// Playback was removed and exposed its lower layer.
   Cancelled,
+  /// The native writer failed before reaching its terminal target.
+  Failed,
 }
 
 impl From<ProtocolPlaybackOutcome> for PlaybackOutcome {
@@ -130,6 +132,7 @@ impl From<ProtocolPlaybackOutcome> for PlaybackOutcome {
       ProtocolPlaybackOutcome::Completed => Self::Completed,
       ProtocolPlaybackOutcome::Stopped => Self::Stopped,
       ProtocolPlaybackOutcome::Cancelled => Self::Cancelled,
+      ProtocolPlaybackOutcome::Failed => Self::Failed,
     }
   }
 }
@@ -199,6 +202,7 @@ struct PlaybackCallbacks {
   complete: Option<Box<dyn FnOnce()>>,
   stop: Option<Box<dyn FnOnce()>>,
   cancel: Option<Box<dyn FnOnce()>>,
+  failed: Option<Box<dyn FnOnce()>>,
 }
 
 impl PlaybackInner {
@@ -212,6 +216,7 @@ impl PlaybackInner {
       PlaybackOutcome::Completed => self.callbacks.borrow_mut().complete.take(),
       PlaybackOutcome::Stopped => self.callbacks.borrow_mut().stop.take(),
       PlaybackOutcome::Cancelled => self.callbacks.borrow_mut().cancel.take(),
+      PlaybackOutcome::Failed => self.callbacks.borrow_mut().failed.take(),
     };
     if let Some(callback) = callback {
       callback();

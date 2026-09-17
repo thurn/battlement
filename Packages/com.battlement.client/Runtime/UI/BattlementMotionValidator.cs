@@ -504,7 +504,25 @@ namespace Battlement.UI
                 or MotionProperty.UnitySliceTop
                 or MotionProperty.UnityTextOutlineWidth
                 or MotionProperty.ScaleX
-                or MotionProperty.ScaleY => MotionValueKind.Scalar,
+                or MotionProperty.ScaleY
+                or MotionProperty.LocalPositionX
+                or MotionProperty.LocalPositionY
+                or MotionProperty.LocalPositionZ
+                or MotionProperty.LocalRotationX
+                or MotionProperty.LocalRotationY
+                or MotionProperty.LocalRotationZ
+                or MotionProperty.LocalScaleX
+                or MotionProperty.LocalScaleY
+                or MotionProperty.LocalScaleZ
+                or MotionProperty.LocalOffsetX
+                or MotionProperty.LocalOffsetY
+                or MotionProperty.LocalOffsetZ
+                or MotionProperty.LocalTiltX
+                or MotionProperty.LocalTiltY
+                or MotionProperty.LocalTiltZ
+                or MotionProperty.LocalScaleFactorX
+                or MotionProperty.LocalScaleFactorY
+                or MotionProperty.LocalScaleFactorZ => MotionValueKind.Scalar,
                 MotionProperty.BackgroundPositionX
                 or MotionProperty.BackgroundPositionY
                 or MotionProperty.BorderBottomLeftRadius

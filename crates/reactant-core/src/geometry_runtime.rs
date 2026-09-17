@@ -7,10 +7,10 @@ use std::{
 };
 
 use battlement::{
-  CommandBody, ElementGeometry, GeometryGeneration, GeometryObservation, GeometryObservationBatch,
-  GeometryObservationId, GeometryObservationResult, GeometryObservationTarget,
-  GeometryObservationUpdate, GeometryRegistry, GeometryValidationError, GeometryValue, ObjectId,
-  ViewportGeometry,
+  Command, CommandBody, ElementGeometry, GeometryGeneration, GeometryObservation,
+  GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
+  GeometryObservationTarget, GeometryObservationUpdate, GeometryRegistry, GeometryValidationError,
+  GeometryValue, ObjectId, ViewportGeometry,
 };
 
 use crate::{
@@ -517,24 +517,24 @@ impl GeometryPlan {
     self.generation
   }
 
-  pub(crate) fn command_groups(&self, mut groups: Vec<Vec<CommandBody>>) -> Vec<Vec<CommandBody>> {
+  pub(crate) fn command_groups(&self, mut groups: Vec<Vec<Command>>) -> Vec<Vec<Command>> {
     if !self.removed.is_empty() {
       groups.insert(
         0,
-        vec![CommandBody::GeometryObservationUpdate(
+        vec![Command::new_v4(CommandBody::GeometryObservationUpdate(
           GeometryObservationUpdate {
             added: Vec::new(),
             removed: self.removed.clone(),
           },
-        )],
+        ))],
       );
     }
     if !self.added.is_empty() {
-      groups.push(vec![CommandBody::GeometryObservationUpdate(
-        GeometryObservationUpdate {
+      groups.push(vec![Command::new_v4(
+        CommandBody::GeometryObservationUpdate(GeometryObservationUpdate {
           added: self.added.clone(),
           removed: Vec::new(),
-        },
+        }),
       )]);
     }
     groups

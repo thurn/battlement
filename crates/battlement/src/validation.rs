@@ -182,6 +182,9 @@ impl Validate for Command {
       CommandBody::AssetsReplaceSet(value) => {
         prepared_assets(&value.assets)?;
       }
+      CommandBody::MotionSetWorldDescriptor(value) => {
+        crate::world_motion::validate(value.object_id, value.motion.as_deref())?;
+      }
       CommandBody::RendererSetInstances(value) => {
         crate::material_validation::instances(&value.instances)?
       }
@@ -512,6 +515,7 @@ fn validate_object(
 }
 
 fn validate_object_shape(object: &GameObject) -> Result<(), ValidationError> {
+  crate::world_motion::validate(object.object_id, object.motion.as_deref())?;
   crate::material_validation::instances(&object.material_instances)?;
   validate_quaternion(object.local_transform.rotation)?;
   match &object.kind {

@@ -9,7 +9,9 @@ use reactant_core::{
   component::Component,
   context::ContextProvider,
   hooks,
+  motion::MotionProps,
   native_host::{NativeHost, ObjectRef},
+  prelude::MotionComponent,
   render::{Node, Render},
 };
 
@@ -30,6 +32,9 @@ pub use reactant_core::pointer_handlers::PointerHandlers;
 
 #[derive(Clone, PartialEq)]
 struct SceneAttachment(ParentScene);
+
+#[derive(Clone, Default, PartialEq)]
+struct MotionPointerInput(bool);
 
 /// An explicit attachment to a loaded scene or the persistent scene container.
 pub struct SceneRoot {
@@ -52,6 +57,7 @@ pub struct Group {
   navigation: NavigationHandlers,
   pointer: battlement::WorldPointerSettings,
   id: Option<Uuid>,
+  motion: MotionProps,
 }
 
 /// An opaque prepared prefab beneath a Reactant-owned transform.
@@ -78,18 +84,22 @@ impl Component for SceneRoot {
     ContextProvider::new()
       .context(SceneAttachment(self.scene))
       .child(
-        NativeHost::<WorldAdapter>::new(WorldDescription {
-          kind: GameObjectKind::Empty,
-          scene: self.scene,
-          root: true,
-          transform: LocalTransform::default(),
-          active: true,
-          clickable: false,
-          world_pointer: None,
-          render_order: None,
-          material_instances: Vec::new(),
-        })
-        .child(self.children.clone()),
+        ContextProvider::new()
+          .context(MotionPointerInput(false))
+          .child(
+            NativeHost::<WorldAdapter>::new(WorldDescription {
+              kind: GameObjectKind::Empty,
+              scene: self.scene,
+              root: true,
+              transform: LocalTransform::default(),
+              active: true,
+              clickable: false,
+              world_pointer: None,
+              render_order: None,
+              material_instances: Vec::new(),
+            })
+            .child(self.children.clone()),
+          ),
       )
   }
 }
@@ -110,6 +120,7 @@ impl Group {
       navigation: NavigationHandlers::new(),
       pointer: battlement::WorldPointerSettings::default(),
       id: None,
+      motion: MotionProps::new(),
     }
   }
 
@@ -129,6 +140,10 @@ impl Group {
     assert!(
       self.id.is_none(),
       "static object identity comes from its object ID"
+    );
+    assert!(
+      self.motion == MotionProps::new(),
+      "static objects cannot own component Motion"
     );
     let mut object = GameObject::new(object_id, self.kind);
     object.local_transform = self.transform;
@@ -237,6 +252,8 @@ impl Prefab {
 impl Component for Group {
   fn render(&self) -> impl Render {
     let scene = hooks::use_required_context::<SceneAttachment>();
+    let pointer_motion =
+      hooks::use_context::<MotionPointerInput>().0 || self.motion.has_pointer_gestures();
     let mut host = NativeHost::<WorldAdapter>::new(WorldDescription {
       kind: self.kind.clone(),
       scene: scene.0,
@@ -245,12 +262,18 @@ impl Component for Group {
       active: self.active,
       clickable: self.click.is_some()
         || !self.events.is_empty()
-        || self.pointer.focusable
-        || matches!(self.kind, GameObjectKind::BoxHitRegion { .. }),
+        || [
+          self.pointer.focusable,
+          pointer_motion,
+          matches!(self.kind, GameObjectKind::BoxHitRegion { .. }),
+        ]
+        .into_iter()
+        .any(|enabled| enabled),
       world_pointer: Some(self.pointer),
       render_order: self.render_order,
       material_instances: self.material_instances.clone(),
     })
+    .motion(self.motion.clone())
     .child(self.children.clone())
     .events(self.events.clone())
     .navigation(self.navigation.clone());
@@ -263,6 +286,15 @@ impl Component for Group {
     if let Some(callback) = &self.click {
       host = host.on_click(callback.clone());
     }
-    host
+    ContextProvider::new()
+      .context(MotionPointerInput(pointer_motion))
+      .child(host)
+  }
+}
+
+impl MotionComponent for Group {
+  fn with_motion(mut self, motion: MotionProps) -> Self {
+    self.motion = motion;
+    self
   }
 }

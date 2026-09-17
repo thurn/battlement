@@ -13,6 +13,8 @@ namespace Battlement.UI
 
         public void Clear()
         {
+            foreach (ImperativePlayback playback in values.Values)
+                playback.Outcome = MotionPlaybackOutcome.Cancelled;
             values.Clear();
             events.Clear();
         }
@@ -21,7 +23,11 @@ namespace Battlement.UI
             ObjectId playbackId,
             uint generation,
             List<MotionPlaybackAddress> addresses
-        ) => values[playbackId.Value] = new ImperativePlayback(generation, addresses);
+        )
+        {
+            Finish(playbackId.Value, MotionPlaybackOutcome.Cancelled);
+            values[playbackId.Value] = new ImperativePlayback(generation, addresses);
+        }
 
         public bool TryGet(Guid playbackId, out ImperativePlayback playback) =>
             values.TryGetValue(playbackId, out playback!);
@@ -49,6 +55,17 @@ namespace Battlement.UI
                         complete = false;
                         break;
                     }
+                    if (
+                        slot.Outcome
+                        is MotionPlaybackOutcome.Stopped
+                            or MotionPlaybackOutcome.Cancelled
+                    )
+                    {
+                        Finish(id, slot.Outcome.Value);
+                        finished.Add(id);
+                        complete = false;
+                        break;
+                    }
                     if (!slot.Terminal)
                         complete = false;
                 }
@@ -65,10 +82,77 @@ namespace Battlement.UI
         {
             if (!values.Remove(playbackId, out ImperativePlayback playback))
                 return false;
+            playback.Outcome = outcome;
             events.Add(
                 new MotionPlaybackEvent(new ObjectId(playbackId), playback.Generation, outcome)
             );
             return true;
+        }
+
+        public bool OwnsDescriptor(Guid descriptorId) =>
+            values.Values.Any(playback =>
+                playback.Addresses.Any(address => address.DescriptorId.Value == descriptorId)
+            );
+
+        public IReadOnlyList<Guid> FailDescriptor(
+            Guid descriptorId,
+            Exception failure,
+            Action<MotionPlaybackAddress> cancel
+        )
+        {
+            var failed = new List<Guid>();
+            foreach ((Guid id, ImperativePlayback playback) in values.ToArray())
+                if (playback.Addresses.Any(address => address.DescriptorId.Value == descriptorId))
+                {
+                    foreach (MotionPlaybackAddress address in playback.Addresses)
+                        cancel(address);
+                    playback.Failure = failure;
+                    Finish(id, MotionPlaybackOutcome.Failed);
+                    failed.Add(id);
+                }
+            return failed;
+        }
+
+        public IBattlementCommandOperation? Operation(
+            ObjectId playbackId,
+            IReadOnlyDictionary<Guid, DescriptorState> descriptors,
+            System.Action refresh,
+            Action<ImperativePlayback> cancel
+        )
+        {
+            if (!values.TryGetValue(playbackId.Value, out ImperativePlayback playback))
+                return null;
+            bool Infinite() =>
+                playback.Addresses.Any(address =>
+                    descriptors.TryGetValue(
+                        address.DescriptorId.Value,
+                        out DescriptorState descriptor
+                    )
+                    && descriptor
+                        .FindSlot(address.Slot)
+                        ?.Definition.Target.Tracks.Any(track =>
+                            track.Transition.Repeat is MotionRepeat.Forever
+                        ) == true
+                );
+            return new RunningMotion(
+                playback,
+                Infinite,
+                refresh,
+                () => cancel(playback),
+                () =>
+                    playback.Addresses.All(address =>
+                        descriptors.TryGetValue(
+                            address.DescriptorId.Value,
+                            out DescriptorState descriptor
+                        )
+                        && descriptor.FindSlot(address.Slot) is SlotState slot
+                        && (
+                            slot.Terminal
+                            || slot.Paused
+                            || slot.Clock is MotionClockSource.Controlled
+                        )
+                    )
+            );
         }
 
         public IReadOnlyList<MotionPlaybackEvent> DrainEvents()
@@ -88,5 +172,9 @@ namespace Battlement.UI
     internal sealed record ImperativePlayback(
         uint Generation,
         List<MotionPlaybackAddress> Addresses
-    );
+    ) : IMotionPlaybackStatus
+    {
+        public MotionPlaybackOutcome? Outcome { get; set; }
+        public Exception? Failure { get; set; }
+    }
 }

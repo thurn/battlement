@@ -21,7 +21,8 @@ enum MotionProperty:ushort {
   UnityTextOutlineWidth, UnityTextOverflowPosition, Visibility, WhiteSpace, Width,
   WordSpacing, X, Y, Z, RotateX, RotateY, ScaleX, ScaleY, SkewX, SkewY,
   TransformList, PaintFilter, BackgroundGradient, BoxShadow, ClipInset,
-  ClipPolygon, Mask, Layout
+  ClipPolygon, Mask, Layout,
+  LocalPositionX, LocalPositionY, LocalPositionZ, LocalRotationX, LocalRotationY, LocalRotationZ, LocalScaleX, LocalScaleY, LocalScaleZ, LocalOffsetX, LocalOffsetY, LocalOffsetZ, LocalTiltX, LocalTiltY, LocalTiltZ, LocalScaleFactorX, LocalScaleFactorY, LocalScaleFactorZ
 }
 
 struct MotionLength { pixels:float; percentage:float; }
@@ -160,7 +161,7 @@ table MotionGestureEvent {
   constrained:bool;
 }
 
-enum MotionPlaybackOutcome:ubyte { Completed, Stopped, Cancelled }
+enum MotionPlaybackOutcome:ubyte { Completed, Stopped, Cancelled, Failed }
 table MotionPlaybackEvent {
   playback_id:Uuid (required);
   generation:uint;

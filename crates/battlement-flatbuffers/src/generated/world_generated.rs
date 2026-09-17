@@ -3,19 +3,31 @@
 extern crate alloc;
 
 use crate::common_generated::*;
+use crate::motion_generated::*;
+use crate::ui_event_generated::*;
+use crate::ui_generated::*;
 
 #[allow(unused_imports, dead_code)]
 pub mod battlement {
 
   use crate::common_generated::*;
+  use crate::motion_generated::*;
+  use crate::ui_event_generated::*;
+  use crate::ui_generated::*;
   #[allow(unused_imports, dead_code)]
   pub mod flat_buffers {
 
     use crate::common_generated::*;
+    use crate::motion_generated::*;
+    use crate::ui_event_generated::*;
+    use crate::ui_generated::*;
     #[allow(unused_imports, dead_code)]
     pub mod generated {
 
       use crate::common_generated::*;
+      use crate::motion_generated::*;
+      use crate::ui_event_generated::*;
+      use crate::ui_generated::*;
 
       #[deprecated(
         since = "2.0.0",
@@ -7745,6 +7757,7 @@ pub mod battlement {
         pub const VT_RENDER_ORDER: ::flatbuffers::VOffsetT = 24;
         pub const VT_MATERIAL_INSTANCES: ::flatbuffers::VOffsetT = 26;
         pub const VT_WORLD_POINTER: ::flatbuffers::VOffsetT = 28;
+        pub const VT_MOTION: ::flatbuffers::VOffsetT = 30;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7761,6 +7774,9 @@ pub mod battlement {
           args: &'args GameObjectArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<GameObject<'bldr>> {
           let mut builder = GameObjectBuilder::new(_fbb);
+          if let Some(x) = args.motion {
+            builder.add_motion(x);
+          }
           if let Some(x) = args.world_pointer {
             builder.add_world_pointer(x);
           }
@@ -7956,6 +7972,17 @@ pub mod battlement {
           }
         }
         #[inline]
+        pub fn motion(&self) -> Option<MotionDescriptor<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<MotionDescriptor>>(GameObject::VT_MOTION, None)
+          }
+        }
+        #[inline]
         #[allow(non_snake_case)]
         pub fn content_as_ui_document_object(&self) -> Option<UiDocumentObject<'a>> {
           if self.content_type() == GameObjectContent::UiDocumentObject {
@@ -8129,6 +8156,7 @@ pub mod battlement {
      .visit_field::<::flatbuffers::ForwardsUOffset<RenderOrder>>("render_order", Self::VT_RENDER_ORDER, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MaterialInstance>>>>("material_instances", Self::VT_MATERIAL_INSTANCES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<WorldPointerSettings>>("world_pointer", Self::VT_WORLD_POINTER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<MotionDescriptor>>("motion", Self::VT_MOTION, false)?
      .finish();
           Ok(())
         }
@@ -8152,6 +8180,7 @@ pub mod battlement {
           >,
         >,
         pub world_pointer: Option<::flatbuffers::WIPOffset<WorldPointerSettings<'a>>>,
+        pub motion: Option<::flatbuffers::WIPOffset<MotionDescriptor<'a>>>,
       }
       impl<'a> Default for GameObjectArgs<'a> {
         #[inline]
@@ -8170,6 +8199,7 @@ pub mod battlement {
             render_order: None,
             material_instances: None,
             world_pointer: None,
+            motion: None,
           }
         }
       }
@@ -8290,6 +8320,15 @@ pub mod battlement {
             .push_slot_always::<::flatbuffers::WIPOffset<WorldPointerSettings>>(
               GameObject::VT_WORLD_POINTER,
               world_pointer,
+            );
+        }
+        #[inline]
+        pub fn add_motion(&mut self, motion: ::flatbuffers::WIPOffset<MotionDescriptor<'b>>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<MotionDescriptor>>(
+              GameObject::VT_MOTION,
+              motion,
             );
         }
         #[inline]
@@ -8441,6 +8480,7 @@ pub mod battlement {
           ds.field("render_order", &self.render_order());
           ds.field("material_instances", &self.material_instances());
           ds.field("world_pointer", &self.world_pointer());
+          ds.field("motion", &self.motion());
           ds.finish()
         }
       }

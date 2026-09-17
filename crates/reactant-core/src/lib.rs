@@ -115,6 +115,7 @@ mod motion_transition;
 pub mod motion_value;
 mod motion_value_runtime;
 mod motion_variants;
+mod motion_world;
 mod mutation;
 pub mod native_host;
 mod native_identity_lease;

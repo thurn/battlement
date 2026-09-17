@@ -453,6 +453,7 @@ namespace Battlement
         Completed,
         Stopped,
         Cancelled,
+        Failed,
     }
 
     /// <summary>One generation-checked terminal event for an imperative playback.</summary>

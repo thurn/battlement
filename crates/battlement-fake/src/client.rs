@@ -12,7 +12,8 @@ use battlement::{
   ControllerNavigationPayload, ControllerNavigationSource, CoreErrorCode, DragPayload,
   GeometryObservationBatch, GeometryRegistry, ImageState, PhysicalKey, PointerButton,
   PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
-  ScreenSize, UiEvent, UiEventAction, UiEventDisposition, Validate, Vector3,
+  ScreenSize, UiEvent, UiEventAction, UiEventDisposition, UiVisualElementProperties, Validate,
+  Vector3,
 };
 use battlement_cloud_fake::diagnostics::DiagnosticsFake;
 use battlement_native::Engine;
@@ -83,6 +84,7 @@ where
   pub(crate) session_id: battlement::SessionId,
   pub(crate) world: FakeWorld,
   pub(crate) ui_world: UiWorld,
+  pub(crate) motion: crate::motion::MotionWorld,
   pub(crate) accessibility: battlement::AccessibilitySnapshot,
   pub(crate) geometry_registry: GeometryRegistry,
   pub(crate) admitted_batches: HashSet<BatchId>,
@@ -225,6 +227,7 @@ where
       session_id,
       world: FakeWorld::default(),
       ui_world: UiWorld::default(),
+      motion: crate::motion::MotionWorld::default(),
       accessibility: battlement::AccessibilitySnapshot::default(),
       geometry_registry: GeometryRegistry::default(),
       admitted_batches: HashSet::new(),
@@ -287,6 +290,8 @@ where
       self.session_id
     );
     self.session_id = next_session;
+    self.motion.capture(&self.world, &self.ui_world);
+    self.motion.rebase_clock(self.presentation_ms * 1000);
     self.world = FakeWorld::default();
     self.ui_world = UiWorld::default();
     self.accessibility = battlement::AccessibilitySnapshot::default();
@@ -927,11 +932,42 @@ where
             )
           });
           self.reset_presentation();
+          self.motion.capture(&self.world, &self.ui_world);
+          let mut motion = snapshot
+            .objects
+            .iter()
+            .filter_map(|object| object.motion.as_deref().cloned())
+            .collect::<Vec<_>>();
+          fn collect_motion(
+            node: &battlement::UiNode,
+            values: &mut Vec<battlement::MotionDescriptor>,
+          ) {
+            if let battlement::Prop::Set(value) = &node.element.visual_element().motion {
+              values.push(value.clone());
+            }
+            for child in &node.children {
+              collect_motion(child, values);
+            }
+          }
+          for document in &snapshot.ui {
+            if let battlement::Prop::Set(value) = &document.element.motion {
+              motion.push(value.clone());
+            }
+            for child in &document.children {
+              collect_motion(child, &mut motion);
+            }
+          }
           self
             .ui_world
             .replace(snapshot.ui.clone())
             .unwrap_or_else(|error| panic!("UI snapshot replacement failed: {error:?}"));
           self.world.replace_snapshot(snapshot, &self.assets);
+          self.motion.restore(
+            motion,
+            &mut self.world,
+            &mut self.ui_world,
+            self.presentation_ms * 1000,
+          );
           self.clear_device_state();
         }
         ResponseMessage::Batch(batch) => {
@@ -955,6 +991,7 @@ where
     let previous = std::mem::replace(&mut self.response_retention, response.retention());
     self.apply_response(decoded, mode);
     self.response_retention = previous;
+    self.pump_presentation();
   }
 
   fn apply_batch(&mut self, batch: Batch) {
@@ -992,6 +1029,12 @@ where
   }
 
   pub(crate) fn submit_ui_event(&mut self, event: UiEvent) -> UiEventDisposition {
+    self.motion.handle(
+      &event,
+      &mut self.world,
+      &mut self.ui_world,
+      self.presentation_ms * 1000,
+    );
     let action_id = ActionId::from_uuid(Uuid::from_u128(self.next_action_number))
       .expect("deterministic action ID must be nonzero");
     self.next_action_number += 1;
@@ -1022,15 +1065,41 @@ where
     command_id: CommandId,
     code: CoreErrorCode,
   ) {
-    let failure = BatchFailed::new(
-      self.session_id,
+    self.submit_presentation_failure(
       batch_id,
-      Some(command_id),
+      command_id,
       code,
       "A Diagnostics command failed in the fake client.",
+      true,
     );
-    let message = battlement_flatbuffers::write_core_batch_failure(&failure)
-      .expect("fake core batch failure must satisfy the FlatBuffers contract");
+  }
+
+  pub(crate) fn submit_presentation_failure(
+    &mut self,
+    batch_id: BatchId,
+    command_id: CommandId,
+    code: CoreErrorCode,
+    message: &str,
+    blocking: bool,
+  ) {
+    let message = if blocking {
+      battlement_flatbuffers::write_core_batch_failure(&BatchFailed::new(
+        self.session_id,
+        batch_id,
+        Some(command_id),
+        code,
+        message,
+      ))
+    } else {
+      battlement_flatbuffers::write_core_operation_failure(&battlement::OperationFailed::new(
+        self.session_id,
+        batch_id,
+        command_id,
+        code,
+        message,
+      ))
+    }
+    .expect("fake presentation failure must satisfy the FlatBuffers contract");
     let response = self
       .engine
       .submit(message.as_bytes())
@@ -1156,6 +1225,11 @@ where
   }
 
   fn clear_device_state(&mut self) {
+    self.motion.clear_gestures(
+      &mut self.world,
+      &mut self.ui_world,
+      self.presentation_ms * 1000,
+    );
     self.pointers = pointer::Pointers::default();
     self.navigation = navigation::Navigation::default();
     self.hovered = None;

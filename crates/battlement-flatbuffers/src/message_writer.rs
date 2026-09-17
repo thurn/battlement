@@ -735,6 +735,8 @@ pub struct NativeObjectPlacement<'a> {
   pub pointer_events: &'a [NativePointerEvent],
   /// Logical world pointer route; absent retains core actions.
   pub world_pointer: Option<battlement::WorldPointerSettings>,
+  /// Shared transform animation sampled by the native host.
+  pub motion: Option<&'a battlement::MotionDescriptor>,
   /// Initial dragging policy.
   pub drag_mode: NativeDragMode,
   /// Optional group-relative visual order.
@@ -752,6 +754,7 @@ impl Default for NativeObjectPlacement<'_> {
       transform: NativeTransform::default(),
       pointer_events: &[],
       world_pointer: None,
+      motion: None,
       drag_mode: NativeDragMode::None,
       render_order: None,
       material_instances: &[],
@@ -3746,6 +3749,12 @@ impl MessageWriter {
     let world_pointer = placement
       .world_pointer
       .map(|v| crate::world_pointer::write(&mut self.builder, v));
+    let motion = placement
+      .motion
+      .map(|descriptor| {
+        crate::response_motion_descriptor::write_descriptor(&mut self.builder, descriptor)
+      })
+      .transpose()?;
     let value = world_wire::GameObject::create(
       &mut self.builder,
       &world_wire::GameObjectArgs {
@@ -3756,6 +3765,7 @@ impl MessageWriter {
         render_order,
         material_instances,
         world_pointer,
+        motion,
         local_transform: Some(&local_transform),
         pointer_events: Some(pointer_events),
         drag_mode: match placement.drag_mode {

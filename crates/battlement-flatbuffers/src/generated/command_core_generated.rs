@@ -7,6 +7,7 @@ use crate::common_generated::*;
 use crate::geometry_generated::*;
 use crate::motion_generated::*;
 use crate::ui_event_generated::*;
+use crate::ui_generated::*;
 use crate::world_generated::*;
 
 #[allow(unused_imports, dead_code)]
@@ -17,6 +18,7 @@ pub mod battlement {
   use crate::geometry_generated::*;
   use crate::motion_generated::*;
   use crate::ui_event_generated::*;
+  use crate::ui_generated::*;
   use crate::world_generated::*;
   #[allow(unused_imports, dead_code)]
   pub mod flat_buffers {
@@ -26,6 +28,7 @@ pub mod battlement {
     use crate::geometry_generated::*;
     use crate::motion_generated::*;
     use crate::ui_event_generated::*;
+    use crate::ui_generated::*;
     use crate::world_generated::*;
     #[allow(unused_imports, dead_code)]
     pub mod generated {
@@ -35,6 +38,7 @@ pub mod battlement {
       use crate::geometry_generated::*;
       use crate::motion_generated::*;
       use crate::ui_event_generated::*;
+      use crate::ui_generated::*;
       use crate::world_generated::*;
 
       #[deprecated(
@@ -13090,6 +13094,158 @@ pub mod battlement {
           let mut ds = f.debug_struct("WorldPointerPayload");
           ds.field("object_id", &self.object_id());
           ds.field("settings", &self.settings());
+          ds.finish()
+        }
+      }
+      pub enum WorldMotionPayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct WorldMotionPayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for WorldMotionPayload<'a> {
+        type Inner = WorldMotionPayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> WorldMotionPayload<'a> {
+        pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_MOTION: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          WorldMotionPayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args WorldMotionPayloadArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<WorldMotionPayload<'bldr>> {
+          let mut builder = WorldMotionPayloadBuilder::new(_fbb);
+          if let Some(x) = args.motion {
+            builder.add_motion(x);
+          }
+          if let Some(x) = args.object_id {
+            builder.add_object_id(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn object_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(WorldMotionPayload::VT_OBJECT_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn motion(&self) -> Option<MotionDescriptor<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<MotionDescriptor>>(
+                WorldMotionPayload::VT_MOTION,
+                None,
+              )
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for WorldMotionPayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<MotionDescriptor>>(
+              "motion",
+              Self::VT_MOTION,
+              false,
+            )?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct WorldMotionPayloadArgs<'a> {
+        pub object_id: Option<&'a Uuid>,
+        pub motion: Option<::flatbuffers::WIPOffset<MotionDescriptor<'a>>>,
+      }
+      impl<'a> Default for WorldMotionPayloadArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          WorldMotionPayloadArgs {
+            object_id: None, // required field
+            motion: None,
+          }
+        }
+      }
+
+      pub struct WorldMotionPayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WorldMotionPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_object_id(&mut self, object_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(WorldMotionPayload::VT_OBJECT_ID, object_id);
+        }
+        #[inline]
+        pub fn add_motion(&mut self, motion: ::flatbuffers::WIPOffset<MotionDescriptor<'b>>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<MotionDescriptor>>(
+              WorldMotionPayload::VT_MOTION,
+              motion,
+            );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> WorldMotionPayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          WorldMotionPayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<WorldMotionPayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, WorldMotionPayload::VT_OBJECT_ID, "object_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for WorldMotionPayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("WorldMotionPayload");
+          ds.field("object_id", &self.object_id());
+          ds.field("motion", &self.motion());
           ds.finish()
         }
       }

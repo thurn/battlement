@@ -2,7 +2,10 @@
 
 use std::any::{Any, TypeId};
 
-use battlement::{Command, GameObject, ObjectId};
+use battlement::{
+  Command, CommandBody, GameObject, MotionDescriptor, ObjectId, Prop, UiVisualElementProperties,
+  WorldMotionPayload,
+};
 
 /// Implements one typed native-host catalog behind the heterogeneous render tree.
 pub trait HostAdapter: 'static {
@@ -77,6 +80,7 @@ pub struct HostNode {
   /// Ordered physical children after attachment projection.
   pub children: Vec<Self>,
   description: Box<dyn ErasedHostDescription>,
+  world_motion: Prop<MotionDescriptor>,
 }
 
 impl HostNode {
@@ -85,6 +89,7 @@ impl HostNode {
       object_id,
       children: Vec::new(),
       description: Box::new(AdaptedHost::<A> { description }),
+      world_motion: Prop::Unset,
     }
   }
 
@@ -121,16 +126,31 @@ impl HostNode {
   }
 
   pub(crate) fn create_command(&self, parent_id: ObjectId, child_index: u32) -> Command {
-    self
+    let mut command = self
       .description
-      .create_command(self, parent_id, child_index)
+      .create_command(self, parent_id, child_index);
+    if let CommandBody::ObjectCreate(value) = &mut command.body {
+      value.object.motion = self.motion_descriptor().cloned().map(Box::new);
+    }
+    command
   }
 
   pub(crate) fn property_commands(&self, desired: &Self, hierarchy_changed: bool) -> Vec<Command> {
     self.assert_same_adapter(desired);
-    self
-      .description
-      .property_commands(self.object_id, &*desired.description, hierarchy_changed)
+    let mut commands =
+      self
+        .description
+        .property_commands(self.object_id, &*desired.description, hierarchy_changed);
+    if !self.is_ui() && self.world_motion != desired.world_motion {
+      commands.push(
+        Command::new_v4(CommandBody::MotionSetWorldDescriptor(WorldMotionPayload {
+          object_id: self.object_id,
+          motion: desired.motion_descriptor().cloned().map(Box::new),
+        }))
+        .nonblocking(),
+      );
+    }
+    commands
   }
 
   pub(crate) fn move_command(&self, parent_id: ObjectId, child_index: u32) -> Command {
@@ -158,8 +178,41 @@ impl HostNode {
     self.description.creates_children()
   }
   pub(crate) fn object(&self, parent: Option<ObjectId>) -> Option<GameObject> {
-    self.description.object(self.object_id, parent)
+    self
+      .description
+      .object(self.object_id, parent)
+      .map(|mut object| {
+        object.motion = self.motion_descriptor().cloned().map(Box::new);
+        object
+      })
   }
+  pub(crate) fn motion_descriptor(&self) -> Option<&MotionDescriptor> {
+    match self.motion() {
+      Prop::Set(value) => Some(value),
+      Prop::Unset | Prop::Reset => None,
+    }
+  }
+
+  pub(crate) fn motion(&self) -> &Prop<MotionDescriptor> {
+    if self.is_ui() {
+      &crate::ui_host_adapter::element(self)
+        .visual_element()
+        .motion
+    } else {
+      &self.world_motion
+    }
+  }
+
+  pub(crate) fn motion_mut(&mut self) -> &mut Prop<MotionDescriptor> {
+    if self.is_ui() {
+      &mut crate::ui_host_adapter::element_mut(self)
+        .visual_element_mut()
+        .motion
+    } else {
+      &mut self.world_motion
+    }
+  }
+
   pub(crate) fn scene_root(&self) -> bool {
     self.description.scene_root()
   }

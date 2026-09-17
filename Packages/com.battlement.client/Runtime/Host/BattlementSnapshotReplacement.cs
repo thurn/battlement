@@ -35,6 +35,7 @@ namespace Battlement
             this.scenes = scenes;
             this.world = world;
             this.uiDocuments = uiDocuments;
+            world.Motion.Bind(uiDocuments);
             this.panelInput = panelInput;
             this.reactantAssets = reactantAssets;
         }

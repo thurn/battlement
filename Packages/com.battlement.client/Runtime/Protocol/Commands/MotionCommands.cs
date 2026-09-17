@@ -9,6 +9,10 @@ namespace Battlement
             /// <summary>Mutates one stable Reactant motion value.</summary>
             public sealed record ValueCommand(MotionValueOperation Payload) : CommandBody;
 
+            /// <summary>Installs or clears shared Motion on a world transform host.</summary>
+            public sealed record SetWorldDescriptor(ObjectId ObjectId, MotionDescriptor? Descriptor)
+                : CommandBody;
+
             /// <summary>Mutates one motion-value playback generation.</summary>
             public sealed record ValuePlayback(MotionValuePlaybackOperation Payload) : CommandBody;
 

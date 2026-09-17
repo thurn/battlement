@@ -53,7 +53,7 @@ namespace Battlement
             for (int index = 0; index < values.Count; index++)
             {
                 MotionPropertyValue value = values[index];
-                if ((uint)value.Property > (uint)MotionProperty.Layout)
+                if ((uint)value.Property > (uint)MotionProperty.LocalScaleFactorZ)
                     throw new InvalidDataException("Unknown Motion property.");
                 MotionValueOffset encoded = Write(value.Value);
                 propertyOffsets[index] = Wire.MotionPropertyValue.CreateMotionPropertyValue(

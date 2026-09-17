@@ -1,8 +1,9 @@
+use std::time::Duration;
+
 use battlement::{
   AccessibilitySnapshot, AudioClipAddress, CheckedState, CommandBody, GameObjectKind, KeyEvent,
-  KeyModifiers, MotionDescriptor, MotionEventBatch, MotionEventKind, MotionLayer,
-  MotionLifecycleEvent, MotionSequence, NavigationEvent, ObjectId, PhysicalKey, Prop, SemanticRole,
-  StyleValue, UiEvent, UiEventBody, UiFontAddress, UiVisualElementProperties, VisualElementAction,
+  KeyModifiers, NavigationEvent, ObjectId, PhysicalKey, Prop, SemanticRole, StyleValue, UiEvent,
+  UiEventBody, UiFontAddress, UiVisualElementProperties, VisualElementAction,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_rules::engine;
@@ -102,10 +103,11 @@ fn controller_cancel_scenario() {
 #[test]
 fn play_and_quit_reach_terminal_black() {
   self::with_render_stack(|| {
-    for (sequence, action) in ["PLAY", "QUIT"].into_iter().enumerate() {
+    for action in ["PLAY", "QUIT"] {
       let mut client = self::client();
       self::click_semantic(&mut client, SemanticRole::Button, action);
-      self::complete_exit(&mut client, (sequence + 1) as u64);
+      client.advance_time(Duration::from_millis(620));
+      client.poll();
       self::semantic(&client, SemanticRole::Region, "Dismissed arcade stage");
     }
   });
@@ -190,49 +192,6 @@ fn with_render_stack(scenario: fn()) {
     .expect("complete UI test thread")
     .join()
     .expect("complete UI scenario");
-}
-
-fn complete_exit(client: &mut FakeClient<App>, sequence: u64) {
-  let descriptor = self::descriptor_named(client, "arcade-exit-content-surface");
-  let slot = descriptor
-    .slots
-    .iter()
-    .find(|slot| slot.layer == MotionLayer::Animate)
-    .expect("exit animation slot");
-  let sequence = MotionSequence(sequence);
-  client.submit_motion(MotionEventBatch {
-    first_sequence: sequence,
-    last_sequence: sequence,
-    events: vec![MotionLifecycleEvent {
-      sequence,
-      descriptor_id: descriptor.descriptor_id,
-      slot: slot.slot,
-      generation: slot.generation,
-      elapsed_micros: 620_000,
-      kind: MotionEventKind::Completed,
-    }],
-    samples: Vec::new(),
-    value_samples: Vec::new(),
-    playback_events: Vec::new(),
-    gesture_events: Vec::new(),
-  });
-  client.poll();
-  client.poll();
-}
-
-fn descriptor_named(client: &mut FakeClient<App>, name: &str) -> MotionDescriptor {
-  let id = self::named(client, name);
-  let Prop::Set(descriptor) = client
-    .ui()
-    .element(id)
-    .element()
-    .visual_element()
-    .motion
-    .clone()
-  else {
-    panic!("missing motion descriptor")
-  };
-  descriptor
 }
 
 fn choose(client: &mut FakeClient<App>, trigger: &str, option: &str) {

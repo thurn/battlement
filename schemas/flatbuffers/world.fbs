@@ -1,4 +1,5 @@
 include "common.fbs";
+include "ui.fbs";
 
 namespace Battlement.FlatBuffers.Generated;
 
@@ -231,6 +232,7 @@ table GameObject {
   render_order:RenderOrder;
   material_instances:[MaterialInstance];
   world_pointer:WorldPointerSettings;
+  motion:MotionDescriptor;
 }
 
 enum InteractionDistanceKind:ubyte { Unbounded, Inclusive }

@@ -15,17 +15,9 @@ namespace Battlement.UI
         {
             foreach (MotionPropertyTrack track in target.Tracks)
                 if (track.Values.Count != 0)
-                    BattlementMotionPropertyWriter.Write(
-                        descriptor.Target,
-                        track.Property,
-                        track.Values[^1]
-                    );
+                    descriptor.Properties.Write(track.Property, track.Values[^1]);
             foreach (MotionPropertyValue value in target.TransitionEnd)
-                BattlementMotionPropertyWriter.Write(
-                    descriptor.Target,
-                    value.Property,
-                    value.Value
-                );
+                descriptor.Properties.Write(value.Property, value.Value);
         }
 
         public static MotionTargetDescriptor Resolve(
@@ -57,15 +49,16 @@ namespace Battlement.UI
                     candidate.Descriptor.HostId == value.Value
                 ),
                 MotionSelector.Name value => snapshot.Where(candidate =>
-                    root.Target.Contains(candidate.Target)
+                    root.Properties.Contains(candidate.Properties)
                     && candidate.Descriptor.MotionName == value.Value
                 ),
                 MotionSelector.ScopeRoot => new[] { root },
                 MotionSelector.Children => snapshot.Where(candidate =>
-                    ReferenceEquals(candidate.Target.parent, root.Target)
+                    root.Properties.IsParentOf(candidate.Properties)
                 ),
                 MotionSelector.Descendants => snapshot.Where(candidate =>
-                    !ReferenceEquals(candidate, root) && root.Target.Contains(candidate.Target)
+                    !ReferenceEquals(candidate, root)
+                    && root.Properties.Contains(candidate.Properties)
                 ),
                 _ => throw Invalid("Unknown animation-scope selector."),
             };

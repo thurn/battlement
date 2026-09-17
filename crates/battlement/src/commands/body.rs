@@ -203,6 +203,8 @@ pub enum CommandBody {
   VisualElementPerformAction(VisualElementPerformAction),
   /// Mutate one stable Reactant motion value.
   MotionValue(MotionValueOperation),
+  /// Installs, replaces, or clears shared Motion for a world transform.
+  MotionSetWorldDescriptor(WorldMotionPayload),
   /// Mutate one motion-value playback generation.
   MotionValuePlayback(MotionValuePlaybackOperation),
   /// Mutate one descriptor-slot playback generation.

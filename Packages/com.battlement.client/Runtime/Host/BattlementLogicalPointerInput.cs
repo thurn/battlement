@@ -68,6 +68,9 @@ namespace Battlement
                         ),
                         false
                     );
+                CancelPressed(state, pointerId);
+                Boundary(state.Hovered, null, pointerId, state.Position, false);
+                state.Hovered = null;
                 Lose(pointerId, state);
                 state.Pressed.Clear();
                 state.Buttons.Clear();
@@ -163,8 +166,30 @@ namespace Battlement
         internal void Reset()
         {
             foreach ((int id, State state) in pointers.ToArray())
+            {
+                CancelPressed(state, id);
+                Boundary(state.Hovered, null, id, state.Position, false);
                 Lose(id, state);
+            }
             pointers.Clear();
+        }
+
+        private void CancelPressed(State state, int pointerId)
+        {
+            foreach (BattlementIdentity? target in state.Pressed.Values.Distinct())
+                if (target != null && !ReferenceEquals(target, state.Captured))
+                    Send(
+                        target,
+                        new UiEventBody.PointerCancel(
+                            new UiPointerCancelEvent(
+                                Point(state.Position),
+                                new Vector(0, 0),
+                                pointerId,
+                                PointerType: Type(pointerId)
+                            )
+                        ),
+                        false
+                    );
         }
 
         private void Capture(int id, State state, BattlementIdentity target)

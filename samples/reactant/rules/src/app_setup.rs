@@ -16,10 +16,18 @@ pub type ReactantEngine = App<Game>;
 
 /// Creates the Reactant sample application.
 pub fn create_engine() -> ReactantEngine {
+  create_engine_with_screen(None)
+}
+
+fn create_engine_with_screen(screen: Option<crate::Screen>) -> ReactantEngine {
   animation_validation::fixture_registry()
     .validate()
     .expect("valid animation registry");
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+  let mut game = model::new();
+  if let Some(screen) = screen {
+    game.screen = screen;
+  }
+  let mut app = App::with_model(CONTENT_SCENE, game);
   let overlay = app.create_portal_target();
   let preview = Preview::new();
   app
@@ -56,6 +64,19 @@ pub fn create_engine() -> ReactantEngine {
 }
 
 fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineError> {
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("motion-ui") {
+    return Ok(create_engine_with_screen(Some(
+      crate::Screen::TargetsTimelines,
+    )));
+  }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("motion-reduced") {
+    return Ok(create_engine_with_screen(Some(
+      crate::Screen::ComposedEffects,
+    )));
+  }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("shared-motion") {
+    return Ok(crate::world_motion_proof::app());
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("world-navigation") {
     return Ok(crate::navigation_proof::app());
   }

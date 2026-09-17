@@ -530,6 +530,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.MotionSetWorldDescriptor:
                 case Wire.CoreCommandKind.InputSetWorldPointer:
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
@@ -946,6 +947,14 @@ namespace Battlement
                         return true;
                     }
                     return false;
+                }
+                case Wire.CoreCommandKind.MotionSetWorldDescriptor:
+                {
+                    _ = ReadUuid(
+                        value.PayloadAsWorldMotionPayload().ObjectId,
+                        "world motion object"
+                    );
+                    return true;
                 }
                 case Wire.CoreCommandKind.InputSetWorldPointer:
                 {
@@ -1619,6 +1628,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.MotionSetWorldDescriptor:
                 case Wire.CoreCommandKind.InputSetWorldPointer:
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
@@ -2045,6 +2055,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.MotionSetWorldDescriptor:
                 case Wire.CoreCommandKind.InputSetWorldPointer:
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
@@ -3416,6 +3427,8 @@ namespace Battlement
                 Wire.CoreCommandKind.ObjectCreate => Wire.CoreCommandPayload.ObjectCreatePayload,
                 Wire.CoreCommandKind.ObjectDestroy or Wire.CoreCommandKind.InputSetCamera =>
                     Wire.CoreCommandPayload.ObjectIdPayload,
+                Wire.CoreCommandKind.MotionSetWorldDescriptor =>
+                    Wire.CoreCommandPayload.WorldMotionPayload,
                 Wire.CoreCommandKind.InputSetWorldPointer =>
                     Wire.CoreCommandPayload.WorldPointerPayload,
                 Wire.CoreCommandKind.BoxHitRegionSetGeometry =>

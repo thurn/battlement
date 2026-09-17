@@ -7,7 +7,7 @@ use std::{
   thread,
 };
 
-use battlement::{self, CommandBody, UiDocument};
+use battlement::{self, Command, UiDocument};
 use battlement_flatbuffers::RetainedUiSnapshot;
 
 use crate::{
@@ -211,7 +211,7 @@ pub(crate) fn plan_shutdown<G>(
   roots: &[RootRegistration<G>],
   external_portals: &ExternalPortalRegistry,
   geometry_runtime: &GeometryRuntime,
-) -> (Vec<Vec<CommandBody>>, GeometryPlan) {
+) -> (Vec<Vec<Command>>, GeometryPlan) {
   let bindings = external_portals.active_bindings();
   let previous_trees = roots.iter().map(|root| &root.committed).collect::<Vec<_>>();
   let empty_trees = roots
@@ -254,10 +254,7 @@ pub(crate) fn plan_shutdown<G>(
   (geometry.command_groups(groups), geometry)
 }
 
-fn merge_groups(
-  mut merged: Vec<Vec<CommandBody>>,
-  groups: Vec<Vec<CommandBody>>,
-) -> Vec<Vec<CommandBody>> {
+fn merge_groups(mut merged: Vec<Vec<Command>>, groups: Vec<Vec<Command>>) -> Vec<Vec<Command>> {
   for (index, group) in groups.into_iter().enumerate() {
     if index == merged.len() {
       merged.push(group);

@@ -429,7 +429,7 @@ pub struct MotionLayoutDescriptor {
   pub transition: TransitionDefinition,
 }
 
-/// Complete validated animation state installed beside one UI host.
+/// Complete validated animation state installed beside one host.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MotionDescriptor {
   /// Stable descriptor identity across updates.
@@ -935,6 +935,8 @@ pub enum MotionPlaybackOutcome {
   Stopped,
   /// Playback was removed and exposed its lower layer.
   Cancelled,
+  /// The native writer failed before reaching its terminal target.
+  Failed,
 }
 
 /// One generation-checked terminal event for an imperative playback.

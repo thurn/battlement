@@ -526,21 +526,16 @@ impl RenderTree {
   ) -> bool {
     let mut invoked = false;
     for position in &mut self.positions {
-      let matches = position
-        .host
-        .as_ref()
-        .filter(|host| host.is_ui())
-        .is_some_and(|host| {
-          let Prop::Set(descriptor) = &ui_host_adapter::element(host).visual_element().motion
-          else {
-            return false;
-          };
-          descriptor.descriptor_id == event.descriptor_id
-            && descriptor
-              .slots
-              .iter()
-              .any(|slot| slot.slot == event.slot && slot.generation == event.generation)
-        });
+      let matches = position.host.as_ref().is_some_and(|host| {
+        let Prop::Set(descriptor) = host.motion() else {
+          return false;
+        };
+        descriptor.descriptor_id == event.descriptor_id
+          && descriptor
+            .slots
+            .iter()
+            .any(|slot| slot.slot == event.slot && slot.generation == event.generation)
+      });
       if matches {
         invoked |= position.motion_callbacks.invoke(game, event);
       } else if let Some(index) = position
@@ -571,21 +566,16 @@ impl RenderTree {
   ) -> bool {
     let mut invoked = false;
     for position in &mut self.positions {
-      let matches = position
-        .host
-        .as_ref()
-        .filter(|host| host.is_ui())
-        .is_some_and(|host| {
-          let Prop::Set(descriptor) = &ui_host_adapter::element(host).visual_element().motion
-          else {
-            return false;
-          };
-          descriptor.descriptor_id == sample.descriptor_id
-            && descriptor
-              .slots
-              .iter()
-              .any(|slot| slot.slot == sample.slot && slot.generation == sample.generation)
-        });
+      let matches = position.host.as_ref().is_some_and(|host| {
+        let Prop::Set(descriptor) = host.motion() else {
+          return false;
+        };
+        descriptor.descriptor_id == sample.descriptor_id
+          && descriptor
+            .slots
+            .iter()
+            .any(|slot| slot.slot == sample.slot && slot.generation == sample.generation)
+      });
       if matches {
         invoked |= position.motion_callbacks.invoke_sample(game, sample);
       }
@@ -604,18 +594,12 @@ impl RenderTree {
   ) -> bool {
     let mut invoked = false;
     for position in &mut self.positions {
-      let matches = position
-        .host
-        .as_ref()
-        .filter(|host| host.is_ui())
-        .is_some_and(|host| {
-          let Prop::Set(descriptor) = &ui_host_adapter::element(host).visual_element().motion
-          else {
-            return false;
-          };
-          descriptor.descriptor_id == event.descriptor_id
-            && descriptor.generation == event.generation
-        });
+      let matches = position.host.as_ref().is_some_and(|host| {
+        let Prop::Set(descriptor) = host.motion() else {
+          return false;
+        };
+        descriptor.descriptor_id == event.descriptor_id && descriptor.generation == event.generation
+      });
       if matches {
         invoked |= position.motion_callbacks.invoke_gesture(game, event);
       }

@@ -115,7 +115,39 @@ namespace Battlement.Tests
         private static Payload MotionControl(
             FlatBufferBuilder builder,
             CommandBody.Motion.Control value
-        ) => throw Unsupported(value);
+        )
+        {
+            if (
+                value.Payload.Command is not MotionControlCommand.Start start
+                || start.Target is not MotionControlTarget.Variant variant
+            )
+                throw Unsupported(value);
+            StringOffset name = builder.CreateString(variant.Value);
+            Offset<Wire.MotionControlTarget> target =
+                Wire.MotionControlTarget.CreateMotionControlTarget(
+                    builder,
+                    Wire.MotionControlTargetKind.Variant,
+                    default,
+                    name
+                );
+            Wire.MotionControlOperation.StartMotionControlOperation(builder);
+            Wire.MotionControlOperation.AddTarget(builder, target);
+            Wire.MotionControlOperation.AddGeneration(builder, start.Generation);
+            Wire.MotionControlOperation.AddPlaybackId(
+                builder,
+                Uuid(builder, start.PlaybackId.Value)
+            );
+            Wire.MotionControlOperation.AddCommand(builder, Wire.MotionControlCommandKind.Start);
+            Wire.MotionControlOperation.AddControlId(
+                builder,
+                Uuid(builder, value.Payload.ControlId.Value)
+            );
+            return new Payload(
+                Wire.CoreCommandKind.MotionControl,
+                Wire.CoreCommandPayload.MotionControlOperation,
+                Wire.MotionControlOperation.EndMotionControlOperation(builder).Value
+            );
+        }
 
         private static Payload MotionScope(
             FlatBufferBuilder builder,

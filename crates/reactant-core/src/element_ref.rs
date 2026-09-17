@@ -436,11 +436,11 @@ impl AttachmentSet {
     runtime: &ElementRefRuntime,
     count: usize,
     layout: &PortalLayout,
-  ) -> Vec<Vec<CommandBody>> {
+  ) -> Vec<Vec<Command>> {
     runtime.actions[..count]
       .iter()
       .filter_map(|queued| self.action_body(queued, runtime, layout))
-      .map(|body| vec![body])
+      .map(|body| vec![Command::new_v4(body)])
       .collect()
   }
 

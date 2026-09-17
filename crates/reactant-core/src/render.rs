@@ -5,7 +5,7 @@ use std::{
   rc::Rc,
 };
 
-use battlement::{ObjectId, Prop, UiElement, UiVisualElementProperties};
+use battlement::{ObjectId, Prop, UiElement};
 
 use crate::{
   component::Component,
@@ -33,7 +33,6 @@ use crate::{
   runtime::RenderError,
   semantics::SemanticProps,
   suspense::{SuspenseMarker, SuspenseState},
-  ui_host_adapter,
 };
 
 /// A value Reactant can lower into native host descriptions.
@@ -245,18 +244,14 @@ pub(crate) struct RenderSink<'a> {
 fn motion_host(tree: &RenderTree) -> Option<ObjectId> {
   let mut result = None;
   for position in &tree.positions {
-    if let Some(host) = position.host.as_ref().filter(|host| host.is_ui())
-      && matches!(
-        ui_host_adapter::element(host).visual_element().motion,
-        Prop::Set(_)
-      )
+    if let Some(host) = position.host.as_ref()
+      && matches!(host.motion(), Prop::Set(_))
     {
       assert!(
         result.replace(host.object_id).is_none(),
         "MotionComponent must forward Motion props to exactly one host façade"
       );
-    }
-    if let Some(host) = motion_host(&position.children) {
+    } else if let Some(host) = motion_host(&position.children) {
       assert!(
         result.replace(host).is_none(),
         "MotionComponent must forward Motion props to exactly one host façade"

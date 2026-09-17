@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use battlement::{
-  Batch, BatchId, BatchStart, CommandBody, GameObject, ObjectId, ParallelCommandGroup, SessionId,
-  Snapshot, UiNode, VisualElementCreate,
+  Batch, BatchId, BatchStart, Command, CommandBody, GameObject, ObjectId, ParallelCommandGroup,
+  SessionId, Snapshot, UiNode, VisualElementCreate,
 };
 
 use crate::{host_node::HostNode, render::RenderTree};
@@ -39,19 +39,19 @@ pub(crate) fn collect(
 
 pub(crate) fn batches(
   session: SessionId,
-  groups: Vec<Vec<CommandBody>>,
+  groups: Vec<Vec<Command>>,
   owners: &HashMap<ObjectId, u64>,
   independent: bool,
 ) -> Vec<Batch> {
   let mut batches: Vec<Batch> = Vec::new();
   for group in groups {
-    let mut split: Vec<(Option<u64>, Vec<CommandBody>)> = Vec::new();
+    let mut split: Vec<(Option<u64>, Vec<Command>)> = Vec::new();
     for command in group {
-      let scope = self::target(&command)
+      let scope = self::target(&command.body)
         .and_then(|id| owners.get(&id).copied())
         .or_else(|| {
           matches!(
-            command,
+            command.body,
             CommandBody::AccessibilityUpdate(_) | CommandBody::GeometryObservationUpdate(_)
           )
           .then(|| owners.values().copied().max())
@@ -80,7 +80,7 @@ pub(crate) fn batches(
         });
       batches[index]
         .groups
-        .push(ParallelCommandGroup::from_bodies(commands));
+        .push(ParallelCommandGroup::new(commands));
     }
   }
   batches
@@ -147,16 +147,16 @@ fn extract_nodes(
   nodes: &mut Vec<UiNode>,
   parent: ObjectId,
   owners: &HashMap<ObjectId, u64>,
-  commands: &mut Vec<CommandBody>,
+  commands: &mut Vec<Command>,
 ) {
   *nodes = std::mem::take(nodes)
     .into_iter()
     .enumerate()
     .filter_map(|(index, mut node)| {
       if owners.contains_key(&node.object_id) {
-        commands.push(CommandBody::VisualElementCreate(Box::new(
+        commands.push(Command::new_v4(CommandBody::VisualElementCreate(Box::new(
           VisualElementCreate::new(parent, node).child_index(index as u32),
-        )));
+        ))));
         None
       } else {
         self::extract_nodes(&mut node.children, node.object_id, owners, commands);
@@ -171,11 +171,11 @@ pub(crate) fn recovery(
   parent: ObjectId,
   scope: u64,
   owners: &HashMap<ObjectId, u64>,
-  commands: &mut Vec<CommandBody>,
+  commands: &mut Vec<Command>,
 ) {
   for (index, node) in hosts.iter().enumerate() {
     if owners.get(&node.object_id) == Some(&scope) {
-      commands.push(node.create_command(parent, index as u32).body);
+      commands.push(node.create_command(parent, index as u32));
     } else {
       self::recovery(&node.children, node.object_id, scope, owners, commands);
     }
@@ -186,9 +186,9 @@ pub(crate) fn current() -> Option<u64> {
   crate::context::read_optional::<WorkScope>().map(|scope| scope.0)
 }
 
-pub(crate) fn object_groups(objects: Vec<GameObject>) -> Vec<Vec<CommandBody>> {
+pub(crate) fn object_groups(objects: Vec<GameObject>) -> Vec<Vec<Command>> {
   let mut depths = HashMap::new();
-  let mut groups = Vec::<Vec<CommandBody>>::new();
+  let mut groups = Vec::<Vec<Command>>::new();
   for object in objects {
     let depth = object
       .parent_id
@@ -196,7 +196,7 @@ pub(crate) fn object_groups(objects: Vec<GameObject>) -> Vec<Vec<CommandBody>> {
       .map_or(0, |depth| depth + 1);
     depths.insert(object.object_id, depth);
     groups.resize_with(groups.len().max(depth + 1), Vec::new);
-    groups[depth].push(CommandBody::object_create(object));
+    groups[depth].push(Command::new_v4(CommandBody::object_create(object)));
   }
   groups
 }

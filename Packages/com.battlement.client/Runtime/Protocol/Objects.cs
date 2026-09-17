@@ -31,7 +31,8 @@ namespace Battlement
         DragMode? DragMode = null,
         RenderOrder? RenderOrder = null,
         IReadOnlyList<MaterialInstance>? MaterialInstances = null,
-        WorldPointerSettings? WorldPointer = null
+        WorldPointerSettings? WorldPointer = null,
+        MotionDescriptor? Motion = null
     )
     {
         public BattlementGameObject(ObjectId id, GameObjectKind kind)

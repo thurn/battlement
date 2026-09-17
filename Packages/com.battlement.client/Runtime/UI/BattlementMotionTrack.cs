@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Collections.Generic;
-using UnityEngine.UIElements;
 
 namespace Battlement.UI
 {
@@ -19,6 +18,7 @@ namespace Battlement.UI
             Definition = definition;
             this.origin = origin;
             this.incomingVelocity = incomingVelocity;
+            Velocity = incomingVelocity;
         }
 
         public MotionPropertyTrack Definition { get; }
@@ -39,7 +39,10 @@ namespace Battlement.UI
 
         public void Adopt(TrackState previous)
         {
+            origin = previous.origin;
+            incomingVelocity = previous.incomingVelocity;
             Velocity = previous.Velocity;
+            Suppressed = previous.Suppressed;
             Done = previous.Done;
             Iteration = previous.Iteration;
         }
@@ -52,9 +55,9 @@ namespace Battlement.UI
             Suppressed = false;
         }
 
-        public void Retarget(VisualElement target)
+        public void Retarget(IBattlementMotionTarget target)
         {
-            origin = BattlementMotionPropertyWriter.Read(target, Definition.Property);
+            origin = target.Read(Definition.Property);
             incomingVelocity = Velocity;
             Reset();
         }
@@ -65,17 +68,18 @@ namespace Battlement.UI
             Done = true;
         }
 
-        public void ApplyOrigin(VisualElement target) =>
-            BattlementMotionPropertyWriter.Write(target, Definition.Property, origin);
+        public void ApplyOrigin(IBattlementMotionTarget target) =>
+            target.Write(Definition.Property, origin);
 
-        public void ApplyTerminal(VisualElement target) =>
-            BattlementMotionPropertyWriter.Write(target, Definition.Property, EndValue());
+        public void ApplyTerminal(IBattlementMotionTarget target) =>
+            target.Write(Definition.Property, EndValue());
 
         public void Sample(
-            VisualElement target,
+            IBattlementMotionTarget target,
             ulong elapsedMicros,
             MotionPlaybackDirection direction,
-            bool suppressed
+            bool suppressed,
+            bool write = true
         )
         {
             Suppressed = suppressed;
@@ -100,16 +104,13 @@ namespace Battlement.UI
                     transition,
                     elapsedMicros
                 );
-                BattlementMotionPropertyWriter.WriteScalar(
-                    target,
-                    Definition.Property,
-                    scalar.Value
-                );
+                if (write)
+                    target.WriteScalar(Definition.Property, scalar.Value);
                 Velocity = scalar.Velocity;
                 Done = scalar.Done;
                 Iteration = scalar.Iteration;
                 if (suppressed)
-                    Suppress(target);
+                    Suppress(target, write);
                 return;
             }
             bool reverseSequence =
@@ -128,17 +129,19 @@ namespace Battlement.UI
                 velocity,
                 elapsedMicros
             );
-            BattlementMotionPropertyWriter.Write(target, Definition.Property, sample.Value);
+            if (write)
+                target.Write(Definition.Property, sample.Value);
             Velocity = sample.Velocity;
             Done = sample.Done;
             Iteration = sample.Iteration;
             if (suppressed)
-                Suppress(target);
+                Suppress(target, write);
         }
 
-        private void Suppress(VisualElement target)
+        private void Suppress(IBattlementMotionTarget target, bool write)
         {
-            ApplyTerminal(target);
+            if (write)
+                ApplyTerminal(target);
             Velocity = 0;
             if (Definition.Transition.Repeat is not MotionRepeat.Forever)
                 Done = true;

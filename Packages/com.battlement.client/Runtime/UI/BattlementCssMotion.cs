@@ -161,7 +161,7 @@ namespace Battlement.UI
             {
                 if (BattlementMotionPropertyWriter.IsLayout(track.Definition.Property) == layout)
                     track.Sample(
-                        target,
+                        BattlementUiMotionTarget.For(target),
                         clockMicros >= trackAnchors[track.Definition.Property]
                             ? clockMicros - trackAnchors[track.Definition.Property]
                             : 0,
@@ -614,7 +614,7 @@ namespace Battlement.UI
                     var slot = new SlotState(
                         definition,
                         new MotionClockSource.Unscaled(),
-                        Element,
+                        BattlementUiMotionTarget.For(Element),
                         clockMicros,
                         null,
                         null
@@ -640,7 +640,7 @@ namespace Battlement.UI
                     if (animation.Fill is AnimationFill.None or AnimationFill.Forwards)
                         noBackwardsFill.Add(animation.Slot);
                     else if (!preserved)
-                        slot.ApplyOrigin(Element);
+                        slot.ApplyOrigin(BattlementUiMotionTarget.For(Element));
                     if (animation.Fill is AnimationFill.None or AnimationFill.Backwards)
                         noForwardsFill.Add(animation.Slot);
                 }
@@ -693,15 +693,25 @@ namespace Battlement.UI
                         animation.Composition != AnimationComposition.Replace
                         || noForwardsFill.Contains(animation.Slot);
                     IReadOnlyDictionary<MotionProperty, MotionValue>? lower = capture
-                        ? slot.CaptureValues(Element, layout)
+                        ? slot.CaptureValues(BattlementUiMotionTarget.For(Element), layout)
                         : null;
-                    slot.Sample(Element, clockMicros, layout, reducedMotion);
+                    slot.Sample(
+                        BattlementUiMotionTarget.For(Element),
+                        clockMicros,
+                        layout,
+                        reducedMotion
+                    );
                     if (lower is null)
                         continue;
                     if (noForwardsFill.Contains(animation.Slot) && slot.AllTracksDone)
-                        slot.RestoreValues(Element, lower);
+                        slot.RestoreValues(BattlementUiMotionTarget.For(Element), lower);
                     else if (animation.Composition != AnimationComposition.Replace)
-                        slot.Compose(Element, lower, animation.Composition, layout);
+                        slot.Compose(
+                            BattlementUiMotionTarget.For(Element),
+                            lower,
+                            animation.Composition,
+                            layout
+                        );
                 }
                 if (layout)
                     return;
