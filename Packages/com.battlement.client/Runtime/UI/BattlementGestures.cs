@@ -79,7 +79,10 @@ namespace Battlement.UI
             pointerCancel = _ => Cancel();
             captureOut = value =>
             {
-                if (value.pointerId == pointerId)
+                if (
+                    value.pointerId == pointerId
+                    && !BattlementPointerCaptureTransfer.IsMoving(target)
+                )
                     Cancel();
             };
             focusIn = value => Focus(value.target, true);

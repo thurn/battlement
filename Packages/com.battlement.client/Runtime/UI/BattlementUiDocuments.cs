@@ -444,6 +444,41 @@ namespace Battlement.UI
 
         internal IEnumerable<UIDocument> InputDocuments => hierarchy.InputDocuments;
 
+        internal void SetWorldCaptureResolver(Func<int, bool> captured) =>
+            eventObserver.WorldCaptured = captured;
+
+        internal bool HasPointerModal() =>
+            hierarchy.InputDocuments.Any(document =>
+                document != null
+                && document.isActiveAndEnabled
+                && overlayCoordinator.ActiveModal(document.rootVisualElement.panel) != null
+            );
+
+        internal bool BlocksWorldPointer(int pointerId, UnityEngine.Vector2 screen)
+        {
+            foreach (UIDocument document in hierarchy.InputDocuments)
+            {
+                if (document == null || !document.isActiveAndEnabled)
+                    continue;
+                VisualElement root = document.rootVisualElement;
+                if (root.panel == null)
+                    continue;
+                if (overlayCoordinator.ActiveModal(root.panel) != null)
+                    return true;
+                if (root.panel.GetCapturingElement(pointerId) != null)
+                    return true;
+                if (
+                    document.panelSettings.renderMode
+                    != UnityEngine.UIElements.PanelRenderMode.ScreenSpaceOverlay
+                )
+                    continue;
+                UnityEngine.Vector2 point = new(screen.x, Screen.height - screen.y);
+                if (root.panel.Pick(point / root.panel.scaledPixelsPerPoint) != null)
+                    return true;
+            }
+            return false;
+        }
+
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
 
         internal BattlementAccessibilityManager AccessibilityForTests => accessibility;
@@ -627,6 +662,12 @@ namespace Battlement.UI
         /// <summary>Advances coalesced live scroll events and settlement deadlines.</summary>
         public void Advance()
         {
+            foreach (UIDocument document in hierarchy.InputDocuments)
+                if (document != null && document.rootVisualElement.panel is IPanel panel)
+                    BattlementPointerCaptureTransfer.ReleaseIneligible(
+                        panel,
+                        focusCoordinator.IsEffectivelyInert
+                    );
             particles.Advance();
             foreach (BattlementUiHierarchy.Entry root in hierarchy.Roots)
                 BattlementTextSpacing.Refresh(root.Element);
@@ -1500,8 +1541,11 @@ namespace Battlement.UI
             stickyCoordinator.PrepareHierarchyChange(target);
             overlayCoordinator.PrepareHierarchyChange(target);
             focusCoordinator.PrepareHierarchyChange(target);
-            RemoveNativeChild(Require(new ObjectId(plan.OldParentId)), target);
-            InsertNativeChild(parent, target, plan.NewIndex);
+            using (new BattlementPointerCaptureTransfer(target))
+            {
+                RemoveNativeChild(Require(new ObjectId(plan.OldParentId)), target);
+                InsertNativeChild(parent, target, plan.NewIndex);
+            }
             hierarchy.ApplyMove(plan);
             ApplyStickyAfterAttachment(target);
             ApplyOverlayAfterAttachment(target);
@@ -1533,6 +1577,7 @@ namespace Battlement.UI
         )
         {
             BattlementUiHierarchy.ReorderPlan plan = hierarchy.PrepareReorder(objectId, childIndex);
+            using var captureTransfer = new BattlementPointerCaptureTransfer(target);
             UnityEngine.UIElements.VisualElement parent = Require(new ObjectId(plan.ParentId));
             particles.Remove(parent);
             choiceControls.BeginHierarchyMutation(new ObjectId(plan.ParentId));

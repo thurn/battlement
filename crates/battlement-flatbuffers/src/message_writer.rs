@@ -733,6 +733,8 @@ pub struct NativeObjectPlacement<'a> {
   pub transform: NativeTransform,
   /// Subscribed pointer events.
   pub pointer_events: &'a [NativePointerEvent],
+  /// Logical world pointer route; absent retains core actions.
+  pub world_pointer: Option<battlement::WorldPointerSettings>,
   /// Initial dragging policy.
   pub drag_mode: NativeDragMode,
   /// Optional group-relative visual order.
@@ -749,6 +751,7 @@ impl Default for NativeObjectPlacement<'_> {
       active: true,
       transform: NativeTransform::default(),
       pointer_events: &[],
+      world_pointer: None,
       drag_mode: NativeDragMode::None,
       render_order: None,
       material_instances: &[],
@@ -1024,6 +1027,31 @@ impl MessageWriter {
       world_wire::GameObjectKind::BoxHitRegion,
       world_wire::GameObjectContent::BoxHitRegionObject,
       content.as_union_value(),
+    )
+  }
+
+  /// Writes logical pointer arbitration and capture settings.
+  pub fn set_world_pointer(
+    &mut self,
+    command_id: [u8; 16],
+    blocking: bool,
+    object_id: [u8; 16],
+    settings: Option<battlement::WorldPointerSettings>,
+  ) -> Result<CoreCommandOffset, ProtocolError> {
+    let settings = settings.map(|v| crate::world_pointer::write(&mut self.builder, v));
+    let payload = command_wire::WorldPointerPayload::create(
+      &mut self.builder,
+      &command_wire::WorldPointerPayloadArgs {
+        object_id: Some(&common::Uuid::new(&object_id)),
+        settings,
+      },
+    );
+    self.core_command(
+      command_id,
+      blocking,
+      wire::CoreCommandKind::InputSetWorldPointer,
+      wire::CoreCommandPayload::WorldPointerPayload,
+      payload.as_union_value(),
     )
   }
 
@@ -3715,6 +3743,9 @@ impl MessageWriter {
     ));
     let render_order =
       crate::response::write_render_order(&mut self.builder, placement.render_order);
+    let world_pointer = placement
+      .world_pointer
+      .map(|v| crate::world_pointer::write(&mut self.builder, v));
     let value = world_wire::GameObject::create(
       &mut self.builder,
       &world_wire::GameObjectArgs {
@@ -3724,6 +3755,7 @@ impl MessageWriter {
         active: placement.active,
         render_order,
         material_instances,
+        world_pointer,
         local_transform: Some(&local_transform),
         pointer_events: Some(pointer_events),
         drag_mode: match placement.drag_mode {

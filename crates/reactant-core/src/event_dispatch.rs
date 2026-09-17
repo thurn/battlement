@@ -50,26 +50,12 @@ pub(crate) fn dispatch<G: 'static>(
 ) -> DispatchResult {
   match input {
     LogicalInput::Ui(event) => self::invoke_raw(runtime_id, roots, game, event),
-    LogicalInput::WorldActivation(target) => {
-      let mut invoked = HandlerInvocations::default();
-      if let Some(path) = self::logical_path(runtime_id, roots, target) {
-        for node in path.iter().rev() {
-          for handler in node.handlers {
-            if handler.activate_world(game) {
-              invoked.local_only =
-                (!invoked.invoked || invoked.local_only) && handler.has_local_invalidation();
-              invoked.invoked = true;
-            }
-          }
-        }
-      }
-      DispatchResult {
-        disposition: disposition(false),
-        invoked: invoked.invoked,
-        local_invalidation: invoked.invoked && invoked.local_only,
-        prevented_by_reactant: false,
-      }
-    }
+    LogicalInput::WorldActivation(target) => self::invoke_raw(
+      runtime_id,
+      roots,
+      game,
+      UiEvent::click(target, battlement::ClickEvent::NavigationSubmit),
+    ),
   }
 }
 
@@ -82,7 +68,7 @@ pub(crate) fn dispatch_view<G: 'static>(
   let incoming_prevented = action.default_prevented();
   let target_id = ObjectId::from_uuid(uuid::Uuid::from_bytes(action.target_id()))
     .expect("UI event view validates nonzero target UUIDs");
-  let Some(path) = self::logical_path(runtime_id, roots, target_id) else {
+  let Some(path) = self::logical_path(runtime_id, roots, target_id, action.event_kind()) else {
     return DispatchResult {
       disposition: disposition(incoming_prevented),
       invoked: false,
@@ -196,7 +182,7 @@ fn invoke_raw<G: 'static>(
   event: UiEvent,
 ) -> DispatchResult {
   let incoming_prevented = event.default_prevented;
-  let Some(path) = self::logical_path(runtime_id, roots, event.target_id) else {
+  let Some(path) = self::logical_path(runtime_id, roots, event.target_id, event.kind()) else {
     return DispatchResult {
       disposition: disposition(incoming_prevented),
       invoked: false,
@@ -367,9 +353,10 @@ fn logical_path<'a>(
   runtime_id: u64,
   roots: &[&'a RenderTree],
   target_id: ObjectId,
+  kind: UiEventKind,
 ) -> Option<Vec<LogicalNode<'a>>> {
   roots.iter().enumerate().find_map(|(index, tree)| {
-    tree.event_path(target_id).map(|path| {
+    tree.event_path(target_id, kind).map(|path| {
       let root = Root::new(runtime_id, index);
       path
         .into_iter()

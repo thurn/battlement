@@ -23,7 +23,17 @@ namespace Battlement.Tests
                 builder,
                 value.MaterialInstances ?? Array.Empty<MaterialInstance>()
             );
+            Offset<Wire.WorldPointerSettings> pointer = value.WorldPointer
+                is WorldPointerSettings settings
+                ? Wire.WorldPointerSettings.CreateWorldPointerSettings(
+                    builder,
+                    settings.InteractionLayer,
+                    settings.Order,
+                    settings.CaptureOnPress
+                )
+                : default;
             Wire.GameObject.StartGameObject(builder);
+            Wire.GameObject.AddWorldPointer(builder, pointer);
             Wire.GameObject.AddMaterialInstances(builder, instances);
             Wire.GameObject.AddRenderOrder(builder, renderOrder);
             Wire.GameObject.AddContent(builder, content);

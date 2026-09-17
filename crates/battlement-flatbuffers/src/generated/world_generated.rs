@@ -7526,6 +7526,170 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum WorldPointerSettingsOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct WorldPointerSettings<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for WorldPointerSettings<'a> {
+        type Inner = WorldPointerSettings<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> WorldPointerSettings<'a> {
+        pub const VT_INTERACTION_LAYER: ::flatbuffers::VOffsetT = 4;
+        pub const VT_ORDER: ::flatbuffers::VOffsetT = 6;
+        pub const VT_CAPTURE_ON_PRESS: ::flatbuffers::VOffsetT = 8;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          WorldPointerSettings { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args WorldPointerSettingsArgs,
+        ) -> ::flatbuffers::WIPOffset<WorldPointerSettings<'bldr>> {
+          let mut builder = WorldPointerSettingsBuilder::new(_fbb);
+          builder.add_order(args.order);
+          builder.add_interaction_layer(args.interaction_layer);
+          builder.add_capture_on_press(args.capture_on_press);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn interaction_layer(&self) -> i32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<i32>(WorldPointerSettings::VT_INTERACTION_LAYER, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn order(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(WorldPointerSettings::VT_ORDER, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn capture_on_press(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(WorldPointerSettings::VT_CAPTURE_ON_PRESS, Some(false))
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for WorldPointerSettings<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<i32>("interaction_layer", Self::VT_INTERACTION_LAYER, false)?
+            .visit_field::<u32>("order", Self::VT_ORDER, false)?
+            .visit_field::<bool>("capture_on_press", Self::VT_CAPTURE_ON_PRESS, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct WorldPointerSettingsArgs {
+        pub interaction_layer: i32,
+        pub order: u32,
+        pub capture_on_press: bool,
+      }
+      impl<'a> Default for WorldPointerSettingsArgs {
+        #[inline]
+        fn default() -> Self {
+          WorldPointerSettingsArgs {
+            interaction_layer: 0,
+            order: 0,
+            capture_on_press: false,
+          }
+        }
+      }
+
+      pub struct WorldPointerSettingsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WorldPointerSettingsBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_interaction_layer(&mut self, interaction_layer: i32) {
+          self.fbb_.push_slot::<i32>(
+            WorldPointerSettings::VT_INTERACTION_LAYER,
+            interaction_layer,
+            0,
+          );
+        }
+        #[inline]
+        pub fn add_order(&mut self, order: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(WorldPointerSettings::VT_ORDER, order, 0);
+        }
+        #[inline]
+        pub fn add_capture_on_press(&mut self, capture_on_press: bool) {
+          self.fbb_.push_slot::<bool>(
+            WorldPointerSettings::VT_CAPTURE_ON_PRESS,
+            capture_on_press,
+            false,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> WorldPointerSettingsBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          WorldPointerSettingsBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<WorldPointerSettings<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for WorldPointerSettings<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("WorldPointerSettings");
+          ds.field("interaction_layer", &self.interaction_layer());
+          ds.field("order", &self.order());
+          ds.field("capture_on_press", &self.capture_on_press());
+          ds.finish()
+        }
+      }
       pub enum GameObjectOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -7556,6 +7720,7 @@ pub mod battlement {
         pub const VT_CONTENT: ::flatbuffers::VOffsetT = 22;
         pub const VT_RENDER_ORDER: ::flatbuffers::VOffsetT = 24;
         pub const VT_MATERIAL_INSTANCES: ::flatbuffers::VOffsetT = 26;
+        pub const VT_WORLD_POINTER: ::flatbuffers::VOffsetT = 28;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7572,6 +7737,9 @@ pub mod battlement {
           args: &'args GameObjectArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<GameObject<'bldr>> {
           let mut builder = GameObjectBuilder::new(_fbb);
+          if let Some(x) = args.world_pointer {
+            builder.add_world_pointer(x);
+          }
           if let Some(x) = args.material_instances {
             builder.add_material_instances(x);
           }
@@ -7750,6 +7918,20 @@ pub mod battlement {
           }
         }
         #[inline]
+        pub fn world_pointer(&self) -> Option<WorldPointerSettings<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<WorldPointerSettings>>(
+                GameObject::VT_WORLD_POINTER,
+                None,
+              )
+          }
+        }
+        #[inline]
         #[allow(non_snake_case)]
         pub fn content_as_ui_document_object(&self) -> Option<UiDocumentObject<'a>> {
           if self.content_type() == GameObjectContent::UiDocumentObject {
@@ -7922,6 +8104,7 @@ pub mod battlement {
      })?
      .visit_field::<::flatbuffers::ForwardsUOffset<RenderOrder>>("render_order", Self::VT_RENDER_ORDER, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MaterialInstance>>>>("material_instances", Self::VT_MATERIAL_INSTANCES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<WorldPointerSettings>>("world_pointer", Self::VT_WORLD_POINTER, false)?
      .finish();
           Ok(())
         }
@@ -7944,6 +8127,7 @@ pub mod battlement {
             ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MaterialInstance<'a>>>,
           >,
         >,
+        pub world_pointer: Option<::flatbuffers::WIPOffset<WorldPointerSettings<'a>>>,
       }
       impl<'a> Default for GameObjectArgs<'a> {
         #[inline]
@@ -7961,6 +8145,7 @@ pub mod battlement {
             content: None, // required field
             render_order: None,
             material_instances: None,
+            world_pointer: None,
           }
         }
       }
@@ -8070,6 +8255,18 @@ pub mod battlement {
             GameObject::VT_MATERIAL_INSTANCES,
             material_instances,
           );
+        }
+        #[inline]
+        pub fn add_world_pointer(
+          &mut self,
+          world_pointer: ::flatbuffers::WIPOffset<WorldPointerSettings<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<WorldPointerSettings>>(
+              GameObject::VT_WORLD_POINTER,
+              world_pointer,
+            );
         }
         #[inline]
         pub fn new(
@@ -8219,6 +8416,7 @@ pub mod battlement {
           };
           ds.field("render_order", &self.render_order());
           ds.field("material_instances", &self.material_instances());
+          ds.field("world_pointer", &self.world_pointer());
           ds.finish()
         }
       }

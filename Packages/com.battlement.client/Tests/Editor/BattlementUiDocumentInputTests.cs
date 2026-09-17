@@ -18,6 +18,84 @@ namespace Battlement.Tests
     public sealed class BattlementUiDocumentInputTests
     {
         [Test]
+        public void ModalTargetUsesDocumentRouteWhileBackgroundRemainsBlocked()
+        {
+            ObjectId documentId = Id("39190000-0000-4000-8000-000000000001");
+            ObjectId rootId = Id("39190000-0000-4000-8000-000000000002");
+            ObjectId stackId = Id("39190000-0000-4000-8000-000000000003");
+            ObjectId modalId = Id("39190000-0000-4000-8000-000000000004");
+            ObjectId buttonId = Id("39190000-0000-4000-8000-000000000005");
+            ObjectId backgroundId = Id("39190000-0000-4000-8000-000000000006");
+            var emitted = new List<UiEvent>();
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(value =>
+            {
+                emitted.Add(value);
+                return UiEventDisposition.Continue;
+            });
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    stackId,
+                                    new UiElement.Stack(),
+                                    new UiNode[]
+                                    {
+                                        new(backgroundId, new UiButton { Text = "Background" }),
+                                        new(
+                                            modalId,
+                                            new UiElement.Box
+                                            {
+                                                Focusable = true,
+                                                TabIndex = -1,
+                                                OverlayPlacement = new OverlayPlacement.Modal(
+                                                    null,
+                                                    null
+                                                ),
+                                            },
+                                            new UiNode[]
+                                            {
+                                                new(buttonId, new UiButton { Text = "Modal" }),
+                                            }
+                                        ),
+                                    }
+                                ),
+                            },
+                            EventSubscriptions: new[]
+                            {
+                                new UiEventSubscription(UiEventKind.Click, UiEventPhase.Trickle),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                Assert.That(
+                    documents.DispatchSemanticActivation(buttonId, out string? diagnostic),
+                    Is.True,
+                    diagnostic
+                );
+                Assert.That(emitted, Has.Count.EqualTo(1));
+                Assert.That(emitted[0].TargetId, Is.EqualTo(buttonId));
+                Assert.That(documents.DispatchSemanticActivation(backgroundId, out _), Is.False);
+                Assert.That(emitted, Has.Count.EqualTo(1));
+            }
+            finally
+            {
+                documents.Clear();
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void SemanticClickAndRepeatTimingUseOneForwardingRoute()
         {
             ObjectId documentId = Id("f4208d7a-c0ad-4345-84fc-e12f50612e04");

@@ -54,6 +54,8 @@ pub struct GameObject {
   pub render_order: Option<RenderOrder>,
   /// Prepared renderer-local material overrides, unique by slot.
   pub material_instances: Vec<crate::MaterialInstance>,
+  /// Logical pointer routing, or legacy core actions when absent.
+  pub world_pointer: Option<crate::WorldPointerSettings>,
   /// Kind-specific object content and component state.
   pub kind: GameObjectKind,
 }
@@ -72,6 +74,7 @@ impl GameObject {
       drag_mode: None,
       render_order: None,
       material_instances: Vec::new(),
+      world_pointer: None,
       kind: kind.into(),
     }
   }

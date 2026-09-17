@@ -530,6 +530,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.InputSetWorldPointer:
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
@@ -945,6 +946,13 @@ namespace Battlement
                         return true;
                     }
                     return false;
+                }
+                case Wire.CoreCommandKind.InputSetWorldPointer:
+                {
+                    Wire.WorldPointerPayload payload = value.PayloadAsWorldPointerPayload();
+                    _ = ReadUuid(payload.ObjectId, "world pointer object");
+                    _ = BattlementDirectCommandReader.ReadWorldPointer(payload.Settings);
+                    return true;
                 }
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 {
@@ -1611,6 +1619,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.InputSetWorldPointer:
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
@@ -2036,6 +2045,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ObjectDestroy:
                     break;
+                case Wire.CoreCommandKind.InputSetWorldPointer:
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                 case Wire.CoreCommandKind.RendererSetInstances:
                 case Wire.CoreCommandKind.ObjectSetRenderOrder:
@@ -3406,6 +3416,8 @@ namespace Battlement
                 Wire.CoreCommandKind.ObjectCreate => Wire.CoreCommandPayload.ObjectCreatePayload,
                 Wire.CoreCommandKind.ObjectDestroy or Wire.CoreCommandKind.InputSetCamera =>
                     Wire.CoreCommandPayload.ObjectIdPayload,
+                Wire.CoreCommandKind.InputSetWorldPointer =>
+                    Wire.CoreCommandPayload.WorldPointerPayload,
                 Wire.CoreCommandKind.BoxHitRegionSetGeometry =>
                     Wire.CoreCommandPayload.BoxHitRegionPayload,
                 Wire.CoreCommandKind.RendererSetInstances =>

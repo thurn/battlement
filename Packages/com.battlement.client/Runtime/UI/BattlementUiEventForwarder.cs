@@ -596,11 +596,13 @@ namespace Battlement.UI
         ) => EmitRouted(objectId, route, kind, body, targetOnly, nativeEvent);
 
         private bool IsSubscribed(Guid objectId, UiEventKind kind) =>
-            IsSubscribed(objectId, kind, UiEventPhase.Target);
+            Eligible(objectId, kind) && IsSubscribed(objectId, kind, UiEventPhase.Target);
+
+        private bool Eligible(Guid objectId, UiEventKind kind) =>
+            !isEffectivelyInert(objectId) || kind == UiEventKind.PointerCaptureOut;
 
         private bool IsSubscribed(Guid objectId, UiEventKind kind, UiEventPhase phase) =>
-            !isEffectivelyInert(objectId)
-            && subscriptions.TryGetValue(objectId, out SubscriptionState state)
+            subscriptions.TryGetValue(objectId, out SubscriptionState state)
             && (
                 state.Routed.Contains(new UiEventSubscription(kind, phase))
                 || (phase == UiEventPhase.Target && state.Target.Contains(kind))
@@ -609,6 +611,8 @@ namespace Battlement.UI
         private bool CanForward(IReadOnlyList<Guid> route, UiEventKind kind)
         {
             if (!inputEnabled || emit is null || route.Count == 0)
+                return false;
+            if (!Eligible(route[0], kind))
                 return false;
             if (IsSubscribed(route[0], kind, UiEventPhase.Target))
                 return true;
@@ -632,7 +636,7 @@ namespace Battlement.UI
         )
         {
             bool subscribed = targetOnly
-                ? route.Count > 0 && IsSubscribed(route[0], kind, UiEventPhase.Target)
+                ? route.Count > 0 && IsSubscribed(route[0], kind)
                 : CanForward(route, kind);
             return inputEnabled
                 && emit is not null

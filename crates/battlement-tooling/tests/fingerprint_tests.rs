@@ -6,6 +6,64 @@ use battlement_tooling::fingerprint::{
 use tempfile::TempDir;
 
 #[test]
+fn library_fingerprint_reuses_dev_only_sources_but_tracks_resolution_and_build_inputs() {
+  let fixture = Fixture::new();
+  fixture.write(
+    "rules/Cargo.toml",
+    "[package]\nname = \"rules\"\nversion = \"0.1.0\"\n[dependencies]\nengine = { path = \"../engine\" }\n[dev-dependencies]\nhelper = { path = \"../helper\" }\n[target.'cfg(unix)'.build-dependencies]\nbuilder = { path = \"../builder\" }\n[workspace]\n",
+  );
+  for package in ["helper", "builder"] {
+    fixture.write(
+      &format!("{package}/Cargo.toml"),
+      &format!("[package]\nname = \"{package}\"\nversion = \"0.1.0\"\n"),
+    );
+    fixture.write(&format!("{package}/src/lib.rs"), "pub fn original() {}\n");
+  }
+  let fingerprint = || {
+    SourceManifest::build_rust(
+      fixture.root.path(),
+      &fixture.path("rules/Cargo.toml"),
+      &[],
+      CaseSensitivity::Sensitive,
+    )
+    .unwrap()
+  };
+  let original = fingerprint();
+  fixture.write("helper/src/lib.rs", "pub fn changed() {}\n");
+  assert_eq!(fingerprint(), original);
+  fixture.write("builder/src/lib.rs", "pub fn changed() {}\n");
+  assert_eq!(
+    fingerprint().difference(&original).changed,
+    ["builder/src/lib.rs"]
+  );
+  let built = fingerprint();
+  fixture.write("engine/src/lib.rs", "pub fn changed() {}\n");
+  assert_eq!(
+    fingerprint().difference(&built).changed,
+    ["engine/src/lib.rs"]
+  );
+  let normal = fingerprint();
+  fixture.write(
+    "helper/Cargo.toml",
+    "[package]\nname = \"helper\"\nversion = \"0.2.0\"\n",
+  );
+  assert_eq!(
+    fingerprint().difference(&normal).changed,
+    ["helper/Cargo.toml"]
+  );
+  fixture.write(
+    "engine/Cargo.toml",
+    "[package]\nname = \"engine\"\nversion = \"0.1.0\"\n[dependencies]\nhelper = { path = \"../helper\" }\n",
+  );
+  let shared = fingerprint();
+  fixture.write("helper/src/lib.rs", "pub fn shared() {}\n");
+  assert_eq!(
+    fingerprint().difference(&shared).changed,
+    ["helper/src/lib.rs"]
+  );
+}
+
+#[test]
 fn manifest_covers_build_inputs_and_round_trips() {
   let fixture = Fixture::new();
   let manifest = fixture.manifest(CaseSensitivity::Sensitive);

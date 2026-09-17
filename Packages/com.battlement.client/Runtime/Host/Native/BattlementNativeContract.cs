@@ -11,7 +11,7 @@ namespace Battlement
         internal const string NativeAbiDigest =
             "5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14";
         internal const string WireContractDigest =
-            "7734b8fc9fe381ac4bf59fa75f415c6e2435503668d4879453d5d1edd57776d5";
+            "86a774a629a67f5ffc5437f4f3e8a60a502627677b7a13991847494854c8befe";
 
         internal static void Verify(string expectedWireContractDigest)
         {

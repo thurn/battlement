@@ -29,6 +29,7 @@ mod executor;
 mod interpolation;
 mod material;
 mod operation;
+mod pointer_geometry;
 mod presentation;
 mod transform;
 mod tween;

@@ -183,6 +183,8 @@ pub enum CommandBody {
   InputSetCamera(ObjectIdPayload),
   /// Replace the unique pointer-event set for an object.
   InputSetPointerEvents(PointerEventsPayload),
+  /// Configures logical world pointer arbitration and capture.
+  InputSetWorldPointer(WorldPointerPayload),
   /// Replace the unique set of enabled global physical keys.
   InputSetGlobalKeys(GlobalKeysPayload),
   /// Replace controller-button and discrete-navigation settings.

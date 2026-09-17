@@ -279,3 +279,31 @@ screen = "world-hits"
 [[states]]
 key = "world-hits.destroyed"
 screen = "world-hits"
+
+[[states]]
+key = "pointer-routing.ui-blocking"
+screen = "pointer-routing"
+
+[[states]]
+key = "pointer-routing.passthrough"
+screen = "pointer-routing"
+
+[[states]]
+key = "pointer-routing.outer-modal"
+screen = "pointer-routing"
+
+[[states]]
+key = "pointer-routing.inner-modal"
+screen = "pointer-routing"
+
+[[states]]
+key = "pointer-routing.reparented"
+screen = "pointer-routing"
+
+[[states]]
+key = "pointer-routing.hidden"
+screen = "pointer-routing"
+
+[[states]]
+key = "pointer-routing.removed"
+screen = "pointer-routing"

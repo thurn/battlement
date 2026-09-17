@@ -1,11 +1,13 @@
 #nullable enable
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Battlement.UI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
@@ -140,6 +142,97 @@ namespace Battlement.Tests
             );
         }
 
+        [UnityTest]
+        public IEnumerator CaptureSurvivesReparentAndEndsWhenItsAncestorIsHidden()
+        {
+            bool hierarchySettled = false;
+            void Settled() => hierarchySettled = true;
+            UnityEditor.EditorApplication.hierarchyChanged += Settled;
+            using var fixture = new Fixture();
+            static void FlushCapture(VisualElement target)
+            {
+                using PointerMoveEvent input = PointerMoveEvent.GetPooled(
+                    new Event { type = EventType.MouseMove, mousePosition = Vector2.zero }
+                );
+                input.target = target;
+                target.SendEvent(input);
+            }
+            try
+            {
+                while (!hierarchySettled)
+                    yield return null;
+            }
+            finally
+            {
+                UnityEditor.EditorApplication.hierarchyChanged -= Settled;
+            }
+            fixture.Perform(
+                fixture.TextId,
+                new VisualElementAction.CapturePointer(Fixture.PointerId)
+            );
+            FlushCapture(fixture.Text);
+            yield return null;
+            Assert.That(
+                fixture.Text.HasPointerCapture(Fixture.PointerId),
+                Is.True,
+                "capture remains before move"
+            );
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Parent(fixture.TextId, fixture.FocusId)
+                )
+            );
+            Assert.That(
+                fixture.Text.HasPointerCapture(Fixture.PointerId),
+                Is.True,
+                "capture restored synchronously"
+            );
+            FlushCapture(fixture.Text);
+            yield return null;
+            Assert.That(
+                fixture.Text.HasPointerCapture(Fixture.PointerId),
+                Is.True,
+                "capture remains after frame"
+            );
+            Assert.That(
+                fixture.Events.Count(value => value.Body is UiEventBody.PointerCapture),
+                Is.EqualTo(1),
+                "reparenting does not duplicate capture acquisition"
+            );
+            Assert.That(
+                fixture.Events.Any(value => value.Body is UiEventBody.PointerCaptureOut),
+                Is.False
+            );
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        fixture.FocusId,
+                        new UiElement.Box
+                        {
+                            Style = new UiStyle(Display: UiStyle.Set(UiDisplay.None)),
+                        }
+                    )
+                )
+            );
+            fixture.Documents.Advance();
+            FlushCapture(fixture.Focus);
+            yield return null;
+            Assert.That(fixture.Text.HasPointerCapture(Fixture.PointerId), Is.False);
+            Assert.That(
+                fixture.Events.Count(value => value.Body is UiEventBody.PointerCaptureOut),
+                Is.EqualTo(1)
+            );
+            fixture.Focus.style.display = DisplayStyle.Flex;
+            fixture.Documents.Advance();
+            FlushCapture(fixture.Focus);
+            yield return null;
+            Assert.That(fixture.Text.HasPointerCapture(Fixture.PointerId), Is.False);
+            Assert.That(
+                fixture.Events.Count(value => value.Body is UiEventBody.PointerCaptureOut),
+                Is.EqualTo(1)
+            );
+        }
+
         [Test]
         public void InputDisableSilentlyRestoresDraftDragFocusAndCapture()
         {
@@ -224,6 +317,11 @@ namespace Battlement.Tests
                                     new UiElement.TextElement
                                     {
                                         Text = "A🚀B",
+                                        Events = new[]
+                                        {
+                                            UiEventKind.PointerCapture,
+                                            UiEventKind.PointerCaptureOut,
+                                        },
                                         Selectable = true,
                                         Focusable = true,
                                     }

@@ -748,6 +748,17 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
         enabled: body.enabled(),
       })
     }
+    Kind::InputSetWorldPointer => {
+      let value = value
+        .payload_as_world_pointer_payload()
+        .ok_or_else(|| "missing world pointer payload".to_owned())?;
+      CommandBody::InputSetWorldPointer(battlement::WorldPointerPayload {
+        object_id: object_id(value.object_id())?,
+        settings: value
+          .settings()
+          .map(crate::response_reader::read_world_pointer),
+      })
+    }
     Kind::InputSetPointerEvents => {
       let body = value
         .payload_as_pointer_events_payload()

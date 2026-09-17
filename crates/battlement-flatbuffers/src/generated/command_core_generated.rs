@@ -12938,6 +12938,161 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum WorldPointerPayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct WorldPointerPayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for WorldPointerPayload<'a> {
+        type Inner = WorldPointerPayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> WorldPointerPayload<'a> {
+        pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_SETTINGS: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          WorldPointerPayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args WorldPointerPayloadArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<WorldPointerPayload<'bldr>> {
+          let mut builder = WorldPointerPayloadBuilder::new(_fbb);
+          if let Some(x) = args.settings {
+            builder.add_settings(x);
+          }
+          if let Some(x) = args.object_id {
+            builder.add_object_id(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn object_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(WorldPointerPayload::VT_OBJECT_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn settings(&self) -> Option<WorldPointerSettings<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<WorldPointerSettings>>(
+                WorldPointerPayload::VT_SETTINGS,
+                None,
+              )
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for WorldPointerPayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<WorldPointerSettings>>(
+              "settings",
+              Self::VT_SETTINGS,
+              false,
+            )?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct WorldPointerPayloadArgs<'a> {
+        pub object_id: Option<&'a Uuid>,
+        pub settings: Option<::flatbuffers::WIPOffset<WorldPointerSettings<'a>>>,
+      }
+      impl<'a> Default for WorldPointerPayloadArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          WorldPointerPayloadArgs {
+            object_id: None, // required field
+            settings: None,
+          }
+        }
+      }
+
+      pub struct WorldPointerPayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WorldPointerPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_object_id(&mut self, object_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(WorldPointerPayload::VT_OBJECT_ID, object_id);
+        }
+        #[inline]
+        pub fn add_settings(
+          &mut self,
+          settings: ::flatbuffers::WIPOffset<WorldPointerSettings<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<WorldPointerSettings>>(
+              WorldPointerPayload::VT_SETTINGS,
+              settings,
+            );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> WorldPointerPayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          WorldPointerPayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<WorldPointerPayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, WorldPointerPayload::VT_OBJECT_ID, "object_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for WorldPointerPayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("WorldPointerPayload");
+          ds.field("object_id", &self.object_id());
+          ds.field("settings", &self.settings());
+          ds.finish()
+        }
+      }
     } // pub mod Generated
   } // pub mod FlatBuffers
 } // pub mod Battlement

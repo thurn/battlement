@@ -101,6 +101,12 @@ impl<A: HostAdapter> NativeHost<A> {
     self
   }
 
+  /// Installs typed logical pointer callbacks.
+  pub fn events(mut self, events: crate::pointer_handlers::PointerHandlers) -> Self {
+    self.handlers.extend(events.handlers);
+    self
+  }
+
   /// Handles activation along the host's logical ancestry.
   pub fn on_click(mut self, callback: Callback<()>) -> Self {
     self.handlers.push(Handler::world_activation(callback));

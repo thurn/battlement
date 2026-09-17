@@ -421,3 +421,45 @@ state = "world-hits.destroyed"
 scenario = "world hit regions and anchors"
 checkpoint = "destroyed"
 owner = "reactant-testing::world_hit_regions"
+
+[[mappings]]
+state = "pointer-routing.ui-blocking"
+scenario = "unified pointer routing"
+checkpoint = "ui-blocking"
+owner = "reactant-testing::geometric_pointer"
+
+[[mappings]]
+state = "pointer-routing.passthrough"
+scenario = "unified pointer routing"
+checkpoint = "passthrough"
+owner = "reactant-testing::geometric_pointer"
+
+[[mappings]]
+state = "pointer-routing.outer-modal"
+scenario = "unified pointer routing"
+checkpoint = "outer-modal"
+owner = "reactant-testing::geometric_pointer"
+
+[[mappings]]
+state = "pointer-routing.inner-modal"
+scenario = "unified pointer routing"
+checkpoint = "inner-modal"
+owner = "reactant-testing::geometric_pointer"
+
+[[mappings]]
+state = "pointer-routing.reparented"
+scenario = "unified pointer routing"
+checkpoint = "reparented"
+owner = "reactant-testing::geometric_pointer"
+
+[[mappings]]
+state = "pointer-routing.hidden"
+scenario = "unified pointer routing"
+checkpoint = "hidden"
+owner = "reactant-testing::geometric_pointer"
+
+[[mappings]]
+state = "pointer-routing.removed"
+scenario = "unified pointer routing"
+checkpoint = "removed"
+owner = "reactant-testing::geometric_pointer"

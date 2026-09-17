@@ -32,6 +32,7 @@ namespace Battlement
             DirectImageObjectCreate = null;
             DirectObjectActive = null;
             DirectRenderOrder = null;
+            DirectWorldPointer = null;
             DirectMaterialInstances = null;
             DirectBoxHitRegionCreate = null;
             DirectBoxHitRegionGeometry = null;
@@ -461,6 +462,15 @@ namespace Battlement
         internal BattlementDirectImageObjectCreate? DirectImageObjectCreate { get; }
         internal BattlementDirectObjectActive? DirectObjectActive { get; }
         internal BattlementDirectRenderOrder? DirectRenderOrder { get; }
+        internal BattlementDirectWorldPointer? DirectWorldPointer { get; }
+
+        internal BattlementCommandExecution(
+            CommandId id,
+            bool isBlocking,
+            BattlementDirectWorldPointer value
+        )
+            : this(id, isBlocking) => DirectWorldPointer = value;
+
         internal BattlementDirectBoxHitRegionCreate? DirectBoxHitRegionCreate { get; }
         internal BattlementDirectBoxHitRegionGeometry? DirectBoxHitRegionGeometry { get; }
 
@@ -1616,6 +1626,15 @@ namespace Battlement
         internal IReadOnlyList<MaterialInstance> Values { get; }
     }
 
+    internal readonly struct BattlementDirectWorldPointer
+    {
+        internal BattlementDirectWorldPointer(ObjectId objectId, WorldPointerSettings? settings) =>
+            (ObjectId, Settings) = (objectId, settings);
+
+        internal ObjectId ObjectId { get; }
+        internal WorldPointerSettings? Settings { get; }
+    }
+
     internal readonly struct BattlementDirectRenderOrder
     {
         internal BattlementDirectRenderOrder(ObjectId objectId, RenderOrder? order) =>
@@ -2093,7 +2112,8 @@ namespace Battlement
             PointerEvent[] pointerEvents,
             DragMode? dragMode,
             RenderOrder? renderOrder = null,
-            IReadOnlyList<MaterialInstance>? materialInstances = null
+            IReadOnlyList<MaterialInstance>? materialInstances = null,
+            WorldPointerSettings? worldPointer = null
         ) =>
             (
                 ObjectId,
@@ -2114,6 +2134,7 @@ namespace Battlement
                 PointerEvents,
                 DragMode,
                 MaterialInstances,
+                WorldPointer,
                 RenderOrder
             ) = (
                 objectId,
@@ -2134,6 +2155,7 @@ namespace Battlement
                 pointerEvents,
                 dragMode,
                 materialInstances,
+                worldPointer,
                 renderOrder
             );
 
@@ -2155,6 +2177,7 @@ namespace Battlement
         internal PointerEvent[] PointerEvents { get; }
         internal DragMode? DragMode { get; }
         internal RenderOrder? RenderOrder { get; }
+        internal WorldPointerSettings? WorldPointer { get; }
         internal IReadOnlyList<MaterialInstance>? MaterialInstances { get; }
     }
 
@@ -3094,6 +3117,24 @@ namespace Battlement
                         new ObjectId(
                             BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "destroyed object")
                         )
+                    )
+                );
+                return true;
+            }
+            if (command.Kind == Wire.CoreCommandKind.InputSetWorldPointer)
+            {
+                Wire.WorldPointerPayload payload = command.PayloadAsWorldPointerPayload();
+                execution = new BattlementCommandExecution(
+                    commandId,
+                    command.Blocking,
+                    new BattlementDirectWorldPointer(
+                        new ObjectId(
+                            BattlementFlatBufferCore.ReadUuid(
+                                payload.ObjectId,
+                                "world pointer object"
+                            )
+                        ),
+                        ReadWorldPointer(payload.Settings)
                     )
                 );
                 return true;
@@ -4356,6 +4397,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.GeometryObservationUpdate:
                     break;
+                case Wire.CoreCommandKind.InputSetWorldPointer:
                 case Wire.CoreCommandKind.BoxHitRegionSetGeometry:
                     break;
                 case Wire.CoreCommandKind.AccessibilityUpdate:
@@ -5065,9 +5107,19 @@ namespace Battlement
                 BattlementMaterialParameters.Read(
                     value.MaterialInstancesLength,
                     value.MaterialInstances
-                )
+                ),
+                ReadWorldPointer(value.WorldPointer)
             );
         }
+
+        internal static WorldPointerSettings? ReadWorldPointer(Wire.WorldPointerSettings? value) =>
+            value is Wire.WorldPointerSettings settings
+                ? new WorldPointerSettings(
+                    settings.InteractionLayer,
+                    settings.Order,
+                    settings.CaptureOnPress
+                )
+                : null;
 
         private static RenderOrder? ReadRenderOrder(Wire.RenderOrder? value) =>
             value is Wire.RenderOrder order

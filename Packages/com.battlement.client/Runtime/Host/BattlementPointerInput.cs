@@ -24,6 +24,22 @@ namespace Battlement
         private PhysicsRaycaster? raycaster;
         private bool ownsRaycaster;
         private bool? inputModuleEnabledBeforeDitto;
+        private BattlementLogicalPointerInput? logical;
+        private Func<bool> modalBlocked = () => false;
+        private Func<int, UnityEngine.Vector2, bool> blocksWorld = (_, _) => false;
+
+        internal bool IsWorldCaptured(int id) => logical?.IsCaptured(id) == true;
+
+        internal void ConfigureLogical(
+            Func<UiEvent, UiEventDisposition?> emitEvent,
+            Func<int, UnityEngine.Vector2, bool> blocks,
+            Func<bool> modal
+        )
+        {
+            logical = new BattlementLogicalPointerInput(emitEvent);
+            blocksWorld = blocks;
+            modalBlocked = modal;
+        }
 
         public BattlementPointerInput(Transform owner, Func<ActionBody, bool> emitAction)
         {
@@ -97,6 +113,7 @@ namespace Battlement
 
         public void CancelPresses()
         {
+            logical?.Reset();
             foreach (PointerState pointer in pointers.Values)
             {
                 pointer.CancelGestures();
@@ -123,6 +140,7 @@ namespace Battlement
 
         public void Suspend()
         {
+            logical?.Reset();
             foreach (PointerState pointer in pointers.Values)
             {
                 pointer.Target = null;
@@ -133,6 +151,7 @@ namespace Battlement
 
         public void Reset()
         {
+            logical?.Reset();
             foreach (PointerState pointer in pointers.Values)
             {
                 pointer.CancelGestures();
@@ -144,6 +163,7 @@ namespace Battlement
 
         public void Dispose()
         {
+            logical?.Reset();
             RemoveOwnedRaycaster();
             if (ownedInputModule != null)
             {
@@ -158,9 +178,21 @@ namespace Battlement
 
         private void Process(int pointerId, PointerState state, BattlementPointerSample sample)
         {
-            state.UpdateDrag(sample.Position);
+            bool blocked = modalBlocked();
+            if (blocked)
+                state.CancelGestures();
+            else
+                state.UpdateDrag(sample.Position);
             PointerHit hit = sample.IsPresent ? Raycast(pointerId, sample.Position) : default;
             BattlementIdentity? target = hit.Identity;
+            if (logical?.Process(pointerId, sample, target, blocked, state.Buttons) == true)
+            {
+                state.CancelGestures();
+                state.Target = null;
+                state.Position = sample.Position;
+                state.SetButtons(sample.Buttons);
+                return;
+            }
             state.CancelUnavailablePresses();
             if (!ReferenceEquals(state.Target, target))
             {
@@ -434,6 +466,9 @@ namespace Battlement
             );
         }
 
+        internal BattlementIdentity? PickWorld(int pointerId, UnityEngine.Vector2 position) =>
+            raycaster == null ? null : Raycast(pointerId, position).Identity;
+
         private PointerHit Raycast(int pointerId, UnityEngine.Vector2 position)
         {
             raycastResults.Clear();
@@ -442,19 +477,51 @@ namespace Battlement
                 pointerId = pointerId,
                 position = position,
             };
+            if (blocksWorld(pointerId, position))
+                return default;
+            foreach (BaseRaycaster module in RaycasterManager.GetRaycasters())
+            {
+                if (module == null || !module.IsActive() || module is PhysicsRaycaster)
+                    continue;
+                module.Raycast(eventData, raycastResults);
+                if (raycastResults.Count != 0)
+                    return default;
+            }
             raycaster!.Raycast(eventData, raycastResults);
             if (raycastResults.Count == 0)
             {
                 return default;
             }
 
-            foreach (RaycastResult result in raycastResults.OrderBy(value => value.distance))
+            foreach (
+                RaycastResult result in raycastResults
+                    .Where(value => value.module == raycaster)
+                    .OrderByDescending(value =>
+                        PointerSettings(value.gameObject)?.InteractionLayer ?? 0
+                    )
+                    .ThenBy(value => value.distance)
+                    .ThenByDescending(value => PointerSettings(value.gameObject)?.Order ?? 0)
+            )
             {
                 BattlementIdentity? identity = BattlementIdentity.FindNearest(result.gameObject);
+                if (identity != null && !identity.IsAvailableForPointerInput)
+                    continue;
+                if (
+                    identity != null
+                    && identity.WorldPointer is not null
+                    && !identity.HasPointerEvents
+                )
+                    continue;
                 if (!BattlementWorldDocumentCollider.IsGenerated(result.gameObject))
                     return new PointerHit(identity, result.worldPosition);
             }
             return default;
+        }
+
+        private static WorldPointerSettings? PointerSettings(GameObject target)
+        {
+            BattlementIdentity? identity = BattlementIdentity.FindNearest(target);
+            return identity == null ? null : identity.WorldPointer;
         }
 
         private void SynchronizeWithoutEmitting(
@@ -547,6 +614,8 @@ namespace Battlement
             public UnityEngine.Vector3 Hit { get; set; }
 
             public BattlementIdentity? DragIdentity => drag?.Identity;
+
+            public IEnumerable<PointerButton> Buttons => buttons;
 
             public bool IsPressed(PointerButton button) => buttons.Contains(button);
 

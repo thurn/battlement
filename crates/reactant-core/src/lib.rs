@@ -122,6 +122,7 @@ mod object_layout;
 pub mod overlay;
 pub mod paint;
 mod performance;
+pub mod pointer_handlers;
 pub mod portal;
 pub mod prelude;
 pub mod presence;

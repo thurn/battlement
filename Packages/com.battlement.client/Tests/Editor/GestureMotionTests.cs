@@ -127,6 +127,42 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void CapturedDragContinuesAcrossNativeReparent()
+        {
+            using var panel = new PanelFixture();
+            var target = new VisualElement();
+            var destination = new VisualElement();
+            panel.Root.Add(target);
+            panel.Root.Add(destination);
+            ObjectId host = Id("74500000-0000-4000-8000-000000000001");
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                target,
+                host,
+                Descriptor(
+                    Id("74500000-0000-4000-8000-000000000002"),
+                    host,
+                    1,
+                    Id("74500000-0000-4000-8000-000000000003"),
+                    Id("74500000-0000-4000-8000-000000000004"),
+                    Id("74500000-0000-4000-8000-000000000005"),
+                    constrained: false
+                )
+            );
+            PointerDown(target, Vector2.zero);
+            PointerMove(target, new Vector2(10, 0));
+            Assert.That(Kinds(world), Does.Contain(MotionGestureEventKind.DragStart));
+            using (new BattlementPointerCaptureTransfer(target))
+                destination.Add(target);
+            PointerMove(target, new Vector2(20, 0));
+            world.PostLayout();
+            Assert.That(Kinds(world), Has.None.EqualTo(MotionGestureEventKind.DragCancel));
+            Assert.That(ReadPixels(target, MotionProperty.X), Is.EqualTo(20).Within(0.001));
+            PointerUp(target, new Vector2(20, 0));
+            Assert.That(Kinds(world), Does.Contain(MotionGestureEventKind.DragEnd));
+        }
+
+        [Test]
         public void ExternalControlsScrollValuesAndReconnectCancellationAreCoherent()
         {
             double time = 0;

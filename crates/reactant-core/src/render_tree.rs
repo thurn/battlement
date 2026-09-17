@@ -196,9 +196,15 @@ impl RenderTree {
     }
   }
 
-  pub(crate) fn event_path(&self, target_id: ObjectId) -> Option<Vec<EventNode<'_>>> {
+  pub(crate) fn event_path(
+    &self,
+    target_id: ObjectId,
+    kind: battlement::UiEventKind,
+  ) -> Option<Vec<EventNode<'_>>> {
     let mut path = Vec::new();
-    self.find_event_path(target_id, &mut path).then_some(path)
+    self
+      .find_event_path(target_id, &mut path, kind)
+      .then_some(path)
   }
 
   pub(crate) fn pending_hook_lengths(&self, lengths: &mut Vec<usize>) {
@@ -364,12 +370,26 @@ impl RenderTree {
     &'a self,
     target_id: ObjectId,
     path: &mut Vec<EventNode<'a>>,
+    kind: battlement::UiEventKind,
   ) -> bool {
+    let capture_loss = kind == battlement::UiEventKind::PointerCaptureOut;
+    let pointer_input = matches!(
+      kind,
+      battlement::UiEventKind::PointerDown
+        | battlement::UiEventKind::PointerMove
+        | battlement::UiEventKind::PointerUp
+        | battlement::UiEventKind::PointerEnter
+        | battlement::UiEventKind::PointerOver
+        | battlement::UiEventKind::Click
+    );
     for position in &self.positions {
-      if position.hidden || position.terminal_visual {
+      if (position.hidden && !capture_loss) || position.terminal_visual {
         continue;
       }
       if let Some(host) = &position.host {
+        if pointer_input && !host.input_enabled() {
+          continue;
+        }
         path.push(EventNode {
           object_id: host.object_id,
           handlers: &position.handlers,
@@ -382,7 +402,7 @@ impl RenderTree {
         }) {
           return true;
         }
-        if position.children.find_event_path(target_id, path) {
+        if position.children.find_event_path(target_id, path, kind) {
           return true;
         }
         path.pop();
@@ -392,7 +412,7 @@ impl RenderTree {
         }) {
           return true;
         }
-        if position.children.find_event_path(target_id, path) {
+        if position.children.find_event_path(target_id, path, kind) {
           return true;
         }
       }

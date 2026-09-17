@@ -105,7 +105,8 @@ enum CoreCommandKind:ubyte {
   AccessibilityUpdate,
   ObjectSetRenderOrder,
   RendererSetInstances,
-  BoxHitRegionSetGeometry
+  BoxHitRegionSetGeometry,
+  InputSetWorldPointer
 }
 
 union CoreCommandPayload {
@@ -194,7 +195,8 @@ union CoreCommandPayload {
   AccessibilityUpdate,
   ObjectRenderOrderPayload,
   RendererInstancesPayload,
-  BoxHitRegionPayload
+  BoxHitRegionPayload,
+  WorldPointerPayload
 }
 
 table CoreCommand {

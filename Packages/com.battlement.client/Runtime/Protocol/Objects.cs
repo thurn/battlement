@@ -30,7 +30,8 @@ namespace Battlement
         IReadOnlyList<PointerEvent> PointerEvents,
         DragMode? DragMode = null,
         RenderOrder? RenderOrder = null,
-        IReadOnlyList<MaterialInstance>? MaterialInstances = null
+        IReadOnlyList<MaterialInstance>? MaterialInstances = null,
+        WorldPointerSettings? WorldPointer = null
     )
     {
         public BattlementGameObject(ObjectId id, GameObjectKind kind)
@@ -60,6 +61,13 @@ namespace Battlement
         /// <summary>The bootstrap-scene container for objects that survive scene unloads.</summary>
         public sealed record Persistent : ParentScene;
     }
+
+    /// <summary>Logical pointer arbitration and capture settings for a world host.</summary>
+    public sealed record WorldPointerSettings(
+        int InteractionLayer = 0,
+        uint Order = 0,
+        bool CaptureOnPress = false
+    );
 
     /// <summary>The concrete content created for a game object.</summary>
     public abstract record GameObjectKind

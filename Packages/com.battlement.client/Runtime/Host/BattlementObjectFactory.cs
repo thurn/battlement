@@ -154,6 +154,7 @@ namespace Battlement
         {
             ApplyLocalTransform(gameObject.transform, description.LocalTransform);
             BattlementRenderOrder.Apply(gameObject, description.RenderOrder);
+            gameObject.GetComponent<BattlementIdentity>().WorldPointer = description.WorldPointer;
             BattlementMaterialInstances.Apply(
                 gameObject,
                 preparedAssets,
@@ -191,6 +192,7 @@ namespace Battlement
                 (float)description.ScaleZ
             );
             BattlementRenderOrder.Apply(gameObject, description.RenderOrder);
+            gameObject.GetComponent<BattlementIdentity>().WorldPointer = description.WorldPointer;
             BattlementMaterialInstances.Apply(
                 gameObject,
                 preparedAssets,

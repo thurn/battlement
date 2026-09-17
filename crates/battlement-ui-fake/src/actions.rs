@@ -16,6 +16,32 @@ impl UiWorld {
     self.pointer_captures.get(&pointer_id).copied()
   }
 
+  /// Enumerates current pointer capture owners.
+  pub fn pointer_captures(&self) -> impl Iterator<Item = (i32, ObjectId)> + '_ {
+    self
+      .pointer_captures
+      .iter()
+      .map(|(pointer, target)| (*pointer, *target))
+  }
+
+  /// Releases captures whose committed target can no longer receive input.
+  pub fn reconcile_pointer_captures(&mut self) {
+    let released = self
+      .pointer_captures
+      .iter()
+      .filter(|(_, target)| !self.input_eligible(**target))
+      .map(|(pointer, _)| *pointer)
+      .collect::<Vec<_>>();
+    for pointer in released {
+      self.pointer_captures.remove(&pointer);
+    }
+  }
+
+  /// Cancels capture without requiring a still-mounted target.
+  pub fn cancel_pointer_capture(&mut self, pointer: i32) {
+    self.pointer_captures.remove(&pointer);
+  }
+
   /// Returns the latest requested UTF-16 cursor and selection endpoints.
   #[must_use]
   pub fn selection(&self, object_id: ObjectId) -> Option<(u32, u32)> {

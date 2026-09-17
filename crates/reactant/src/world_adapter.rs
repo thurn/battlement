@@ -20,6 +20,7 @@ pub(crate) struct WorldDescription {
   pub(crate) render_order: Option<RenderOrder>,
   pub(crate) material_instances: Vec<battlement::MaterialInstance>,
   pub(crate) clickable: bool,
+  pub(crate) world_pointer: Option<battlement::WorldPointerSettings>,
 }
 
 pub(crate) struct WorldAdapter;
@@ -108,6 +109,14 @@ impl HostAdapter for WorldAdapter {
         events: Self::events(desired),
       }));
     }
+    if previous.world_pointer != desired.world_pointer {
+      bodies.push(CommandBody::InputSetWorldPointer(
+        battlement::WorldPointerPayload {
+          object_id,
+          settings: desired.world_pointer,
+        },
+      ));
+    }
     bodies.into_iter().map(Command::new_v4).collect()
   }
 
@@ -136,6 +145,15 @@ impl HostAdapter for WorldAdapter {
   }
   fn inert(description: &mut WorldDescription) {
     description.clickable = false;
+    description.world_pointer = None;
+  }
+  fn input_enabled(description: &WorldDescription) -> bool {
+    description.active
+  }
+  fn set_input_order(description: &mut WorldDescription, order: u32) {
+    if let Some(pointer) = &mut description.world_pointer {
+      pointer.order = order;
+    }
   }
   fn hide(description: &mut WorldDescription) {
     description.active = false;
@@ -154,6 +172,7 @@ impl HostAdapter for WorldAdapter {
     object.render_order = description.render_order;
     object.material_instances = description.material_instances.clone();
     object.pointer_events = Self::events(description);
+    object.world_pointer = description.world_pointer;
     Some(object)
   }
 }
@@ -161,7 +180,13 @@ impl HostAdapter for WorldAdapter {
 impl WorldAdapter {
   fn events(description: &WorldDescription) -> Vec<PointerEvent> {
     if description.clickable {
-      vec![PointerEvent::Click]
+      vec![
+        PointerEvent::Click,
+        PointerEvent::Down,
+        PointerEvent::Up,
+        PointerEvent::Enter,
+        PointerEvent::Exit,
+      ]
     } else {
       Vec::new()
     }

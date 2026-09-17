@@ -213,8 +213,16 @@ namespace Battlement.UI
                 if (eventValue.target is VisualElement owner)
                     state.Captures[eventValue.pointerId] = owner;
             };
-            state.CaptureOut = eventValue => state.Captures.Remove(eventValue.pointerId);
-            state.Detach = _ => state.Cancel();
+            state.CaptureOut = eventValue =>
+            {
+                if (!BattlementPointerCaptureTransfer.IsMoving(state.Target))
+                    state.Captures.Remove(eventValue.pointerId);
+            };
+            state.Detach = _ =>
+            {
+                if (!BattlementPointerCaptureTransfer.IsMoving(state.Target))
+                    state.Cancel();
+            };
             target.horizontalScroller.valueChanged += state.ValueChanged;
             target.verticalScroller.valueChanged += state.ValueChanged;
             target.RegisterCallback(state.Capture, TrickleDown.TrickleDown);
@@ -255,10 +263,16 @@ namespace Battlement.UI
             state.PointerCancel = _ => Restore(state);
             state.CaptureOut = eventValue =>
             {
+                if (BattlementPointerCaptureTransfer.IsMoving(state.Target))
+                    return;
                 state.Captures.Remove(eventValue.pointerId);
                 Commit(state);
             };
-            state.Detach = _ => state.Cancel();
+            state.Detach = _ =>
+            {
+                if (!BattlementPointerCaptureTransfer.IsMoving(state.Target))
+                    state.Cancel();
+            };
             target.valueChanged += state.ValueChanged;
             target.RegisterCallback(state.PointerDown, TrickleDown.TrickleDown);
             target.RegisterCallback(state.PointerUp, TrickleDown.TrickleDown);

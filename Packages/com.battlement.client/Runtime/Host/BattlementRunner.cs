@@ -98,6 +98,9 @@ namespace Battlement
         internal BattlementPanelInputCoordinator PanelInputForTests =>
             configuredRuntime!.PanelInput;
 
+        internal BattlementIdentity? PickWorldPointer(UnityEngine.Vector2 position) =>
+            configuredRuntime?.PointerInput.PickWorld(0, position);
+
         internal Camera? DittoInputCamera => configuredRuntime?.World.InputCamera;
 
         internal BattlementUiDocuments DittoUiDocuments => configuredRuntime!.UiDocuments;
@@ -539,6 +542,12 @@ namespace Battlement
                     () => dittoMotionClock.IsInstant
                 );
                 runtime.SetUiDocuments(uiDocuments);
+                pointerInput.ConfigureLogical(
+                    EmitUiEvent,
+                    uiDocuments.BlocksWorldPointer,
+                    uiDocuments.HasPointerModal
+                );
+                uiDocuments.SetWorldCaptureResolver(pointerInput.IsWorldCaptured);
                 BattlementGeometrySampler geometrySampler = new BattlementGeometrySampler(
                     uiDocuments,
                     world: this

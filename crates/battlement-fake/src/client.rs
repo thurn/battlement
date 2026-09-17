@@ -34,6 +34,8 @@ use crate::{
   world::FakeWorld,
 };
 
+mod pointer;
+mod pointer_legacy;
 pub mod ui;
 
 /// Semantic pointer data used by the fake's lower-level pointer helpers.
@@ -95,6 +97,7 @@ where
   pub(crate) audio_occurrences: Vec<AudioOccurrence>,
   pub(crate) particle_occurrences: Vec<ParticleOccurrence>,
   pub(crate) next_action_number: u128,
+  pub(crate) pointers: pointer::Pointers,
   hovered: Option<PointerState>,
   pressed: Option<PressedPointer>,
   drag: Option<ActiveDrag>,
@@ -235,6 +238,7 @@ where
       audio_occurrences: Vec::new(),
       particle_occurrences: Vec::new(),
       next_action_number: 1,
+      pointers: pointer::Pointers::default(),
       hovered: None,
       pressed: None,
       drag: None,
@@ -1149,6 +1153,7 @@ where
   }
 
   fn clear_device_state(&mut self) {
+    self.pointers = pointer::Pointers::default();
     self.hovered = None;
     self.pressed = None;
     self.drag = None;
@@ -1157,6 +1162,7 @@ where
   }
 
   pub(crate) fn reconcile_device_state(&mut self) {
+    self.reconcile_geometric_pointers();
     if !self.world.input_enabled() {
       self.clear_device_state();
       return;

@@ -87,6 +87,21 @@ impl<P> WorldObject<P> {
     self
   }
 
+  /// Installs typed logical pointer callbacks.
+  pub fn events(mut self, events: crate::world::PointerHandlers) -> Self {
+    self.group = self.group.events(events);
+    self
+  }
+  /// Higher interaction layers win before visible depth is compared.
+  pub fn interaction_layer(mut self, layer: i32) -> Self {
+    self.group = self.group.interaction_layer(layer);
+    self
+  }
+  /// Captures an unprevented primary press until release or capture loss.
+  pub fn capture_on_press(mut self, capture: bool) -> Self {
+    self.group = self.group.capture_on_press(capture);
+    self
+  }
   /// Handles native or logical descendant activation.
   pub fn on_click(mut self, callback: Callback<()>) -> Self {
     self.group = self.group.on_click(callback);

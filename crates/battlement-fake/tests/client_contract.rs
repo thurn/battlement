@@ -1007,3 +1007,102 @@ fn undeclared_material_command_cannot_change_a_card() {
     assert_eq!(client.assert_object(object_id(2)), &before);
   }
 }
+
+#[test]
+fn geometric_legacy_click_and_drag_keep_core_transport_beside_logical_targets() {
+  for dragging in [false, true] {
+    let session_id = session(191);
+    let mut input_camera = camera();
+    input_camera.local_transform.position = Vector3::new(0.0, 0.0, -10.0);
+    input_camera.kind = GameObjectKind::Camera {
+      camera: CameraState {
+        projection: battlement::CameraProjection::Orthographic,
+        ..CameraState::default()
+      },
+    };
+    let mut target = GameObject::new(
+      object_id(2),
+      GameObjectKind::BoxHitRegion {
+        region: battlement::BoxHitRegionState {
+          size: Vector3::new(2.0, 2.0, 2.0),
+          center: Vector3::ZERO,
+        },
+      },
+    );
+    if dragging {
+      target.drag_mode = Some(DragMode::PreserveOffset);
+    } else {
+      target.pointer_events = vec![
+        PointerEvent::Enter,
+        PointerEvent::Down,
+        PointerEvent::Up,
+        PointerEvent::Click,
+      ];
+    }
+    let mut logical = target.clone();
+    logical.object_id = object_id(3);
+    logical.local_transform.position = Vector3::new(4.0, 0.0, 0.0);
+    logical.world_pointer = Some(battlement::WorldPointerSettings::default());
+    let screen = battlement::ScreenPosition { x: 960.0, y: 540.0 };
+    let payload = battlement::PointerButtonPayload {
+      object_id: object_id(2),
+      pointer_id: 0,
+      screen_position: screen,
+      world_hit: Vector3::new(0.0, 0.0, -1.0),
+      button: battlement::PointerButton::Left,
+    };
+    let expected = if dragging {
+      vec![
+        ActionBody::DragStart(DragPayload::new(object_id(2), 0, screen, Vector3::ZERO)),
+        ActionBody::DragEnd(DragPayload::new(
+          object_id(2),
+          0,
+          battlement::ScreenPosition { x: 960.0, y: 810.0 },
+          Vector3::new(0.0, 2.5, 0.0),
+        )),
+      ]
+    } else {
+      vec![
+        ActionBody::PointerEnter(battlement::PointerPayload {
+          object_id: object_id(2),
+          pointer_id: 0,
+          screen_position: screen,
+          world_hit: payload.world_hit,
+        }),
+        ActionBody::PointerDown(payload),
+        ActionBody::PointerUp(payload),
+        ActionBody::PointerClick(payload),
+      ]
+    };
+    let count = expected.len();
+    let engine = ScriptedEngine::new(
+      [base_response(
+        session_id,
+        vec![input_camera, target, logical],
+      )],
+      expected.into_iter().enumerate().map(|(i, body)| {
+        (
+          ClientMessage::Action(Action::new(action(i as u128 + 1), session_id, body)),
+          Response::empty(session_id),
+        )
+      }),
+      [],
+    );
+    let probe = engine.probe.clone();
+    let mut client = FakeClient::connect(engine, catalog());
+    client.sample_pointer(0, battlement::PanelPoint::new(960.0, 540.0), true);
+    let release = if dragging {
+      let moved = battlement::PanelPoint::new(960.0, 270.0);
+      client.sample_pointer(0, moved, true);
+      assert_eq!(
+        client.world().world_transform(object_id(2)).position,
+        Vector3::new(0.0, 2.5, 0.0)
+      );
+      moved
+    } else {
+      battlement::PanelPoint::new(960.0, 540.0)
+    };
+    client.sample_pointer(0, release, false);
+    assert_eq!(probe.borrow().submits.len(), count);
+  }
+}

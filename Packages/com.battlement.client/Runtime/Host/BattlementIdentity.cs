@@ -21,6 +21,11 @@ namespace Battlement
         internal bool UsesAutomaticPointerCollider { get; private set; }
 
         internal DragMode? DragMode { get; private set; }
+        internal WorldPointerSettings? WorldPointer { get; set; }
+        internal event System.Action? PointerUnavailable;
+        internal bool HasPointerEvents => pointerEvents.Count != 0;
+
+        private void OnDisable() => PointerUnavailable?.Invoke();
 
         internal bool IsAvailableForPointerInput
         {
@@ -81,11 +86,16 @@ namespace Battlement
             SetPointerEvents(enabledPointerEvents);
         }
 
-        internal void SetPointerEvents(IReadOnlyList<PointerEvent> enabledPointerEvents) =>
+        internal void SetPointerEvents(IReadOnlyList<PointerEvent> enabledPointerEvents)
+        {
             pointerEvents = enabledPointerEvents.ToHashSet();
+            if (pointerEvents.Count == 0)
+                PointerUnavailable?.Invoke();
+        }
 
         private void OnDestroy()
         {
+            PointerUnavailable?.Invoke();
             BattlementWorld? owningWorld = world;
             world = null;
             owningWorld?.Unregister(this);

@@ -9,6 +9,7 @@ pub(crate) fn extract(roots: &mut [Vec<HostNode>]) -> Vec<HostNode> {
   for root in roots {
     self::extract_from(root, &mut objects);
   }
+  assign_input_order(&mut objects, &mut 0);
   objects
 }
 
@@ -62,5 +63,13 @@ fn append_objects(hosts: &[HostNode], parent: Option<ObjectId>, objects: &mut Ve
         .expect("object attachment has an object adapter"),
     );
     self::append_objects(&host.children, Some(host.object_id), objects);
+  }
+}
+
+fn assign_input_order(hosts: &mut [HostNode], order: &mut u32) {
+  for host in hosts {
+    host.set_input_order(*order);
+    *order += 1;
+    assign_input_order(&mut host.children, order);
   }
 }

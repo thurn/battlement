@@ -224,6 +224,11 @@ where
         );
       }
       CommandBody::RendererSetMaterial(value) => self.set_material(value),
+      CommandBody::InputSetWorldPointer(value) => {
+        self
+          .world
+          .set_world_pointer(value.object_id, value.settings);
+      }
       CommandBody::BoxHitRegionSetGeometry(value) => {
         self.world.set_box_hit_region(value.object_id, value.region)
       }

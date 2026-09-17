@@ -24,6 +24,7 @@ pub mod test_support;
 mod ui_event;
 mod ui_event_body;
 mod ui_event_write;
+mod world_pointer;
 #[allow(clippy::all, missing_docs, unsafe_op_in_unsafe_fn, unused_imports)]
 mod common_generated {
   include!("generated/common_generated.rs");

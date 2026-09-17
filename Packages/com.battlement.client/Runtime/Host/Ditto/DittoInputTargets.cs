@@ -5,9 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Battlement.UI;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UIElements;
-using Object = UnityEngine.Object;
 using UnityPanelRenderMode = UnityEngine.UIElements.PanelRenderMode;
 using UnityRect = UnityEngine.Rect;
 using UnityVector2 = UnityEngine.Vector2;
@@ -38,7 +36,6 @@ namespace Battlement
         private readonly uint width;
         private readonly uint height;
         private readonly DisplaySource displays;
-        private readonly List<RaycastResult> raycasts = new();
 
         public DittoInputTargets(
             BattlementRunner runner,
@@ -514,28 +511,9 @@ namespace Battlement
                 return reachesTarget ? null : NearestId(picked);
             }
 
-            EventSystem? eventSystem = Object.FindAnyObjectByType<EventSystem>(
-                FindObjectsInactive.Exclude
+            BattlementIdentity? identity = runner.PickWorldPointer(
+                new UnityVector2(position.x, height - position.y)
             );
-            raycasts.Clear();
-            if (eventSystem != null)
-            {
-                var eventData = new PointerEventData(eventSystem)
-                {
-                    position = new UnityVector2(position.x, height - position.y),
-                };
-                eventSystem.RaycastAll(eventData, raycasts);
-                Camera? camera = runner.DittoInputCamera;
-                if (raycasts.Count == 0 && camera != null)
-                {
-                    if (camera.TryGetComponent(out PhysicsRaycaster raycaster))
-                    {
-                        raycaster.Raycast(eventData, raycasts);
-                    }
-                }
-            }
-            BattlementIdentity? identity =
-                raycasts.Count == 0 ? null : BattlementIdentity.FindNearest(raycasts[0].gameObject);
             reachesTarget = identity != null && identity.Id == requested.Value;
             return identity == null || reachesTarget ? null : new ObjectId(identity.Id);
         }

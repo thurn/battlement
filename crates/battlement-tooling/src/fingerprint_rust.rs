@@ -7,7 +7,11 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use toml::Value;
 
-pub(super) fn manifests(repository: &Path, initial: &Path) -> Result<Vec<PathBuf>> {
+pub(super) fn manifests(
+  repository: &Path,
+  initial: &Path,
+  include_dev: bool,
+) -> Result<Vec<PathBuf>> {
   let mut pending = VecDeque::from([initial.canonicalize()?]);
   let mut manifests = BTreeSet::new();
   while let Some(manifest) = pending.pop_front() {
@@ -23,7 +27,7 @@ pub(super) fn manifests(repository: &Path, initial: &Path) -> Result<Vec<PathBuf
     let value: Value =
       toml::from_str(&source).with_context(|| format!("parse {}", manifest.display()))?;
     let workspace = workspace_manifest(repository, &manifest)?;
-    for dependency in dependencies(&value) {
+    for dependency in dependencies(&value, include_dev) {
       let path = match &dependency {
         Dependency::Path(path) => Some(path.clone()),
         Dependency::Workspace(name) => workspace
@@ -87,16 +91,24 @@ enum Dependency {
   Workspace(String),
 }
 
-fn dependencies(value: &Value) -> Vec<Dependency> {
+fn dependencies(value: &Value, include_dev: bool) -> Vec<Dependency> {
   let mut found = Vec::new();
-  collect_dependencies(value, None, &mut found);
+  collect_dependencies(value, None, include_dev, &mut found);
   found
 }
 
-fn collect_dependencies(value: &Value, key: Option<&str>, found: &mut Vec<Dependency>) {
+fn collect_dependencies(
+  value: &Value,
+  key: Option<&str>,
+  include_dev: bool,
+  found: &mut Vec<Dependency>,
+) {
   let Value::Table(table) = value else {
     return;
   };
+  if key == Some("dev-dependencies") && !include_dev {
+    return;
+  }
   if key.is_some_and(|key| key.ends_with("dependencies")) {
     for (name, specification) in table {
       let Value::Table(specification) = specification else {
@@ -115,7 +127,7 @@ fn collect_dependencies(value: &Value, key: Option<&str>, found: &mut Vec<Depend
     return;
   }
   for (key, nested) in table {
-    collect_dependencies(nested, Some(key), found);
+    collect_dependencies(nested, Some(key), include_dev, found);
   }
 }
 

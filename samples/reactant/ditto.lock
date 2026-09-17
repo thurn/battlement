@@ -503,6 +503,76 @@ source = "d2449a4dc3e6edb93fa113e7758195c2a4d0a87c7c20c64783af87427356bdea"
 
 [[baselines]]
 profile = "macos"
+scenario = "unified pointer routing"
+checkpoint = "hidden"
+sha256 = "82cdb81016bbdb0f870227683579f3375bfb9e3e83f94f9b1adb687912d7925c"
+width = 1280
+height = 720
+size_bytes = 41561
+source = "81cf9a3ae678e26f1e459bfa1b038359ad9a6d64dfbadcca34d002dbfe1ef3d5"
+
+[[baselines]]
+profile = "macos"
+scenario = "unified pointer routing"
+checkpoint = "inner-modal"
+sha256 = "6e2f5c08bd5453c780f9e332a92cd4daa41096b45ed40690e9c1464284b80eab"
+width = 1280
+height = 720
+size_bytes = 40160
+source = "81cf9a3ae678e26f1e459bfa1b038359ad9a6d64dfbadcca34d002dbfe1ef3d5"
+
+[[baselines]]
+profile = "macos"
+scenario = "unified pointer routing"
+checkpoint = "outer-modal"
+sha256 = "bb977c4a8d3a56c7da6379e1de9bd031c2661c09ad33d67690975ccde203b58c"
+width = 1280
+height = 720
+size_bytes = 43953
+source = "81cf9a3ae678e26f1e459bfa1b038359ad9a6d64dfbadcca34d002dbfe1ef3d5"
+
+[[baselines]]
+profile = "macos"
+scenario = "unified pointer routing"
+checkpoint = "passthrough"
+sha256 = "2086c5905b2e434c05cc92274490e82c52f7a8b0eee16fcddaa9b8e60e78ada4"
+width = 1280
+height = 720
+size_bytes = 48666
+source = "81cf9a3ae678e26f1e459bfa1b038359ad9a6d64dfbadcca34d002dbfe1ef3d5"
+
+[[baselines]]
+profile = "macos"
+scenario = "unified pointer routing"
+checkpoint = "removed"
+sha256 = "82cdb81016bbdb0f870227683579f3375bfb9e3e83f94f9b1adb687912d7925c"
+width = 1280
+height = 720
+size_bytes = 41561
+source = "81cf9a3ae678e26f1e459bfa1b038359ad9a6d64dfbadcca34d002dbfe1ef3d5"
+
+[[baselines]]
+profile = "macos"
+scenario = "unified pointer routing"
+checkpoint = "reparented"
+sha256 = "325db2e9e1da02d69aa783c5577ac4d3d4c268214de3ea61f2ed737c302222ca"
+width = 1280
+height = 720
+size_bytes = 48538
+source = "81cf9a3ae678e26f1e459bfa1b038359ad9a6d64dfbadcca34d002dbfe1ef3d5"
+
+[[baselines]]
+profile = "macos"
+scenario = "unified pointer routing"
+checkpoint = "ui-blocking"
+sha256 = "4f95bbf2589abfeeff14f6cf28f5e7935d4bd7fa6ca4bce7dcf4ff4bd26c03b5"
+width = 1280
+height = 720
+size_bytes = 46216
+source = "81cf9a3ae678e26f1e459bfa1b038359ad9a6d64dfbadcca34d002dbfe1ef3d5"
+
+[[baselines]]
+profile = "macos"
 scenario = "world hit regions and anchors"
 checkpoint = "attached"
 sha256 = "a525ae149bdf02b65456488a5a0eb91e8feb3682cae2608cc3deaae9b6e7dc8f"

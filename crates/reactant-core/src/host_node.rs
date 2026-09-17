@@ -58,6 +58,13 @@ pub trait HostAdapter: 'static {
   /// Disables native input without changing the retained visual.
   fn inert(_description: &mut Self::Description) {}
 
+  /// Whether ordinary logical input may enter this host subtree.
+  fn input_enabled(_description: &Self::Description) -> bool {
+    true
+  }
+  /// Supplies stable committed traversal order for native hit ties.
+  fn set_input_order(_description: &mut Self::Description, _order: u32) {}
+
   /// Hides a retained host while a suspense fallback is visible.
   fn hide(description: &mut Self::Description);
 }
@@ -159,6 +166,12 @@ impl HostNode {
   pub(crate) fn inert(&mut self) {
     self.description.inert();
   }
+  pub(crate) fn input_enabled(&self) -> bool {
+    self.description.input_enabled()
+  }
+  pub(crate) fn set_input_order(&mut self, order: u32) {
+    self.description.set_input_order(order);
+  }
   pub(crate) fn hide(&mut self) {
     self.description.hide();
   }
@@ -193,6 +206,8 @@ trait ErasedHostDescription {
   fn object(&self, object_id: ObjectId, parent: Option<ObjectId>) -> Option<GameObject>;
   fn scene_root(&self) -> bool;
   fn inert(&mut self);
+  fn input_enabled(&self) -> bool;
+  fn set_input_order(&mut self, order: u32);
   fn hide(&mut self);
 }
 
@@ -261,6 +276,12 @@ impl<A: HostAdapter> ErasedHostDescription for AdaptedHost<A> {
   }
   fn scene_root(&self) -> bool {
     A::scene_root(&self.description)
+  }
+  fn input_enabled(&self) -> bool {
+    A::input_enabled(&self.description)
+  }
+  fn set_input_order(&mut self, order: u32) {
+    A::set_input_order(&mut self.description, order);
   }
   fn inert(&mut self) {
     A::inert(&mut self.description);

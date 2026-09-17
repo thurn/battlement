@@ -102,7 +102,7 @@ impl SourceManifest {
     for package in unity_local_packages(&repository, &unity_project)? {
       collect_tree(&repository, &package, &mut candidates)?;
     }
-    let manifests = fingerprint_rust::manifests(&repository, &rust_manifest)?;
+    let manifests = fingerprint_rust::manifests(&repository, &rust_manifest, true)?;
     for manifest in &manifests {
       collect_tree(
         &repository,
@@ -167,7 +167,7 @@ impl SourceManifest {
     build_manifest(candidates)
   }
 
-  /// Fingerprints one Cargo package and its transitive local dependency closure.
+  /// Fingerprints library build sources and all local dependency resolution manifests.
   pub fn build_rust(
     repository: &Path,
     manifest: &Path,
@@ -177,7 +177,12 @@ impl SourceManifest {
     let repository = repository.canonicalize()?;
     let manifest = checked_file(&repository, manifest)?;
     let mut candidates = Candidates::new(case_sensitivity);
-    let manifests = fingerprint_rust::manifests(&repository, &manifest)?;
+    // Dev dependency declarations can affect Cargo resolution even for library builds.
+    let resolution = fingerprint_rust::manifests(&repository, &manifest, true)?;
+    let manifests = fingerprint_rust::manifests(&repository, &manifest, false)?;
+    for manifest in &resolution {
+      collect_file(&repository, manifest, &mut candidates)?;
+    }
     for manifest in &manifests {
       collect_tree(
         &repository,
@@ -185,7 +190,7 @@ impl SourceManifest {
         &mut candidates,
       )?;
     }
-    for path in fingerprint_rust::applicable_support_files(&repository, &manifests) {
+    for path in fingerprint_rust::applicable_support_files(&repository, &resolution) {
       collect_file(&repository, &path, &mut candidates)?;
     }
     for input in generated_inputs {

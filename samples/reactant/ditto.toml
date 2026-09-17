@@ -548,3 +548,45 @@ screenshot = { name = "restored" }
 accessibility_action = { target = { role = "button", name = "Destroy or restore card" }, action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "destroyed" }
+
+[[scenarios]]
+name = "unified pointer routing"
+fixture = "pointer-routing"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "ui-blocking" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Toggle passthrough" }, action = "click" }
+[[scenarios.steps]]
+click = { target = "39110000-0000-4000-8000-000000000001" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "World clicks: 1" }, role = "heading", name = "World clicks: 1" }
+[[scenarios.steps]]
+screenshot = { name = "passthrough" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Open outer modal" }, action = "click" }
+[[scenarios.steps]]
+screenshot = { name = "outer-modal" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Open inner modal" }, action = "click" }
+[[scenarios.steps]]
+screenshot = { name = "inner-modal" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Close inner modal" }, action = "click" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Close outer modal" }, action = "click" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Reparent card" }, action = "click" }
+[[scenarios.steps]]
+screenshot = { name = "reparented" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Hide or show card" }, action = "click" }
+[[scenarios.steps]]
+screenshot = { name = "hidden" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Hide or show card" }, action = "click" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Remove or restore card" }, action = "click" }
+[[scenarios.steps]]
+screenshot = { name = "removed" }

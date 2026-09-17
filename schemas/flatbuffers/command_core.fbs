@@ -278,3 +278,5 @@ enum DebugUiSurface:ubyte { LogViewer, FpsViewer }
 table DebugUiPayload { surface:DebugUiSurface; visible:bool; }
 
 table BoxHitRegionPayload { object_id:Uuid (required); region:BoxHitRegionObject (required); }
+
+table WorldPointerPayload { object_id:Uuid (required); settings:WorldPointerSettings; }

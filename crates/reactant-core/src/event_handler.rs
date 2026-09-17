@@ -14,7 +14,6 @@ use crate::{
 
 #[derive(Clone)]
 pub(crate) struct Handler {
-  activation: Option<Callback<()>>,
   model: Option<TypeId>,
   invalidation: Invalidation,
   slot: &'static str,
@@ -26,7 +25,7 @@ pub(crate) struct Handler {
 
 impl Handler {
   pub(crate) fn world_activation(callback: Callback<()>) -> Self {
-    let mut handler = Self::brief_callback(
+    Self::brief_callback(
       "world_activation",
       UiEventKind::Click,
       HandlerPhase::Default,
@@ -34,20 +33,8 @@ impl Handler {
         UiEventBody::Click(value) => value,
         _ => unreachable!("click handler payload"),
       },
-      callback.clone(),
-    );
-    handler.activation = Some(callback);
-    handler
-  }
-
-  pub(crate) fn activate_world(&self, game: &mut dyn Any) -> bool {
-    let Some(callback) = &self.activation else {
-      return false;
-    };
-    app_runtime::callback(|| {
-      callback.call(game, ());
-    });
-    true
+      callback,
+    )
   }
 
   pub(crate) fn native_view_callback<G: 'static>(
@@ -57,7 +44,6 @@ impl Handler {
     callback: impl for<'a> Fn(&mut G, ReactantNativeEvent<'a>) + 'static,
   ) -> Self {
     Self {
-      activation: None,
       model: Some(TypeId::of::<G>()),
       invalidation: Invalidation::Full,
       slot,
@@ -86,7 +72,6 @@ impl Handler {
   ) -> Self {
     let native_callback = callback.clone();
     Self {
-      activation: None,
       model: callback.model,
       invalidation: callback.invalidation,
       slot,
@@ -110,7 +95,6 @@ impl Handler {
     callback: Callback<ReactantEvent<E>>,
   ) -> Self {
     Self {
-      activation: None,
       model: callback.model,
       invalidation: callback.invalidation,
       slot,
@@ -135,7 +119,6 @@ impl Handler {
   ) -> Self {
     let native_callback = callback.clone();
     Self {
-      activation: None,
       model: callback.model,
       invalidation: callback.invalidation,
       slot,
@@ -159,7 +142,6 @@ impl Handler {
     callback: Callback<E>,
   ) -> Self {
     Self {
-      activation: None,
       model: callback.model,
       invalidation: callback.invalidation,
       slot,
@@ -182,7 +164,6 @@ impl Handler {
   ) -> Self {
     let native_callback = callback.clone();
     Self {
-      activation: None,
       model: callback.model,
       invalidation: callback.invalidation,
       slot,
@@ -205,7 +186,6 @@ impl Handler {
     callback: Callback<ReactantEvent<E>>,
   ) -> Self {
     Self {
-      activation: None,
       model: callback.model,
       invalidation: callback.invalidation,
       slot,
@@ -231,7 +211,6 @@ impl Handler {
   ) -> Self {
     let native_callback = callback.clone();
     Self {
-      activation: None,
       model: callback.model,
       invalidation: callback.invalidation,
       slot,
@@ -257,7 +236,6 @@ impl Handler {
     callback: Callback<battlement::AccessibilityAction>,
   ) -> Self {
     Self {
-      activation: None,
       model: callback.model,
       invalidation: callback.invalidation,
       slot,

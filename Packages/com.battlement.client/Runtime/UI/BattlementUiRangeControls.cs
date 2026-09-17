@@ -176,11 +176,17 @@ namespace Battlement.UI
             state.PointerCancel = _ => Restore(state);
             state.CaptureOut = eventValue =>
             {
+                if (BattlementPointerCaptureTransfer.IsMoving(state.Target))
+                    return;
                 if (!state.Captures.Remove(eventValue.pointerId))
                     return;
                 Commit(state, state.Target.value);
             };
-            state.Detach = _ => state.Cancel();
+            state.Detach = _ =>
+            {
+                if (!BattlementPointerCaptureTransfer.IsMoving(state.Target))
+                    state.Cancel();
+            };
             target.RegisterValueChangedCallback(state.ValueChanged);
             target.RegisterCallback(state.PointerDown, TrickleDown.TrickleDown);
             target.RegisterCallback(state.Capture, TrickleDown.TrickleDown);

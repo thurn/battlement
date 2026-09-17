@@ -242,6 +242,7 @@ pub(crate) fn read_object(
       })
       .collect::<Result<Vec<_>, String>>()?,
     render_order: read_render_order(value.render_order())?,
+    world_pointer: value.world_pointer().map(read_world_pointer),
     material_instances: crate::material::instances(value.material_instances())?,
     drag_mode: match value.drag_mode() {
       world_wire::DragMode::None => None,
@@ -673,5 +674,15 @@ pub(crate) fn read_box_region(
   battlement::BoxHitRegionState {
     size: vector3(value.size()),
     center: vector3(value.center()),
+  }
+}
+
+pub(crate) fn read_world_pointer(
+  value: world_wire::WorldPointerSettings<'_>,
+) -> battlement::WorldPointerSettings {
+  battlement::WorldPointerSettings {
+    interaction_layer: value.interaction_layer(),
+    order: value.order(),
+    capture_on_press: value.capture_on_press(),
   }
 }

@@ -30,6 +30,7 @@ namespace Battlement.UI
     internal sealed class BattlementUiEventObserver
     {
         private readonly BattlementUiEventForwarder events;
+        internal Func<int, bool> WorldCaptured { get; set; } = _ => false;
         private readonly Func<VisualElement?, Guid?> nearestId;
         private readonly Func<Guid, IReadOnlyList<Guid>> route;
         private readonly Func<Guid, bool> isButton;
@@ -239,6 +240,11 @@ namespace Battlement.UI
             Action<ObjectId, IReadOnlyList<Guid>> forward
         )
         {
+            if (eventValue is IPointerEvent pointer && WorldCaptured(pointer.pointerId))
+            {
+                eventValue.StopImmediatePropagation();
+                return;
+            }
             Guid? targetId = nearestId(eventValue.target as VisualElement);
             if (targetId is Guid id)
                 forward(new ObjectId(id), route(id));
@@ -297,6 +303,14 @@ namespace Battlement.UI
             EventBase nativeEvent
         )
         {
+            if (
+                BattlementPointerCaptureTransfer.SuppressCapture(
+                    eventValue.target as VisualElement,
+                    kind,
+                    pointerId
+                )
+            )
+                return;
             if (nearestId(eventValue.target as VisualElement) != objectId.Value)
                 return;
             events.ForwardPointerCapture(

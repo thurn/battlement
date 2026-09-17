@@ -84,6 +84,7 @@ pub struct FakeObject {
   drag_mode: Option<battlement::DragMode>,
   render_order: Option<RenderOrder>,
   material_instances: Vec<battlement::MaterialInstance>,
+  pub(crate) world_pointer: Option<battlement::WorldPointerSettings>,
   pub(crate) kind: GameObjectKind,
   renderer_slots: Option<usize>,
   camera: Option<CameraState>,
@@ -266,6 +267,18 @@ impl FakeWorld {
         .get(id)
         .expect("fake world object order contained an unknown object")
     })
+  }
+
+  pub(crate) fn set_world_pointer(
+    &mut self,
+    id: battlement::ObjectId,
+    settings: Option<battlement::WorldPointerSettings>,
+  ) {
+    self
+      .objects
+      .get_mut(&id)
+      .expect("world pointer target exists")
+      .world_pointer = settings;
   }
 
   /// Returns the number of objects in the current world.
@@ -1122,6 +1135,7 @@ impl FakeObject {
       drag_mode: object.drag_mode,
       render_order: object.render_order,
       material_instances: object.material_instances,
+      world_pointer: object.world_pointer,
       kind: object.kind,
       renderer_slots,
       camera,

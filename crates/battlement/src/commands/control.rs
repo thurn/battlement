@@ -48,6 +48,26 @@ pub struct PointerEventsPayload {
   pub events: Vec<PointerEvent>,
 }
 
+/// Native arbitration and capture for logical world pointer events.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct WorldPointerSettings {
+  /// Higher layers win before distance is compared.
+  pub interaction_layer: i32,
+  /// Committed traversal order; later siblings win exact depth ties.
+  pub order: u32,
+  /// Capture the primary pointer after an unprevented press.
+  pub capture_on_press: bool,
+}
+
+/// Replaces a world's logical pointer route without replacing its host.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WorldPointerPayload {
+  /// Existing native target identity.
+  pub object_id: ObjectId,
+  /// None restores legacy core pointer routing.
+  pub settings: Option<WorldPointerSettings>,
+}
+
 /// Replaces the global physical-key set enabled for the session.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GlobalKeysPayload {

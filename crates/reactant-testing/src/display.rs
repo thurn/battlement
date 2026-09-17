@@ -62,6 +62,45 @@ where
     self.client.poll();
   }
 
+  /// Presses a geometric primary pointer in upper-left screen pixels; advances no clock or frame.
+  pub fn pointer_down(
+    &mut self,
+    pointer_id: i32,
+    position: battlement::PanelPoint,
+  ) -> battlement::UiEventDisposition {
+    self.client.sample_pointer(pointer_id, position, true)
+  }
+  /// Moves a geometric pointer with its primary button state; advances no clock or frame.
+  pub fn pointer_move(
+    &mut self,
+    pointer_id: i32,
+    position: battlement::PanelPoint,
+    pressed: bool,
+  ) -> battlement::UiEventDisposition {
+    self.client.sample_pointer(pointer_id, position, pressed)
+  }
+  /// Releases a geometric primary pointer; advances no clock or frame.
+  pub fn pointer_up(
+    &mut self,
+    pointer_id: i32,
+    position: battlement::PanelPoint,
+  ) -> battlement::UiEventDisposition {
+    self.client.sample_pointer(pointer_id, position, false)
+  }
+  /// Clicks the eligible target after UI/modal/world geometric arbitration.
+  pub fn click_at(&mut self, position: battlement::PanelPoint) {
+    self.pointer_down(0, position);
+    self.pointer_up(0, position);
+  }
+  /// Observes the current pointer capture owner.
+  pub fn pointer_capture(&self, pointer_id: i32) -> Option<ObjectId> {
+    self.client.geometric_capture(pointer_id)
+  }
+  /// Observes host capture loss, including loss after logical destruction.
+  pub fn capture_losses(&self) -> &[(i32, ObjectId)] {
+    self.client.capture_losses()
+  }
+
   /// Activates a world object through the same coordinate-free route as native Ditto.
   pub fn activate(&mut self, object_id: ObjectId) {
     self.client.activate(object_id);
@@ -114,6 +153,11 @@ where
   #[must_use]
   pub fn contains_ui(&self, object_id: ObjectId) -> bool {
     self.client.ui_world().element(object_id).is_some()
+  }
+
+  /// Cancels a geometric gesture without clicking or advancing time.
+  pub fn pointer_cancel(&mut self, pointer_id: i32) {
+    self.client.cancel_pointer(pointer_id);
   }
 
   /// Returns one live UI element for visible-state inspection.

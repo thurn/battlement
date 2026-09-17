@@ -73,6 +73,8 @@ namespace Battlement.UI
             });
             result.RegisterCallback<PointerCaptureOutEvent>(eventValue =>
             {
+                if (BattlementPointerCaptureTransfer.IsMoving(result))
+                    return;
                 if (captures.TryGetValue(objectId.Value, out Dictionary<int, VisualElement> owned))
                     owned.Remove(eventValue.pointerId);
             });

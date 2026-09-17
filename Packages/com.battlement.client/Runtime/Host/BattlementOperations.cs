@@ -219,6 +219,8 @@ namespace Battlement
                     : command.DirectMaterialInstances
                         is BattlementDirectMaterialInstances targetInstances
                         ? targetInstances.ObjectId.Value
+                    : command.DirectWorldPointer is BattlementDirectWorldPointer targetPointer
+                        ? targetPointer.ObjectId.Value
                     : command.DirectRenderOrder is BattlementDirectRenderOrder targetOrder
                         ? targetOrder.ObjectId.Value
                     : command.DirectObjectActive is BattlementDirectObjectActive targetActive

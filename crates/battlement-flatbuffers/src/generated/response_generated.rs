@@ -156,13 +156,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 98;
+      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 99;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 99] = [
+      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 100] = [
         CoreCommandKind::ApplicationOpenUrl,
         CoreCommandKind::Diagnostics,
         CoreCommandKind::AssetsReplaceSet,
@@ -262,6 +262,7 @@ pub mod battlement {
         CoreCommandKind::ObjectSetRenderOrder,
         CoreCommandKind::RendererSetInstances,
         CoreCommandKind::BoxHitRegionSetGeometry,
+        CoreCommandKind::InputSetWorldPointer,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -368,9 +369,10 @@ pub mod battlement {
         pub const ObjectSetRenderOrder: Self = Self(96);
         pub const RendererSetInstances: Self = Self(97);
         pub const BoxHitRegionSetGeometry: Self = Self(98);
+        pub const InputSetWorldPointer: Self = Self(99);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 98;
+        pub const ENUM_MAX: u8 = 99;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::ApplicationOpenUrl,
           Self::Diagnostics,
@@ -471,6 +473,7 @@ pub mod battlement {
           Self::ObjectSetRenderOrder,
           Self::RendererSetInstances,
           Self::BoxHitRegionSetGeometry,
+          Self::InputSetWorldPointer,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -574,6 +577,7 @@ pub mod battlement {
             Self::ObjectSetRenderOrder => Some("ObjectSetRenderOrder"),
             Self::RendererSetInstances => Some("RendererSetInstances"),
             Self::BoxHitRegionSetGeometry => Some("BoxHitRegionSetGeometry"),
+            Self::InputSetWorldPointer => Some("InputSetWorldPointer"),
             _ => None,
           }
         }
@@ -638,13 +642,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 86;
+      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 87;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 87] = [
+      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 88] = [
         CoreCommandPayload::NONE,
         CoreCommandPayload::ExternalUrlPayload,
         CoreCommandPayload::DiagnosticsPayload,
@@ -732,6 +736,7 @@ pub mod battlement {
         CoreCommandPayload::ObjectRenderOrderPayload,
         CoreCommandPayload::RendererInstancesPayload,
         CoreCommandPayload::BoxHitRegionPayload,
+        CoreCommandPayload::WorldPointerPayload,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -826,9 +831,10 @@ pub mod battlement {
         pub const ObjectRenderOrderPayload: Self = Self(84);
         pub const RendererInstancesPayload: Self = Self(85);
         pub const BoxHitRegionPayload: Self = Self(86);
+        pub const WorldPointerPayload: Self = Self(87);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 86;
+        pub const ENUM_MAX: u8 = 87;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ExternalUrlPayload,
@@ -917,6 +923,7 @@ pub mod battlement {
           Self::ObjectRenderOrderPayload,
           Self::RendererInstancesPayload,
           Self::BoxHitRegionPayload,
+          Self::WorldPointerPayload,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -1008,6 +1015,7 @@ pub mod battlement {
             Self::ObjectRenderOrderPayload => Some("ObjectRenderOrderPayload"),
             Self::RendererInstancesPayload => Some("RendererInstancesPayload"),
             Self::BoxHitRegionPayload => Some("BoxHitRegionPayload"),
+            Self::WorldPointerPayload => Some("WorldPointerPayload"),
             _ => None,
           }
         }
@@ -2605,6 +2613,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn payload_as_world_pointer_payload(&self) -> Option<WorldPointerPayload<'a>> {
+          if self.payload_type() == CoreCommandPayload::WorldPointerPayload {
+            let u = self.payload();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { WorldPointerPayload::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CoreCommand<'_> {
@@ -2705,6 +2727,7 @@ pub mod battlement {
           CoreCommandPayload::ObjectRenderOrderPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ObjectRenderOrderPayload>>("CoreCommandPayload::ObjectRenderOrderPayload", pos),
           CoreCommandPayload::RendererInstancesPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RendererInstancesPayload>>("CoreCommandPayload::RendererInstancesPayload", pos),
           CoreCommandPayload::BoxHitRegionPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BoxHitRegionPayload>>("CoreCommandPayload::BoxHitRegionPayload", pos),
+          CoreCommandPayload::WorldPointerPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WorldPointerPayload>>("CoreCommandPayload::WorldPointerPayload", pos),
           _ => Ok(()),
         }
      })?
@@ -3655,6 +3678,16 @@ pub mod battlement {
             }
             CoreCommandPayload::BoxHitRegionPayload => {
               if let Some(x) = self.payload_as_box_hit_region_payload() {
+                ds.field("payload", &x)
+              } else {
+                ds.field(
+                  "payload",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            CoreCommandPayload::WorldPointerPayload => {
+              if let Some(x) = self.payload_as_world_pointer_payload() {
                 ds.field("payload", &x)
               } else {
                 ds.field(

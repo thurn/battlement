@@ -25,6 +25,7 @@ pub use crate::world_visuals::{Mesh, Sprite};
 pub use reactant_core::local_point::{
   LocalPoint, LocalPointTarget, PointTracking, ResolvedLocalPoint,
 };
+pub use reactant_core::pointer_handlers::PointerHandlers;
 
 #[derive(Clone, PartialEq)]
 struct SceneAttachment(ParentScene);
@@ -46,6 +47,8 @@ pub struct Group {
   children: Vec<Node>,
   reference: Option<ObjectRef>,
   click: Option<Callback<()>>,
+  events: PointerHandlers,
+  pointer: battlement::WorldPointerSettings,
   id: Option<Uuid>,
 }
 
@@ -80,6 +83,7 @@ impl Component for SceneRoot {
           transform: LocalTransform::default(),
           active: true,
           clickable: false,
+          world_pointer: None,
           render_order: None,
           material_instances: Vec::new(),
         })
@@ -100,6 +104,8 @@ impl Group {
       children: Vec::new(),
       reference: None,
       click: None,
+      events: PointerHandlers::new(),
+      pointer: battlement::WorldPointerSettings::default(),
       id: None,
     }
   }
@@ -114,7 +120,7 @@ impl Group {
       "static objects cannot attach render refs"
     );
     assert!(
-      self.click.is_none(),
+      self.click.is_none() && self.events.is_empty(),
       "static objects cannot attach logical callbacks"
     );
     assert!(
@@ -177,6 +183,21 @@ impl Group {
     self.reference = Some(reference);
     self
   }
+  /// Installs callbacks using the same event payloads and phases as UI.
+  pub fn events(mut self, events: PointerHandlers) -> Self {
+    self.events = events;
+    self
+  }
+  /// Higher interaction layers win before visible depth is compared.
+  pub fn interaction_layer(mut self, layer: i32) -> Self {
+    self.pointer.interaction_layer = layer;
+    self
+  }
+  /// Captures the primary pointer after an unprevented press until release or loss.
+  pub fn capture_on_press(mut self, capture: bool) -> Self {
+    self.pointer.capture_on_press = capture;
+    self
+  }
   /// Handles native activation or a descendant portal activation.
   pub fn on_click(mut self, callback: Callback<()>) -> Self {
     self.click = Some(callback);
@@ -209,11 +230,15 @@ impl Component for Group {
       root: false,
       transform: self.transform,
       active: self.active,
-      clickable: self.click.is_some() || matches!(self.kind, GameObjectKind::BoxHitRegion { .. }),
+      clickable: self.click.is_some()
+        || !self.events.is_empty()
+        || matches!(self.kind, GameObjectKind::BoxHitRegion { .. }),
+      world_pointer: Some(self.pointer),
       render_order: self.render_order,
       material_instances: self.material_instances.clone(),
     })
-    .child(self.children.clone());
+    .child(self.children.clone())
+    .events(self.events.clone());
     if let Some(id) = self.id {
       host = host.id(id);
     }

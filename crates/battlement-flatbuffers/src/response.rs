@@ -350,6 +350,23 @@ pub(crate) fn write_command<'a>(
         payload.as_union_value(),
       )
     }
+    CommandBody::InputSetWorldPointer(body) => {
+      let settings = body
+        .settings
+        .map(|value| crate::world_pointer::write(builder, value));
+      let payload = command_wire::WorldPointerPayload::create(
+        builder,
+        &command_wire::WorldPointerPayloadArgs {
+          object_id: Some(&uuid(body.object_id.as_uuid())),
+          settings,
+        },
+      );
+      (
+        wire::CoreCommandKind::InputSetWorldPointer,
+        wire::CoreCommandPayload::WorldPointerPayload,
+        payload.as_union_value(),
+      )
+    }
     CommandBody::BoxHitRegionSetGeometry(body) => {
       let region = crate::hit_region::write(builder, body.region);
       let payload = command_wire::BoxHitRegionPayload::create(
@@ -2352,6 +2369,9 @@ fn write_game_object<'a>(
     &value.material_instances,
   ));
   let render_order = write_render_order(builder, value.render_order);
+  let world_pointer = value
+    .world_pointer
+    .map(|v| crate::world_pointer::write(builder, v));
   Ok(world_wire::GameObject::create(
     builder,
     &world_wire::GameObjectArgs {
@@ -2361,6 +2381,7 @@ fn write_game_object<'a>(
       active: value.active,
       render_order,
       material_instances,
+      world_pointer,
       local_transform: Some(&local_transform),
       pointer_events: Some(pointer_events),
       drag_mode: match value.drag_mode {
@@ -3126,6 +3147,7 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
       wire::CoreCommandPayload::ObjectIdPayload
     }
     wire::CoreCommandKind::BoxHitRegionSetGeometry => wire::CoreCommandPayload::BoxHitRegionPayload,
+    wire::CoreCommandKind::InputSetWorldPointer => wire::CoreCommandPayload::WorldPointerPayload,
     wire::CoreCommandKind::RendererSetInstances => {
       wire::CoreCommandPayload::RendererInstancesPayload
     }
@@ -3281,6 +3303,15 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
       {
         crate::material::validate_asset(asset)?;
       }
+    }
+    wire::CoreCommandKind::InputSetWorldPointer => {
+      require_uuid(
+        value
+          .payload_as_world_pointer_payload()
+          .expect("kind/payload checked")
+          .object_id(),
+        "world pointer object",
+      )?;
     }
     wire::CoreCommandKind::ObjectSetRenderOrder => {
       let body = value

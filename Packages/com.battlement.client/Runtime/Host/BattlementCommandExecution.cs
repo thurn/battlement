@@ -252,6 +252,17 @@ namespace Battlement
                     return null;
                 });
             }
+            if (command.DirectWorldPointer is BattlementDirectWorldPointer pointer)
+            {
+                return LaunchDirect(() =>
+                {
+                    world
+                        .RequireObject(pointer.ObjectId)
+                        .GetComponent<BattlementIdentity>()
+                        .WorldPointer = pointer.Settings;
+                    return null;
+                });
+            }
             if (command.DirectRenderOrder is BattlementDirectRenderOrder order)
             {
                 return LaunchDirect(() =>

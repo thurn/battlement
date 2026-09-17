@@ -70,6 +70,20 @@ impl HostAdapter for UiHostAdapter {
       battlement::Prop::Set(battlement::StyleValue::Value(battlement::Display::None));
   }
 
+  fn input_enabled(description: &UiElement) -> bool {
+    let visual = description.visual_element();
+    if visual.enabled == battlement::Prop::Set(false) || visual.inert == battlement::Prop::Set(true)
+    {
+      return false;
+    }
+    visual.style.display
+      != battlement::Prop::Set(battlement::StyleValue::Value(battlement::Display::None))
+      && visual.style.visibility
+        != battlement::Prop::Set(battlement::StyleValue::Value(
+          battlement::Visibility::Hidden,
+        ))
+  }
+
   fn constrains_children(description: &UiElement) -> bool {
     description.kind() == UiElementKind::ToggleButtonGroup
   }

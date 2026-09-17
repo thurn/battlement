@@ -216,6 +216,8 @@ enum GameObjectKind:ubyte {
 enum RenderOrderKind:ubyte { Group, Layer }
 table RenderOrder { kind:RenderOrderKind; order:short; }
 
+table WorldPointerSettings { interaction_layer:int; order:uint; capture_on_press:bool; }
+
 table GameObject {
   object_id:Uuid (required);
   parent_scene:ParentScene (required);
@@ -228,6 +230,7 @@ table GameObject {
   content:GameObjectContent (required);
   render_order:RenderOrder;
   material_instances:[MaterialInstance];
+  world_pointer:WorldPointerSettings;
 }
 
 enum InteractionDistanceKind:ubyte { Unbounded, Inclusive }
