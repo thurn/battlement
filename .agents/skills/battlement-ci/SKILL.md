@@ -9,9 +9,11 @@ Run commands in the task's own worktree. `scripts/ci.py` is the aggregate
 entrypoint; read its argument parser and `scripts/ci_steps.py` for active checks.
 Use `rust-toolchain.toml` for the required toolchain, not a copied version number.
 
-While editing, choose the smallest check covering the changed behavior:
-`cargo test -p <crate>`, `cargo test --manifest-path samples/<sample>/rules/Cargo.toml`,
-or an existing script test. Prefer black-box behavior and native Ditto for
+While editing, choose the smallest check covering the changed behavior. For Cargo
+checks, set `CARGO_TARGET_DIR` from `python3 scripts/cargo_target.py` (pass the
+sample manifest for standalone workspaces). This warms CI's same isolated target
+instead of compiling dependencies twice. Run `cargo test -p <crate>`, a sample
+manifest's tests, or an existing script test. Prefer black-box behavior and native Ditto for
 player-visible changes; use `battlement-ditto` for suite selection and probes.
 After the first relevant focused pass, record `focused.passed` with
 `scripts/workflow_event.py`; record `review.ready` only when the actual review

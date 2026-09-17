@@ -1,5 +1,6 @@
 use std::{
   any::{Any, TypeId},
+  hash::{Hash, Hasher},
   marker::PhantomData,
   sync::{
     Arc, Condvar, Mutex, Weak,
@@ -16,6 +17,8 @@ pub struct PresentedPrompt<T> {
 }
 
 /// A typed connection to one request, valid independently of display consumption.
+/// Clone this handle as the render key of request-specific controls so queued
+/// old native targets cannot acquire a newer request's handlers.
 pub struct ResponseHandle<T> {
   request: Weak<dyn Reply>,
   owner: ChoiceOwner,
@@ -50,6 +53,21 @@ impl<T> Clone for ResponseHandle<T> {
       owner: self.owner,
       prompt_type: PhantomData,
     }
+  }
+}
+
+impl<T> PartialEq for ResponseHandle<T> {
+  fn eq(&self, other: &Self) -> bool {
+    Weak::ptr_eq(&self.request, &other.request)
+  }
+}
+
+impl<T> Eq for ResponseHandle<T> {}
+
+impl<T> Hash for ResponseHandle<T> {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    // Weak ownership keeps this allocation identity reserved after resolution.
+    self.request.as_ptr().cast::<()>().hash(state);
   }
 }
 

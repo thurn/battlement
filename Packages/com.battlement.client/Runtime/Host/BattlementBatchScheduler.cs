@@ -104,8 +104,6 @@ namespace Battlement
             foreach (ScheduledBatch batch in batches.Where(item => item.WorkScope == scope))
             {
                 batch.BlockingOperations.Clear();
-                if (batch.HasStarted && batch.Outcome == BatchOutcome.Pending)
-                    executor.EndBatch();
                 batch.Outcome = BatchOutcome.Canceled;
                 batch.Dispose();
             }
@@ -119,6 +117,7 @@ namespace Battlement
             }
 
             isAdvancing = true;
+            bool commitStarted = false;
             try
             {
                 if (HasPendingWork)
@@ -133,7 +132,7 @@ namespace Battlement
                     madeProgress = false;
                     foreach (ScheduledBatch batch in batches.ToArray())
                     {
-                        bool progressed = AdvanceBatch(batch, now);
+                        bool progressed = AdvanceBatch(batch, now, ref commitStarted);
                         madeProgress |= progressed;
                         if (IsControlled && progressed)
                         {
@@ -144,11 +143,13 @@ namespace Battlement
             }
             finally
             {
+                if (commitStarted)
+                    executor.EndBatch();
                 isAdvancing = false;
             }
         }
 
-        private bool AdvanceBatch(ScheduledBatch scheduled, TimeSpan now)
+        private bool AdvanceBatch(ScheduledBatch scheduled, TimeSpan now, ref bool commitStarted)
         {
             if (scheduled.Outcome != BatchOutcome.Pending)
             {
@@ -163,7 +164,6 @@ namespace Battlement
                 }
 
                 scheduled.HasStarted = true;
-                executor.BeginBatch();
                 if (DependsOnFailedPredecessor(scheduled))
                 {
                     Fail(
@@ -222,11 +222,16 @@ namespace Battlement
             if (scheduled.NextGroup >= scheduled.Batch.GroupCount)
             {
                 scheduled.Outcome = BatchOutcome.Succeeded;
-                executor.EndBatch();
                 scheduled.Dispose();
                 return true;
             }
 
+            // Suspend input only while applying commands, never while playback is waiting.
+            if (!commitStarted)
+            {
+                executor.BeginBatch();
+                commitStarted = true;
+            }
             int groupIndex = scheduled.NextGroup++;
             int commandCount = scheduled.Batch.CommandCount(groupIndex);
             for (int commandIndex = 0; commandIndex < commandCount; commandIndex++)
@@ -367,7 +372,6 @@ namespace Battlement
 
             scheduled.BlockingOperations.Clear();
             scheduled.Outcome = BatchOutcome.Failed;
-            executor.EndBatch();
             reportFailure(
                 new BatchFailed<CoreErrorCode>(
                     scheduled.SessionId,
@@ -394,7 +398,6 @@ namespace Battlement
 
             scheduled.BlockingOperations.Clear();
             scheduled.Outcome = BatchOutcome.Failed;
-            executor.EndBatch();
             reportCustomFailure(exception, scheduled.SessionId, scheduled.Id, commandId);
             scheduled.Dispose();
         }

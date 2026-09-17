@@ -23,6 +23,7 @@ mod navigation;
 mod physical_motion;
 mod presence_lifecycle;
 mod preview_resource;
+mod prompt_proof;
 mod refs_geometry;
 mod resources_boundaries;
 mod sample_constants;

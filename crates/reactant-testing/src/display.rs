@@ -72,6 +72,17 @@ where
     self.client.ui().click(object_id);
   }
 
+  /// Activates a UI button through the shared keyboard/controller submit route.
+  pub fn navigation_submit_ui(&mut self, object_id: ObjectId) {
+    self.client.ui().navigation_submit(object_id);
+  }
+
+  /// Delivers a previously captured native input without re-resolving its target.
+  /// Removed targets are ignored by the engine's current event routing.
+  pub fn deliver_ui_event(&mut self, event: battlement::UiEvent) {
+    self.client.ui().deliver_event(event);
+  }
+
   /// Finds a live UI descendant by its authored name.
   #[must_use]
   pub fn find_ui(&self, root: ObjectId, name: &str) -> ObjectId {

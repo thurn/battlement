@@ -73,6 +73,56 @@ source = "0b313f80f5c789b6675f0f59ddda6f001503eeb3bb4bec6fd2f70e2e08275bb5"
 
 [[baselines]]
 profile = "macos"
+scenario = "queued prompt controls"
+checkpoint = "accepted-before-playback"
+sha256 = "8e19699a4cbcf42b651f981e652593b04b51e3403a031f3220b29d0dfc66608f"
+width = 1280
+height = 720
+size_bytes = 44761
+source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+
+[[baselines]]
+profile = "macos"
+scenario = "queued prompt controls"
+checkpoint = "first-prompt"
+sha256 = "e54084365af78c5bd51c58b82f5b3c845a2a9e374cf304b93cd89d2414754c7a"
+width = 1280
+height = 720
+size_bytes = 45335
+source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+
+[[baselines]]
+profile = "macos"
+scenario = "queued prompt controls"
+checkpoint = "second-prompt"
+sha256 = "6b28125789e2826fe6f69294b1b8c77499f3012dcb4415e3ef610468ab99ae57"
+width = 1280
+height = 720
+size_bytes = 44581
+source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+
+[[baselines]]
+profile = "macos"
+scenario = "queued prompt controls"
+checkpoint = "stale-prompt-menu"
+sha256 = "bb99b2bf54523957eb0c54e2cf28ce12159672a21b37d40f392b99ee695f0b25"
+width = 1280
+height = 720
+size_bytes = 45099
+source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+
+[[baselines]]
+profile = "macos"
+scenario = "queued prompt controls"
+checkpoint = "stopped-menu"
+sha256 = "1fc244d7e575138e03955f9b6e70f2476da92a78bd4fabcf7006ad6f9381cd20"
+width = 1280
+height = 720
+size_bytes = 38652
+source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+
+[[baselines]]
+profile = "macos"
 scenario = "rules session acceptance"
 checkpoint = "accepted-ready"
 sha256 = "ffd3d3bdc2b449e793c2f7d09785973147092f69d0108ddec33b3258caf580c9"

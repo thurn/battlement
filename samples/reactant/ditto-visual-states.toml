@@ -43,3 +43,23 @@ screen = "rules-batches"
 [[states]]
 key = "rules-batches.energy-playing"
 screen = "rules-batches"
+
+[[states]]
+key = "rules-prompts.first-prompt"
+screen = "rules-prompts"
+
+[[states]]
+key = "rules-prompts.stale-prompt-menu"
+screen = "rules-prompts"
+
+[[states]]
+key = "rules-prompts.second-prompt"
+screen = "rules-prompts"
+
+[[states]]
+key = "rules-prompts.accepted-before-playback"
+screen = "rules-prompts"
+
+[[states]]
+key = "rules-prompts.stopped-menu"
+screen = "rules-prompts"

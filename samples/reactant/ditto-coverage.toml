@@ -67,3 +67,33 @@ state = "rules-batches.energy-playing"
 scenario = "ordered game playback"
 checkpoint = "energy-playing"
 owner = "reactant-testing::batches"
+
+[[mappings]]
+state = "rules-prompts.first-prompt"
+scenario = "queued prompt controls"
+checkpoint = "first-prompt"
+owner = "reactant-testing::queued_input"
+
+[[mappings]]
+state = "rules-prompts.stale-prompt-menu"
+scenario = "queued prompt controls"
+checkpoint = "stale-prompt-menu"
+owner = "reactant-testing::queued_input"
+
+[[mappings]]
+state = "rules-prompts.second-prompt"
+scenario = "queued prompt controls"
+checkpoint = "second-prompt"
+owner = "reactant-testing::queued_input"
+
+[[mappings]]
+state = "rules-prompts.accepted-before-playback"
+scenario = "queued prompt controls"
+checkpoint = "accepted-before-playback"
+owner = "reactant-testing::queued_input"
+
+[[mappings]]
+state = "rules-prompts.stopped-menu"
+scenario = "queued prompt controls"
+checkpoint = "stopped-menu"
+owner = "reactant-testing::queued_input"

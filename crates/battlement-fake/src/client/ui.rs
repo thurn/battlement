@@ -103,6 +103,11 @@ where
     self.client.ui_world.selection(object_id)
   }
 
+  /// Delivers an already captured event even if its target has since been removed.
+  pub fn deliver_event(&mut self, event: battlement::UiEvent) {
+    self.client.submit_ui_event(event);
+  }
+
   /// Sends one native-style event when its logical route has a subscription.
   pub fn send_event(&mut self, event: battlement::UiEvent) {
     if !self.client.world.input_enabled() {

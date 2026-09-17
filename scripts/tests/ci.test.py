@@ -31,6 +31,7 @@ def main() -> None:
     _verify_active_rust_toolchain_guard()
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
         root = Path(temporary)
+        _verify_focused_cargo_target(root)
         _verify_cargo_target_isolation(root)
         _verify_cargo_targets_do_not_cross_checkouts(root)
         _verify_parallel_sample_target_isolation(root)
@@ -81,6 +82,25 @@ def main() -> None:
             assert "Battlement.UI" in str(error)
         else:
             raise AssertionError("missing runtime UI assembly edge was accepted")
+
+
+def _verify_focused_cargo_target(root: Path) -> None:
+    environment = {**os.environ, "BATTLEMENT_CI_CACHE": str(root / "focused-cache")}
+    command = [sys.executable, str(REPOSITORY_ROOT / "scripts/cargo_target.py")]
+    targets = []
+    for arguments in ([], ["samples/reactant/rules/Cargo.toml"]):
+        result = subprocess.run(
+            [*command, *arguments], env=environment, check=True, capture_output=True, text=True,
+        )
+        target = Path(result.stdout.strip())
+        assert target.is_dir() and target.is_relative_to(root / "focused-cache")
+        targets.append(target)
+    assert targets[0] != targets[1]
+    for manifest in (str(root / "Cargo.toml"), "crates/reactant-core/Cargo.toml"):
+        result = subprocess.run(
+            [*command, manifest], env=environment, capture_output=True, text=True,
+        )
+        assert result.returncode == 2 and not result.stdout
 
 
 def _verify_cargo_target_isolation(root: Path) -> None:

@@ -109,11 +109,13 @@ impl Component for Screen {
         }
       }),
       prompt.map(|prompt| {
-        Button::new(ls("Answer five")).on_press(move |_: &mut Game| {
-          let Prompt::Number(number) = &prompt.prompt;
-          prompt.handle.submit(number.as_ref(), 5);
-          *answer.held.borrow_mut() = Some(answer.next());
-        })
+        Button::new(ls("Answer five"))
+          .key(prompt.handle.clone())
+          .on_press(move |_: &mut Game| {
+            let Prompt::Number(number) = &prompt.prompt;
+            prompt.handle.submit(number.as_ref(), 5);
+            *answer.held.borrow_mut() = Some(answer.next());
+          })
       }),
       Button::new(ls("Fail gameplay host"))
         .on_press(move |_: &mut Game| fail.consumer.fail("Native fixture host failure")),

@@ -1,0 +1,204 @@
+use std::{borrow::Cow, rc::Rc, time::Duration};
+
+use battlement::{
+  Command, CommandBody, GameObject, GameObjectKind, MaterialAssignment, ObjectId, ParentScene,
+  PropertyCommand, Tween, TweenPositionPayload, Vector3, object_id,
+};
+use reactant::{
+  GameConsumer, GameHandle,
+  app::App,
+  prelude::*,
+  rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame, PromptData},
+};
+use trox::ls;
+
+use crate::{CONTENT_SCENE, Game, MOTION_MATERIAL, ROOT_ID, model};
+
+const PROMPT_CUBE: ObjectId = object_id!("25300000-0000-4000-8000-000000000093");
+
+struct Decisions;
+struct Policy;
+#[derive(Clone)]
+struct Confirm;
+enum Prompt<'a> {
+  Confirm(Cow<'a, Confirm>),
+}
+struct Proof {
+  game: GameHandle<Decisions>,
+  consumer: GameConsumer<Decisions>,
+}
+struct Menu(Rc<Proof>);
+struct Board(Rc<Proof>);
+
+pub(crate) fn app() -> App<Game> {
+  let mut app = App::with_model(CONTENT_SCENE, model::new());
+  let game = app.start_game::<Decisions>(0, |connection| ExecutionMode::Interactive {
+    connection,
+    policy: Policy,
+  });
+  let consumer = app.game_consumer::<Decisions>();
+  consumer.resume_automatic_submission();
+  let proof = Rc::new(Proof { game, consumer });
+  app
+    .ui(
+      View::new()
+        .style(
+          Style::new()
+            .padding(32.px())
+            .background_color(Color::rgb(0.05, 0.07, 0.11))
+            .color(Color::rgb(0.95, 0.95, 1.0)),
+        )
+        .child((
+          Label::new(ls("Queued prompt input")).style(Style::new().font_size(30.px())),
+          Menu(proof.clone()),
+          GameRoot::new(Board(proof)),
+        )),
+    )
+    .document(|mut document| {
+      document.root_id = ROOT_ID;
+      document
+    })
+    .camera(|camera| camera.position(Vector3::new(0.0, 0.0, -10.0)))
+    .object(
+      GameObject::new(
+        PROMPT_CUBE,
+        GameObjectKind::Cube {
+          materials: vec![MaterialAssignment::new(0, MOTION_MATERIAL)],
+        },
+      )
+      .parent_scene(ParentScene::Persistent)
+      .position(Vector3::new(-3.0, -2.0, 0.0)),
+    )
+}
+
+impl Component for Menu {
+  fn render(&self) -> impl Render {
+    let status = reactant::use_game_status::<Decisions>();
+    let prompt = reactant::use_game_prompt::<Decisions>();
+    let (open, set_open) = reactant::hooks::use_state(false);
+    let start = self.0.clone();
+    let answer = self.0.clone();
+    let stop = self.0.clone();
+    View::new().child((
+      Label::new(ls(format!(
+        "Rules {status:?} / accepted {}",
+        self.0.game.accepted_state()
+      ))),
+      Button::new(ls("Begin prompts")).on_press(move |_: &mut Game| {
+        if start.game.dispatch(()) == reactant::DispatchResult::Started {
+          assert!(start.consumer.wait_for_output(Duration::from_secs(5)));
+        }
+      }),
+      Button::new(ls("Answer from app")).on_press(move |_: &mut Game| {
+        if let Some(prompt) = &prompt {
+          let published = answer.consumer.publication_observation().published;
+          let Prompt::Confirm(value) = &prompt.prompt;
+          prompt.handle.submit(value.as_ref(), 1);
+          assert!(
+            answer
+              .consumer
+              .wait_for_publication(Duration::from_secs(5), |o| o.published > published)
+          );
+        }
+      }),
+      Button::new(ls("Settings")).on_press(move |_: &mut Game| set_open.set(!open)),
+      Button::new(ls("Stop prompts")).on_press(move |_: &mut Game| stop.game.stop()),
+      Label::new(ls(if open {
+        "Settings open"
+      } else {
+        "Settings closed"
+      })),
+    ))
+  }
+}
+
+impl Component for Board {
+  fn render(&self) -> impl Render {
+    let state = *reactant::use_game_state::<Decisions>();
+    let prompt = reactant::use_game_prompt::<Decisions>();
+    let app = reactant::app_context::use_app();
+    let offset = use_motion_value(0.0_f32);
+    let animate_offset = offset.clone();
+    let waiting = prompt.is_some();
+    reactant::hooks::use_effect(
+      move || {
+        if waiting {
+          app.send(Command::new_v4(CommandBody::TransformTweenLocalPosition(
+            PropertyCommand::canceling(TweenPositionPayload {
+              object_id: PROMPT_CUBE,
+              position: Vector3::new(state as f64 - 2.0, -2.0, 0.0),
+              tween: Tween::new().duration_ms(2000),
+            }),
+          )));
+          animate_offset.animate(
+            (state + 1) as f32 * 70.0,
+            Transition::tween().duration_secs(2.0),
+          );
+        }
+      },
+      prompt.as_ref().map(|prompt| prompt.handle.clone()),
+    );
+    let proof = self.0.clone();
+    View::new().child((
+      Label::new(ls(format!("Rendered choice {state}")))
+        .animate(StyleTarget::new().x_value(offset))
+        .style(Style::new().font_size(26.px())),
+      prompt.map(|prompt| {
+        Button::new(ls("Choose one"))
+          .key(prompt.handle.clone())
+          .on_press(move |_: &mut Game| {
+            let published = proof.consumer.publication_observation().published;
+            let Prompt::Confirm(value) = &prompt.prompt;
+            prompt.handle.submit(value.as_ref(), 1);
+            assert!(
+              proof
+                .consumer
+                .wait_for_publication(Duration::from_secs(5), |o| o.published > published)
+            );
+          })
+      }),
+    ))
+  }
+}
+
+impl PromptData<Decisions> for Confirm {
+  type ResponseType = usize;
+  fn options(&self) -> impl Iterator<Item = usize> {
+    [1].into_iter()
+  }
+  fn is_valid_response(&self, response: &usize) -> bool {
+    *response == 1
+  }
+  fn as_prompt(&self) -> Prompt<'_> {
+    Prompt::Confirm(Cow::Borrowed(self))
+  }
+  fn into_prompt(self) -> Prompt<'static> {
+    Prompt::Confirm(Cow::Owned(self))
+  }
+}
+impl ChoicePolicy<Decisions> for Policy {
+  fn owner(&self, _: &usize, _: &Prompt<'_>) -> ChoiceOwner {
+    ChoiceOwner::Human
+  }
+  fn choose(&mut self, _: &usize, _: &Prompt<'_>) -> usize {
+    unreachable!()
+  }
+}
+impl RulesGame for Decisions {
+  type State = usize;
+  type Action = ();
+  type StateAnimation = ();
+  type Prompt<'a> = Prompt<'a>;
+  type Context = ExecutionMode<Self, Policy>;
+  fn logical_clone(state: &usize) -> usize {
+    *state
+  }
+  fn is_legal_action(state: &usize, _: &()) -> bool {
+    *state == 0
+  }
+  fn execute(context: &mut Self::Context, state: &mut usize, _: ()) {
+    for _ in 0..2 {
+      *state += context.choose(state, Confirm);
+    }
+  }
+}

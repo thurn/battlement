@@ -34,6 +34,7 @@ impl Component for GameView {
       .name("game-status"),
       prompt.map(|prompt| {
         ButtonHost::new(ls("Answer"))
+          .key(prompt.handle.clone())
           .name("answer")
           .on_click(move |_: &mut usize| {
             let Prompt::Number(number) = &prompt.prompt;

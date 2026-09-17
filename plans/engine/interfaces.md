@@ -199,7 +199,10 @@ and validate against the stored prompt. The supplied value determines the type;
 it does not prove object identity. This also supports zero-sized prompt structs.
 A caller-constructed prompt cannot broaden the stored request's legal choices.
 The UI may retain the `Rc<PresentedPrompt<T>>` in its handler and match it again
-when submitting; it need not clone the prompt data.
+when submitting; it need not clone the prompt data. Key request-specific
+controls with `.key(presented.handle.clone())`. Handle clones compare as the same
+opaque request; a new request replaces its actionable hosts while surrounding
+card visuals keep their ordinary identity.
 
 An invalid response to an active, human-owned request is a programming error and
 panics. The UI uses the same validation logic to disable illegal choices.
