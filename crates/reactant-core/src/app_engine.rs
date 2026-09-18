@@ -48,6 +48,7 @@ impl<G: 'static> App<G> {
         .checked_add(1)
         .expect("session generation overflow");
       queue.commands.clear();
+      queue.presentation_controls.clear();
       queue.snapshot = false;
       queue.snapshot_action = None;
       queue.localizer = None;
@@ -319,12 +320,13 @@ impl<G: 'static> App<G> {
         .expect("application work failed to render");
       app_delivery::append(response, origin, commit);
     }
-    let (snapshot, snapshot_action, commands, localizer) = {
+    let (snapshot, snapshot_action, commands, presentation_controls, localizer) = {
       let mut queue = self.queue.borrow_mut();
       (
         mem::take(&mut queue.snapshot),
         queue.snapshot_action.take(),
         mem::take(&mut queue.commands),
+        mem::take(&mut queue.presentation_controls),
         queue.localizer.take(),
       )
     };
@@ -347,6 +349,7 @@ impl<G: 'static> App<G> {
       }
       response.messages.extend(imperative);
     }
+    app_delivery::presentation_controls(response, presentation_controls);
     app_delivery::commands(response, commands, self.runtime.track_work_scopes);
   }
 }

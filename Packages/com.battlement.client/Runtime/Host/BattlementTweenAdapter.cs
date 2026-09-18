@@ -358,10 +358,13 @@ namespace Battlement
         private static BattlementCommandException Invalid(string message) =>
             new(CoreErrorCode.InvalidProperty, message);
 
-        private sealed class PrimeTweenOperation : IBattlementCommandOperation
+        private sealed class PrimeTweenOperation
+            : IBattlementCommandOperation,
+                IBattlementPausableCommandOperation
         {
             private readonly Transform target;
             private PrimeTweenHandle tween;
+            private bool pausedByScope;
 
             public PrimeTweenOperation(Transform target, PrimeTweenHandle tween, bool isInfinite) =>
                 (this.target, this.tween, IsInfinite) = (target, tween, isInfinite);
@@ -380,15 +383,34 @@ namespace Battlement
             }
 
             public void Cancel() => tween.Stop();
+
+            public void Pause(TimeSpan now)
+            {
+                if (!tween.isAlive || tween.isPaused)
+                    return;
+                tween.isPaused = true;
+                pausedByScope = true;
+            }
+
+            public void Resume(TimeSpan now)
+            {
+                if (!pausedByScope || !tween.isAlive)
+                    return;
+                pausedByScope = false;
+                tween.isPaused = false;
+            }
         }
 
-        private sealed class DeterministicOperation : IBattlementCommandOperation
+        private sealed class DeterministicOperation
+            : IBattlementCommandOperation,
+                IBattlementPausableCommandOperation
         {
             private readonly Transform target;
             private readonly TweenTiming timing;
-            private readonly TimeSpan started;
+            private TimeSpan started;
             private readonly Action<float> apply;
             private bool isCanceled;
+            private TimeSpan? pausedAt;
 
             public DeterministicOperation(
                 Transform target,
@@ -411,6 +433,8 @@ namespace Battlement
                 {
                     return true;
                 }
+                if (pausedAt.HasValue)
+                    return false;
 
                 TimeSpan elapsed = now - started;
                 if (elapsed < timing.Delay)
@@ -440,6 +464,16 @@ namespace Battlement
             }
 
             public void Cancel() => isCanceled = true;
+
+            public void Pause(TimeSpan now) => pausedAt ??= now;
+
+            public void Resume(TimeSpan now)
+            {
+                if (pausedAt is not TimeSpan paused)
+                    return;
+                started += now - paused;
+                pausedAt = null;
+            }
         }
 
         private sealed record TweenTiming(

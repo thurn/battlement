@@ -14,7 +14,7 @@ namespace Battlement.CustomFixtures
             IBattlementFlatBufferClientSchema
     {
         public const string ContractDigest =
-            "f27c6a7dca3d5d55289a9cbb5e0eacaded7337d82e5363e4aae55af91cc7f370";
+            "f2c71761c96f5ee9500cf82fd5d1a6f274edbe0762e54d12ca66021c6bcae653";
 
         private readonly FlatBufferBuilder clientBuilder = new(1024);
         private readonly Func<object, byte> errorEncoder;
@@ -81,6 +81,25 @@ namespace Battlement.CustomFixtures
                     throw new InvalidDataException("A fixture batch start value is unknown.");
                 if (batch.WorkScope == 0 || batch.CancelScope == 0)
                     throw new InvalidDataException("A work scope must be nonzero.");
+                CoreWire.PresentationControl? presentationControl = batch.PresentationControl;
+                if (presentationControl.HasValue)
+                {
+                    CoreWire.PresentationControl control = presentationControl.Value;
+                    if (control.WorkScope == 0)
+                        throw new InvalidDataException(
+                            "A presentation work scope must be nonzero."
+                        );
+                    _ = BattlementFlatBufferCore.ReadUuid(control.OwnerId, "presentation owner");
+                    if (
+                        batch.WorkScope.HasValue
+                        || batch.CancelScope.HasValue
+                        || batch.Start != CoreWire.BatchStart.Now
+                        || batch.GroupsLength != 0
+                    )
+                        throw new InvalidDataException(
+                            "Presentation control must be independent unowned work."
+                        );
+                }
                 if (
                     batch.CancelScope.HasValue
                     && (batch.WorkScope.HasValue || batch.Start != CoreWire.BatchStart.Now)
@@ -88,7 +107,11 @@ namespace Battlement.CustomFixtures
                     throw new InvalidDataException(
                         "Cancellation must be independent unowned work."
                     );
-                if (batch.GroupsLength == 0 && !batch.CancelScope.HasValue)
+                if (
+                    batch.GroupsLength == 0
+                    && !batch.CancelScope.HasValue
+                    && !presentationControl.HasValue
+                )
                     throw new InvalidDataException("A fixture batch has no command groups.");
                 for (int groupIndex = 0; groupIndex < batch.GroupsLength; groupIndex++)
                 {
@@ -194,6 +217,23 @@ namespace Battlement.CustomFixtures
 
         public ulong? ReadCancelScope(ByteBuffer bytes, int messageIndex) =>
             Batch(bytes, messageIndex).CancelScope;
+
+        public PresentationControl? ReadPresentationControl(ByteBuffer bytes, int messageIndex)
+        {
+            CoreWire.PresentationControl? control = Batch(bytes, messageIndex).PresentationControl;
+            return control.HasValue
+                ? new PresentationControl(
+                    control.Value.WorkScope,
+                    new ObjectId(
+                        BattlementFlatBufferCore.ReadUuid(
+                            control.Value.OwnerId,
+                            "presentation owner"
+                        )
+                    ),
+                    control.Value.Paused
+                )
+                : null;
+        }
 
         public int ReadGroupCount(ByteBuffer bytes, int messageIndex) =>
             Batch(bytes, messageIndex).GroupsLength;

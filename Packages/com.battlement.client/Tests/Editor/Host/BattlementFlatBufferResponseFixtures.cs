@@ -72,6 +72,15 @@ namespace Battlement.Tests
                     .Value;
             }
             VectorOffset groupVector = OffsetVector(builder, groups);
+            Offset<Wire.PresentationControl> presentationControl = default;
+            if (batch.PresentationControl is PresentationControl control)
+            {
+                Wire.PresentationControl.StartPresentationControl(builder);
+                Wire.PresentationControl.AddPaused(builder, control.Paused);
+                Wire.PresentationControl.AddOwnerId(builder, Uuid(builder, control.OwnerId.Value));
+                Wire.PresentationControl.AddWorkScope(builder, control.WorkScope);
+                presentationControl = Wire.PresentationControl.EndPresentationControl(builder);
+            }
             Wire.Batch.StartBatch(builder);
             Wire.Batch.AddGroups(builder, groupVector);
             Wire.Batch.AddStart(builder, (Wire.BatchStart)batch.Start);
@@ -79,6 +88,8 @@ namespace Battlement.Tests
                 Wire.Batch.AddWorkScope(builder, owner);
             if (batch.CancelScope is ulong canceled)
                 Wire.Batch.AddCancelScope(builder, canceled);
+            if (batch.PresentationControl is not null)
+                Wire.Batch.AddPresentationControl(builder, presentationControl);
             if (batch.CausedByActionId is ActionId actionId)
                 Wire.Batch.AddCausedByActionId(builder, Uuid(builder, actionId.Value));
             Wire.Batch.AddSessionId(builder, Uuid(builder, batch.SessionId.Value));

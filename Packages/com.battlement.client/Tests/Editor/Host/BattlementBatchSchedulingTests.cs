@@ -307,6 +307,74 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void PresentationPauseFreezesOwnedWaitsButNotIndependentWork()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            var game = new ObjectId(Guid.NewGuid());
+            var menu = new ObjectId(Guid.NewGuid());
+            var firstOwner = new ObjectId(Guid.NewGuid());
+            var secondOwner = new ObjectId(Guid.NewGuid());
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(
+                        session,
+                        BatchStart.Now,
+                        Group(Create(game)),
+                        Group(Wait(TimeSpan.FromMilliseconds(500))),
+                        Group(SetLocalPosition(game, new Vector3(5, 0, 0)))
+                    ) with
+                    {
+                        WorkScope = 7,
+                    },
+                    BatchWithGroups(
+                        session,
+                        BatchStart.Now,
+                        Group(Create(menu)),
+                        Group(Wait(TimeSpan.FromMilliseconds(100))),
+                        Group(SetLocalPosition(menu, new Vector3(3, 0, 0)))
+                    )
+                )
+            );
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(100));
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    PresentationControlBatch(session, 7, firstOwner, true),
+                    PresentationControlBatch(session, 7, secondOwner, true)
+                )
+            );
+            harness.Runner.RunFrame();
+            Assert.That(Identity(menu).transform.localPosition.x, Is.EqualTo(3));
+            Assert.That(Identity(game).transform.localPosition.x, Is.Zero);
+
+            harness.Clock.Advance(TimeSpan.FromSeconds(2));
+            harness.Runner.RunFrame();
+            Assert.That(Identity(game).transform.localPosition.x, Is.Zero);
+            SubmitResponse(
+                harness,
+                Response(session, PresentationControlBatch(session, 7, firstOwner, false))
+            );
+            harness.Clock.Advance(TimeSpan.FromSeconds(1));
+            harness.Runner.RunFrame();
+            Assert.That(Identity(game).transform.localPosition.x, Is.Zero);
+            SubmitResponse(
+                harness,
+                Response(session, PresentationControlBatch(session, 7, secondOwner, false))
+            );
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(399));
+            harness.Runner.RunFrame();
+            Assert.That(Identity(game).transform.localPosition.x, Is.Zero);
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(1));
+            harness.Runner.RunFrame();
+            Assert.That(Identity(game).transform.localPosition.x, Is.EqualTo(5));
+            Assert.That(Failures(harness), Is.Empty);
+        }
+
+        [Test]
         public void GameCancellationDropsUnstartedWorkAndOperationsWhileMenuWorkCompletes()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -412,6 +480,17 @@ namespace Battlement.Tests
 
         private static ParallelCommandGroup<Command> Group(params Command[] commands) =>
             new(commands);
+
+        private static Batch PresentationControlBatch(
+            SessionId session,
+            ulong scope,
+            ObjectId owner,
+            bool paused
+        ) =>
+            BatchWithGroups(session, BatchStart.Now) with
+            {
+                PresentationControl = new PresentationControl(scope, owner, paused),
+            };
 
         private static Command Create(ObjectId id) =>
             new(

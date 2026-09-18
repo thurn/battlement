@@ -10,6 +10,8 @@ namespace Battlement.UI
     {
         private ulong anchorMicros;
         private ulong heldMicros;
+        private bool paused;
+        private bool scopePaused;
 
         public BattlementMotionSequence(
             ObjectId playbackId,
@@ -39,7 +41,7 @@ namespace Battlement.UI
         public IReadOnlyList<MotionSequenceEntryState> Entries { get; }
         public IReadOnlyDictionary<string, int> Labels { get; }
         public double Speed { get; private set; } = 1;
-        public bool Paused { get; private set; }
+        public bool Paused => paused || scopePaused;
 
         public bool IsInfinite => Entries.Any(entry => entry.Infinite);
 
@@ -54,18 +56,38 @@ namespace Battlement.UI
 
         public void Play(ulong now)
         {
-            if (!Paused)
+            if (!paused)
                 return;
-            anchorMicros = now;
-            Paused = false;
+            paused = false;
+            if (!scopePaused)
+                anchorMicros = now;
         }
 
         public void Pause(ulong now)
         {
-            if (Paused)
+            if (paused)
                 return;
-            heldMicros = Elapsed(now);
-            Paused = true;
+            if (!scopePaused)
+                heldMicros = Elapsed(now);
+            paused = true;
+        }
+
+        public void PauseForScope(ulong now)
+        {
+            if (scopePaused)
+                return;
+            if (!paused)
+                heldMicros = Elapsed(now);
+            scopePaused = true;
+        }
+
+        public void ResumeForScope(ulong now)
+        {
+            if (!scopePaused)
+                return;
+            scopePaused = false;
+            if (!paused)
+                anchorMicros = now;
         }
 
         public void SetSpeed(ulong now, double value)
@@ -73,7 +95,7 @@ namespace Battlement.UI
             heldMicros = Elapsed(now);
             anchorMicros = now;
             Speed = value;
-            Paused = value == 0;
+            paused = value == 0;
         }
 
         public void Finish(ulong now)
@@ -229,6 +251,9 @@ namespace Battlement.UI
             UnityEngine.Vector3? capturedPosition
         );
         void Advance();
+        void Pause(ObjectId playbackId);
+        void Resume(ObjectId playbackId);
+        void Cancel(ObjectId playbackId);
         void Reset();
     }
 

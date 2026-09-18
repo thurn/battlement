@@ -73,6 +73,36 @@ source = "d2449a4dc3e6edb93fa113e7758195c2a4d0a87c7c20c64783af87427356bdea"
 
 [[baselines]]
 profile = "macos"
+scenario = "gameplay presentation pause"
+checkpoint = "menu-live"
+sha256 = "fb20b40715f00ed9e09d5ad3bcbb8500be4faead4940fc32a813803958ef58b0"
+width = 1280
+height = 720
+size_bytes = 35728
+source = "defeb129dabdd69d0fea3ddc1aedc1b60e1ea1f671d194156faef37983caaa85"
+
+[[baselines]]
+profile = "macos"
+scenario = "gameplay presentation pause"
+checkpoint = "paused"
+sha256 = "e6edccdc9780808e0df46e9e81da57f67cd9a9163762e1c975c6bb507f8fca9f"
+width = 1280
+height = 720
+size_bytes = 35941
+source = "defeb129dabdd69d0fea3ddc1aedc1b60e1ea1f671d194156faef37983caaa85"
+
+[[baselines]]
+profile = "macos"
+scenario = "gameplay presentation pause"
+checkpoint = "resumed"
+sha256 = "4f5844390dd0dfda65bda3beb3eb18d69f97e144a5efbbbc5f33501d34433e84"
+width = 1280
+height = 720
+size_bytes = 35272
+source = "defeb129dabdd69d0fea3ddc1aedc1b60e1ea1f671d194156faef37983caaa85"
+
+[[baselines]]
+profile = "macos"
 scenario = "mixed logical tree"
 checkpoint = "initial"
 sha256 = "7ab4bafb46ba7ef41a59845f625ba2c877550da2bf72f000120ac7b0216579b3"

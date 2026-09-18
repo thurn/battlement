@@ -218,6 +218,12 @@ table ParallelCommandGroup {
   commands:[CommandEntry] (required);
 }
 
+table PresentationControl {
+  work_scope:ulong;
+  owner_id:Uuid (required);
+  paused:bool;
+}
+
 table Batch {
   batch_id:Uuid (required);
   session_id:Uuid (required);
@@ -225,6 +231,7 @@ table Batch {
   start:BatchStart;
   work_scope:ulong = null;
   cancel_scope:ulong = null;
+  presentation_control:PresentationControl;
   groups:[ParallelCommandGroup] (required);
 }
 

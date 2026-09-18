@@ -822,25 +822,13 @@ namespace Battlement.UI
         public void Play(ObjectId descriptorId, ulong slot, uint generation)
         {
             SlotState state = RequireSlot(descriptorId, slot, generation);
-            if (state.Terminal)
-                return;
-            if (state.Paused)
-            {
-                state.AnchorMicros = ClockMicros(state.Clock);
-                state.Paused = false;
-            }
+            state.PlayManually(ClockMicros(state.Clock));
         }
 
         public void Pause(ObjectId descriptorId, ulong slot, uint generation)
         {
             SlotState state = RequireSlot(descriptorId, slot, generation);
-            if (state.Terminal)
-                return;
-            if (!state.Paused)
-            {
-                state.HeldMicros = state.Elapsed(ClockMicros(state.Clock));
-                state.Paused = true;
-            }
+            state.PauseManually(ClockMicros(state.Clock));
         }
 
         public void Replay(ObjectId descriptorId, ulong slot, uint generation)
@@ -1150,6 +1138,8 @@ namespace Battlement.UI
             );
             if (!layout && finite.Count == 0 && infinite.Count == 0)
                 return null;
+            var pausedSlots = new List<MotionPlaybackAddress>();
+            bool pausedLayout = false;
             return new RunningDescriptorMotion(
                 () =>
                 {
@@ -1174,6 +1164,54 @@ namespace Battlement.UI
                     );
                     if (layout)
                         current?.LayoutProjection?.Release();
+                },
+                () =>
+                {
+                    DescriptorState? current = CurrentDescriptor(hostId);
+                    if (current is null)
+                        return;
+                    ulong now = ClockMicros(current.Descriptor.Clock);
+                    pausedSlots.Clear();
+                    HashSet<ulong> tracked = finite.Count == 0 ? infinite : finite;
+                    foreach (ulong slotId in tracked)
+                    {
+                        SlotState? slot = current.FindSlot(slotId);
+                        if (slot is null || slot.Terminal)
+                            continue;
+                        slot.PauseForScope(now);
+                        pausedSlots.Add(
+                            new MotionPlaybackAddress(
+                                current.Descriptor.DescriptorId,
+                                slotId,
+                                slot.Definition.Generation
+                            )
+                        );
+                    }
+                    if (layout && current.LayoutProjection is { IsComplete: false } projection)
+                    {
+                        projection.Pause(now);
+                        pausedLayout = true;
+                    }
+                },
+                () =>
+                {
+                    DescriptorState? current = CurrentDescriptor(hostId);
+                    if (current is null)
+                        return;
+                    foreach (MotionPlaybackAddress address in pausedSlots)
+                        if (
+                            current.Descriptor.DescriptorId == address.DescriptorId
+                            && current.FindSlot(address.Slot) is SlotState slot
+                            && slot.Definition.Generation == address.Generation
+                            && !slot.Terminal
+                        )
+                            slot.ResumeForScope(ClockMicros(slot.Clock));
+                    pausedSlots.Clear();
+                    if (pausedLayout)
+                    {
+                        current.LayoutProjection?.Resume(ClockMicros(current.Descriptor.Clock));
+                        pausedLayout = false;
+                    }
                 }
             );
         }
@@ -1354,8 +1392,10 @@ namespace Battlement.UI
                 Cancel(address.DescriptorId, address.Slot, address.Generation);
         }
 
-        internal IBattlementCommandOperation? RunningOperation(ObjectId playbackId) =>
-            imperativePlaybacks.Operation(
+        internal IBattlementCommandOperation? RunningOperation(ObjectId playbackId)
+        {
+            var scopePause = new ImperativeScopePause(this, playbackId);
+            return imperativePlaybacks.Operation(
                 playbackId,
                 descriptors,
                 CompleteImperativePlaybacks,
@@ -1372,8 +1412,91 @@ namespace Battlement.UI
                         )
                             Cancel(address.DescriptorId, address.Slot, address.Generation);
                     FinishImperative(playbackId.Value, MotionPlaybackOutcome.Cancelled);
-                }
+                },
+                scopePause.Pause,
+                scopePause.Resume
             );
+        }
+
+        internal void PauseEffects(ObjectId playbackId) => effects?.Pause(playbackId);
+
+        internal void ResumeEffects(ObjectId playbackId) => effects?.Resume(playbackId);
+
+        internal void CancelEffects(ObjectId playbackId) => effects?.Cancel(playbackId);
+
+        private sealed class ImperativeScopePause
+        {
+            private readonly BattlementMotionWorld world;
+            private readonly ObjectId playbackId;
+            private readonly List<MotionPlaybackAddress> addresses = new();
+            private uint generation;
+            private bool sequence;
+
+            public ImperativeScopePause(BattlementMotionWorld world, ObjectId playbackId) =>
+                (this.world, this.playbackId) = (world, playbackId);
+
+            public void Pause()
+            {
+                world.effects?.Pause(playbackId);
+                if (!world.imperativePlaybacks.TryGet(playbackId.Value, out var playback))
+                    return;
+                generation = playback.Generation;
+                if (
+                    world.activeSequences.TryGetValue(playbackId.Value, out var active)
+                    && active.Generation == generation
+                )
+                {
+                    active.PauseForScope(world.ClockMicros(active.Clock));
+                    sequence = true;
+                }
+                addresses.Clear();
+                foreach (MotionPlaybackAddress address in playback.Addresses)
+                {
+                    if (
+                        !world.descriptors.TryGetValue(
+                            address.DescriptorId.Value,
+                            out DescriptorState descriptor
+                        )
+                        || descriptor.FindSlot(address.Slot) is not SlotState slot
+                        || slot.Definition.Generation != address.Generation
+                        || slot.Terminal
+                    )
+                        continue;
+                    slot.PauseForScope(world.ClockMicros(slot.Clock));
+                    addresses.Add(address);
+                }
+            }
+
+            public void Resume()
+            {
+                world.effects?.Resume(playbackId);
+                if (
+                    world.imperativePlaybacks.TryGet(playbackId.Value, out var playback)
+                    && playback.Generation == generation
+                )
+                {
+                    if (
+                        sequence
+                        && world.activeSequences.TryGetValue(playbackId.Value, out var active)
+                        && active.Generation == generation
+                    )
+                        active.ResumeForScope(world.ClockMicros(active.Clock));
+                    foreach (MotionPlaybackAddress address in addresses)
+                        if (
+                            world.descriptors.TryGetValue(
+                                address.DescriptorId.Value,
+                                out DescriptorState descriptor
+                            )
+                            && descriptor.FindSlot(address.Slot) is SlotState slot
+                            && slot.Definition.Generation == address.Generation
+                            && !slot.Terminal
+                        )
+                            slot.ResumeForScope(world.ClockMicros(slot.Clock));
+                }
+                sequence = false;
+                addresses.Clear();
+            }
+        }
 
         private static void ValidateImperative(
             DescriptorState descriptor,

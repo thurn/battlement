@@ -22,4 +22,11 @@ namespace Battlement
         /// <summary>Cancels the operation without firing completion behavior.</summary>
         void Cancel();
     }
+
+    /// <summary>Temporarily suspends an operation without completing or cancelling it.</summary>
+    internal interface IBattlementPausableCommandOperation
+    {
+        void Pause(TimeSpan now);
+        void Resume(TimeSpan now);
+    }
 }

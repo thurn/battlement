@@ -162,8 +162,14 @@ where
   E: battlement_native::Engine,
 {
   pub(crate) fn schedule_batch(&mut self, batch: Batch) {
+    if let Some(control) = batch.presentation_control {
+      self.apply_presentation_control(control);
+      self.pump_presentation();
+      return;
+    }
     if let Some(scope) = batch.cancel_scope {
       self.canceled_scopes.insert(scope);
+      self.paused_scopes.remove(&scope);
       let owned = self
         .work_objects
         .iter()
@@ -192,9 +198,18 @@ where
           batch.retention = None;
         }
       }
+      let paused_motion = self
+        .operations
+        .iter()
+        .filter(|operation| operation.scope == Some(scope))
+        .filter_map(ScheduledOperation::motion_identity)
+        .collect::<Vec<_>>();
       self
         .operations
         .retain(|operation| !ids.contains(&operation.batch_id) && operation.scope != Some(scope));
+      for (id, _) in paused_motion {
+        self.motion.discard_scope_pause(id);
+      }
     }
     if batch
       .work_scope
@@ -206,6 +221,54 @@ where
     scheduled.retention = self.response_retention.clone();
     self.scheduled_batches.push(scheduled);
     self.pump_presentation();
+  }
+
+  fn apply_presentation_control(&mut self, control: battlement::PresentationControl) {
+    if self.canceled_scopes.contains(&control.work_scope) {
+      return;
+    }
+    if control.paused {
+      let owners = self.paused_scopes.entry(control.work_scope).or_default();
+      if !owners.insert(control.owner_id) || owners.len() != 1 {
+        return;
+      }
+      let identities = self
+        .operations
+        .iter_mut()
+        .filter(|operation| operation.scope == Some(control.work_scope))
+        .filter_map(|operation| {
+          operation.pause(self.presentation_ms);
+          operation.motion_identity()
+        })
+        .collect::<Vec<_>>();
+      for (id, generation) in identities {
+        self
+          .motion
+          .pause_for_scope(id, generation, self.presentation_ms * 1000);
+      }
+      return;
+    }
+    let Some(owners) = self.paused_scopes.get_mut(&control.work_scope) else {
+      return;
+    };
+    if !owners.remove(&control.owner_id) || !owners.is_empty() {
+      return;
+    }
+    self.paused_scopes.remove(&control.work_scope);
+    let identities = self
+      .operations
+      .iter_mut()
+      .filter(|operation| operation.scope == Some(control.work_scope))
+      .filter_map(|operation| {
+        operation.resume(self.presentation_ms);
+        operation.motion_identity()
+      })
+      .collect::<Vec<_>>();
+    for (id, generation) in identities {
+      self
+        .motion
+        .resume_for_scope(id, generation, self.presentation_ms * 1000);
+    }
   }
 
   pub(crate) fn schedule_operation(&mut self, mut operation: ScheduledOperation) {
@@ -255,6 +318,7 @@ where
     self.scheduled_batches.clear();
     self.operations.clear();
     self.work_objects.clear();
+    self.motion.clear_scope_pauses();
   }
 
   pub(crate) fn advance_presentation_to(&mut self, target_ms: u64) {
@@ -439,6 +503,12 @@ where
 
   fn batch_can_advance(&self, index: usize) -> bool {
     let batch = &self.scheduled_batches[index];
+    if batch
+      .scope
+      .is_some_and(|scope| self.paused_scopes.contains_key(&scope))
+    {
+      return false;
+    }
     if self
       .operations
       .iter()

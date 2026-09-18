@@ -21,12 +21,13 @@ use crate::{
 #[derive(Clone)]
 pub(crate) struct Sequence {
   playback_id: ObjectId,
-  generation: u32,
-  clock: MotionClockSource,
+  pub(crate) generation: u32,
+  pub(crate) clock: MotionClockSource,
   anchor: u64,
   held: u64,
   speed: f64,
-  paused: bool,
+  pub(crate) paused: bool,
+  scope_paused: bool,
   entries: Vec<Entry>,
   labels: HashMap<String, usize>,
 }
@@ -171,6 +172,7 @@ impl MotionWorld {
             held: 0,
             speed: 1.0,
             paused: false,
+            scope_paused: false,
             entries: prepared,
             labels,
           },
@@ -233,7 +235,7 @@ impl MotionWorld {
     let clock = self.clock(sequence.clock, now);
     self.follow_positions(&sequence, world, ui, clock);
     let elapsed = sequence.elapsed(clock);
-    if !sequence.paused {
+    if !sequence.is_paused() {
       let mut changed = true;
       while changed {
         changed = false;
@@ -539,12 +541,16 @@ impl MotionWorld {
     match command {
       MotionPlaybackCommand::Play => {
         if sequence.paused {
-          sequence.anchor = clock;
           sequence.paused = false;
+          if !sequence.scope_paused {
+            sequence.anchor = clock;
+          }
         }
       }
       MotionPlaybackCommand::Pause => {
-        sequence.held = elapsed;
+        if !sequence.scope_paused {
+          sequence.held = elapsed;
+        }
         sequence.paused = true;
       }
       MotionPlaybackCommand::SetSpeed { value } => {
@@ -679,8 +685,32 @@ impl Entry {
 }
 
 impl Sequence {
+  pub(crate) fn is_paused(&self) -> bool {
+    self.paused || self.scope_paused
+  }
+
+  pub(crate) fn pause_for_scope(&mut self, now: u64) {
+    if self.scope_paused {
+      return;
+    }
+    if !self.paused {
+      self.held = self.elapsed(now);
+    }
+    self.scope_paused = true;
+  }
+
+  pub(crate) fn resume_for_scope(&mut self, now: u64) {
+    if !self.scope_paused {
+      return;
+    }
+    self.scope_paused = false;
+    if !self.paused {
+      self.anchor = now;
+    }
+  }
+
   fn elapsed(&self, now: u64) -> u64 {
-    self.held.saturating_add(if self.paused {
+    self.held.saturating_add(if self.is_paused() {
       0
     } else {
       ((now.saturating_sub(self.anchor) as f64) * self.speed).round_ties_even() as u64

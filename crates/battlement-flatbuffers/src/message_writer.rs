@@ -3578,6 +3578,7 @@ impl MessageWriter {
       start,
       None,
       None,
+      None,
       groups,
     )
   }
@@ -3592,6 +3593,7 @@ impl MessageWriter {
     start: NativeBatchStart,
     work_scope: Option<u64>,
     cancel_scope: Option<u64>,
+    presentation_control: Option<battlement::PresentationControl>,
     groups: &[ParallelGroupOffset],
   ) -> Result<ResponseMessageOffset, ProtocolError> {
     require_uuid(batch_id, "batch")?;
@@ -3599,7 +3601,7 @@ impl MessageWriter {
     if let Some(action_id) = caused_by_action_id {
       require_uuid(action_id, "causing action")?;
     }
-    if groups.is_empty() && cancel_scope.is_none() {
+    if groups.is_empty() && cancel_scope.is_none() && presentation_control.is_none() {
       return Err(ProtocolError::new("a batch cannot have no command groups"));
     }
     self.require_offsets(groups.iter().map(|value| value.builder_id))?;
@@ -3608,6 +3610,16 @@ impl MessageWriter {
     let batch_id = common::Uuid::new(&batch_id);
     let session_id = common::Uuid::new(&session_id);
     let caused_by_action_id = caused_by_action_id.map(|value| common::Uuid::new(&value));
+    let presentation_control = presentation_control.map(|value| {
+      wire::PresentationControl::create(
+        &mut self.builder,
+        &wire::PresentationControlArgs {
+          work_scope: value.work_scope,
+          owner_id: Some(&common::Uuid::new(value.owner_id.as_uuid().as_bytes())),
+          paused: value.paused,
+        },
+      )
+    });
     let batch = wire::Batch::create(
       &mut self.builder,
       &wire::BatchArgs {
@@ -3616,6 +3628,7 @@ impl MessageWriter {
         caused_by_action_id: caused_by_action_id.as_ref(),
         work_scope,
         cancel_scope,
+        presentation_control,
         start: match start {
           NativeBatchStart::Now => wire::BatchStart::Now,
           NativeBatchStart::AfterEarlierBlockingWork => wire::BatchStart::AfterEarlierBlockingWork,

@@ -213,7 +213,18 @@ impl Snapshot {
   }
 }
 
-/// One ordered batch of parallel command groups.
+/// One app-owned pause acquisition or release for a game presentation scope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PresentationControl {
+  /// Game work scope whose presentation clock is controlled.
+  pub work_scope: u64,
+  /// Stable control owner; several owners may pause the same scope.
+  pub owner_id: ObjectId,
+  /// Whether this owner acquires or releases its pause.
+  pub paused: bool,
+}
+
+/// One ordered batch of parallel command groups or an independent scope control.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Batch<C = Command> {
   /// Batch identity used for duplicate suppression.
@@ -228,7 +239,9 @@ pub struct Batch<C = Command> {
   pub work_scope: Option<u64>,
   /// Immediately cancels this scope before applying optional destruction cleanup.
   pub cancel_scope: Option<u64>,
-  /// Nonempty ordered list of parallel command groups.
+  /// Independent app-owned game-presentation pause control.
+  pub presentation_control: Option<PresentationControl>,
+  /// Ordered command groups; controls and cancellation may omit them.
   pub groups: Vec<ParallelCommandGroup<C>>,
 }
 
@@ -247,6 +260,7 @@ impl<C> Batch<C> {
       start: BatchStart::Now,
       work_scope: None,
       cancel_scope: None,
+      presentation_control: None,
       groups,
     }
   }

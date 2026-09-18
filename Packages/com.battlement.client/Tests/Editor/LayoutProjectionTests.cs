@@ -357,6 +357,10 @@ namespace Battlement.Tests
 
             public void Sample(ulong clockMicros, bool reducedMotion = false) { }
 
+            public void Pause(ulong clockMicros) { }
+
+            public void Resume(ulong clockMicros) { }
+
             public void Complete() => IsComplete = true;
 
             public void Release() => IsComplete = true;

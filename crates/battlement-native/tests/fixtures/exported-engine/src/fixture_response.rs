@@ -88,7 +88,7 @@ fn require_fixture_error(value: wire::FixtureError) -> Result<(), EngineError> {
 }
 
 pub(crate) const WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
-  b"f27c6a7dca3d5d55289a9cbb5e0eacaded7337d82e5363e4aae55af91cc7f370\0";
+  b"f2c71761c96f5ee9500cf82fd5d1a6f274edbe0762e54d12ca66021c6bcae653\0";
 
 pub(crate) fn write_response(
   response: &Response<AnyCommand<FlashPayload>>,
@@ -158,6 +158,17 @@ pub(crate) fn write_response(
           .caused_by_action_id
           .as_ref()
           .map(|value| uuid(value.as_uuid().as_bytes()));
+        let presentation_control = batch.presentation_control.as_ref().map(|control| {
+          let owner_id = uuid(control.owner_id.as_uuid().as_bytes());
+          generated::PresentationControl::create(
+            &mut builder,
+            &generated::PresentationControlArgs {
+              work_scope: control.work_scope,
+              owner_id: Some(&owner_id),
+              paused: control.paused,
+            },
+          )
+        });
         let batch = wire::Batch::create(
             &mut builder,
             &wire::BatchArgs {
@@ -172,6 +183,7 @@ pub(crate) fn write_response(
                 BatchStart::AfterEarlierAssetPreparation => battlement_flatbuffers::schema_generated::response_generated::battlement::flat_buffers::generated::BatchStart::AfterEarlierAssetPreparation,
               },
               groups: Some(groups),
+              presentation_control,
             },
           );
         (wire::ResponseMessage::Batch, batch.as_union_value())

@@ -4061,6 +4061,171 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum PresentationControlOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct PresentationControl<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for PresentationControl<'a> {
+        type Inner = PresentationControl<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> PresentationControl<'a> {
+        pub const VT_WORK_SCOPE: ::flatbuffers::VOffsetT = 4;
+        pub const VT_OWNER_ID: ::flatbuffers::VOffsetT = 6;
+        pub const VT_PAUSED: ::flatbuffers::VOffsetT = 8;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          PresentationControl { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args PresentationControlArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<PresentationControl<'bldr>> {
+          let mut builder = PresentationControlBuilder::new(_fbb);
+          builder.add_work_scope(args.work_scope);
+          if let Some(x) = args.owner_id {
+            builder.add_owner_id(x);
+          }
+          builder.add_paused(args.paused);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn work_scope(&self) -> u64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u64>(PresentationControl::VT_WORK_SCOPE, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn owner_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(PresentationControl::VT_OWNER_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn paused(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(PresentationControl::VT_PAUSED, Some(false))
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for PresentationControl<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<u64>("work_scope", Self::VT_WORK_SCOPE, false)?
+            .visit_field::<Uuid>("owner_id", Self::VT_OWNER_ID, true)?
+            .visit_field::<bool>("paused", Self::VT_PAUSED, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct PresentationControlArgs<'a> {
+        pub work_scope: u64,
+        pub owner_id: Option<&'a Uuid>,
+        pub paused: bool,
+      }
+      impl<'a> Default for PresentationControlArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          PresentationControlArgs {
+            work_scope: 0,
+            owner_id: None, // required field
+            paused: false,
+          }
+        }
+      }
+
+      pub struct PresentationControlBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PresentationControlBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_work_scope(&mut self, work_scope: u64) {
+          self
+            .fbb_
+            .push_slot::<u64>(PresentationControl::VT_WORK_SCOPE, work_scope, 0);
+        }
+        #[inline]
+        pub fn add_owner_id(&mut self, owner_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(PresentationControl::VT_OWNER_ID, owner_id);
+        }
+        #[inline]
+        pub fn add_paused(&mut self, paused: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(PresentationControl::VT_PAUSED, paused, false);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> PresentationControlBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          PresentationControlBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<PresentationControl<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, PresentationControl::VT_OWNER_ID, "owner_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for PresentationControl<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("PresentationControl");
+          ds.field("work_scope", &self.work_scope());
+          ds.field("owner_id", &self.owner_id());
+          ds.field("paused", &self.paused());
+          ds.finish()
+        }
+      }
       pub enum BatchOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -4085,7 +4250,8 @@ pub mod battlement {
         pub const VT_START: ::flatbuffers::VOffsetT = 10;
         pub const VT_WORK_SCOPE: ::flatbuffers::VOffsetT = 12;
         pub const VT_CANCEL_SCOPE: ::flatbuffers::VOffsetT = 14;
-        pub const VT_GROUPS: ::flatbuffers::VOffsetT = 16;
+        pub const VT_PRESENTATION_CONTROL: ::flatbuffers::VOffsetT = 16;
+        pub const VT_GROUPS: ::flatbuffers::VOffsetT = 18;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4110,6 +4276,9 @@ pub mod battlement {
           }
           if let Some(x) = args.groups {
             builder.add_groups(x);
+          }
+          if let Some(x) = args.presentation_control {
+            builder.add_presentation_control(x);
           }
           if let Some(x) = args.caused_by_action_id {
             builder.add_caused_by_action_id(x);
@@ -4172,6 +4341,20 @@ pub mod battlement {
           unsafe { self._tab.get::<u64>(Batch::VT_CANCEL_SCOPE, None) }
         }
         #[inline]
+        pub fn presentation_control(&self) -> Option<PresentationControl<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<PresentationControl>>(
+                Batch::VT_PRESENTATION_CONTROL,
+                None,
+              )
+          }
+        }
+        #[inline]
         pub fn groups(
           &self,
         ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup<'a>>>
@@ -4203,6 +4386,11 @@ pub mod battlement {
             .visit_field::<BatchStart>("start", Self::VT_START, false)?
             .visit_field::<u64>("work_scope", Self::VT_WORK_SCOPE, false)?
             .visit_field::<u64>("cancel_scope", Self::VT_CANCEL_SCOPE, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<PresentationControl>>(
+              "presentation_control",
+              Self::VT_PRESENTATION_CONTROL,
+              false,
+            )?
             .visit_field::<::flatbuffers::ForwardsUOffset<
               ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup>>,
             >>("groups", Self::VT_GROUPS, true)?
@@ -4217,6 +4405,7 @@ pub mod battlement {
         pub start: BatchStart,
         pub work_scope: Option<u64>,
         pub cancel_scope: Option<u64>,
+        pub presentation_control: Option<::flatbuffers::WIPOffset<PresentationControl<'a>>>,
         pub groups: Option<
           ::flatbuffers::WIPOffset<
             ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup<'a>>>,
@@ -4233,6 +4422,7 @@ pub mod battlement {
             start: BatchStart::Now,
             work_scope: None,
             cancel_scope: None,
+            presentation_control: None,
             groups: None, // required field
           }
         }
@@ -4280,6 +4470,18 @@ pub mod battlement {
             .push_slot_always::<u64>(Batch::VT_CANCEL_SCOPE, cancel_scope);
         }
         #[inline]
+        pub fn add_presentation_control(
+          &mut self,
+          presentation_control: ::flatbuffers::WIPOffset<PresentationControl<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<PresentationControl>>(
+              Batch::VT_PRESENTATION_CONTROL,
+              presentation_control,
+            );
+        }
+        #[inline]
         pub fn add_groups(
           &mut self,
           groups: ::flatbuffers::WIPOffset<
@@ -4319,6 +4521,7 @@ pub mod battlement {
           ds.field("start", &self.start());
           ds.field("work_scope", &self.work_scope());
           ds.field("cancel_scope", &self.cancel_scope());
+          ds.field("presentation_control", &self.presentation_control());
           ds.field("groups", &self.groups());
           ds.finish()
         }

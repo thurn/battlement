@@ -45,6 +45,18 @@ key = "rules-batches.energy-playing"
 screen = "rules-batches"
 
 [[states]]
+key = "gameplay-pause.paused"
+screen = "gameplay-pause"
+
+[[states]]
+key = "gameplay-pause.menu-live"
+screen = "gameplay-pause"
+
+[[states]]
+key = "gameplay-pause.resumed"
+screen = "gameplay-pause"
+
+[[states]]
 key = "rules-prompts.first-prompt"
 screen = "rules-prompts"
 

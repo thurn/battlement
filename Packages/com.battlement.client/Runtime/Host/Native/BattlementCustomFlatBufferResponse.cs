@@ -179,6 +179,8 @@ namespace Battlement
                 Read(schema => schema.ReadWorkScope(response.bytes, messageIndex));
             public ulong? CancelScope =>
                 Read(schema => schema.ReadCancelScope(response.bytes, messageIndex));
+            public PresentationControl? PresentationControl =>
+                Read(schema => schema.ReadPresentationControl(response.bytes, messageIndex));
             public int GroupCount =>
                 Read(schema => schema.ReadGroupCount(response.bytes, messageIndex));
 

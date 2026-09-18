@@ -122,7 +122,9 @@ namespace Battlement.UI
             ObjectId playbackId,
             IReadOnlyDictionary<Guid, DescriptorState> descriptors,
             System.Action refresh,
-            Action<ImperativePlayback> cancel
+            Action<ImperativePlayback> cancel,
+            System.Action pause,
+            System.Action resume
         )
         {
             if (!values.TryGetValue(playbackId.Value, out ImperativePlayback playback))
@@ -156,7 +158,9 @@ namespace Battlement.UI
                             || slot.Paused
                             || slot.Clock is MotionClockSource.Controlled
                         )
-                    )
+                    ),
+                pause,
+                resume
             );
         }
 

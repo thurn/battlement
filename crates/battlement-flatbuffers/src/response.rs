@@ -162,6 +162,20 @@ fn write_core_response_impl(
           .caused_by_action_id
           .as_ref()
           .map(|value| uuid(value.as_uuid()));
+        let presentation_owner = batch
+          .presentation_control
+          .as_ref()
+          .map(|value| uuid(value.owner_id.as_uuid()));
+        let presentation_control = batch.presentation_control.as_ref().map(|value| {
+          wire::PresentationControl::create(
+            &mut builder,
+            &wire::PresentationControlArgs {
+              work_scope: value.work_scope,
+              owner_id: presentation_owner.as_ref(),
+              paused: value.paused,
+            },
+          )
+        });
         let batch = wire::Batch::create(
           &mut builder,
           &wire::BatchArgs {
@@ -170,6 +184,7 @@ fn write_core_response_impl(
             caused_by_action_id: caused_by_action_id.as_ref(),
             work_scope: batch.work_scope,
             cancel_scope: batch.cancel_scope,
+            presentation_control,
             start: match batch.start {
               battlement::BatchStart::Now => wire::BatchStart::Now,
               battlement::BatchStart::AfterEarlierBlockingWork => {
@@ -3117,7 +3132,23 @@ fn validate_response(value: wire::Response<'_>) -> Result<(), ProtocolError> {
         if batch.work_scope() == Some(0) || batch.cancel_scope() == Some(0) {
           return Err(ProtocolError::new("work scope must be nonzero"));
         }
-        if batch.cancel_scope().is_some() {
+        if let Some(control) = batch.presentation_control() {
+          if control.work_scope() == 0 {
+            return Err(ProtocolError::new(
+              "presentation control scope must be nonzero",
+            ));
+          }
+          require_uuid(control.owner_id(), "presentation control owner")?;
+          if batch.work_scope().is_some()
+            || batch.cancel_scope().is_some()
+            || batch.start() != wire::BatchStart::Now
+            || !batch.groups().is_empty()
+          {
+            return Err(ProtocolError::new(
+              "presentation control must be independent unowned work",
+            ));
+          }
+        } else if batch.cancel_scope().is_some() {
           if batch.work_scope().is_some() || batch.start() != wire::BatchStart::Now {
             return Err(ProtocolError::new(
               "cancellation must be independent unowned work",

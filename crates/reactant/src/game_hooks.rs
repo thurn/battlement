@@ -4,7 +4,7 @@ use std::{
   time::Duration,
 };
 
-use battlement::{Command, CommandBody, WaitPayload};
+use battlement::{Command, CommandBody, ObjectId, WaitPayload};
 use reactant_core::{
   animation_controls::{AnimationScope, AnimationSequence},
   app_context::{AppHandle, use_app},
@@ -41,6 +41,14 @@ pub(crate) struct GameRenderContext {
 /// One native operation authored from a queued semantic game event.
 pub struct SnapshotAnimation {
   operation: SnapshotAnimationOperation,
+}
+
+/// App-owned control for the currently attached game's presentation clock.
+#[derive(Clone)]
+pub struct GamePresentation {
+  app: AppHandle,
+  scope: u64,
+  owner_id: ObjectId,
 }
 
 enum SnapshotAnimationOperation {
@@ -136,6 +144,36 @@ pub fn use_game_prompt<G: Game>() -> Option<Rc<PresentedPrompt<G::Prompt<'static
 /// Subscribes to the attached session's readiness and recovery state.
 pub fn use_game_status<G: Game>() -> GameStatus {
   self::context::<G>().status
+}
+
+/// Captures a reference-counted pause owner for the currently attached game.
+///
+/// Each hook call owns an independent pause. A release resumes gameplay only
+/// after every owner has released, and a handle captured from an old game can
+/// never affect its replacement.
+pub fn use_game_presentation() -> GamePresentation {
+  let context = self::attached().expect("no game is attached");
+  GamePresentation {
+    app: use_app(),
+    scope: context.id,
+    owner_id: hooks::use_memo(ObjectId::new_v4, ()),
+  }
+}
+
+impl GamePresentation {
+  /// Freezes this game's active and queued presentation work.
+  pub fn pause(&self) {
+    self
+      .app
+      .set_game_presentation_paused(self.scope, self.owner_id, true);
+  }
+
+  /// Releases this owner's pause without disturbing other pause owners.
+  pub fn resume(&self) {
+    self
+      .app
+      .set_game_presentation_paused(self.scope, self.owner_id, false);
+  }
 }
 
 /// Authors at most one native operation from the current snapshot's typed event.

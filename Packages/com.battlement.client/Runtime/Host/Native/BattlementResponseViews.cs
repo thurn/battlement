@@ -5291,6 +5291,7 @@ namespace Battlement
         BatchStart Start { get; }
         ulong? WorkScope { get; }
         ulong? CancelScope { get; }
+        PresentationControl? PresentationControl { get; }
         int GroupCount { get; }
         int CommandCount(int groupIndex);
         CommandId CommandId(int groupIndex, int commandIndex);
@@ -5557,6 +5558,25 @@ namespace Battlement
         public BatchStart Start => (BatchStart)(byte)Checked().Start;
         public ulong? WorkScope => Checked().WorkScope;
         public ulong? CancelScope => Checked().CancelScope;
+        public PresentationControl? PresentationControl
+        {
+            get
+            {
+                Wire.PresentationControl? control = Checked().PresentationControl;
+                return control.HasValue
+                    ? new PresentationControl(
+                        control.Value.WorkScope,
+                        new ObjectId(
+                            BattlementFlatBufferResponse.ReadUuid(
+                                control.Value.OwnerId,
+                                "presentation owner"
+                            )
+                        ),
+                        control.Value.Paused
+                    )
+                    : null;
+            }
+        }
         public int GroupCount => Checked().GroupsLength;
 
         public int CommandCount(int groupIndex) => Group(groupIndex).CommandsLength;

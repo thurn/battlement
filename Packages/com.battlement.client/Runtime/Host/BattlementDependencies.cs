@@ -28,6 +28,10 @@ namespace Battlement
         BatchStart ReadBatchStart(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
         ulong? ReadWorkScope(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
         ulong? ReadCancelScope(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
+        PresentationControl? ReadPresentationControl(
+            Google.FlatBuffers.ByteBuffer bytes,
+            int messageIndex
+        );
         int ReadGroupCount(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
         int ReadCommandCount(Google.FlatBuffers.ByteBuffer bytes, int messageIndex, int groupIndex);
         CommandId ReadCommandId(

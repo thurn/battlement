@@ -347,7 +347,7 @@ namespace Battlement
                 configuredRuntime?.UiDocuments.DittoLayoutFingerprint() ?? 0,
                 responses.HasPending
                     || configuredRuntime?.SnapshotReplacement.IsPending == true
-                    || configuredRuntime?.BatchScheduler.HasPendingWork == true
+                    || configuredRuntime?.BatchScheduler.HasRunnableWork == true
                     || geometryFrames.HasPending
                     || finiteMotion != 0
                     || deferredUi,

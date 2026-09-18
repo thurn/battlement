@@ -6,7 +6,11 @@ use battlement::{
   SessionId,
 };
 
-use crate::{app_context::QueuedCommand, asset_generator, runtime::ReactantCommit};
+use crate::{
+  app_context::{QueuedCommand, QueuedPresentationControl},
+  asset_generator,
+  runtime::ReactantCommit,
+};
 
 #[derive(Default)]
 pub(crate) struct Delivery {
@@ -160,4 +164,26 @@ pub(crate) fn commands(
     }
     response.messages.push(DeliveryMessage::Batch(batch));
   }
+}
+
+pub(crate) fn presentation_controls(
+  response: &mut DeliveryResponse,
+  controls: Vec<QueuedPresentationControl>,
+) {
+  let batches = controls.into_iter().map(|control| {
+    let mut batch = Batch::new(BatchId::new_v4(), response.session_id, Vec::new());
+    batch.caused_by_action_id = control.action;
+    batch.presentation_control = Some(battlement::PresentationControl {
+      work_scope: control.scope,
+      owner_id: control.owner_id,
+      paused: control.paused,
+    });
+    DeliveryMessage::Batch(batch)
+  });
+  let insertion = response
+    .messages
+    .iter()
+    .take_while(|message| matches!(message, DeliveryMessage::Snapshot(_)))
+    .count();
+  response.messages.splice(insertion..insertion, batches);
 }

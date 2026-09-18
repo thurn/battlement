@@ -321,7 +321,15 @@ namespace Battlement.UI
                     )
                         playbacks.Remove(playbackId.Value);
                 },
-                () => running.IsHeld
+                () => running.IsHeld,
+                () =>
+                {
+                    running.PauseForScope(clock(new MotionClockSource.Unscaled()).ElapsedMicros);
+                },
+                () =>
+                {
+                    running.ResumeForScope(clock(new MotionClockSource.Unscaled()).ElapsedMicros);
+                }
             );
         }
 
@@ -1156,7 +1164,10 @@ namespace Battlement.UI
             private ulong anchor;
             private ulong held;
             private bool paused;
+            private bool scopePaused;
             private double speed = 1;
+
+            private bool IsPaused => paused || scopePaused;
 
             public ValuePlayback(NodeState node, MotionValueCommand.Animate command, ulong now)
             {
@@ -1192,11 +1203,12 @@ namespace Battlement.UI
 
             public bool Terminal => Outcome is not null;
 
-            public bool IsHeld => !Terminal && paused;
+            public bool IsHeld => !Terminal && IsPaused;
 
-            public bool IsFiniteActive => !paused && transition.Repeat is not MotionRepeat.Forever;
+            public bool IsFiniteActive =>
+                !IsPaused && transition.Repeat is not MotionRepeat.Forever;
 
-            public bool IsInfiniteActive => !paused && transition.Repeat is MotionRepeat.Forever;
+            public bool IsInfiniteActive => !IsPaused && transition.Repeat is MotionRepeat.Forever;
 
             public string ReadinessDiagnostic() =>
                 $"motion-value={Node.Descriptor.ValueId.Value},elapsed-ms={held / 1000}";
@@ -1215,7 +1227,7 @@ namespace Battlement.UI
             {
                 if (Terminal)
                     return;
-                ulong elapsed = paused ? held : held + checked((ulong)((now - anchor) * speed));
+                ulong elapsed = IsPaused ? held : held + checked((ulong)((now - anchor) * speed));
                 if (origin is MotionValue.Scalar left && target is MotionValue.Scalar right)
                 {
                     MotionScalarSample sample = BattlementMotionScalarSampler.Sample(
@@ -1249,11 +1261,13 @@ namespace Battlement.UI
                 switch (command)
                 {
                     case MotionPlaybackCommand.Play when paused:
-                        anchor = now;
                         paused = false;
+                        if (!scopePaused)
+                            anchor = now;
                         break;
                     case MotionPlaybackCommand.Pause when !paused:
-                        held += checked((ulong)((now - anchor) * speed));
+                        if (!scopePaused)
+                            held += checked((ulong)((now - anchor) * speed));
                         paused = true;
                         break;
                     case MotionPlaybackCommand.Stop:
@@ -1274,7 +1288,7 @@ namespace Battlement.UI
                         Sample(now);
                         break;
                     case MotionPlaybackCommand.SetSpeed value:
-                        if (!paused)
+                        if (!IsPaused)
                         {
                             held += checked((ulong)((now - anchor) * speed));
                             anchor = now;
@@ -1304,11 +1318,13 @@ namespace Battlement.UI
                 switch (kind)
                 {
                     case MotionPlaybackOperationKind.Play when paused:
-                        anchor = now;
                         paused = false;
+                        if (!scopePaused)
+                            anchor = now;
                         break;
                     case MotionPlaybackOperationKind.Pause when !paused:
-                        held += checked((ulong)((now - anchor) * speed));
+                        if (!scopePaused)
+                            held += checked((ulong)((now - anchor) * speed));
                         paused = true;
                         break;
                     case MotionPlaybackOperationKind.Stop:
@@ -1329,7 +1345,7 @@ namespace Battlement.UI
                         Sample(now);
                         break;
                     case MotionPlaybackOperationKind.SetSpeed:
-                        if (!paused)
+                        if (!IsPaused)
                         {
                             held += checked((ulong)((now - anchor) * speed));
                             anchor = now;
@@ -1356,6 +1372,24 @@ namespace Battlement.UI
             public void Stop() => Outcome = MotionPlaybackOutcome.Stopped;
 
             public void Cancel() => Outcome ??= MotionPlaybackOutcome.Cancelled;
+
+            public void PauseForScope(ulong now)
+            {
+                if (Terminal || scopePaused)
+                    return;
+                if (!paused)
+                    held += checked((ulong)((now - anchor) * speed));
+                scopePaused = true;
+            }
+
+            public void ResumeForScope(ulong now)
+            {
+                if (!scopePaused)
+                    return;
+                scopePaused = false;
+                if (!paused)
+                    anchor = now;
+            }
         }
     }
 }

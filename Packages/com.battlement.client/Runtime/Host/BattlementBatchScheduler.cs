@@ -12,6 +12,7 @@ namespace Battlement
     {
         private readonly List<ScheduledBatch> batches = new();
         private readonly HashSet<ulong> canceledScopes = new();
+        private readonly Dictionary<ulong, HashSet<Guid>> pausedScopes = new();
         private readonly IBattlementClock clock;
         private readonly BattlementCommandExecutor executor;
         private readonly BattlementOperationRegistry operations;
@@ -29,6 +30,11 @@ namespace Battlement
         public bool HasPendingWork =>
             batches.Any(batch => batch.Outcome == BatchOutcome.Pending)
             || operations.HasFiniteOperations;
+
+        public bool HasRunnableWork =>
+            batches.Any(batch =>
+                batch.Outcome == BatchOutcome.Pending && !IsPaused(batch.WorkScope)
+            ) || operations.HasFiniteOperations;
 
         public bool HasInfiniteOperations => operations.HasInfiniteOperations;
 
@@ -66,6 +72,7 @@ namespace Battlement
                 batch.Dispose();
             batches.Clear();
             canceledScopes.Clear();
+            pausedScopes.Clear();
             operations.BeginSession();
             executor.ResetWorkOwnership();
             ActivityVersion++;
@@ -86,6 +93,14 @@ namespace Battlement
             BattlementBatchAdmissionResult admission
         )
         {
+            if (batch.PresentationControl is PresentationControl control)
+            {
+                ApplyPresentationControl(control);
+                batch.Dispose();
+                ActivityVersion++;
+                Advance();
+                return;
+            }
             if (batch.CancelScope is ulong canceled)
                 CancelScope(canceled);
             if (batch.WorkScope is ulong owner && canceledScopes.Contains(owner))
@@ -101,6 +116,7 @@ namespace Battlement
         private void CancelScope(ulong scope)
         {
             canceledScopes.Add(scope);
+            pausedScopes.Remove(scope);
             operations.CancelScope(scope);
             executor.CancelScope(scope);
             foreach (ScheduledBatch batch in batches.Where(item => item.WorkScope == scope))
@@ -108,6 +124,36 @@ namespace Battlement
                 batch.BlockingOperations.Clear();
                 batch.Outcome = BatchOutcome.Canceled;
                 batch.Dispose();
+            }
+        }
+
+        private void ApplyPresentationControl(PresentationControl control)
+        {
+            if (canceledScopes.Contains(control.WorkScope))
+                return;
+            if (control.Paused)
+            {
+                if (!pausedScopes.TryGetValue(control.WorkScope, out HashSet<Guid>? owners))
+                {
+                    owners = new HashSet<Guid>();
+                    pausedScopes.Add(control.WorkScope, owners);
+                }
+                if (owners.Add(control.OwnerId.Value) && owners.Count == 1)
+                {
+                    operations.PauseScope(control.WorkScope, clock.Elapsed);
+                    executor.PauseScope(control.WorkScope);
+                }
+                return;
+            }
+            if (
+                pausedScopes.TryGetValue(control.WorkScope, out HashSet<Guid>? current)
+                && current.Remove(control.OwnerId.Value)
+                && current.Count == 0
+            )
+            {
+                pausedScopes.Remove(control.WorkScope);
+                operations.ResumeScope(control.WorkScope, clock.Elapsed);
+                executor.ResumeScope(control.WorkScope);
             }
         }
 
@@ -122,7 +168,7 @@ namespace Battlement
             bool commitStarted = false;
             try
             {
-                if (HasPendingWork)
+                if (HasRunnableWork)
                 {
                     ActivityVersion++;
                 }
@@ -157,6 +203,9 @@ namespace Battlement
             {
                 return false;
             }
+
+            if (IsPaused(scheduled.WorkScope))
+                return false;
 
             if (!scheduled.HasStarted)
             {
@@ -257,7 +306,7 @@ namespace Battlement
                         continue;
                     }
 
-                    if (command.IsBlocking)
+                    if (command.IsBlocking && !operation.IsInfinite)
                     {
                         scheduled.BlockingOperations.Add(
                             new ScheduledOperation(command.Id, operation)
@@ -295,6 +344,11 @@ namespace Battlement
 
             return true;
         }
+
+        private bool IsPaused(ulong? scope) =>
+            scope is ulong value
+            && pausedScopes.TryGetValue(value, out HashSet<Guid>? owners)
+            && owners.Count != 0;
 
         private IBattlementCommandOperation? Launch(
             ScheduledBatch batch,

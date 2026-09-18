@@ -66,7 +66,11 @@ namespace Battlement
 
             if (
                 batch.GroupCount > MaximumGroups
-                || (batch.GroupCount == 0 && !batch.CancelScope.HasValue)
+                || (
+                    batch.GroupCount == 0
+                    && !batch.CancelScope.HasValue
+                    && batch.PresentationControl is null
+                )
             )
             {
                 CoreErrorCode code =
@@ -77,6 +81,25 @@ namespace Battlement
                     code,
                     $"A batch must contain between 1 and {MaximumGroups} command groups."
                 );
+            }
+
+            if (batch.PresentationControl is PresentationControl control)
+            {
+                if (control.WorkScope == 0 || control.OwnerId.Value == Guid.Empty)
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "Presentation control requires nonzero scope and owner identifiers."
+                    );
+                if (
+                    batch.WorkScope.HasValue
+                    || batch.CancelScope.HasValue
+                    || batch.Start != BatchStart.Now
+                    || batch.GroupCount != 0
+                )
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "Presentation control must be independent unowned work."
+                    );
             }
 
             var commandIds = new HashSet<Guid>();

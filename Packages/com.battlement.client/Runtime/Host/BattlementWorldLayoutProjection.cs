@@ -95,7 +95,9 @@ namespace Battlement
         private readonly ViewportRect origin;
         private readonly Func<Camera> resolveCamera;
         private readonly IBattlementGeometryDisplaySource displays;
-        private readonly ulong anchorMicros;
+        private ulong anchorMicros;
+        private ulong pausedAtMicros;
+        private bool paused;
         private ViewportRect destination = null!;
         private Camera? camera;
         private float progress;
@@ -153,18 +155,35 @@ namespace Battlement
                 Release();
                 return;
             }
+            ulong sampleMicros = paused ? pausedAtMicros : clockMicros;
             MotionScalarSample progress = BattlementMotionScalarSampler.Sample(
                 0,
                 1,
                 0,
                 descriptor.Transition,
-                clockMicros >= anchorMicros ? clockMicros - anchorMicros : 0
+                sampleMicros >= anchorMicros ? sampleMicros - anchorMicros : 0
             );
             this.progress = checked((float)progress.Value);
             Apply(this.progress);
             if (!progress.Done)
                 return;
             Release();
+        }
+
+        public void Pause(ulong clockMicros)
+        {
+            if (completed || paused)
+                return;
+            pausedAtMicros = clockMicros;
+            paused = true;
+        }
+
+        public void Resume(ulong clockMicros)
+        {
+            if (!paused)
+                return;
+            anchorMicros = checked(anchorMicros + clockMicros - pausedAtMicros);
+            paused = false;
         }
 
         public void Release()

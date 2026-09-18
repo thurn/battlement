@@ -78,20 +78,27 @@ namespace Battlement
         public void CancelScope(ulong scope) =>
             workOwnership.Cancel(scope, world, uiDocuments, operations);
 
+        public void PauseScope(ulong scope) =>
+            workOwnership.Pause(scope, world, uiDocuments, particleEffects);
+
+        public void ResumeScope(ulong scope) =>
+            workOwnership.Resume(scope, uiDocuments, particleEffects);
+
         public IBattlementCommandOperation? Launch(
             BattlementCommandExecution command,
             TimeSpan now,
             ulong? scope = null
         )
         {
-            var operation = LaunchCore(command, now);
+            var operation = LaunchCore(command, now, scope);
             workOwnership.Record(command, scope, world, uiDocuments);
             return operation;
         }
 
         private IBattlementCommandOperation? LaunchCore(
             BattlementCommandExecution command,
-            TimeSpan now
+            TimeSpan now,
+            ulong? scope
         )
         {
             if (command.DirectLocalPosition is BattlementDirectLocalPosition position)
@@ -196,8 +203,12 @@ namespace Battlement
                 return ExecuteUi(() => uiDocuments.UpdateScalar(uiScalar));
             if (command.DirectUiProperties is BattlementDirectUiProperties uiProperties)
                 return RequireFiniteBlockingMotion(
-                    uiDocuments.UpdateProperties(uiProperties.ObjectId, uiProperties.ReadElement()),
-                    command.IsBlocking
+                    uiDocuments.UpdateProperties(
+                        uiProperties.ObjectId,
+                        uiProperties.ReadElement(),
+                        scope.HasValue
+                    ),
+                    command.IsBlocking && !scope.HasValue
                 );
             if (command.DirectUiCreate is BattlementDirectUiCreate uiCreate)
                 return ExecuteUi(() =>
@@ -270,9 +281,9 @@ namespace Battlement
                         world.Motion.Install(
                             worldMotion.ObjectId,
                             worldMotion.Motion,
-                            command.IsBlocking
+                            command.IsBlocking || scope.HasValue
                         ),
-                        command.IsBlocking
+                        command.IsBlocking && !scope.HasValue
                     )
                 );
             if (command.DirectWorldPointer is BattlementDirectWorldPointer pointer)

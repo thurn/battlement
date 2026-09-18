@@ -20,6 +20,7 @@ pub(crate) struct ScheduledOperation {
   timing: Timing,
   value: OperationValue,
   motion: Option<RunningMotion>,
+  paused_at_ms: Option<u64>,
 }
 
 impl ScheduledOperation {
@@ -44,6 +45,7 @@ impl ScheduledOperation {
       timing: Timing::wait(0),
       value: OperationValue::Wait,
       motion: Some(motion),
+      paused_at_ms: None,
     }
   }
 
@@ -240,10 +242,14 @@ impl ScheduledOperation {
       timing,
       value,
       motion: None,
+      paused_at_ms: None,
     })
   }
 
   pub(crate) fn advance(&self, world: &mut FakeWorld, now_ms: u64) -> bool {
+    if self.paused_at_ms.is_some() {
+      return false;
+    }
     if let Some(motion) = &self.motion {
       return motion.outcome().is_some();
     }
@@ -257,6 +263,9 @@ impl ScheduledOperation {
   }
 
   pub(crate) fn deadline_ms(&self) -> Option<u64> {
+    if self.paused_at_ms.is_some() {
+      return None;
+    }
     if self.motion.is_some() {
       return None;
     }
@@ -266,6 +275,24 @@ impl ScheduledOperation {
         .checked_add(duration)
         .expect("operation deadline overflowed")
     })
+  }
+
+  pub(crate) fn pause(&mut self, now_ms: u64) {
+    self.paused_at_ms.get_or_insert(now_ms);
+  }
+
+  pub(crate) fn resume(&mut self, now_ms: u64) {
+    let Some(paused_at) = self.paused_at_ms.take() else {
+      return;
+    };
+    self.started_ms = self
+      .started_ms
+      .checked_add(now_ms.saturating_sub(paused_at))
+      .expect("operation start overflowed after pause");
+  }
+
+  pub(crate) fn motion_identity(&self) -> Option<(battlement::ObjectId, u32)> {
+    self.motion.as_ref().map(RunningMotion::identity)
   }
 }
 

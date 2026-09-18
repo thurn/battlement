@@ -310,6 +310,22 @@ namespace Battlement
                 operation.Cancel();
         }
 
+        public void PauseScope(ulong scope, TimeSpan now)
+        {
+            foreach (
+                TrackedOperation operation in operations.Where(item => item.WorkScope == scope)
+            )
+                operation.Pause(now);
+        }
+
+        public void ResumeScope(ulong scope, TimeSpan now)
+        {
+            foreach (
+                TrackedOperation operation in operations.Where(item => item.WorkScope == scope)
+            )
+                operation.Resume(now);
+        }
+
         public void CancelAll()
         {
             foreach (TrackedOperation operation in operations.ToArray())
@@ -378,7 +394,9 @@ namespace Battlement
 
         private void Remove(TrackedOperation operation) => operations.Remove(operation);
 
-        private sealed class TrackedOperation : IBattlementHeldCommandOperation
+        private sealed class TrackedOperation
+            : IBattlementHeldCommandOperation,
+                IBattlementPausableCommandOperation
         {
             private BattlementConflictKey[] keys;
             private readonly TrackedOperation[] blockers;
@@ -387,6 +405,7 @@ namespace Battlement
             private IBattlementCommandOperation? inner;
             private bool hasStarted;
             private bool isComplete;
+            private bool isPaused;
 
             public TrackedOperation(
                 CommandId id,
@@ -429,14 +448,15 @@ namespace Battlement
 
             public ulong? WorkScope { get; set; }
 
-            public bool IsBlocking { get; }
+            public bool IsBlocking { get; private set; }
 
             public Guid? TargetObjectId { get; private set; }
 
             public bool IsHeld =>
                 !isComplete
                 && (
-                    inner is IBattlementHeldCommandOperation { IsHeld: true }
+                    isPaused
+                    || inner is IBattlementHeldCommandOperation { IsHeld: true }
                     || blockers.Any(blocker => blocker.IsHeld)
                 );
 
@@ -451,6 +471,9 @@ namespace Battlement
                     return true;
                 }
 
+                if (isPaused)
+                    return false;
+
                 try
                 {
                     if (!hasStarted)
@@ -463,6 +486,8 @@ namespace Battlement
                         hasStarted = true;
                         inner = launch(now);
                         ApplyScope();
+                        if (WorkScope.HasValue && inner?.IsInfinite == true)
+                            IsBlocking = false;
                     }
 
                     if (inner is not null && !inner.IsComplete(now))
@@ -489,6 +514,24 @@ namespace Battlement
 
                 inner?.Cancel();
                 Complete();
+            }
+
+            public void Pause(TimeSpan now)
+            {
+                if (isComplete || isPaused)
+                    return;
+                isPaused = true;
+                if (inner is IBattlementPausableCommandOperation pausable)
+                    pausable.Pause(now);
+            }
+
+            public void Resume(TimeSpan now)
+            {
+                if (isComplete || !isPaused)
+                    return;
+                if (inner is IBattlementPausableCommandOperation pausable)
+                    pausable.Resume(now);
+                isPaused = false;
             }
 
             public bool ConflictsWith(IReadOnlyList<BattlementConflictKey> requested) =>

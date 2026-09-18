@@ -19,6 +19,8 @@ pub(crate) struct Address {
 
 #[derive(Clone)]
 pub(crate) struct RunningMotion {
+  playback_id: ObjectId,
+  generation: u32,
   outcome: Rc<Cell<Option<MotionPlaybackOutcome>>>,
   cancel: Rc<Cell<bool>>,
   failure: Rc<RefCell<Option<String>>>,
@@ -26,6 +28,9 @@ pub(crate) struct RunningMotion {
 }
 
 impl RunningMotion {
+  pub(crate) fn identity(&self) -> (ObjectId, u32) {
+    (self.playback_id, self.generation)
+  }
   pub(crate) fn outcome(&self) -> Option<MotionPlaybackOutcome> {
     self.outcome.get()
   }
@@ -82,6 +87,8 @@ impl Playbacks {
   ) -> RunningMotion {
     self.finish(id, MotionPlaybackOutcome::Cancelled);
     let running = RunningMotion {
+      playback_id: id,
+      generation,
       outcome: Rc::new(Cell::new(None)),
       cancel: Rc::new(Cell::new(false)),
       failure: Rc::new(RefCell::new(None)),

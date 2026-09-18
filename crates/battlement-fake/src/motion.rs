@@ -44,6 +44,12 @@ pub(crate) struct MotionWorld {
   label_events: Vec<MotionSequenceLabelEvent>,
   audio_occurrences: Vec<AudioOccurrence>,
   particle_occurrences: Vec<ParticleOccurrence>,
+  scope_pauses: HashMap<ObjectId, ScopePause>,
+}
+
+#[derive(Default)]
+struct ScopePause {
+  generation: u32,
 }
 
 struct Descriptor {
@@ -55,6 +61,108 @@ struct Descriptor {
 }
 
 impl MotionWorld {
+  pub(crate) fn pause_for_scope(&mut self, id: ObjectId, generation: u32, now: u64) {
+    if self.scope_pauses.contains_key(&id) {
+      return;
+    }
+    let pause = ScopePause { generation };
+    self.graph.pause_for_scope(id, generation, now);
+    if let Some(playback) = self.playbacks.get(id) {
+      assert_eq!(
+        playback.generation, generation,
+        "Motion playback generation is stale"
+      );
+      let addresses = playback.addresses.clone();
+      if let Some(clock_source) = self.sequences.get(&id).map(|sequence| sequence.clock) {
+        let clock = self.clock(clock_source, now);
+        self
+          .sequences
+          .get_mut(&id)
+          .expect("known Motion sequence")
+          .pause_for_scope(clock);
+      }
+      for address in addresses {
+        self.pause_slot_for_scope(&address, now);
+      }
+    }
+    self.scope_pauses.insert(id, pause);
+  }
+
+  pub(crate) fn resume_for_scope(&mut self, id: ObjectId, generation: u32, now: u64) {
+    let Some(pause) = self.scope_pauses.remove(&id) else {
+      return;
+    };
+    if pause.generation != generation {
+      return;
+    }
+    self.graph.resume_for_scope(id, generation, now);
+    if let Some(clock_source) = self.sequences.get(&id).map(|sequence| sequence.clock) {
+      let clock = self.clock(clock_source, now);
+      self
+        .sequences
+        .get_mut(&id)
+        .expect("known Motion sequence")
+        .resume_for_scope(clock);
+    }
+    if let Some(playback) = self.playbacks.get(id) {
+      for address in playback.addresses.clone() {
+        self.resume_slot_for_scope(&address, now);
+      }
+    }
+  }
+
+  fn pause_slot_for_scope(&mut self, address: &Address, now: u64) {
+    let Some(source) = self
+      .entries
+      .get(&address.descriptor)
+      .map(|descriptor| descriptor.definition.clock)
+    else {
+      return;
+    };
+    let clock = self.clock(source, now);
+    if let Some(slot) = self
+      .entries
+      .get_mut(&address.descriptor)
+      .and_then(|descriptor| {
+        descriptor.slots.iter_mut().find(|slot| {
+          slot.definition.slot == address.slot && slot.definition.generation == address.generation
+        })
+      })
+    {
+      slot.pause_for_scope(clock);
+    }
+  }
+
+  fn resume_slot_for_scope(&mut self, address: &Address, now: u64) {
+    let Some(source) = self
+      .entries
+      .get(&address.descriptor)
+      .map(|descriptor| descriptor.definition.clock)
+    else {
+      return;
+    };
+    let clock = self.clock(source, now);
+    if let Some(slot) = self
+      .entries
+      .get_mut(&address.descriptor)
+      .and_then(|descriptor| {
+        descriptor.slots.iter_mut().find(|slot| {
+          slot.definition.slot == address.slot && slot.definition.generation == address.generation
+        })
+      })
+    {
+      slot.resume_for_scope(clock);
+    }
+  }
+
+  pub(crate) fn discard_scope_pause(&mut self, id: ObjectId) {
+    self.scope_pauses.remove(&id);
+  }
+
+  pub(crate) fn clear_scope_pauses(&mut self) {
+    self.scope_pauses.clear();
+  }
+
   pub(crate) fn drain_effect_occurrences(
     &mut self,
   ) -> (Vec<AudioOccurrence>, Vec<ParticleOccurrence>) {

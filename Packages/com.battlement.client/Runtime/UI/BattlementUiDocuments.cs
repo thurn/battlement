@@ -1118,8 +1118,9 @@ namespace Battlement.UI
 
         internal IBattlementCommandOperation? UpdateProperties(
             ObjectId objectId,
-            UiElement element
-        ) => propertyUpdates.Apply(objectId, element);
+            UiElement element,
+            bool includeTimelines = false
+        ) => propertyUpdates.Apply(objectId, element, includeTimelines);
 
         internal void UpdateScalar(IBattlementUiScalarUpdateView update)
         {

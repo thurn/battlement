@@ -15,6 +15,8 @@ namespace Battlement.UI
         bool IsComplete { get; }
         void CaptureDestination();
         void Sample(ulong clockMicros, bool reducedMotion = false);
+        void Pause(ulong clockMicros);
+        void Resume(ulong clockMicros);
         void Release();
         void Abort();
     }
@@ -66,7 +68,9 @@ namespace Battlement.UI
         private readonly VisualElement target;
         private readonly Func<VisualElement, BattlementUiProjectionSpace> projectionSpace;
         private readonly MotionLayoutDescriptor descriptor;
-        private readonly ulong anchorMicros;
+        private ulong anchorMicros;
+        private ulong pausedAtMicros;
+        private bool paused;
         private readonly ViewportRect originViewport;
         private UnityEngine.Rect origin;
         private readonly Dictionary<VisualElement, ScaleCorrectionState> childCorrections = new();
@@ -137,12 +141,13 @@ namespace Battlement.UI
                 completed = true;
                 return;
             }
+            ulong sampleMicros = paused ? pausedAtMicros : clockMicros;
             MotionScalarSample progress = BattlementMotionScalarSampler.Sample(
                 0,
                 1,
                 0,
                 descriptor.Transition,
-                clockMicros >= anchorMicros ? clockMicros - anchorMicros : 0
+                sampleMicros >= anchorMicros ? sampleMicros - anchorMicros : 0
             );
             (Vector2 translation, Vector2 scale) = Resolve(
                 origin,
@@ -155,6 +160,22 @@ namespace Battlement.UI
                 return;
             Apply(Vector2.zero, Vector2.one);
             completed = true;
+        }
+
+        public void Pause(ulong clockMicros)
+        {
+            if (completed || paused)
+                return;
+            pausedAtMicros = clockMicros;
+            paused = true;
+        }
+
+        public void Resume(ulong clockMicros)
+        {
+            if (!paused)
+                return;
+            anchorMicros = checked(anchorMicros + clockMicros - pausedAtMicros);
+            paused = false;
         }
 
         public void Release()

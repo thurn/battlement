@@ -27,6 +27,26 @@ pub(crate) struct Graph {
 }
 
 impl Graph {
+  pub(crate) fn pause_for_scope(&mut self, id: ObjectId, generation: u32, now: u64) {
+    if let Some(playback) = self.playbacks.get_mut(&id) {
+      assert_eq!(
+        playback.slot.definition.generation.0, generation,
+        "Motion playback generation is stale"
+      );
+      playback.slot.pause_for_scope(now);
+    }
+  }
+
+  pub(crate) fn resume_for_scope(&mut self, id: ObjectId, generation: u32, now: u64) {
+    if let Some(playback) = self.playbacks.get_mut(&id) {
+      assert_eq!(
+        playback.slot.definition.generation.0, generation,
+        "Motion playback generation is stale"
+      );
+      playback.slot.resume_for_scope(now);
+    }
+  }
+
   pub(crate) fn rebuild<'a>(&mut self, descriptors: impl Iterator<Item = &'a MotionDescriptor>) {
     let mut definitions = HashMap::<ObjectId, &MotionValueDescriptor>::new();
     for descriptor in descriptors {

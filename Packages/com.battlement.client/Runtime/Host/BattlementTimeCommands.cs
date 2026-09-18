@@ -20,18 +20,32 @@ namespace Battlement
             return completeImmediately ? null : new WaitOperation(now + duration);
         }
 
-        private sealed class WaitOperation : IBattlementCommandOperation
+        private sealed class WaitOperation
+            : IBattlementCommandOperation,
+                IBattlementPausableCommandOperation
         {
-            private readonly TimeSpan completion;
+            private TimeSpan completion;
             private bool isCancelled;
+            private TimeSpan? pausedAt;
 
             public WaitOperation(TimeSpan completion) => this.completion = completion;
 
             public bool IsInfinite => false;
 
-            public bool IsComplete(TimeSpan now) => isCancelled || now >= completion;
+            public bool IsComplete(TimeSpan now) =>
+                isCancelled || (!pausedAt.HasValue && now >= completion);
 
             public void Cancel() => isCancelled = true;
+
+            public void Pause(TimeSpan now) => pausedAt ??= now;
+
+            public void Resume(TimeSpan now)
+            {
+                if (pausedAt is not TimeSpan started)
+                    return;
+                completion += now - started;
+                pausedAt = null;
+            }
         }
     }
 }

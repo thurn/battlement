@@ -72,6 +72,32 @@ namespace Battlement
             return null;
         }
 
+        internal HashSet<ParticleSystem> Pause(IEnumerable<Guid> objectIds)
+        {
+            var paused = new HashSet<ParticleSystem>();
+            foreach (Guid objectId in objectIds)
+            {
+                if (!world.TryGetObject(new ObjectId(objectId), out GameObject? target))
+                    continue;
+                foreach (
+                    ParticleSystem system in target!.GetComponentsInChildren<ParticleSystem>(true)
+                )
+                    if (system.isPlaying)
+                    {
+                        system.Pause(false);
+                        paused.Add(system);
+                    }
+            }
+            return paused;
+        }
+
+        internal void Resume(IEnumerable<ParticleSystem> systems)
+        {
+            foreach (ParticleSystem system in systems)
+                if (system != null && system.isPaused)
+                    system.Play(false);
+        }
+
         public IBattlementCommandOperation? Spawn(
             CommandId commandId,
             BattlementDirectParticleSpawn command,
@@ -410,6 +436,20 @@ namespace Battlement
                 }
             }
 
+            public void Pause()
+            {
+                foreach (ParticleSystem system in RequireSystems(gameObject))
+                    if (system.isPlaying)
+                        system.Pause(false);
+            }
+
+            public void Resume()
+            {
+                foreach (ParticleSystem system in RequireSystems(gameObject))
+                    if (system.isPaused)
+                        system.Play(false);
+            }
+
             public void Destroy()
             {
                 if (isDestroyed)
@@ -468,11 +508,14 @@ namespace Battlement
             }
         }
 
-        private sealed class EffectOperation : IBattlementCommandOperation
+        private sealed class EffectOperation
+            : IBattlementCommandOperation,
+                IBattlementPausableCommandOperation
         {
             private readonly EffectInstance instance;
-            private readonly TimeSpan completion;
+            private TimeSpan completion;
             private bool isComplete;
+            private TimeSpan? pausedAt;
 
             public EffectOperation(EffectInstance instance, TimeSpan completion) =>
                 (this.instance, this.completion) = (instance, completion);
@@ -481,7 +524,7 @@ namespace Battlement
 
             public bool IsComplete(TimeSpan now)
             {
-                if (!isComplete && now >= completion)
+                if (!isComplete && !pausedAt.HasValue && now >= completion)
                 {
                     Complete();
                 }
@@ -490,6 +533,23 @@ namespace Battlement
             }
 
             public void Cancel() => Complete();
+
+            public void Pause(TimeSpan now)
+            {
+                if (isComplete || pausedAt.HasValue)
+                    return;
+                pausedAt = now;
+                instance.Pause();
+            }
+
+            public void Resume(TimeSpan now)
+            {
+                if (pausedAt is not TimeSpan paused)
+                    return;
+                completion += now - paused;
+                pausedAt = null;
+                instance.Resume();
+            }
 
             private void Complete()
             {

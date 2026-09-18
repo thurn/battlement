@@ -21,6 +21,23 @@ namespace Battlement
                 throw new InvalidDataException("The batch start value is unknown.");
             if (value.WorkScope == 0 || value.CancelScope == 0)
                 throw new InvalidDataException("A work scope must be nonzero.");
+            Wire.PresentationControl? presentationControl = value.PresentationControl;
+            if (presentationControl.HasValue)
+            {
+                Wire.PresentationControl control = presentationControl.Value;
+                if (control.WorkScope == 0)
+                    throw new InvalidDataException("A presentation work scope must be nonzero.");
+                _ = ReadUuid(control.OwnerId, "presentation owner");
+                if (
+                    value.WorkScope.HasValue
+                    || value.CancelScope.HasValue
+                    || value.Start != Wire.BatchStart.Now
+                    || value.GroupsLength != 0
+                )
+                    throw new InvalidDataException(
+                        "Presentation control must be independent unowned work."
+                    );
+            }
             if (
                 value.CancelScope.HasValue
                 && (value.WorkScope.HasValue || value.Start != Wire.BatchStart.Now)
@@ -28,7 +45,11 @@ namespace Battlement
                 throw new InvalidDataException("Cancellation must be independent unowned work.");
             if (
                 value.GroupsLength > 256
-                || (value.GroupsLength == 0 && !value.CancelScope.HasValue)
+                || (
+                    value.GroupsLength == 0
+                    && !value.CancelScope.HasValue
+                    && !presentationControl.HasValue
+                )
             )
                 throw new InvalidDataException(
                     "A batch must contain between one and 256 parallel groups."

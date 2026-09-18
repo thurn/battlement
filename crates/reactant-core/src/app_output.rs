@@ -301,6 +301,7 @@ pub(crate) fn encode(response: &DeliveryResponse) -> Result<EngineResponse, Engi
           },
           batch.work_scope,
           batch.cancel_scope,
+          batch.presentation_control,
           &groups,
         )
       }

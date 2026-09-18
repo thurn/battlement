@@ -2178,7 +2178,8 @@ pub mod battlement {
         pub const VT_START: ::flatbuffers::VOffsetT = 10;
         pub const VT_WORK_SCOPE: ::flatbuffers::VOffsetT = 12;
         pub const VT_CANCEL_SCOPE: ::flatbuffers::VOffsetT = 14;
-        pub const VT_GROUPS: ::flatbuffers::VOffsetT = 16;
+        pub const VT_PRESENTATION_CONTROL: ::flatbuffers::VOffsetT = 16;
+        pub const VT_GROUPS: ::flatbuffers::VOffsetT = 18;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -2203,6 +2204,9 @@ pub mod battlement {
           }
           if let Some(x) = args.groups {
             builder.add_groups(x);
+          }
+          if let Some(x) = args.presentation_control {
+            builder.add_presentation_control(x);
           }
           if let Some(x) = args.caused_by_action_id {
             builder.add_caused_by_action_id(x);
@@ -2282,6 +2286,20 @@ pub mod battlement {
           unsafe { self._tab.get::<u64>(Batch::VT_CANCEL_SCOPE, None) }
         }
         #[inline]
+        pub fn presentation_control(&self) -> Option<super::generated::PresentationControl<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<super::generated::PresentationControl>>(
+                Batch::VT_PRESENTATION_CONTROL,
+                None,
+              )
+          }
+        }
+        #[inline]
         pub fn groups(
           &self,
         ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup<'a>>>
@@ -2317,6 +2335,11 @@ pub mod battlement {
             .visit_field::<super::generated::BatchStart>("start", Self::VT_START, false)?
             .visit_field::<u64>("work_scope", Self::VT_WORK_SCOPE, false)?
             .visit_field::<u64>("cancel_scope", Self::VT_CANCEL_SCOPE, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<super::generated::PresentationControl>>(
+              "presentation_control",
+              Self::VT_PRESENTATION_CONTROL,
+              false,
+            )?
             .visit_field::<::flatbuffers::ForwardsUOffset<
               ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup>>,
             >>("groups", Self::VT_GROUPS, true)?
@@ -2331,6 +2354,8 @@ pub mod battlement {
         pub start: super::generated::BatchStart,
         pub work_scope: Option<u64>,
         pub cancel_scope: Option<u64>,
+        pub presentation_control:
+          Option<::flatbuffers::WIPOffset<super::generated::PresentationControl<'a>>>,
         pub groups: Option<
           ::flatbuffers::WIPOffset<
             ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ParallelCommandGroup<'a>>>,
@@ -2347,6 +2372,7 @@ pub mod battlement {
             start: super::generated::BatchStart::Now,
             work_scope: None,
             cancel_scope: None,
+            presentation_control: None,
             groups: None, // required field
           }
         }
@@ -2397,6 +2423,18 @@ pub mod battlement {
             .push_slot_always::<u64>(Batch::VT_CANCEL_SCOPE, cancel_scope);
         }
         #[inline]
+        pub fn add_presentation_control(
+          &mut self,
+          presentation_control: ::flatbuffers::WIPOffset<super::generated::PresentationControl<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<super::generated::PresentationControl>>(
+              Batch::VT_PRESENTATION_CONTROL,
+              presentation_control,
+            );
+        }
+        #[inline]
         pub fn add_groups(
           &mut self,
           groups: ::flatbuffers::WIPOffset<
@@ -2436,6 +2474,7 @@ pub mod battlement {
           ds.field("start", &self.start());
           ds.field("work_scope", &self.work_scope());
           ds.field("cancel_scope", &self.cancel_scope());
+          ds.field("presentation_control", &self.presentation_control());
           ds.field("groups", &self.groups());
           ds.finish()
         }

@@ -411,6 +411,8 @@ namespace Battlement
 
             public bool IsLooping => source.loop;
 
+            public bool IsPaused => paused;
+
             public Transform Transform => source.transform;
 
             public float Volume => source.volume;
@@ -506,6 +508,12 @@ namespace Battlement
                 paused = false;
                 if (!buffering)
                     source.UnPause();
+            }
+
+            public void ShiftTiming(TimeSpan offset)
+            {
+                started += offset;
+                completion += offset;
             }
 
             public void SetBuffering(bool value)
@@ -613,10 +621,14 @@ namespace Battlement
             }
         }
 
-        private sealed class PlaybackOperation : IBattlementCommandOperation
+        private sealed class PlaybackOperation
+            : IBattlementCommandOperation,
+                IBattlementPausableCommandOperation
         {
             private readonly BattlementAudioSources owner;
             private readonly AudioInstance instance;
+            private bool pausedByScope;
+            private TimeSpan? pausedAt;
 
             public PlaybackOperation(BattlementAudioSources owner, AudioInstance instance) =>
                 (this.owner, this.instance) = (owner, instance);
@@ -635,6 +647,26 @@ namespace Battlement
             }
 
             public void Cancel() => owner.Release(instance);
+
+            public void Pause(TimeSpan now)
+            {
+                if (instance.IsPaused)
+                    return;
+                instance.Pause();
+                pausedByScope = true;
+                pausedAt = now;
+            }
+
+            public void Resume(TimeSpan now)
+            {
+                if (!pausedByScope)
+                    return;
+                pausedByScope = false;
+                if (pausedAt is TimeSpan paused)
+                    instance.ShiftTiming(now - paused);
+                pausedAt = null;
+                instance.Resume();
+            }
         }
 
         private sealed class FadeOutOperation : IBattlementCommandOperation

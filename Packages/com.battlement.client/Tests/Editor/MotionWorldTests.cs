@@ -17,6 +17,41 @@ namespace Battlement.Tests
     public sealed class MotionWorldTests
     {
         [Test]
+        public void ScopeResumePreservesAnIndependentMotionPause()
+        {
+            ObjectId host = Id("a24fb6fb-0733-4b95-8265-3cfa997e2141");
+            ObjectId descriptor = Id("a24fb6fb-0733-4b95-8265-3cfa997e2142");
+            ObjectId clock = Id("a24fb6fb-0733-4b95-8265-3cfa997e2143");
+            var target = new VisualElement();
+            target.style.opacity = 0;
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            using BattlementPreparedMotionAdmission prepared = world.Prepare(
+                target,
+                host,
+                Prop<MotionDescriptor>.Set(Descriptor(descriptor, host, clock, 1, 1, 1))
+            )!;
+            var operation = (RunningDescriptorMotion)prepared.Commit(includeTimelines: true)!;
+
+            world.SetControlledClock(clock, 250_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.25f).Within(0.001));
+
+            operation.Pause(TimeSpan.Zero);
+            world.SetControlledClock(clock, 500_000);
+            world.PostLayout();
+            world.Pause(descriptor, 1, 1);
+            operation.Resume(TimeSpan.Zero);
+            world.SetControlledClock(clock, 750_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.25f).Within(0.001));
+
+            world.Play(descriptor, 1, 1);
+            world.SetControlledClock(clock, 1_000_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.5f).Within(0.001));
+        }
+
+        [Test]
         public void DocumentMotionKeepsScaledAndUnscaledClocksDistinct()
         {
             ObjectId host = Id("c857700c-8af5-4e2d-8516-061269d5660b");
@@ -1572,6 +1607,12 @@ namespace Battlement.Tests
             }
 
             public void Advance() { }
+
+            public void Pause(ObjectId playbackId) { }
+
+            public void Resume(ObjectId playbackId) { }
+
+            public void Cancel(ObjectId playbackId) { }
 
             public void Reset() { }
 

@@ -14,7 +14,7 @@ namespace Battlement
         private readonly BattlementAudioSources audio;
         private readonly BattlementParticleEffects particles;
         private readonly DittoMotionClock clock;
-        private readonly List<IBattlementCommandOperation> operations = new();
+        private readonly List<RunningEffect> operations = new();
 
         public BattlementMotionEffects(
             BattlementWorld world,
@@ -116,20 +116,51 @@ namespace Battlement
                 lease?.Dispose();
             }
             if (operation is not null)
-                operations.Add(operation);
+                operations.Add(new RunningEffect(playbackId, operation));
         }
 
         public void Advance()
         {
             for (int index = operations.Count - 1; index >= 0; index--)
-                if (operations[index].IsComplete(clock.Elapsed))
+                if (operations[index].Operation.IsComplete(clock.Elapsed))
                     operations.RemoveAt(index);
+        }
+
+        public void Pause(ObjectId playbackId)
+        {
+            foreach (RunningEffect effect in operations)
+                if (
+                    effect.PlaybackId == playbackId
+                    && effect.Operation is IBattlementPausableCommandOperation pausable
+                )
+                    pausable.Pause(clock.Elapsed);
+        }
+
+        public void Resume(ObjectId playbackId)
+        {
+            foreach (RunningEffect effect in operations)
+                if (
+                    effect.PlaybackId == playbackId
+                    && effect.Operation is IBattlementPausableCommandOperation pausable
+                )
+                    pausable.Resume(clock.Elapsed);
+        }
+
+        public void Cancel(ObjectId playbackId)
+        {
+            for (int index = operations.Count - 1; index >= 0; index--)
+            {
+                if (operations[index].PlaybackId != playbackId)
+                    continue;
+                operations[index].Operation.Cancel();
+                operations.RemoveAt(index);
+            }
         }
 
         public void Reset()
         {
-            foreach (IBattlementCommandOperation operation in operations)
-                operation.Cancel();
+            foreach (RunningEffect effect in operations)
+                effect.Operation.Cancel();
             operations.Clear();
         }
 
@@ -211,5 +242,10 @@ namespace Battlement
                 lease = null;
             }
         }
+
+        private sealed record RunningEffect(
+            ObjectId PlaybackId,
+            IBattlementCommandOperation Operation
+        );
     }
 }

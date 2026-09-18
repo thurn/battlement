@@ -91,6 +91,7 @@ where
   pub(crate) executed_commands: HashSet<CommandId>,
   pub(crate) scheduled_batches: Vec<ScheduledBatch>,
   pub(crate) canceled_scopes: HashSet<u64>,
+  pub(crate) paused_scopes: HashMap<u64, HashSet<battlement::ObjectId>>,
   pub(crate) work_objects: HashMap<battlement::ObjectId, (u64, bool)>,
   pub(crate) response_retention: Option<battlement_native::ResponseLease>,
   pub(crate) operations: Vec<ScheduledOperation>,
@@ -234,6 +235,7 @@ where
       executed_commands: HashSet::new(),
       scheduled_batches: Vec::new(),
       canceled_scopes: HashSet::new(),
+      paused_scopes: HashMap::new(),
       work_objects: HashMap::new(),
       response_retention: None,
       operations: Vec::new(),
@@ -298,6 +300,7 @@ where
     self.geometry_registry = GeometryRegistry::default();
     self.admitted_batches.clear();
     self.canceled_scopes.clear();
+    self.paused_scopes.clear();
     self.executed_commands.clear();
     self.reset_presentation();
     self.presentation_ms = 0;
@@ -999,7 +1002,9 @@ where
       return;
     }
     assert!(
-      !batch.groups.is_empty() || batch.cancel_scope.is_some(),
+      !batch.groups.is_empty()
+        || batch.cancel_scope.is_some()
+        || batch.presentation_control.is_some(),
       "batch has no command groups: {}",
       batch.batch_id
     );

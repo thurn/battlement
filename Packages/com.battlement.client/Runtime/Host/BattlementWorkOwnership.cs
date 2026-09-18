@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Battlement.UI;
+using UnityEngine;
 
 namespace Battlement
 {
@@ -9,8 +10,17 @@ namespace Battlement
     internal sealed class BattlementWorkOwnership
     {
         private readonly Dictionary<ObjectId, (ulong Scope, bool Ui)> objects = new();
+        private readonly Dictionary<ObjectId, ulong> particleObjects = new();
+        private readonly Dictionary<ObjectId, ulong> motionPlaybacks = new();
+        private readonly Dictionary<ulong, HashSet<ParticleSystem>> pausedParticles = new();
 
-        public void Clear() => objects.Clear();
+        public void Clear()
+        {
+            objects.Clear();
+            particleObjects.Clear();
+            motionPlaybacks.Clear();
+            pausedParticles.Clear();
+        }
 
         public void Record(
             BattlementCommandExecution command,
@@ -36,6 +46,63 @@ namespace Battlement
                 ?? command.DirectLightObjectCreate?.Placement.ObjectId;
             if (id.HasValue)
                 objects[id.Value] = (scope.Value, false);
+            if (command.DirectParticlePlay is BattlementDirectParticlePlay particle)
+                particleObjects[particle.ObjectId] = scope.Value;
+            if (
+                command.DirectMotionControl is BattlementDirectMotionControlCommand motion
+                && motion.Kind == MotionControlOperationKind.Start
+            )
+                motionPlaybacks[motion.PlaybackId] = scope.Value;
+            if (
+                command.DirectMotionScope is BattlementDirectMotionScopeCommand motionScope
+                && motionScope.Kind == MotionScopeOperationKind.Start
+            )
+                motionPlaybacks[motionScope.PlaybackId] = scope.Value;
+        }
+
+        public void Pause(
+            ulong scope,
+            BattlementWorld world,
+            BattlementUiDocuments ui,
+            BattlementParticleEffects particles
+        )
+        {
+            var objectIds = objects
+                .Where(entry => entry.Value.Scope == scope && !entry.Value.Ui)
+                .SelectMany(entry =>
+                    world.TryGetObject(entry.Key, out _)
+                        ? world.GetHierarchyObjectIds(entry.Key)
+                        : System.Array.Empty<System.Guid>()
+                )
+                .Concat(
+                    particleObjects
+                        .Where(entry => entry.Value == scope)
+                        .Select(entry => entry.Key.Value)
+                )
+                .Distinct();
+            pausedParticles[scope] = particles.Pause(objectIds);
+            foreach (
+                ObjectId playback in motionPlaybacks
+                    .Where(entry => entry.Value == scope)
+                    .Select(entry => entry.Key)
+            )
+                ui.MotionWorld.PauseEffects(playback);
+        }
+
+        public void Resume(
+            ulong scope,
+            BattlementUiDocuments ui,
+            BattlementParticleEffects particles
+        )
+        {
+            if (pausedParticles.Remove(scope, out HashSet<ParticleSystem>? systems))
+                particles.Resume(systems);
+            foreach (
+                ObjectId playback in motionPlaybacks
+                    .Where(entry => entry.Value == scope)
+                    .Select(entry => entry.Key)
+            )
+                ui.MotionWorld.ResumeEffects(playback);
         }
 
         public void Cancel(
@@ -59,6 +126,24 @@ namespace Battlement
                 }
                 objects.Remove(entry.Key);
             }
+            foreach (
+                ObjectId objectId in particleObjects
+                    .Where(entry => entry.Value == scope)
+                    .Select(entry => entry.Key)
+                    .ToArray()
+            )
+                particleObjects.Remove(objectId);
+            foreach (
+                ObjectId playback in motionPlaybacks
+                    .Where(entry => entry.Value == scope)
+                    .Select(entry => entry.Key)
+                    .ToArray()
+            )
+            {
+                ui.MotionWorld.CancelEffects(playback);
+                motionPlaybacks.Remove(playback);
+            }
+            pausedParticles.Remove(scope);
             Prune(world, ui);
         }
 

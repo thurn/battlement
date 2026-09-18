@@ -6,7 +6,7 @@ use std::{
 };
 
 use battlement::application::{ApplicationState, ReducedMotionPreference};
-use battlement::{ActionId, Command, DisplayId, ScreenSize};
+use battlement::{ActionId, Command, DisplayId, ObjectId, ScreenSize};
 use trox::Localizer;
 
 use crate::{
@@ -74,6 +74,20 @@ impl AppHandle {
     });
   }
 
+  /// Acquires or releases one app-owned pause for a captured game presentation scope.
+  #[doc(hidden)]
+  pub fn set_game_presentation_paused(&self, scope: u64, owner_id: ObjectId, paused: bool) {
+    assert!(scope != 0, "game presentation scope must be nonzero");
+    self.with_queue(|queue| {
+      queue.presentation_controls.push(QueuedPresentationControl {
+        scope,
+        owner_id,
+        paused,
+        action: action_context::current().or(self.origin),
+      });
+    });
+  }
+
   /// Replaces the application's localizer after the current commit.
   pub fn set_localizer(&self, localizer: Localizer) {
     let Some(queue) = self.queue.upgrade() else {
@@ -118,6 +132,7 @@ impl PartialEq for AppHandle {
 pub(crate) struct AppQueue {
   pub(crate) generation: u64,
   pub(crate) commands: Vec<QueuedCommand>,
+  pub(crate) presentation_controls: Vec<QueuedPresentationControl>,
   pub(crate) snapshot_action: Option<ActionId>,
   pub(crate) snapshot: bool,
   pub(crate) localizer: Option<Rc<Localizer>>,
@@ -133,5 +148,12 @@ pub(crate) struct Observations {
 pub(crate) struct QueuedCommand {
   pub(crate) scope: Option<u64>,
   pub(crate) command: Command,
+  pub(crate) action: Option<ActionId>,
+}
+
+pub(crate) struct QueuedPresentationControl {
+  pub(crate) scope: u64,
+  pub(crate) owner_id: ObjectId,
+  pub(crate) paused: bool,
   pub(crate) action: Option<ActionId>,
 }

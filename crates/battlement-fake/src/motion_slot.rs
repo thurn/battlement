@@ -23,6 +23,7 @@ pub(crate) struct Slot {
   pub(crate) held: u64,
   pub(crate) speed: f64,
   pub(crate) paused: bool,
+  scope_paused: bool,
   pub(crate) direction: MotionPlaybackDirection,
   pub(crate) presentation: Vec<(MotionProperty, MotionValue)>,
   started: bool,
@@ -66,6 +67,7 @@ impl Slot {
       held: 0,
       speed: 1.0,
       paused: false,
+      scope_paused: false,
       direction: MotionPlaybackDirection::Forward,
       presentation: Vec::new(),
       started: false,
@@ -76,11 +78,35 @@ impl Slot {
 
   pub(crate) fn elapsed(&self, now: u64) -> u64 {
     self.held
-      + if self.paused {
+      + if self.is_paused() {
         0
       } else {
         ((now.saturating_sub(self.anchor) as f64) * self.speed).round_ties_even() as u64
       }
+  }
+
+  pub(crate) fn is_paused(&self) -> bool {
+    self.paused || self.scope_paused
+  }
+
+  pub(crate) fn pause_for_scope(&mut self, now: u64) {
+    if self.outcome.is_some() || self.scope_paused {
+      return;
+    }
+    if !self.paused {
+      self.held = self.elapsed(now);
+    }
+    self.scope_paused = true;
+  }
+
+  pub(crate) fn resume_for_scope(&mut self, now: u64) {
+    if !self.scope_paused {
+      return;
+    }
+    self.scope_paused = false;
+    if !self.paused {
+      self.anchor = now;
+    }
   }
 
   pub(crate) fn activate(
@@ -101,6 +127,7 @@ impl Slot {
     self.anchor = now;
     self.held = 0;
     self.paused = false;
+    self.scope_paused = false;
     self.seek = false;
     self.outcome = None;
     self.started = false;
@@ -144,6 +171,7 @@ impl Slot {
     self.anchor = now;
     self.held = 0;
     self.paused = false;
+    self.scope_paused = false;
     self.seek = false;
     self.outcome = None;
     self.started = false;
@@ -158,7 +186,7 @@ impl Slot {
     if !self.active || self.outcome.is_some() {
       return None;
     }
-    if self.paused || self.speed == 0.0 {
+    if self.is_paused() || self.speed == 0.0 {
       return None;
     }
     let elapsed = self.elapsed(now);
@@ -182,12 +210,16 @@ impl Slot {
     match command {
       MotionPlaybackCommand::Play => {
         if self.paused {
-          self.anchor = now;
           self.paused = false;
+          if !self.scope_paused {
+            self.anchor = now;
+          }
         }
       }
       MotionPlaybackCommand::Pause => {
-        self.held = elapsed;
+        if !self.scope_paused {
+          self.held = elapsed;
+        }
         self.paused = true;
       }
       MotionPlaybackCommand::SetSpeed { value } => {
@@ -212,6 +244,7 @@ impl Slot {
         self.anchor = now;
         self.held = 0;
         self.paused = false;
+        self.scope_paused = false;
         self.outcome = None;
         self.started = false;
         self.iteration = 0;
@@ -333,7 +366,7 @@ impl Slot {
       }
       self.iteration = iteration;
     }
-    if done && !self.paused {
+    if done && !self.is_paused() {
       self.outcome = Some(MotionPlaybackOutcome::Completed);
       if self.definition.callbacks.complete {
         events.push(MotionEventKind::Completed);

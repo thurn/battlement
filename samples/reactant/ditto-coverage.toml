@@ -69,6 +69,24 @@ checkpoint = "energy-playing"
 owner = "reactant-testing::batches"
 
 [[mappings]]
+state = "gameplay-pause.paused"
+scenario = "gameplay presentation pause"
+checkpoint = "paused"
+owner = "reactant-testing::gameplay_pause"
+
+[[mappings]]
+state = "gameplay-pause.menu-live"
+scenario = "gameplay presentation pause"
+checkpoint = "menu-live"
+owner = "reactant-testing::gameplay_pause"
+
+[[mappings]]
+state = "gameplay-pause.resumed"
+scenario = "gameplay presentation pause"
+checkpoint = "resumed"
+owner = "reactant-testing::gameplay_pause"
+
+[[mappings]]
 state = "rules-prompts.first-prompt"
 scenario = "queued prompt controls"
 checkpoint = "first-prompt"

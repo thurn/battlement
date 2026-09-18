@@ -15,6 +15,8 @@ namespace Battlement.UI
         private readonly Dictionary<MotionProperty, MotionValue> presentation = new();
         private uint emittedIteration;
         private bool emittedStart;
+        private bool paused;
+        private bool scopePaused;
 
         public SlotState(
             MotionSlotDescriptor definition,
@@ -61,7 +63,11 @@ namespace Battlement.UI
 
         public double Speed { get; set; }
 
-        public bool Paused { get; set; }
+        public bool Paused
+        {
+            get => paused || scopePaused;
+            set => paused = value;
+        }
 
         public bool SeekPending { get; set; }
 
@@ -132,6 +138,42 @@ namespace Battlement.UI
             return checked(HeldMicros + (ulong)Math.Round(advanced));
         }
 
+        public void PauseForScope(ulong clockMicros)
+        {
+            if (Terminal || scopePaused)
+                return;
+            if (!Paused)
+                HeldMicros = Elapsed(clockMicros);
+            scopePaused = true;
+        }
+
+        public void PauseManually(ulong clockMicros)
+        {
+            if (Terminal || paused)
+                return;
+            if (!scopePaused)
+                HeldMicros = Elapsed(clockMicros);
+            paused = true;
+        }
+
+        public void PlayManually(ulong clockMicros)
+        {
+            if (Terminal || !paused)
+                return;
+            paused = false;
+            if (!scopePaused)
+                AnchorMicros = clockMicros;
+        }
+
+        public void ResumeForScope(ulong clockMicros)
+        {
+            if (!scopePaused)
+                return;
+            scopePaused = false;
+            if (!paused)
+                AnchorMicros = clockMicros;
+        }
+
         public bool InDelay(ulong clockMicros)
         {
             ulong elapsed = Elapsed(clockMicros);
@@ -164,6 +206,7 @@ namespace Battlement.UI
             Active = previous.Active;
             LastElapsedMicros = previous.LastElapsedMicros;
             Paused = paused;
+            scopePaused = false;
             SeekPending = previous.SeekPending;
             Terminal = previous.Terminal;
             Cancelled = previous.Cancelled;
@@ -186,6 +229,7 @@ namespace Battlement.UI
             AnchorMicros = clockMicros;
             HeldMicros = 0;
             Paused = false;
+            scopePaused = false;
             SeekPending = false;
             Terminal = false;
             Cancelled = false;
@@ -206,6 +250,7 @@ namespace Battlement.UI
             AnchorMicros = clockMicros;
             HeldMicros = 0;
             Paused = false;
+            scopePaused = false;
             SeekPending = false;
             Terminal = false;
             Cancelled = false;
@@ -236,6 +281,7 @@ namespace Battlement.UI
             AnchorMicros = clockMicros;
             HeldMicros = 0;
             Paused = false;
+            scopePaused = false;
             SeekPending = false;
             Terminal = false;
             Cancelled = false;

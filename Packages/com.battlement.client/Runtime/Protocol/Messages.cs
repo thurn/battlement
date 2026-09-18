@@ -125,7 +125,10 @@ namespace Battlement
             ) { }
     }
 
-    /// <summary>One ordered batch of parallel command groups.</summary>
+    /// <summary>One app-owned pause acquisition or release for a game presentation scope.</summary>
+    public sealed record PresentationControl(ulong WorkScope, ObjectId OwnerId, bool Paused);
+
+    /// <summary>An ordered command batch or independent scope control.</summary>
     /// <typeparam name="TCommand">The command type carried by this batch.</typeparam>
     /// <param name="Id">Batch identity used for duplicate suppression.</param>
     /// <param name="SessionId">Session in which this batch may execute.</param>
@@ -134,6 +137,7 @@ namespace Battlement
     /// <param name="Start">How this batch relates to earlier blocking batches.</param>
     /// <param name="WorkScope">Game work owner, independent of the application session.</param>
     /// <param name="CancelScope">Scope canceled before optional destruction cleanup.</param>
+    /// <param name="PresentationControl">Independent game-presentation pause control.</param>
     public record Batch<TCommand>(
         BatchId Id,
         SessionId SessionId,
@@ -141,7 +145,8 @@ namespace Battlement
         ActionId? CausedByActionId = null,
         BatchStart Start = BatchStart.Now,
         ulong? WorkScope = null,
-        ulong? CancelScope = null
+        ulong? CancelScope = null,
+        PresentationControl? PresentationControl = null
     )
         where TCommand : ICommand;
 
@@ -153,8 +158,19 @@ namespace Battlement
         ActionId? CausedByActionId = null,
         BatchStart Start = BatchStart.Now,
         ulong? WorkScope = null,
-        ulong? CancelScope = null
-    ) : Batch<Command>(Id, SessionId, Groups, CausedByActionId, Start, WorkScope, CancelScope);
+        ulong? CancelScope = null,
+        PresentationControl? PresentationControl = null
+    )
+        : Batch<Command>(
+            Id,
+            SessionId,
+            Groups,
+            CausedByActionId,
+            Start,
+            WorkScope,
+            CancelScope,
+            PresentationControl
+        );
 
     /// <summary>Commands launched together before the batch considers the next group.</summary>
     /// <typeparam name="TCommand">The command type carried by this group.</typeparam>

@@ -73,6 +73,7 @@ table Batch {
   start:Battlement.FlatBuffers.Generated.BatchStart;
   work_scope:ulong = null;
   cancel_scope:ulong = null;
+  presentation_control:Battlement.FlatBuffers.Generated.PresentationControl;
   groups:[ParallelCommandGroup] (required);
 }
 

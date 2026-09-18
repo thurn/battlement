@@ -85,6 +85,18 @@ namespace Battlement.Tests
             }
 
             VectorOffset groupVector = WriteOffsetVector(builder, groups);
+            Offset<CoreWire.PresentationControl> presentationControl = default;
+            if (batch.PresentationControl is PresentationControl control)
+            {
+                CoreWire.PresentationControl.StartPresentationControl(builder);
+                CoreWire.PresentationControl.AddPaused(builder, control.Paused);
+                CoreWire.PresentationControl.AddOwnerId(
+                    builder,
+                    BattlementFlatBufferWriter.WriteUuid(builder, control.OwnerId.Value)
+                );
+                CoreWire.PresentationControl.AddWorkScope(builder, control.WorkScope);
+                presentationControl = CoreWire.PresentationControl.EndPresentationControl(builder);
+            }
             FixtureWire.Batch.StartBatch(builder);
             FixtureWire.Batch.AddGroups(builder, groupVector);
             FixtureWire.Batch.AddStart(builder, (CoreWire.BatchStart)batch.Start);
@@ -92,6 +104,8 @@ namespace Battlement.Tests
                 FixtureWire.Batch.AddWorkScope(builder, workScope);
             if (batch.CancelScope is ulong cancelScope)
                 FixtureWire.Batch.AddCancelScope(builder, cancelScope);
+            if (batch.PresentationControl is not null)
+                FixtureWire.Batch.AddPresentationControl(builder, presentationControl);
             if (batch.CausedByActionId is ActionId actionId)
                 FixtureWire.Batch.AddCausedByActionId(
                     builder,

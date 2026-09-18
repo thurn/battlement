@@ -16,6 +16,7 @@ mod effect_exit_retention_proof;
 mod effect_occurrence_proof;
 mod effects_stores;
 mod events_portals;
+mod gameplay_pause_proof;
 mod gestures_drag;
 mod identity_proof;
 mod layout_gallery;
