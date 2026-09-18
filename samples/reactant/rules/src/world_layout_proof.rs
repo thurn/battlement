@@ -12,12 +12,19 @@ const GRID_B: ObjectId = object_id!("383a0000-0000-4000-8000-000000000005");
 const NESTED: ObjectId = object_id!("383a0000-0000-4000-8000-000000000006");
 const PILE_A: ObjectId = object_id!("383a0000-0000-4000-8000-000000000007");
 const PILE_B: ObjectId = object_id!("383a0000-0000-4000-8000-000000000008");
+const REST_REQUEST: ObjectId = object_id!("383a0000-0000-4000-8000-000000000009");
 
-struct WorldLayoutProof;
+struct WorldLayoutProof {
+  measured: world::LayoutDestination,
+  request: world::LayoutMeasurement,
+}
 
 pub(crate) fn app() -> App<Game> {
   App::with_model(CONTENT_SCENE, model::new())
-    .ui(WorldLayoutProof)
+    .ui(WorldLayoutProof {
+      measured: world::LayoutDestination::new(*GRID_A.as_uuid()),
+      request: world::LayoutMeasurement::identified(*REST_REQUEST.as_uuid()),
+    })
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document.element.picking_mode = Prop::Set(PickingMode::Ignore);
@@ -58,7 +65,11 @@ impl Component for WorldLayoutProof {
       .columns(3)
       .gaps(0.25, 0.0)
       .children([
-        card(GRID_A, "reactant/assets/cursor"),
+        measured_card(
+          self.measured.clone(),
+          self.request,
+          "reactant/assets/cursor",
+        ),
         card(GRID_B, "reactant/assets/texture"),
         world::LayoutChild::new(
           world::LayoutDestination::new(*NESTED.as_uuid()),
@@ -78,11 +89,35 @@ impl Component for WorldLayoutProof {
         .child((
           Heading::new(ls("World rest layout"), 1),
           Label::new(ls("Fan above. Grid and nested pile below.")),
-          Label::new(ls("Explicit boxes preserve card scale and facing.")),
+          Heading::new(
+            ls(if self.measured.latest().is_some() {
+              "Native rest bounds cached"
+            } else {
+              "Waiting for native rest bounds"
+            }),
+            2,
+          ),
         )),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((fan, grid)),
     )
   }
+}
+
+fn measured_card(
+  destination: world::LayoutDestination,
+  measurement: world::LayoutMeasurement,
+  texture: &'static str,
+) -> world::LayoutChild {
+  let id = destination.id();
+  world::LayoutChild::measured(
+    destination,
+    measurement,
+    world::Sprite::new().texture(texture).size(1.15, 1.65),
+  )
+  .item(
+    world::LayoutItem::new(id, world::LayoutBox::new(1.0, 1.0))
+      .orientation(world::LayoutOrientation::Arrangement),
+  )
 }
 
 fn card(id: ObjectId, texture: &'static str) -> world::LayoutChild {

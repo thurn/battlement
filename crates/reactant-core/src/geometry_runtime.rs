@@ -10,7 +10,7 @@ use battlement::{
   Command, CommandBody, ElementGeometry, GeometryGeneration, GeometryObservation,
   GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationUpdate, GeometryRegistry, GeometryValidationError,
-  GeometryValue, ObjectId, ViewportGeometry,
+  GeometryValue, ObjectId, ViewportGeometry, WorldRestBoundsGeometry,
 };
 
 use crate::{
@@ -26,6 +26,7 @@ pub(crate) struct GeometryRuntime {
   registry: GeometryRegistry,
   entries: HashMap<TargetKey, TargetEntry>,
   cache: HashMap<TargetKey, GeometryValue>,
+  rest_cache: HashMap<TargetKey, WorldRestBoundsGeometry>,
   retired: HashSet<GeometryObservationId>,
   element_objects: Option<HashMap<u64, ObjectId>>,
   order: Vec<TargetKey>,
@@ -45,6 +46,7 @@ pub(crate) struct GeometryPlan {
   added: Vec<GeometryObservation>,
   revision: u64,
   dirty: bool,
+  rest_cache: HashMap<TargetKey, WorldRestBoundsGeometry>,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -67,6 +69,7 @@ impl GeometryRuntime {
       registry: GeometryRegistry::default(),
       entries: HashMap::new(),
       cache: HashMap::new(),
+      rest_cache: HashMap::new(),
       retired: HashSet::new(),
       element_objects: None,
       order: Vec::new(),
@@ -90,6 +93,7 @@ impl GeometryRuntime {
       registry: GeometryRegistry::default(),
       entries: HashMap::new(),
       cache: self.cache.clone(),
+      rest_cache: self.rest_cache.clone(),
       retired: self.retired.clone(),
       element_objects: Some(
         self
@@ -117,6 +121,7 @@ impl GeometryRuntime {
       registry: plan.registry.clone(),
       entries: plan.entries.clone(),
       cache: self.cache.clone(),
+      rest_cache: plan.rest_cache.clone(),
       retired: plan.retired.clone(),
       element_objects: Some(
         plan
@@ -173,6 +178,7 @@ impl GeometryRuntime {
     let mut desired = Vec::new();
     let mut seen = HashSet::new();
     let mut element_targets = HashSet::new();
+    let mut referenced_rest = HashSet::new();
     for target in targets {
       if let GeometryTarget::Element(element_ref) = target {
         let (runtime_id, identity, _) = element_ref.geometry_identity();
@@ -185,6 +191,15 @@ impl GeometryRuntime {
       let Some((key, target)) = self.resolve(target, attachments) else {
         continue;
       };
+      if matches!(
+        key,
+        TargetKey::Native(GeometryObservationTarget::WorldRestBounds { .. })
+      ) {
+        referenced_rest.insert(key.clone());
+      }
+      if self.cached_rest(&key).is_some() {
+        continue;
+      }
       if seen.insert(key.clone()) {
         desired.push((key, target));
       }
@@ -257,6 +272,12 @@ impl GeometryRuntime {
         .checked_add(u64::from(changed))
         .expect("geometry revision overflowed"),
       dirty: self.dirty || changed,
+      rest_cache: self
+        .rest_cache
+        .iter()
+        .filter(|(key, _)| referenced_rest.contains(*key))
+        .map(|(key, value)| (key.clone(), *value))
+        .collect(),
     })
   }
 
@@ -268,6 +289,7 @@ impl GeometryRuntime {
     self.generation = plan.generation;
     self.revision = plan.revision;
     self.dirty = plan.dirty;
+    self.rest_cache = plan.rest_cache;
   }
 
   pub(crate) fn accept(
@@ -297,17 +319,27 @@ impl GeometryRuntime {
     let generation = (!entries.is_empty() && entries.values().all(|entry| entry.result.is_some()))
       .then_some(batch.generation);
     let mut cache = self.cache.clone();
+    let mut rest_cache = self.rest_cache.clone();
     if generation.is_some() {
       for (key, entry) in &mut entries {
         if let Some(GeometryObservationResult::Current(current)) = entry.result {
           entry.latest = Some(current);
-          cache.insert(key.clone(), current);
+          if let (
+            TargetKey::Native(GeometryObservationTarget::WorldRestBounds { .. }),
+            GeometryValue::WorldRestBounds(value),
+          ) = (key, current)
+          {
+            rest_cache.insert(key.clone(), value);
+          } else {
+            cache.insert(key.clone(), current);
+          }
         }
       }
     }
     self.registry = registry;
     self.entries = entries;
     self.cache = cache;
+    self.rest_cache = rest_cache;
     self.generation = generation;
     if generation.is_some() {
       self.revision = self
@@ -394,6 +426,7 @@ impl GeometryRuntime {
       |value| match value {
         GeometryValue::WorldPoint(value) => Some(WorldGeometry::Point(value)),
         GeometryValue::WorldBounds(value) => Some(WorldGeometry::Bounds(value)),
+        GeometryValue::WorldRestBounds(value) => Some(WorldGeometry::RestBounds(value)),
         _ => None,
       },
     )
@@ -456,18 +489,28 @@ impl GeometryRuntime {
     convert: impl Fn(GeometryValue) -> Option<T>,
   ) -> Measurement<T> {
     let entry = self.entries.get(key);
+    let cached_rest = self.cached_rest(key).map(GeometryValue::WorldRestBounds);
     let latest = entry
       .and_then(|entry| entry.latest)
+      .or(cached_rest)
       .or_else(|| self.cache.get(key).copied())
       .map(|value| convert(value).expect("validated Reactant geometry value kind"));
-    let status = match self.generation.and(entry.and_then(|entry| entry.result)) {
-      Some(GeometryObservationResult::Current(_)) => MeasurementStatus::Current,
-      Some(GeometryObservationResult::Unavailable(reason)) => {
-        MeasurementStatus::Unavailable(reason)
+    let status = if cached_rest.is_some() && entry.is_none() {
+      MeasurementStatus::Current
+    } else {
+      match self.generation.and(entry.and_then(|entry| entry.result)) {
+        Some(GeometryObservationResult::Current(_)) => MeasurementStatus::Current,
+        Some(GeometryObservationResult::Unavailable(reason)) => {
+          MeasurementStatus::Unavailable(reason)
+        }
+        None => MeasurementStatus::Waiting,
       }
-      None => MeasurementStatus::Waiting,
     };
     Measurement { latest, status }
+  }
+
+  fn cached_rest(&self, key: &TargetKey) -> Option<WorldRestBoundsGeometry> {
+    self.rest_cache.get(key).copied()
   }
 
   fn element_object(&self, identity: u64, committed: Option<ObjectId>) -> Option<ObjectId> {

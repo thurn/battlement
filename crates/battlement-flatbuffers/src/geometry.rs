@@ -116,6 +116,8 @@ pub enum GeometryValueView<'a> {
   WorldPoint(WorldPointGeometryView<'a>),
   /// Projected rendered bounds geometry.
   WorldBounds(WorldBoundsGeometryView<'a>),
+  /// Renderer bounds in the observed object's local XY space.
+  WorldRestBounds(WorldRestBoundsGeometryView<'a>),
 }
 
 impl GeometryValueView<'_> {
@@ -168,6 +170,12 @@ impl GeometryValueView<'_> {
           nearest_depth: value.nearest_depth(),
           farthest_depth: value.farthest_depth(),
           is_inside_viewport: value.is_inside_viewport(),
+        })
+      }
+      Self::WorldRestBounds(value) => {
+        let [x, y, width, height] = value.bound();
+        battlement::GeometryValue::WorldRestBounds(battlement::WorldRestBoundsGeometry {
+          bound: battlement::Rect::new(x, y, width, height),
         })
       }
     }
@@ -303,6 +311,21 @@ pub struct WorldBoundsGeometryView<'a> {
   value: wire::WorldBoundsGeometry<'a>,
 }
 
+/// Borrowed renderer bounds in an object's local XY space.
+#[derive(Clone, Copy)]
+pub struct WorldRestBoundsGeometryView<'a> {
+  value: wire::WorldRestBoundsGeometry<'a>,
+}
+
+impl WorldRestBoundsGeometryView<'_> {
+  /// Returns x, y, width, and height in local units.
+  #[must_use]
+  pub fn bound(self) -> [f64; 4] {
+    let value = self.value.bound();
+    [value.x(), value.y(), value.width(), value.height()]
+  }
+}
+
 impl WorldBoundsGeometryView<'_> {
   /// Returns bounds and display ID.
   #[must_use]
@@ -408,6 +431,15 @@ fn current_value(value: wire::CurrentGeometry<'_>) -> Result<GeometryValueView<'
         value,
       }))
     }
+    wire::GeometryValue::WorldRestBoundsGeometry => {
+      let value = value
+        .value_as_world_rest_bounds_geometry()
+        .ok_or_else(|| error("world-rest-bounds geometry payload is missing"))?;
+      validate_world_rest_bounds(value)?;
+      Ok(GeometryValueView::WorldRestBounds(
+        WorldRestBoundsGeometryView { value },
+      ))
+    }
     _ => Err(error("unknown geometry value union tag")),
   }
 }
@@ -449,6 +481,15 @@ fn validate_world_bounds(value: wire::WorldBoundsGeometry<'_>) -> Result<(), Pro
     || !value.farthest_depth().is_finite()
   {
     return Err(error("invalid world-bounds geometry"));
+  }
+  Ok(())
+}
+
+fn validate_world_rest_bounds(
+  value: wire::WorldRestBoundsGeometry<'_>,
+) -> Result<(), ProtocolError> {
+  if !rect(value.bound()) || value.bound().width() <= 0.0 || value.bound().height() <= 0.0 {
+    return Err(error("invalid world-rest-bounds geometry"));
   }
   Ok(())
 }

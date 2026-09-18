@@ -140,6 +140,9 @@ namespace Battlement
         bool IsInsideViewport
     );
 
+    /// <summary>Renderer bounds in an object's untransformed local XY space.</summary>
+    public sealed record WorldRestBoundsGeometry(Rect Bound);
+
     /// <summary>One target installed in the native observation registry.</summary>
     public abstract record GeometryObservationTarget
     {
@@ -156,6 +159,9 @@ namespace Battlement
             : GeometryObservationTarget;
 
         public sealed record WorldRenderedBounds(ObjectId ObjectId, CameraTarget Camera)
+            : GeometryObservationTarget;
+
+        public sealed record WorldRestBounds(ObjectId ObjectId, ObjectId RequestId)
             : GeometryObservationTarget;
     }
 
@@ -183,6 +189,8 @@ namespace Battlement
         public sealed record WorldPoint(WorldPointGeometry Value) : GeometryValue;
 
         public sealed record WorldBounds(WorldBoundsGeometry Value) : GeometryValue;
+
+        public sealed record WorldRestBounds(WorldRestBoundsGeometry Value) : GeometryValue;
     }
 
     /// <summary>A temporary reason an observation could not be sampled.</summary>
@@ -304,7 +312,9 @@ namespace Battlement
                 || target is GeometryObservationTarget.WorldAnchor
                     && current.Value is GeometryValue.WorldPoint
                 || target is GeometryObservationTarget.WorldRenderedBounds
-                    && current.Value is GeometryValue.WorldBounds;
+                    && current.Value is GeometryValue.WorldBounds
+                || target is GeometryObservationTarget.WorldRestBounds
+                    && current.Value is GeometryValue.WorldRestBounds;
             if (!kindMatches)
                 throw new ArgumentException(
                     "A geometry value does not match its registered target."
@@ -338,6 +348,18 @@ namespace Battlement
                 case GeometryValue.WorldBounds bounds:
                     Finite(bounds.Value.Bound);
                     Finite(bounds.Value.NearestDepth, bounds.Value.FarthestDepth);
+                    break;
+                case GeometryValue.WorldRestBounds bounds:
+                    Finite(
+                        bounds.Value.Bound.X,
+                        bounds.Value.Bound.Y,
+                        bounds.Value.Bound.Width,
+                        bounds.Value.Bound.Height
+                    );
+                    if (bounds.Value.Bound.Width <= 0 || bounds.Value.Bound.Height <= 0)
+                        throw new ArgumentException(
+                            "World rest bounds must have positive dimensions."
+                        );
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(value));

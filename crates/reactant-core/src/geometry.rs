@@ -12,7 +12,7 @@ use std::{
 use battlement::{
   AnchorName, CameraTarget, DisplayId, ElementGeometry, GeometryGeneration,
   GeometryObservationTarget, GeometryUnavailable, ObjectId, ViewportGeometry, WorldBoundsGeometry,
-  WorldPointGeometry,
+  WorldPointGeometry, WorldRestBoundsGeometry,
 };
 
 use crate::{
@@ -94,6 +94,8 @@ pub enum WorldGeometry {
   Point(WorldPointGeometry),
   /// Projected bounds for enabled renderers.
   Bounds(WorldBoundsGeometry),
+  /// Cached renderer bounds in the observed object's local XY space.
+  RestBounds(WorldRestBoundsGeometry),
 }
 
 /// Returns a coherent snapshot for one supported target shape.
@@ -244,6 +246,17 @@ impl WorldRef {
       target: GeometryObservationTarget::WorldRenderedBounds { object_id, camera },
     }
   }
+
+  /// Requests one identified rest-bounds measurement in object-local XY space.
+  #[must_use]
+  pub fn rest_bounds(object_id: ObjectId, request_id: ObjectId) -> Self {
+    Self {
+      target: GeometryObservationTarget::WorldRestBounds {
+        object_id,
+        request_id,
+      },
+    }
+  }
 }
 
 impl ViewportRef {
@@ -284,6 +297,9 @@ impl HookSlot for GeometrySlot {
   }
 
   fn has_pending(&self) -> bool {
+    if self.committed.is_empty() {
+      return false;
+    }
     self::runtime_version(&self.owner) != (self.committed_revision, self.committed_generation)
   }
 

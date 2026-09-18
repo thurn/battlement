@@ -93,6 +93,10 @@ namespace Battlement
                     Wire.GeometryValue.WorldBoundsGeometry,
                     WorldBounds(bounds.Value).Value
                 ),
+                GeometryValue.WorldRestBounds bounds => new(
+                    Wire.GeometryValue.WorldRestBoundsGeometry,
+                    WorldRestBounds(bounds.Value).Value
+                ),
                 _ => throw new InvalidDataException("Unknown geometry value."),
             };
             Offset<Wire.CurrentGeometry> current = Wire.CurrentGeometry.CreateCurrentGeometry(
@@ -196,6 +200,25 @@ namespace Battlement
             Wire.WorldBoundsGeometry.AddNearestDepth(builder, value.NearestDepth);
             Wire.WorldBoundsGeometry.AddBound(builder, ViewportRect(value.Bound));
             return Wire.WorldBoundsGeometry.EndWorldBoundsGeometry(builder);
+        }
+
+        private Offset<Wire.WorldRestBoundsGeometry> WorldRestBounds(WorldRestBoundsGeometry value)
+        {
+            Validate(value.Bound);
+            if (value.Bound.Width <= 0 || value.Bound.Height <= 0)
+                throw new InvalidDataException("World rest bounds must have positive dimensions.");
+            Wire.WorldRestBoundsGeometry.StartWorldRestBoundsGeometry(builder);
+            Wire.WorldRestBoundsGeometry.AddBound(
+                builder,
+                Wire.Rect.CreateRect(
+                    builder,
+                    value.Bound.X,
+                    value.Bound.Y,
+                    value.Bound.Width,
+                    value.Bound.Height
+                )
+            );
+            return Wire.WorldRestBoundsGeometry.EndWorldRestBoundsGeometry(builder);
         }
 
         private Offset<Wire.Projective2> Projective(Projective2 value) =>

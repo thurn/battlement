@@ -14,6 +14,48 @@ namespace Battlement.Tests
     public sealed class BattlementWorldBoundsGeometryTests
     {
         [Test]
+        public void SamplesRestBoundsInTargetLocalSpaceIndependentOfTargetMotion()
+        {
+            var target = new GameObject("Rest Bounds Target");
+            GameObject rendered = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            rendered.transform.SetParent(target.transform, false);
+            rendered.transform.localPosition = new UnityVector3(2, 1, 0);
+            rendered.transform.localScale = new UnityVector3(4, 2, 1);
+            target.transform.SetPositionAndRotation(
+                new UnityVector3(12, -7, 5),
+                UnityEngine.Quaternion.Euler(15, 20, 35)
+            );
+            target.transform.localScale = new UnityVector3(3, 4, 2);
+            var world = new FakeWorld();
+            ObjectId targetId = Id(49);
+            world.Set(targetId, target);
+            var sampler = RestSampler(world, targetId);
+            try
+            {
+                WorldRestBoundsGeometry first = CurrentRest(sampler.Sample()!);
+                Assert.That(first.Bound.X, Is.EqualTo(0).Within(0.001));
+                Assert.That(first.Bound.Y, Is.EqualTo(0).Within(0.001));
+                Assert.That(first.Bound.Width, Is.EqualTo(4).Within(0.001));
+                Assert.That(first.Bound.Height, Is.EqualTo(2).Within(0.001));
+
+                target.transform.SetPositionAndRotation(
+                    new UnityVector3(-20, 8, -2),
+                    UnityEngine.Quaternion.Euler(-40, 5, 90)
+                );
+                target.transform.localScale = new UnityVector3(0.25f, 8, 5);
+                WorldRestBoundsGeometry moved = CurrentRest(sampler.Sample()!);
+                Assert.That(moved.Bound.X, Is.EqualTo(first.Bound.X).Within(0.001));
+                Assert.That(moved.Bound.Y, Is.EqualTo(first.Bound.Y).Within(0.001));
+                Assert.That(moved.Bound.Width, Is.EqualTo(first.Bound.Width).Within(0.001));
+                Assert.That(moved.Bound.Height, Is.EqualTo(first.Bound.Height).Within(0.001));
+            }
+            finally
+            {
+                UnityObject.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
         public void SamplesCombinedRendererBoundsDeterministically()
         {
             var target = new GameObject("Rendered Bounds Target");
@@ -237,6 +279,27 @@ namespace Battlement.Tests
             return sampler;
         }
 
+        private static BattlementGeometrySampler RestSampler(FakeWorld world, ObjectId targetId)
+        {
+            var sampler = new BattlementGeometrySampler(
+                new Battlement.UI.BattlementUiDocuments(),
+                world: world
+            );
+            sampler.Apply(
+                new GeometryObservationUpdate(
+                    new[]
+                    {
+                        new GeometryObservation(
+                            ObservationId(),
+                            new GeometryObservationTarget.WorldRestBounds(targetId, Id(99))
+                        ),
+                    },
+                    Array.Empty<GeometryObservationId>()
+                )
+            );
+            return sampler;
+        }
+
         private static GameObject Cube(GameObject parent, UnityVector3 position, UnityVector3 scale)
         {
             GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -323,6 +386,12 @@ namespace Battlement.Tests
         private static WorldBoundsGeometry Current(GeometryObservationBatch batch) =>
             (
                 (GeometryValue.WorldBounds)
+                    ((GeometryObservationResult.Current)batch.Changed.Single().Result).Value
+            ).Value;
+
+        private static WorldRestBoundsGeometry CurrentRest(GeometryObservationBatch batch) =>
+            (
+                (GeometryValue.WorldRestBounds)
                     ((GeometryObservationResult.Current)batch.Changed.Single().Result).Value
             ).Value;
 

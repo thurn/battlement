@@ -23,8 +23,8 @@ pub use crate::world_hit_region::BoxHitRegion;
 pub use crate::world_layout::{
   Arc, ArcLayout, Fan, FanLayout, Flex, FlexDirection, FlexLayout, Grid, GridLayout,
   LayoutAlgorithm, LayoutAlignment, LayoutBox, LayoutChild, LayoutDestination, LayoutExtent,
-  LayoutItem, LayoutOrientation, LayoutPlacement, LayoutPlane, LayoutScaling, LayoutTarget, Pile,
-  PileLayout, WorldLayout,
+  LayoutItem, LayoutMeasurement, LayoutOrientation, LayoutPlacement, LayoutPlane, LayoutScaling,
+  LayoutTarget, Pile, PileLayout, WorldLayout,
 };
 pub use crate::world_object::WorldObject;
 pub use crate::world_text::Text;

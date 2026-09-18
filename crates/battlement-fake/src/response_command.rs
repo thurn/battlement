@@ -1457,6 +1457,20 @@ fn read_geometry_update(
             camera: camera()?,
           }
         }
+        geometry::GeometryTargetKind::WorldRestBounds => {
+          battlement::GeometryObservationTarget::WorldRestBounds {
+            object_id: object_id(
+              target
+                .object_id()
+                .ok_or_else(|| "geometry rest-bounds object is missing".to_owned())?,
+            )?,
+            request_id: object_id(
+              target
+                .request_id()
+                .ok_or_else(|| "geometry rest-bounds request is missing".to_owned())?,
+            )?,
+          }
+        }
         _ => return Err("unknown geometry observation target".to_owned()),
       };
       Ok(battlement::GeometryObservation {

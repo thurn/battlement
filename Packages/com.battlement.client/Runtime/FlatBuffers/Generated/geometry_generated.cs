@@ -26,6 +26,7 @@ public enum GeometryValue : byte
   ViewportGeometry = 2,
   WorldPointGeometry = 3,
   WorldBoundsGeometry = 4,
+  WorldRestBoundsGeometry = 5,
 };
 
 
@@ -48,6 +49,9 @@ static public class GeometryValueVerify
         break;
       case GeometryValue.WorldBoundsGeometry:
         result = Battlement.FlatBuffers.Generated.WorldBoundsGeometryVerify.Verify(verifier, tablePos);
+        break;
+      case GeometryValue.WorldRestBoundsGeometry:
+        result = Battlement.FlatBuffers.Generated.WorldRestBoundsGeometryVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;
@@ -105,6 +109,7 @@ public enum GeometryTargetKind : byte
   WorldOrigin = 2,
   WorldAnchor = 3,
   WorldRenderedBounds = 4,
+  WorldRestBounds = 5,
 };
 
 public enum CameraTargetKind : byte
@@ -359,6 +364,37 @@ static public class WorldBoundsGeometryVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct WorldRestBoundsGeometry : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static WorldRestBoundsGeometry GetRootAsWorldRestBoundsGeometry(ByteBuffer _bb) { return GetRootAsWorldRestBoundsGeometry(_bb, new WorldRestBoundsGeometry()); }
+  public static WorldRestBoundsGeometry GetRootAsWorldRestBoundsGeometry(ByteBuffer _bb, WorldRestBoundsGeometry obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public WorldRestBoundsGeometry __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Rect? Bound { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Rect?)(new Battlement.FlatBuffers.Generated.Rect()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+
+  public static void StartWorldRestBoundsGeometry(FlatBufferBuilder builder) { builder.StartTable(1); }
+  public static void AddBound(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Rect> boundOffset) { builder.AddStruct(0, boundOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.WorldRestBoundsGeometry> EndWorldRestBoundsGeometry(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // bound
+    return new Offset<Battlement.FlatBuffers.Generated.WorldRestBoundsGeometry>(o);
+  }
+}
+
+
+static public class WorldRestBoundsGeometryVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Bound*/, 32 /*Battlement.FlatBuffers.Generated.Rect*/, 8, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct CurrentGeometry : IFlatbufferObject
 {
   private Table __p;
@@ -375,6 +411,7 @@ public struct CurrentGeometry : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.ViewportGeometry ValueAsViewportGeometry() { return Value<Battlement.FlatBuffers.Generated.ViewportGeometry>().Value; }
   public Battlement.FlatBuffers.Generated.WorldPointGeometry ValueAsWorldPointGeometry() { return Value<Battlement.FlatBuffers.Generated.WorldPointGeometry>().Value; }
   public Battlement.FlatBuffers.Generated.WorldBoundsGeometry ValueAsWorldBoundsGeometry() { return Value<Battlement.FlatBuffers.Generated.WorldBoundsGeometry>().Value; }
+  public Battlement.FlatBuffers.Generated.WorldRestBoundsGeometry ValueAsWorldRestBoundsGeometry() { return Value<Battlement.FlatBuffers.Generated.WorldRestBoundsGeometry>().Value; }
 
   public static Offset<Battlement.FlatBuffers.Generated.CurrentGeometry> CreateCurrentGeometry(FlatBufferBuilder builder,
       Battlement.FlatBuffers.Generated.GeometryValue value_type = Battlement.FlatBuffers.Generated.GeometryValue.NONE,
@@ -554,14 +591,16 @@ public struct GeometryObservationTarget : IFlatbufferObject
   public ArraySegment<byte>? GetAnchorBytes() { return __p.__vector_as_arraysegment(14); }
 #endif
   public byte[] GetAnchorArray() { return __p.__vector_as_array<byte>(14); }
+  public Battlement.FlatBuffers.Generated.Uuid? RequestId { get { int o = __p.__offset(16); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
 
-  public static void StartGeometryObservationTarget(FlatBufferBuilder builder) { builder.StartTable(6); }
+  public static void StartGeometryObservationTarget(FlatBufferBuilder builder) { builder.StartTable(7); }
   public static void AddKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.GeometryTargetKind kind) { builder.AddByte(0, (byte)kind, 0); }
   public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(1, objectIdOffset.Value, 0); }
   public static void AddDisplayId(FlatBufferBuilder builder, uint displayId) { builder.AddUint(2, displayId, 0); }
   public static void AddCameraKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.CameraTargetKind cameraKind) { builder.AddByte(3, (byte)cameraKind, 0); }
   public static void AddCameraObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> cameraObjectIdOffset) { builder.AddStruct(4, cameraObjectIdOffset.Value, 0); }
   public static void AddAnchor(FlatBufferBuilder builder, StringOffset anchorOffset) { builder.AddOffset(5, anchorOffset.Value, 0); }
+  public static void AddRequestId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> requestIdOffset) { builder.AddStruct(6, requestIdOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.GeometryObservationTarget> EndGeometryObservationTarget(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<Battlement.FlatBuffers.Generated.GeometryObservationTarget>(o);
@@ -580,6 +619,7 @@ static public class GeometryObservationTargetVerify
       && verifier.VerifyField(tablePos, 10 /*CameraKind*/, 1 /*Battlement.FlatBuffers.Generated.CameraTargetKind*/, 1, false)
       && verifier.VerifyField(tablePos, 12 /*CameraObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, false)
       && verifier.VerifyString(tablePos, 14 /*Anchor*/, false)
+      && verifier.VerifyField(tablePos, 16 /*RequestId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

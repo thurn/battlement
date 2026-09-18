@@ -4,12 +4,13 @@ use battlement::*;
 
 const OBJECT: &str = "10000000-0000-0000-0000-000000000001";
 const PANEL: &str = "10000000-0000-0000-0000-000000000002";
-const OBSERVATIONS: [&str; 5] = [
+const OBSERVATIONS: [&str; 6] = [
   "20000000-0000-0000-0000-000000000001",
   "20000000-0000-0000-0000-000000000002",
   "20000000-0000-0000-0000-000000000003",
   "20000000-0000-0000-0000-000000000004",
   "20000000-0000-0000-0000-000000000005",
+  "20000000-0000-0000-0000-000000000006",
 ];
 
 #[test]
@@ -257,6 +258,13 @@ fn targets() -> Vec<GeometryObservation> {
         camera: CameraTarget::Input,
       },
     },
+    GeometryObservation {
+      observation_id: observation(5),
+      target: GeometryObservationTarget::WorldRestBounds {
+        object_id,
+        request_id: PANEL.parse().unwrap(),
+      },
+    },
   ]
 }
 
@@ -295,6 +303,12 @@ fn values() -> Vec<GeometryObservationValue> {
         nearest_depth: 1.0,
         farthest_depth: 8.0,
         is_inside_viewport: true,
+      }),
+    ),
+    value(
+      5,
+      GeometryValue::WorldRestBounds(WorldRestBoundsGeometry {
+        bound: Rect::new(-1.0, -2.0, 2.0, 4.0),
       }),
     ),
   ]

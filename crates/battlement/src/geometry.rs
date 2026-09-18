@@ -200,6 +200,12 @@ pub struct WorldBoundsGeometry {
   pub is_inside_viewport: bool,
 }
 
+/// Renderer bounds expressed in the observed object's untransformed local XY space.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WorldRestBoundsGeometry {
+  pub bound: Rect,
+}
+
 /// One target installed in the native observation registry.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum GeometryObservationTarget {
@@ -221,6 +227,10 @@ pub enum GeometryObservationTarget {
   WorldRenderedBounds {
     object_id: ObjectId,
     camera: CameraTarget,
+  },
+  WorldRestBounds {
+    object_id: ObjectId,
+    request_id: ObjectId,
   },
 }
 
@@ -245,6 +255,7 @@ pub enum GeometryValue {
   Viewport(ViewportGeometry),
   WorldPoint(WorldPointGeometry),
   WorldBounds(WorldBoundsGeometry),
+  WorldRestBounds(WorldRestBoundsGeometry),
 }
 
 /// A temporary reason an observation could not be sampled.
@@ -303,6 +314,13 @@ pub struct GeometryRegistry {
 }
 
 impl GeometryRegistry {
+  /// Iterates over active observation identities and targets.
+  pub fn iter(
+    &self,
+  ) -> impl ExactSizeIterator<Item = (&GeometryObservationId, &GeometryObservationTarget)> {
+    self.targets.iter()
+  }
+
   /// Returns the active target for an observation.
   #[must_use]
   pub fn get(&self, id: GeometryObservationId) -> Option<&GeometryObservationTarget> {
@@ -397,6 +415,9 @@ fn validate_result(
     ) | (
       GeometryObservationTarget::WorldRenderedBounds { .. },
       GeometryValue::WorldBounds(_)
+    ) | (
+      GeometryObservationTarget::WorldRestBounds { .. },
+      GeometryValue::WorldRestBounds(_)
     )
   );
   if !matches {
@@ -425,6 +446,9 @@ fn validate_numbers(value: GeometryValue) -> Result<(), GeometryValidationError>
       viewport_rect_finite(value.bound)
         && value.nearest_depth.is_finite()
         && value.farthest_depth.is_finite()
+    }
+    GeometryValue::WorldRestBounds(value) => {
+      rect_finite(value.bound) && value.bound.width > 0.0 && value.bound.height > 0.0
     }
   };
   if finite {

@@ -1498,6 +1498,10 @@ namespace Battlement
                         RequireSnapshotString(target.Anchor, "geometry anchor", allowEmpty: false);
                         ValidateDirectGeometryCamera(target);
                         break;
+                    case Wire.GeometryTargetKind.WorldRestBounds:
+                        _ = ReadUuid(target.ObjectId, "geometry rest-bounds object");
+                        _ = ReadUuid(target.RequestId, "geometry rest-bounds request");
+                        break;
                     default:
                         throw new InvalidDataException("A geometry target kind is unknown.");
                 }

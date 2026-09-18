@@ -584,10 +584,12 @@ impl<G: 'static> Reactant<G> {
       runtime.flush_effects();
       let reported = runtime.flush_error_reports(game);
       let geometry_effected = runtime.flush_geometry_effects(game);
-      if reported || geometry_effected || resources_changed || runtime.geometry.borrow().dirty() {
+      if reported || geometry_effected || resources_changed {
         return runtime.render(game, Some(resources));
       }
       if runtime.pending_hooks_changed() {
+        runtime.render_local_state(game)
+      } else if runtime.geometry.borrow().dirty() {
         runtime.render(game, Some(resources))
       } else {
         let mut resources = resources;
@@ -619,10 +621,12 @@ impl<G: 'static> Reactant<G> {
       runtime.flush_effects();
       let reported = runtime.flush_error_reports(game);
       let geometry_effected = runtime.flush_geometry_effects(game);
-      if reported || geometry_effected || resources_changed || runtime.geometry.borrow().dirty() {
+      if reported || geometry_effected || resources_changed {
         return runtime.render(game, Some(resources));
       }
       if runtime.pending_hooks_changed() {
+        runtime.render_local_state(game)
+      } else if runtime.geometry.borrow().dirty() {
         runtime.render(game, Some(resources))
       } else {
         let mut resources = resources;

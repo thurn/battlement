@@ -165,6 +165,7 @@ namespace Battlement.Tests
                         new CameraTarget.Input()
                     )
                 ),
+                Observation(5, new GeometryObservationTarget.WorldRestBounds(ObjectId, PanelId)),
             };
 
         private static GeometryObservationValue[] Values() =>
@@ -199,6 +200,12 @@ namespace Battlement.Tests
                     4,
                     new GeometryValue.WorldBounds(
                         new WorldBoundsGeometry(ViewportRect(), 1, 8, true)
+                    )
+                ),
+                Value(
+                    5,
+                    new GeometryValue.WorldRestBounds(
+                        new WorldRestBoundsGeometry(new Rect(-1, -2, 2, 4))
                     )
                 ),
             };

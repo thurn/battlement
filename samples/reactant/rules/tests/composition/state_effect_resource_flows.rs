@@ -506,6 +506,9 @@ fn sample_geometry(observation: &GeometryObservation) -> GeometryObservationValu
       }))
     }
     GeometryObservationTarget::WorldAnchor { .. } => panic!("sample does not observe an anchor"),
+    GeometryObservationTarget::WorldRestBounds { .. } => {
+      panic!("sample does not observe rest bounds")
+    }
   };
   GeometryObservationValue {
     observation_id: observation.observation_id,

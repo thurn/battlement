@@ -149,6 +149,28 @@ where
     self.client.submit_motion(events);
   }
 
+  /// Returns the active native geometry requests without advancing work or frames.
+  #[must_use]
+  pub fn geometry_registry(&self) -> &battlement::GeometryRegistry {
+    self.client.geometry_registry()
+  }
+
+  /// Delivers one coherent native geometry sample without advancing time or frames.
+  pub fn deliver_geometry(&mut self, batch: battlement::GeometryObservationBatch) {
+    self.client.submit_geometry(batch);
+  }
+
+  /// Returns native commands completed since connection or the last journal clear.
+  #[must_use]
+  pub fn commands(&self) -> &[battlement_fake::journal::ExecutedCommand] {
+    self.client.commands()
+  }
+
+  /// Clears retained command evidence without changing displayed state.
+  pub fn clear_commands(&mut self) {
+    self.client.clear_commands();
+  }
+
   /// Finds a live UI descendant by its authored name.
   #[must_use]
   pub fn find_ui(&self, root: ObjectId, name: &str) -> ObjectId {

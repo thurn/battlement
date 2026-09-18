@@ -132,18 +132,19 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_GEOMETRY_VALUE: u8 = 4;
+      pub const ENUM_MAX_GEOMETRY_VALUE: u8 = 5;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_GEOMETRY_VALUE: [GeometryValue; 5] = [
+      pub const ENUM_VALUES_GEOMETRY_VALUE: [GeometryValue; 6] = [
         GeometryValue::NONE,
         GeometryValue::ElementGeometry,
         GeometryValue::ViewportGeometry,
         GeometryValue::WorldPointGeometry,
         GeometryValue::WorldBoundsGeometry,
+        GeometryValue::WorldRestBoundsGeometry,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -156,15 +157,17 @@ pub mod battlement {
         pub const ViewportGeometry: Self = Self(2);
         pub const WorldPointGeometry: Self = Self(3);
         pub const WorldBoundsGeometry: Self = Self(4);
+        pub const WorldRestBoundsGeometry: Self = Self(5);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 4;
+        pub const ENUM_MAX: u8 = 5;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ElementGeometry,
           Self::ViewportGeometry,
           Self::WorldPointGeometry,
           Self::WorldBoundsGeometry,
+          Self::WorldRestBoundsGeometry,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -174,6 +177,7 @@ pub mod battlement {
             Self::ViewportGeometry => Some("ViewportGeometry"),
             Self::WorldPointGeometry => Some("WorldPointGeometry"),
             Self::WorldBoundsGeometry => Some("WorldBoundsGeometry"),
+            Self::WorldRestBoundsGeometry => Some("WorldRestBoundsGeometry"),
             _ => None,
           }
         }
@@ -459,18 +463,19 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_GEOMETRY_TARGET_KIND: u8 = 4;
+      pub const ENUM_MAX_GEOMETRY_TARGET_KIND: u8 = 5;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_GEOMETRY_TARGET_KIND: [GeometryTargetKind; 5] = [
+      pub const ENUM_VALUES_GEOMETRY_TARGET_KIND: [GeometryTargetKind; 6] = [
         GeometryTargetKind::UiElement,
         GeometryTargetKind::Viewport,
         GeometryTargetKind::WorldOrigin,
         GeometryTargetKind::WorldAnchor,
         GeometryTargetKind::WorldRenderedBounds,
+        GeometryTargetKind::WorldRestBounds,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -483,15 +488,17 @@ pub mod battlement {
         pub const WorldOrigin: Self = Self(2);
         pub const WorldAnchor: Self = Self(3);
         pub const WorldRenderedBounds: Self = Self(4);
+        pub const WorldRestBounds: Self = Self(5);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 4;
+        pub const ENUM_MAX: u8 = 5;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::UiElement,
           Self::Viewport,
           Self::WorldOrigin,
           Self::WorldAnchor,
           Self::WorldRenderedBounds,
+          Self::WorldRestBounds,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -501,6 +508,7 @@ pub mod battlement {
             Self::WorldOrigin => Some("WorldOrigin"),
             Self::WorldAnchor => Some("WorldAnchor"),
             Self::WorldRenderedBounds => Some("WorldRenderedBounds"),
+            Self::WorldRestBounds => Some("WorldRestBounds"),
             _ => None,
           }
         }
@@ -2217,6 +2225,123 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum WorldRestBoundsGeometryOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct WorldRestBoundsGeometry<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for WorldRestBoundsGeometry<'a> {
+        type Inner = WorldRestBoundsGeometry<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> WorldRestBoundsGeometry<'a> {
+        pub const VT_BOUND: ::flatbuffers::VOffsetT = 4;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          WorldRestBoundsGeometry { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args WorldRestBoundsGeometryArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<WorldRestBoundsGeometry<'bldr>> {
+          let mut builder = WorldRestBoundsGeometryBuilder::new(_fbb);
+          if let Some(x) = args.bound {
+            builder.add_bound(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn bound(&self) -> &'a Rect {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Rect>(WorldRestBoundsGeometry::VT_BOUND, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for WorldRestBoundsGeometry<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Rect>("bound", Self::VT_BOUND, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct WorldRestBoundsGeometryArgs<'a> {
+        pub bound: Option<&'a Rect>,
+      }
+      impl<'a> Default for WorldRestBoundsGeometryArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          WorldRestBoundsGeometryArgs {
+            bound: None, // required field
+          }
+        }
+      }
+
+      pub struct WorldRestBoundsGeometryBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WorldRestBoundsGeometryBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_bound(&mut self, bound: &Rect) {
+          self
+            .fbb_
+            .push_slot_always::<&Rect>(WorldRestBoundsGeometry::VT_BOUND, bound);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> WorldRestBoundsGeometryBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          WorldRestBoundsGeometryBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<WorldRestBoundsGeometry<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, WorldRestBoundsGeometry::VT_BOUND, "bound");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for WorldRestBoundsGeometry<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("WorldRestBoundsGeometry");
+          ds.field("bound", &self.bound());
+          ds.finish()
+        }
+      }
       pub enum CurrentGeometryOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -2342,6 +2467,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn value_as_world_rest_bounds_geometry(&self) -> Option<WorldRestBoundsGeometry<'a>> {
+          if self.value_type() == GeometryValue::WorldRestBoundsGeometry {
+            let u = self.value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { WorldRestBoundsGeometry::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CurrentGeometry<'_> {
@@ -2376,6 +2515,11 @@ pub mod battlement {
                 GeometryValue::WorldBoundsGeometry => v
                   .verify_union_variant::<::flatbuffers::ForwardsUOffset<WorldBoundsGeometry>>(
                     "GeometryValue::WorldBoundsGeometry",
+                    pos,
+                  ),
+                GeometryValue::WorldRestBoundsGeometry => v
+                  .verify_union_variant::<::flatbuffers::ForwardsUOffset<WorldRestBoundsGeometry>>(
+                    "GeometryValue::WorldRestBoundsGeometry",
                     pos,
                   ),
                 _ => Ok(()),
@@ -2476,6 +2620,16 @@ pub mod battlement {
             }
             GeometryValue::WorldBoundsGeometry => {
               if let Some(x) = self.value_as_world_bounds_geometry() {
+                ds.field("value", &x)
+              } else {
+                ds.field(
+                  "value",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            GeometryValue::WorldRestBoundsGeometry => {
+              if let Some(x) = self.value_as_world_rest_bounds_geometry() {
                 ds.field("value", &x)
               } else {
                 ds.field(
@@ -3045,6 +3199,7 @@ pub mod battlement {
         pub const VT_CAMERA_KIND: ::flatbuffers::VOffsetT = 10;
         pub const VT_CAMERA_OBJECT_ID: ::flatbuffers::VOffsetT = 12;
         pub const VT_ANCHOR: ::flatbuffers::VOffsetT = 14;
+        pub const VT_REQUEST_ID: ::flatbuffers::VOffsetT = 16;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3061,6 +3216,9 @@ pub mod battlement {
           args: &'args GeometryObservationTargetArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<GeometryObservationTarget<'bldr>> {
           let mut builder = GeometryObservationTargetBuilder::new(_fbb);
+          if let Some(x) = args.request_id {
+            builder.add_request_id(x);
+          }
           if let Some(x) = args.anchor {
             builder.add_anchor(x);
           }
@@ -3152,6 +3310,17 @@ pub mod battlement {
             )
           }
         }
+        #[inline]
+        pub fn request_id(&self) -> Option<&'a Uuid> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(GeometryObservationTarget::VT_REQUEST_ID, None)
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for GeometryObservationTarget<'_> {
@@ -3167,6 +3336,7 @@ pub mod battlement {
             .visit_field::<CameraTargetKind>("camera_kind", Self::VT_CAMERA_KIND, false)?
             .visit_field::<Uuid>("camera_object_id", Self::VT_CAMERA_OBJECT_ID, false)?
             .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("anchor", Self::VT_ANCHOR, false)?
+            .visit_field::<Uuid>("request_id", Self::VT_REQUEST_ID, false)?
             .finish();
           Ok(())
         }
@@ -3178,6 +3348,7 @@ pub mod battlement {
         pub camera_kind: CameraTargetKind,
         pub camera_object_id: Option<&'a Uuid>,
         pub anchor: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub request_id: Option<&'a Uuid>,
       }
       impl<'a> Default for GeometryObservationTargetArgs<'a> {
         #[inline]
@@ -3189,6 +3360,7 @@ pub mod battlement {
             camera_kind: CameraTargetKind::Input,
             camera_object_id: None,
             anchor: None,
+            request_id: None,
           }
         }
       }
@@ -3241,6 +3413,12 @@ pub mod battlement {
           );
         }
         #[inline]
+        pub fn add_request_id(&mut self, request_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(GeometryObservationTarget::VT_REQUEST_ID, request_id);
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> GeometryObservationTargetBuilder<'a, 'b, A> {
@@ -3266,6 +3444,7 @@ pub mod battlement {
           ds.field("camera_kind", &self.camera_kind());
           ds.field("camera_object_id", &self.camera_object_id());
           ds.field("anchor", &self.anchor());
+          ds.field("request_id", &self.request_id());
           ds.finish()
         }
       }

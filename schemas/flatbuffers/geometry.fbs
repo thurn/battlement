@@ -64,11 +64,16 @@ table WorldBoundsGeometry {
   is_inside_viewport:bool;
 }
 
+table WorldRestBoundsGeometry {
+  bound:Rect (required);
+}
+
 union GeometryValue {
   ElementGeometry,
   ViewportGeometry,
   WorldPointGeometry,
-  WorldBoundsGeometry
+  WorldBoundsGeometry,
+  WorldRestBoundsGeometry
 }
 
 enum GeometryUnavailable:ubyte {
@@ -111,7 +116,8 @@ enum GeometryTargetKind:ubyte {
   Viewport,
   WorldOrigin,
   WorldAnchor,
-  WorldRenderedBounds
+  WorldRenderedBounds,
+  WorldRestBounds
 }
 
 enum CameraTargetKind:ubyte { Input, Object }
@@ -123,6 +129,7 @@ table GeometryObservationTarget {
   camera_kind:CameraTargetKind;
   camera_object_id:Uuid;
   anchor:string;
+  request_id:Uuid;
 }
 
 table GeometryObservation {

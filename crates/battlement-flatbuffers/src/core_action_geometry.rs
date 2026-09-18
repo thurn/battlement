@@ -192,6 +192,28 @@ fn write_value<'a>(
         value.as_union_value(),
       )
     }
+    GeometryValue::WorldRestBounds(value) => {
+      finite_rect(value.bound)?;
+      if value.bound.width <= 0.0 || value.bound.height <= 0.0 {
+        return Err(error("world rest bounds must have positive dimensions"));
+      }
+      let bound = WireRect::new(
+        value.bound.x,
+        value.bound.y,
+        value.bound.width,
+        value.bound.height,
+      );
+      let value = wire::WorldRestBoundsGeometry::create(
+        builder,
+        &wire::WorldRestBoundsGeometryArgs {
+          bound: Some(&bound),
+        },
+      );
+      (
+        wire::GeometryValue::WorldRestBoundsGeometry,
+        value.as_union_value(),
+      )
+    }
   })
 }
 

@@ -2784,6 +2784,7 @@ fn write_geometry_update<'a>(
       let mut camera_kind = geometry_wire::CameraTargetKind::Input;
       let mut camera_object_id = None;
       let mut anchor = None;
+      let mut request_id = None;
       let kind = match &value.target {
         battlement::GeometryObservationTarget::UiElement { object_id: value } => {
           object_id = Some(uuid(value.as_uuid()));
@@ -2819,6 +2820,14 @@ fn write_geometry_update<'a>(
           (camera_kind, camera_object_id) = geometry_camera(*camera);
           geometry_wire::GeometryTargetKind::WorldRenderedBounds
         }
+        battlement::GeometryObservationTarget::WorldRestBounds {
+          object_id: value,
+          request_id: value_request,
+        } => {
+          object_id = Some(uuid(value.as_uuid()));
+          request_id = Some(uuid(value_request.as_uuid()));
+          geometry_wire::GeometryTargetKind::WorldRestBounds
+        }
       };
       let target = geometry_wire::GeometryObservationTarget::create(
         builder,
@@ -2829,6 +2838,7 @@ fn write_geometry_update<'a>(
           camera_kind,
           camera_object_id: camera_object_id.as_ref(),
           anchor,
+          request_id: request_id.as_ref(),
         },
       );
       let observation_id = uuid(value.observation_id.0.as_uuid());

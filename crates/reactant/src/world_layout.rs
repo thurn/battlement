@@ -2,9 +2,10 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use battlement::{LocalTransform, Vector3};
+use battlement::{LocalTransform, ObjectId, Vector3};
 use reactant_core::{
   component::Component,
+  geometry::{self, MeasurementStatus, WorldGeometry, WorldRef},
   render::{Child, Node, Render},
 };
 use uuid::Uuid;
@@ -283,6 +284,43 @@ pub struct LayoutDestination {
   target: Rc<RefCell<Option<LayoutTarget>>>,
 }
 
+/// Stable identity for one optional native rest-bounds request.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LayoutMeasurement {
+  request_id: ObjectId,
+}
+
+impl LayoutMeasurement {
+  /// Creates a fresh request identity.
+  #[must_use]
+  pub fn new() -> Self {
+    Self {
+      request_id: ObjectId::new_v4(),
+    }
+  }
+
+  /// Creates a request with an application-selected non-nil identity.
+  #[must_use]
+  pub fn identified(request_id: Uuid) -> Self {
+    Self {
+      request_id: ObjectId::from_uuid(request_id)
+        .expect("layout measurement identities cannot be nil"),
+    }
+  }
+
+  /// Returns the request identity used to reject late measurements.
+  #[must_use]
+  pub const fn id(self) -> ObjectId {
+    self.request_id
+  }
+}
+
+impl Default for LayoutMeasurement {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl LayoutDestination {
   /// Creates a destination associated with a stable presentation ID.
   #[must_use]
@@ -316,6 +354,7 @@ impl LayoutDestination {
 pub struct LayoutChild {
   item: LayoutItem,
   destination: LayoutDestination,
+  measurement: Option<LayoutMeasurement>,
   content: Child,
 }
 
@@ -326,6 +365,22 @@ impl LayoutChild {
     Self {
       item: LayoutItem::new(destination.id(), rest),
       destination,
+      measurement: None,
+      content: Child::new(content),
+    }
+  }
+
+  /// Creates a child whose rest box is sampled once for the identified request.
+  #[must_use]
+  pub fn measured(
+    destination: LayoutDestination,
+    measurement: LayoutMeasurement,
+    content: impl Render,
+  ) -> Self {
+    Self {
+      item: LayoutItem::new(destination.id(), LayoutBox::new(1.0, 1.0)),
+      destination,
+      measurement: Some(measurement),
       content: Child::new(content),
     }
   }
@@ -563,20 +618,67 @@ impl<A: LayoutAlgorithm> WorldLayout<A> {
 
 impl<A: LayoutAlgorithm> Component for WorldLayout<A> {
   fn render(&self) -> impl Render {
-    let items: Vec<_> = self.children.iter().map(|child| child.item).collect();
-    let targets = self.targets(&items);
+    let requests = self
+      .children
+      .iter()
+      .filter_map(|child| {
+        child.measurement.map(|measurement| {
+          WorldRef::rest_bounds(
+            ObjectId::from_uuid(child.destination.id()).expect("layout destinations cannot be nil"),
+            measurement.id(),
+          )
+        })
+      })
+      .collect::<Vec<_>>();
+    let snapshot = geometry::use_geometry(requests);
+    let mut measured = snapshot.measurements.into_iter();
+    let items = self
+      .children
+      .iter()
+      .map(|child| {
+        let Some(_) = child.measurement else {
+          return Some(child.item);
+        };
+        let measurement = measured
+          .next()
+          .expect("one result per measured layout child");
+        let (MeasurementStatus::Current, Some(WorldGeometry::RestBounds(value))) =
+          (measurement.status, measurement.latest)
+        else {
+          return None;
+        };
+        let pivot_x = -value.bound.x / value.bound.width;
+        let pivot_y = -value.bound.y / value.bound.height;
+        let mut item = child.item;
+        item.rest = LayoutBox::with_pivot(value.bound.width, value.bound.height, pivot_x, pivot_y);
+        Some(item)
+      })
+      .collect::<Option<Vec<_>>>();
+    assert!(
+      measured.next().is_none(),
+      "every rest measurement is consumed"
+    );
+    let targets = items.as_ref().map(|items| self.targets(items));
     self
       .children
       .iter()
-      .zip(targets)
-      .map(|(child, target)| {
-        child.destination.update(target);
-        Node::new(
-          Group::new()
-            .id(target.id)
-            .transform(target.transform)
-            .child(child.content.render()),
-        )
+      .enumerate()
+      .map(|(index, child)| {
+        let target = targets
+          .as_ref()
+          .map(|targets| targets[index])
+          .or_else(|| child.destination.latest());
+        if let Some(target) = target {
+          child.destination.update(target);
+        }
+        let group = Group::new()
+          .id(child.destination.id())
+          .child(child.content.render());
+        Node::new(if let Some(target) = target {
+          group.transform(target.transform)
+        } else {
+          group
+        })
       })
       .collect::<Vec<_>>()
   }

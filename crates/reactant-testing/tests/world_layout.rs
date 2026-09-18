@@ -1,6 +1,10 @@
-use std::time::Duration;
+use std::{num::NonZeroU64, time::Duration};
 
-use battlement::{LocalTransform, ObjectId, ParentScene, Quaternion, Vector3, object_id};
+use battlement::{
+  GeometryGeneration, GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
+  GeometryObservationTarget, GeometryObservationValue, GeometryValue, LocalTransform, ObjectId,
+  ParentScene, Quaternion, Rect, Vector3, WorldRestBoundsGeometry, object_id,
+};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{app::App, prelude::*, world};
 use reactant_testing::Display;
@@ -11,6 +15,9 @@ const THIRD: ObjectId = object_id!("323a0000-0000-4000-8000-000000000003");
 const OUTER: ObjectId = object_id!("323a0000-0000-4000-8000-000000000004");
 const VISUAL: ObjectId = object_id!("323a0000-0000-4000-8000-000000000005");
 const FLOOR: ObjectId = object_id!("323a0000-0000-4000-8000-000000000006");
+const MEASURE_A: ObjectId = object_id!("323a0000-0000-4000-8000-000000000007");
+const MEASURE_B: ObjectId = object_id!("323a0000-0000-4000-8000-000000000008");
+const MEASURE_C: ObjectId = object_id!("323a0000-0000-4000-8000-000000000009");
 
 fn item(id: ObjectId, width: f64, height: f64) -> world::LayoutItem {
   world::LayoutItem::new(*id.as_uuid(), world::LayoutBox::new(width, height))
@@ -301,4 +308,166 @@ fn public_display_keeps_nested_targets_stable_while_visual_scale_animates() {
   );
   assert_eq!(display.object(FIRST).unwrap().local_transform(), first_pose);
   assert_eq!(destinations.first.latest().unwrap().transform, first_pose);
+}
+
+#[derive(Clone)]
+struct MeasuredLayout {
+  request: DisplayStore<world::LayoutMeasurement>,
+  first: world::LayoutDestination,
+  second: world::LayoutDestination,
+}
+
+impl Component for MeasuredLayout {
+  fn render(&self) -> impl Render {
+    let request = use_external_store(self.request.clone());
+    let transition = Transition::tween().duration_secs(1.0).ease(Easing::Linear);
+    world::Flex::new().extent((10.0, 4.0)).gap(1.0).children([
+      world::LayoutChild::measured(
+        self.first.clone(),
+        request,
+        world::Group::new()
+          .id(*VISUAL.as_uuid())
+          .initial(StyleTarget::new().local_scale_x(1.0))
+          .animate(StyleTarget::new().local_scale_x(2.0))
+          .transition(transition),
+      ),
+      world::LayoutChild::new(
+        self.second.clone(),
+        world::LayoutBox::new(2.0, 2.0),
+        world::Group::new(),
+      ),
+    ])
+  }
+}
+
+struct UnrelatedLayout;
+
+impl Component for UnrelatedLayout {
+  fn render(&self) -> impl Render {
+    world::Pile::new()
+      .extent((2.0, 2.0))
+      .child(world::LayoutChild::new(
+        world::LayoutDestination::new(*THIRD.as_uuid()),
+        world::LayoutBox::new(1.0, 1.0),
+        world::Group::new(),
+      ))
+  }
+}
+
+#[test]
+fn public_display_caches_identified_rest_measurements_and_rejects_stale_results() {
+  let request = DisplayStore::new(world::LayoutMeasurement::identified(*MEASURE_A.as_uuid()));
+  let first = world::LayoutDestination::new(*FIRST.as_uuid());
+  let second = world::LayoutDestination::new(*SECOND.as_uuid());
+  let app =
+    App::new("layout/measured-scene").ui(world::SceneRoot::new(ParentScene::PrimaryScene).child((
+      MeasuredLayout {
+        request: request.clone(),
+        first: first.clone(),
+        second: second.clone(),
+      },
+      UnrelatedLayout,
+    )));
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("layout/measured-scene");
+  let mut display = Display::connect(app, assets);
+
+  assert!(first.latest().is_none());
+  assert_eq!(
+    display.object(FIRST).unwrap().local_transform().position,
+    Vector3::ZERO
+  );
+  let first_observation = rest_observation(&display, MEASURE_A);
+  display.clear_commands();
+  display.deliver_geometry(rest_batch(1, first_observation, 2.0, 2.0));
+  assert_eq!(
+    display.object(SECOND).unwrap().local_transform().position,
+    Vector3::new(6.5, 2.0, 0.0)
+  );
+  assert!(!changed_position(&display, THIRD));
+  assert!(
+    display
+      .geometry_registry()
+      .iter()
+      .all(|(_, target)| !matches!(
+        target,
+        GeometryObservationTarget::WorldRestBounds { request_id, .. } if *request_id == MEASURE_A
+      ))
+  );
+
+  let held = display.object(SECOND).unwrap().local_transform();
+  display.advance_time(Duration::from_millis(500));
+  close(
+    display.object(VISUAL).unwrap().local_transform().scale.x,
+    1.5,
+  );
+  assert_eq!(display.object(SECOND).unwrap().local_transform(), held);
+  assert!(!changed_position(&display, THIRD));
+
+  request.set(world::LayoutMeasurement::identified(*MEASURE_B.as_uuid()));
+  display.poll();
+  let stale_observation = rest_observation(&display, MEASURE_B);
+  assert_eq!(display.object(SECOND).unwrap().local_transform(), held);
+
+  request.set(world::LayoutMeasurement::identified(*MEASURE_C.as_uuid()));
+  display.deliver_geometry(rest_batch(2, stale_observation, 8.0, 2.0));
+  assert_eq!(display.object(SECOND).unwrap().local_transform(), held);
+  assert!(!changed_position(&display, THIRD));
+  let current_observation = rest_observation(&display, MEASURE_C);
+
+  display.deliver_geometry(rest_batch(3, current_observation, 4.0, 2.0));
+  assert_eq!(
+    display.object(SECOND).unwrap().local_transform().position,
+    Vector3::new(7.5, 2.0, 0.0)
+  );
+  assert!(!changed_position(&display, THIRD));
+}
+
+fn changed_position<E>(display: &Display<E>, object_id: ObjectId) -> bool
+where
+  E: battlement_native::Engine,
+{
+  display.commands().iter().any(|executed| {
+    matches!(
+      &executed.command.body,
+      battlement::CommandBody::TransformSetLocalPosition(command)
+        if command.payload.object_id == object_id
+    )
+  })
+}
+
+fn rest_observation<E>(display: &Display<E>, request_id: ObjectId) -> GeometryObservationId
+where
+  E: battlement_native::Engine,
+{
+  display
+    .geometry_registry()
+    .iter()
+    .find_map(|(observation_id, target)| match target {
+      GeometryObservationTarget::WorldRestBounds {
+        request_id: current,
+        ..
+      } if *current == request_id => Some(*observation_id),
+      _ => None,
+    })
+    .unwrap_or_else(|| panic!("missing rest measurement request {request_id}"))
+}
+
+fn rest_batch(
+  generation: u64,
+  observation_id: GeometryObservationId,
+  width: f64,
+  height: f64,
+) -> GeometryObservationBatch {
+  GeometryObservationBatch {
+    generation: GeometryGeneration(NonZeroU64::new(generation).unwrap()),
+    changed: vec![GeometryObservationValue {
+      observation_id,
+      result: GeometryObservationResult::Current(GeometryValue::WorldRestBounds(
+        WorldRestBoundsGeometry {
+          bound: Rect::new(-width / 2.0, -height / 2.0, width, height),
+        },
+      )),
+    }],
+  }
 }
