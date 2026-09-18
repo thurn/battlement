@@ -175,6 +175,7 @@ impl MotionWorld {
       return;
     };
     if let Some(outcome) = self.sequence_terminal_outcome(&sequence) {
+      self.clear_sequence_imperatives(&sequence, world, ui, now);
       self.playbacks.finish(sequence.playback_id, outcome);
       return;
     }
@@ -280,11 +281,79 @@ impl MotionWorld {
       .iter()
       .all(|entry| entry.completed.is_some())
     {
+      self.clear_sequence_imperatives(&sequence, world, ui, now);
       self
         .playbacks
         .finish(sequence.playback_id, MotionPlaybackOutcome::Completed);
     } else {
       self.sequences.insert(id, sequence);
+    }
+  }
+
+  fn clear_sequence_imperatives(
+    &mut self,
+    sequence: &Sequence,
+    world: &FakeWorld,
+    ui: &UiWorld,
+    now: u64,
+  ) {
+    let addresses = sequence
+      .entries
+      .iter()
+      .flat_map(|entry| &entry.addresses)
+      .copied()
+      .collect::<Vec<_>>();
+    let clocks = &self.clocks;
+    for descriptor in self.entries.values_mut() {
+      let descriptor_id = descriptor.definition.descriptor_id;
+      let released = descriptor
+        .slots
+        .iter()
+        .filter(|slot| {
+          addresses.contains(&Address {
+            descriptor: descriptor_id,
+            slot: slot.definition.slot,
+            generation: slot.definition.generation,
+          })
+        })
+        .flat_map(|slot| {
+          slot
+            .definition
+            .target
+            .tracks
+            .iter()
+            .map(|track| track.property)
+            .chain(
+              slot
+                .definition
+                .target
+                .transition_end
+                .iter()
+                .map(|value| value.property),
+            )
+        })
+        .collect::<HashSet<_>>();
+      let clock = crate::motion::clock(clocks, descriptor.definition.clock, now);
+      let target = &mut descriptor.target;
+      for slot in descriptor.slots.iter_mut().filter(|slot| {
+        slot.definition.slot.0 < u64::MAX - 2048
+          && slot
+            .definition
+            .target
+            .tracks
+            .iter()
+            .any(|track| released.contains(&track.property))
+      }) {
+        slot.retarget_from_presentation(target, world, ui, clock);
+      }
+      descriptor.slots.retain(|slot| {
+        !addresses.contains(&Address {
+          descriptor: descriptor_id,
+          slot: slot.definition.slot,
+          generation: slot.definition.generation,
+        })
+      });
+      descriptor.sampled = None;
     }
   }
 

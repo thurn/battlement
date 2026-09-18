@@ -13,6 +13,16 @@ source = "7c7c44a7dbb7647dfc4d33843b0320031dab4db3636dc3973f62a0678f29122a"
 
 [[baselines]]
 profile = "macos"
+scenario = "draw reflow"
+checkpoint = "ready"
+sha256 = "27c1556a602a1684ad8acddacfe384249ac06c5911cdbbf15f68d636a6283b8c"
+width = 1280
+height = 720
+size_bytes = 32211
+source = "315ffc1697fdbce465e737bb24f7c595966687ab7185bab0ff0499e02e49a4a5"
+
+[[baselines]]
+profile = "macos"
 scenario = "explicit props"
 checkpoint = "initial"
 sha256 = "b1eeaf498861627d8d809ddb39e18467abf2f02b0753bcf3127e52b8623f6bba"

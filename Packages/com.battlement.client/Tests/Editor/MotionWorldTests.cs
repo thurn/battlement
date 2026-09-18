@@ -839,6 +839,77 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void SequenceOwnershipSurvivesRetargetAndReturnsWithoutJump()
+        {
+            ObjectId clock = Id("20f2eddf-ffda-4cc6-bbc2-01a2f6eca715");
+            ObjectId scope = Id("20f2eddf-ffda-4cc6-bbc2-01a2f6eca716");
+            ObjectId child = Id("20f2eddf-ffda-4cc6-bbc2-01a2f6eca717");
+            ObjectId playback = Id("20f2eddf-ffda-4cc6-bbc2-01a2f6eca718");
+            var root = new VisualElement();
+            var target = new VisualElement();
+            target.style.opacity = 0;
+            root.Add(target);
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                root,
+                scope,
+                EmptyDescriptor(scope, clock) with
+                {
+                    ScopeId = scope,
+                    ScopeRoot = true,
+                }
+            );
+            world.Install(
+                target,
+                child,
+                Descriptor(child, child, clock, 1, 1, 1, subscribe: false)
+            );
+            world.Apply(
+                new MotionScopeOperation(
+                    scope,
+                    new MotionScopeCommand.Start(
+                        playback,
+                        1,
+                        new[]
+                        {
+                            Animate(Target(1, 1_000_000), new MotionSequenceSchedule.Absolute(0)),
+                        }
+                    )
+                )
+            );
+
+            world.SetControlledClock(clock, 500_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.5f).Within(0.00001));
+
+            world.Install(
+                target,
+                child,
+                Descriptor(child, child, clock, 2, 2, 1, subscribe: false)
+            );
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.5f).Within(0.00001));
+            world.SetControlledClock(clock, 750_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.75f).Within(0.00001));
+
+            world.SetControlledClock(clock, 1_000_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(1).Within(0.00001));
+            world.SetControlledClock(clock, 1_100_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(1).Within(0.00001));
+
+            world.Install(
+                target,
+                child,
+                Descriptor(child, child, clock, 3, 3, 0, subscribe: false)
+            );
+            world.SetControlledClock(clock, 1_600_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.5f).Within(0.00001));
+        }
+
+        [Test]
         public void InvalidSequenceLeavesPresentationAndPlaybackRegistryUntouched()
         {
             ObjectId clock = Id("f08b3f97-889f-4456-a973-c13551113f11");

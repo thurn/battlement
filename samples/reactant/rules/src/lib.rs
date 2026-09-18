@@ -11,6 +11,7 @@ mod context_memo;
 mod controls;
 mod design_system;
 mod destruction_queue_proof;
+mod draw_reflow_proof;
 mod effects_stores;
 mod events_portals;
 mod gestures_drag;

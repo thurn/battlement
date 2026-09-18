@@ -24,7 +24,12 @@ pub trait HostAdapter: 'static {
     hierarchy_changed: bool,
   ) -> Option<Command>;
   /// Moves a retained host beneath another physical parent.
-  fn move_command(object_id: ObjectId, parent_id: ObjectId, child_index: u32) -> Command;
+  fn move_command(
+    description: &Self::Description,
+    object_id: ObjectId,
+    parent_id: ObjectId,
+    child_index: u32,
+  ) -> Command;
   /// Reorders a host when the native hierarchy has meaningful sibling indices.
   fn index_command(object_id: ObjectId, child_index: u32) -> Option<Command>;
   /// Releases a host and its physical descendants.
@@ -310,7 +315,7 @@ impl<A: HostAdapter> ErasedHostDescription for AdaptedHost<A> {
   }
 
   fn move_command(&self, object_id: ObjectId, parent_id: ObjectId, child_index: u32) -> Command {
-    A::move_command(object_id, parent_id, child_index)
+    A::move_command(&self.description, object_id, parent_id, child_index)
   }
 
   fn index_command(&self, object_id: ObjectId, child_index: u32) -> Option<Command> {

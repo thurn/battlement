@@ -44,7 +44,12 @@ impl HostAdapter for UiHostAdapter {
     Some(Command::update_visual_element(object_id, patch))
   }
 
-  fn move_command(object_id: ObjectId, parent_id: ObjectId, child_index: u32) -> Command {
+  fn move_command(
+    _: &UiElement,
+    object_id: ObjectId,
+    parent_id: ObjectId,
+    child_index: u32,
+  ) -> Command {
     Command::move_visual_element(object_id, parent_id, child_index)
   }
 

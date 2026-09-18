@@ -1112,8 +1112,19 @@ fn implicit_transition(entry: &StyleTargetEntry) -> TransitionDefinition {
     | MotionProperty::Translate
     | MotionProperty::Rotate
     | MotionProperty::RotateX
-    | MotionProperty::RotateY => physical_default(500.0, 25.0),
-    MotionProperty::Scale | MotionProperty::ScaleX | MotionProperty::ScaleY => {
+    | MotionProperty::RotateY
+    | MotionProperty::LocalPositionX
+    | MotionProperty::LocalPositionY
+    | MotionProperty::LocalPositionZ
+    | MotionProperty::LocalRotationX
+    | MotionProperty::LocalRotationY
+    | MotionProperty::LocalRotationZ => physical_default(500.0, 25.0),
+    MotionProperty::Scale
+    | MotionProperty::ScaleX
+    | MotionProperty::ScaleY
+    | MotionProperty::LocalScaleX
+    | MotionProperty::LocalScaleY
+    | MotionProperty::LocalScaleZ => {
       let damping = if targets_zero(entry) {
         2.0 * 550.0_f64.sqrt()
       } else {

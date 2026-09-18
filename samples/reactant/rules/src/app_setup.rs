@@ -94,6 +94,9 @@ fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineErr
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("world-layout") {
     return Ok(crate::world_layout_proof::app());
   }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("draw-reflow") {
+    return Ok(crate::draw_reflow_proof::app());
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("world-materials") {
     return Ok(crate::world_material_proof::app());
   }

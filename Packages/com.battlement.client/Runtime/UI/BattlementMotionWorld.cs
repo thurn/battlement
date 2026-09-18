@@ -155,6 +155,25 @@ namespace Battlement.UI
             )
                 throw Invalid("A host cannot own two motion descriptors.");
 
+            bool retainedImperatives = false;
+            if (previous is not null)
+            {
+                HashSet<ulong> declared = descriptor.Slots.Select(slot => slot.Slot).ToHashSet();
+                MotionSlotDescriptor[] retained = previous
+                    .Descriptor.Slots.Where(slot =>
+                        slot.Slot >= ulong.MaxValue - 2048 && !declared.Contains(slot.Slot)
+                    )
+                    .ToArray();
+                if (retained.Length != 0)
+                {
+                    descriptor = descriptor with
+                    {
+                        Slots = descriptor.Slots.Concat(retained).ToArray(),
+                    };
+                    retainedImperatives = true;
+                }
+            }
+
             var prepared = new DescriptorState(
                 descriptor,
                 target,
@@ -163,7 +182,8 @@ namespace Battlement.UI
                 target is BattlementUiMotionTarget ui
                     ? sharedLayouts.Origin(descriptor, ui.Element, previous, descriptors.Values)
                     : null,
-                reconnect.Active
+                reconnect.Active,
+                retainedImperatives
             );
             ValidateActiveControl(prepared);
             return new BattlementPreparedMotionAdmission(this, hostId.Value, prepared);
@@ -1408,6 +1428,7 @@ namespace Battlement.UI
             {
                 activeSequences.Remove(sequence.PlaybackId.Value);
                 FinishImperative(sequence.PlaybackId.Value, outcome);
+                ClearSequenceImperatives(sequence);
                 return;
             }
             foreach (MotionSequenceEntryState entry in sequence.Entries)
@@ -1447,6 +1468,58 @@ namespace Battlement.UI
             {
                 activeSequences.Remove(sequence.PlaybackId.Value);
                 FinishImperative(sequence.PlaybackId.Value, MotionPlaybackOutcome.Completed);
+                ClearSequenceImperatives(sequence);
+            }
+        }
+
+        private void ClearSequenceImperatives(BattlementMotionSequence sequence)
+        {
+            MotionPlaybackAddress[] addresses = sequence
+                .Entries.SelectMany(entry => entry.Addresses)
+                .Distinct()
+                .ToArray();
+            foreach (
+                IGrouping<Guid, MotionPlaybackAddress> group in addresses.GroupBy(address =>
+                    address.DescriptorId.Value
+                )
+            )
+            {
+                if (!descriptors.TryGetValue(group.Key, out DescriptorState descriptor))
+                    continue;
+                HashSet<(ulong Slot, uint Generation)> remove = group
+                    .Select(address => (address.Slot, address.Generation))
+                    .ToHashSet();
+                HashSet<MotionProperty> released = descriptor
+                    .Descriptor.Slots.Where(slot => remove.Contains((slot.Slot, slot.Generation)))
+                    .SelectMany(slot =>
+                        slot.Target.Tracks.Select(track => track.Property)
+                            .Concat(slot.Target.TransitionEnd.Select(value => value.Property))
+                    )
+                    .ToHashSet();
+                ulong now = ClockMicros(descriptor.Descriptor.Clock);
+                foreach (
+                    MotionSlotDescriptor slot in descriptor.Descriptor.Slots.Where(slot =>
+                        slot.Slot < ulong.MaxValue - 2048
+                        && slot.Target.Tracks.Any(track => released.Contains(track.Property))
+                    )
+                )
+                    descriptor.FindSlot(slot.Slot)?.RetargetFromPresentation(now);
+                MotionSlotDescriptor[] slots = descriptor
+                    .Descriptor.Slots.Where(slot => !remove.Contains((slot.Slot, slot.Generation)))
+                    .ToArray();
+                if (slots.Length == descriptor.Descriptor.Slots.Count)
+                    continue;
+                MotionDescriptor updated = descriptor.Descriptor with { Slots = slots };
+                Commit(
+                    updated.HostId.Value,
+                    new DescriptorState(
+                        updated,
+                        descriptor.Properties,
+                        ClockMicros(updated.Clock),
+                        descriptor,
+                        retainUnchangedSlots: true
+                    )
+                );
             }
         }
 

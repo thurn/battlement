@@ -4,8 +4,13 @@ use std::{cell::RefCell, rc::Rc};
 
 use battlement::{LocalTransform, ObjectId, Vector3};
 use reactant_core::{
+  animation_controls::{MotionPositionRef, MotionSelector},
   component::Component,
   geometry::{self, MeasurementStatus, WorldGeometry, WorldRef},
+  hooks,
+  motion::{MotionProps, StyleTarget, Transition},
+  motion_config::MotionConfig,
+  prelude::MotionComponent,
   render::{Child, Node, Render},
 };
 use uuid::Uuid;
@@ -281,7 +286,17 @@ pub trait LayoutAlgorithm: Clone + 'static {
 #[derive(Clone)]
 pub struct LayoutDestination {
   id: Uuid,
-  target: Rc<RefCell<Option<LayoutTarget>>>,
+  target_id: ObjectId,
+  state: Rc<RefCell<LayoutDestinationState>>,
+}
+
+#[derive(Default)]
+struct LayoutDestinationState {
+  latest: Option<LayoutTarget>,
+  committed: Option<LayoutTarget>,
+  layout: Option<ObjectId>,
+  base: Option<LocalTransform>,
+  moved: bool,
 }
 
 /// Stable identity for one optional native rest-bounds request.
@@ -328,7 +343,8 @@ impl LayoutDestination {
     assert!(!id.is_nil(), "layout destination IDs cannot be nil");
     Self {
       id,
-      target: Rc::new(RefCell::new(None)),
+      target_id: ObjectId::new_v4(),
+      state: Rc::new(RefCell::new(LayoutDestinationState::default())),
     }
   }
 
@@ -341,11 +357,53 @@ impl LayoutDestination {
   /// Returns the most recently rendered target, if any.
   #[must_use]
   pub fn latest(&self) -> Option<LayoutTarget> {
-    *self.target.borrow()
+    self.state.borrow().latest
+  }
+
+  /// Selects the identified object which moves toward this destination.
+  #[must_use]
+  pub fn selector(&self) -> MotionSelector {
+    MotionSelector::identified(
+      ObjectId::from_uuid(self.id).expect("layout destination identities cannot be nil"),
+    )
+  }
+
+  /// Captures the current native destination when a sequence step starts.
+  #[must_use]
+  pub fn capture_at_start(&self) -> MotionPositionRef {
+    MotionPositionRef::identified(self.target_id).capture_at_start()
+  }
+
+  /// Follows the latest native destination while a sequence step is active.
+  #[must_use]
+  pub fn follow(&self) -> MotionPositionRef {
+    MotionPositionRef::identified(self.target_id).follow()
   }
 
   fn update(&self, target: LayoutTarget) {
-    self.target.replace(Some(target));
+    self.state.borrow_mut().latest = Some(target);
+  }
+
+  fn moving(&self, layout: ObjectId, target: LayoutTarget) -> bool {
+    let state = self.state.borrow();
+    state.moved
+      || state
+        .committed
+        .is_some_and(|previous| previous != target || state.layout != Some(layout))
+  }
+
+  fn base(&self, target: LayoutTarget) -> LocalTransform {
+    self.state.borrow().base.unwrap_or(target.transform)
+  }
+
+  fn commit(&self, layout: ObjectId, target: LayoutTarget) {
+    let mut state = self.state.borrow_mut();
+    state.moved |= state
+      .committed
+      .is_some_and(|previous| previous != target || state.layout != Some(layout));
+    state.base.get_or_insert(target.transform);
+    state.committed = Some(target);
+    state.layout = Some(layout);
   }
 }
 
@@ -356,6 +414,7 @@ pub struct LayoutChild {
   destination: LayoutDestination,
   measurement: Option<LayoutMeasurement>,
   content: Child,
+  movement: Option<Transition>,
 }
 
 impl LayoutChild {
@@ -367,6 +426,7 @@ impl LayoutChild {
       destination,
       measurement: None,
       content: Child::new(content),
+      movement: None,
     }
   }
 
@@ -382,6 +442,7 @@ impl LayoutChild {
       destination,
       measurement: Some(measurement),
       content: Child::new(content),
+      movement: None,
     }
   }
 
@@ -394,6 +455,13 @@ impl LayoutChild {
       "layout item and destination IDs must match"
     );
     self.item = item;
+    self
+  }
+
+  /// Overrides movement timing for this destination and its logical descendants.
+  #[must_use]
+  pub fn movement(mut self, transition: Transition) -> Self {
+    self.movement = Some(transition);
     self
   }
 }
@@ -542,6 +610,7 @@ pub struct WorldLayout<A> {
   plane: LayoutPlane,
   extent: LayoutExtent,
   children: Vec<LayoutChild>,
+  movement: Option<Transition>,
 }
 
 impl<A> Default for WorldLayout<A>
@@ -562,6 +631,7 @@ impl<A: LayoutAlgorithm> WorldLayout<A> {
       plane: LayoutPlane::xy(Vector3::ZERO),
       extent: LayoutExtent::new(1.0, 1.0),
       children: Vec::new(),
+      movement: None,
     }
   }
 
@@ -594,6 +664,13 @@ impl<A: LayoutAlgorithm> WorldLayout<A> {
     self
   }
 
+  /// Overrides movement timing for descendant destinations without an object override.
+  #[must_use]
+  pub fn movement(mut self, transition: Transition) -> Self {
+    self.movement = Some(transition);
+    self
+  }
+
   /// Computes world targets without rendering children.
   #[must_use]
   pub fn targets(&self, items: &[LayoutItem]) -> Vec<LayoutTarget> {
@@ -618,6 +695,7 @@ impl<A: LayoutAlgorithm> WorldLayout<A> {
 
 impl<A: LayoutAlgorithm> Component for WorldLayout<A> {
   fn render(&self) -> impl Render {
+    let layout_id = hooks::use_memo(ObjectId::new_v4, ());
     let requests = self
       .children
       .iter()
@@ -659,27 +737,106 @@ impl<A: LayoutAlgorithm> Component for WorldLayout<A> {
       "every rest measurement is consumed"
     );
     let targets = items.as_ref().map(|items| self.targets(items));
-    self
+    let mut commits = Vec::with_capacity(self.children.len());
+    let rendered = self
       .children
       .iter()
       .enumerate()
-      .map(|(index, child)| {
+      .flat_map(|(index, child)| {
         let target = targets
           .as_ref()
           .map(|targets| targets[index])
           .or_else(|| child.destination.latest());
         if let Some(target) = target {
           child.destination.update(target);
+          commits.push((child.destination.clone(), target));
         }
+        let anchor = Group::new()
+          .id(*child.destination.target_id.as_uuid())
+          .transform(target.map_or_else(LocalTransform::default, |value| value.transform));
+        let anchor = if target.is_some() {
+          anchor.with_motion(MotionProps::new().animate(StyleTarget::new()))
+        } else {
+          anchor
+        };
         let group = Group::new()
           .id(child.destination.id())
+          .preserve_world_on_reparent()
           .child(child.content.render());
-        Node::new(if let Some(target) = target {
-          group.transform(target.transform)
-        } else {
-          group
-        })
+        let group = match target {
+          Some(target) => {
+            let group = group.transform(child.destination.base(target));
+            if child.destination.moving(layout_id, target) {
+              group.with_motion(MotionProps::new().animate(placement_target(target.transform)))
+            } else {
+              group.with_motion(MotionProps::new().animate(StyleTarget::new()))
+            }
+          }
+          None => group,
+        };
+        let movement = child.movement.as_ref().or(self.movement.as_ref());
+        let visual = match movement {
+          Some(transition) => Node::new(MotionConfig::new(group).transition(transition.clone())),
+          None => Node::new(group),
+        };
+        [Node::new(anchor), visual]
       })
-      .collect::<Vec<_>>()
+      .collect::<Vec<_>>();
+    hooks::use_effect_always(move || {
+      for (destination, target) in commits {
+        destination.commit(layout_id, target);
+      }
+    });
+    rendered
   }
+}
+
+impl From<LayoutDestination> for MotionPositionRef {
+  fn from(value: LayoutDestination) -> Self {
+    value.follow()
+  }
+}
+
+impl From<&LayoutDestination> for MotionPositionRef {
+  fn from(value: &LayoutDestination) -> Self {
+    value.follow()
+  }
+}
+
+fn placement_target(value: LocalTransform) -> StyleTarget {
+  let angles = quaternion_angles(value.rotation);
+  StyleTarget::new()
+    .local_position_x(value.position.x as f32)
+    .local_position_y(value.position.y as f32)
+    .local_position_z(value.position.z as f32)
+    .local_rotation_x(angles[0] as f32)
+    .local_rotation_y(angles[1] as f32)
+    .local_rotation_z(angles[2] as f32)
+    .local_scale_x(value.scale.x as f32)
+    .local_scale_y(value.scale.y as f32)
+    .local_scale_z(value.scale.z as f32)
+}
+
+fn quaternion_angles(value: battlement::Quaternion) -> [f64; 3] {
+  let length =
+    (value.x * value.x + value.y * value.y + value.z * value.z + value.w * value.w).sqrt();
+  assert!(length > f64::EPSILON, "layout rotations cannot be zero");
+  let x = value.x / length;
+  let y = value.y / length;
+  let z = value.z / length;
+  let w = value.w / length;
+  let sine = (2.0 * (w * x - y * z)).clamp(-1.0, 1.0);
+  let x_angle = sine.asin();
+  let (y_angle, z_angle) = if sine.abs() < 0.999_999_9 {
+    (
+      (2.0 * (x * z + w * y)).atan2(1.0 - 2.0 * (x * x + y * y)),
+      (2.0 * (x * y + w * z)).atan2(1.0 - 2.0 * (x * x + z * z)),
+    )
+  } else {
+    (
+      (2.0 * (w * y - x * z)).atan2(1.0 - 2.0 * (y * y + z * z)),
+      0.0,
+    )
+  };
+  [x_angle, y_angle, z_angle].map(|angle| angle.to_degrees().rem_euclid(360.0))
 }

@@ -72,7 +72,7 @@ impl MotionWorld {
     now: u64,
     reconnect: bool,
   ) {
-    let Some(definition) = definition else {
+    let Some(mut definition) = definition else {
       if let Some(id) = self.hosts.get(&host) {
         self
           .entries
@@ -84,7 +84,6 @@ impl MotionWorld {
       self.remove(host);
       return;
     };
-    definition.validate().expect("invalid Motion descriptor");
     assert_eq!(definition.host_id, host, "Motion host mismatch");
     if let Some(id) = self.hosts.get(&host) {
       assert_eq!(
@@ -100,7 +99,22 @@ impl MotionWorld {
           || (reconnect && definition.generation == previous.definition.generation),
         "Motion descriptor generation must advance"
       );
+      let declared = definition
+        .slots
+        .iter()
+        .map(|slot| slot.slot)
+        .collect::<std::collections::HashSet<_>>();
+      definition.slots.extend(
+        previous
+          .slots
+          .iter()
+          .filter(|slot| {
+            slot.definition.slot.0 >= u64::MAX - 2048 && !declared.contains(&slot.definition.slot)
+          })
+          .map(|slot| slot.definition.clone()),
+      );
     }
+    definition.validate().expect("invalid Motion descriptor");
     let mut target = previous
       .as_ref()
       .map_or_else(|| Target::new(host, world, ui), |old| old.target.clone());
@@ -118,6 +132,7 @@ impl MotionWorld {
     }
     let clock = self.clock(definition.clock, now);
     let mut slots = Vec::new();
+    let mut retained_slots = std::collections::HashSet::new();
     for slot in &definition.slots {
       let old = previous.as_ref().and_then(|old| {
         old
@@ -126,6 +141,14 @@ impl MotionWorld {
           .find(|old| old.definition.slot == slot.slot)
       });
       if let Some(old) = old {
+        if slot.slot.0 >= u64::MAX - 2048
+          && slot.generation == old.definition.generation
+          && *slot == old.definition
+        {
+          slots.push(old.clone());
+          retained_slots.insert((slot.slot, slot.generation));
+          continue;
+        }
         if reconnect && slot.generation == old.definition.generation {
           slots.push(old.clone());
           continue;
@@ -179,18 +202,10 @@ impl MotionWorld {
         .collect();
       slots.push(Slot::new(slot.clone(), tracks, clock));
     }
-    if reconnect && let Some(previous) = &previous {
-      slots.extend(
-        previous
-          .slots
-          .iter()
-          .filter(|slot| slot.definition.slot.0 >= u64::MAX - 2048)
-          .cloned(),
-      );
-    }
     slots.sort_by_key(|slot| (slot.definition.layer, slot.definition.slot));
     for slot in &slots {
-      if slot.active && (!reconnect || previous.is_none()) {
+      let retained = retained_slots.contains(&(slot.definition.slot, slot.definition.generation));
+      if slot.active && !retained && (!reconnect || previous.is_none()) {
         for track in &slot.tracks {
           let reduced = definition.reduced_motion == battlement::ReducedMotionPolicy::Always
             && motion_target::spatial(track.definition.property);
@@ -206,7 +221,7 @@ impl MotionWorld {
           );
         }
       }
-      if !reconnect || previous.is_none() {
+      if !retained && (!reconnect || previous.is_none()) {
         self.emit(id, slot, MotionEventKind::Activated, 0);
       }
     }
@@ -215,7 +230,11 @@ impl MotionWorld {
     if let Some(previous) = previous {
       restore = LayerRestore::install(&definition, &mut target, world, ui, previous.restore);
       for old in &previous.slots {
-        if !reconnect && old.outcome.is_none() && old.definition.callbacks.cancel {
+        if !reconnect
+          && !retained_slots.contains(&(old.definition.slot, old.definition.generation))
+          && old.outcome.is_none()
+          && old.definition.callbacks.cancel
+        {
           self.emit(
             id,
             old,

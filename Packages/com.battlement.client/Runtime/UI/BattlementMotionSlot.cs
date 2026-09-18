@@ -235,6 +235,21 @@ namespace Battlement.UI
                 FindTrack(value.Property)?.RetargetDestination(target, value.Value, elapsed);
         }
 
+        public void RetargetFromPresentation(ulong clockMicros)
+        {
+            AnchorMicros = clockMicros;
+            HeldMicros = 0;
+            Paused = false;
+            SeekPending = false;
+            Terminal = false;
+            Cancelled = false;
+            Outcome = null;
+            emittedStart = false;
+            emittedIteration = 0;
+            foreach (TrackState track in tracks)
+                track.Retarget(target);
+        }
+
         public void ApplyOrigin(IBattlementMotionTarget target)
         {
             foreach (TrackState track in tracks)

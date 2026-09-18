@@ -408,7 +408,9 @@ fn unspecified_transitions_use_motion_property_and_keyframe_defaults() {
       StyleTarget::new()
         .opacity(0.7)
         .x(20.0)
+        .local_position_x(20.0)
         .scale(0.0)
+        .local_scale_x(0.0)
         .background_color_keyframes(Keyframes::new([
           Color::rgba(0.0, 0.0, 0.0, 1.0),
           Color::rgba(0.5, 0.5, 0.5, 1.0),
@@ -446,7 +448,21 @@ fn unspecified_transitions_use_motion_property_and_keyframe_defaults() {
     })
   ));
   assert!(matches!(
+    track(MotionProperty::LocalPositionX).transition.generator,
+    TransitionGenerator::Spring(SpringConfiguration::Physical {
+      stiffness: 500.0,
+      damping: 25.0,
+      rest_speed: Some(10.0),
+      ..
+    })
+  ));
+  assert!(matches!(
     track(MotionProperty::Scale).transition.generator,
+    TransitionGenerator::Spring(SpringConfiguration::Physical { damping, .. })
+      if (damping - 2.0 * 550.0_f64.sqrt()).abs() < f64::EPSILON
+  ));
+  assert!(matches!(
+    track(MotionProperty::LocalScaleX).transition.generator,
     TransitionGenerator::Spring(SpringConfiguration::Physical { damping, .. })
       if (damping - 2.0 * 550.0_f64.sqrt()).abs() < f64::EPSILON
   ));

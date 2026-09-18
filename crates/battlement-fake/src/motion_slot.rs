@@ -110,6 +110,26 @@ impl Slot {
     }
   }
 
+  pub(crate) fn retarget_from_presentation(
+    &mut self,
+    target: &mut Target,
+    world: &FakeWorld,
+    ui: &UiWorld,
+    now: u64,
+  ) {
+    self.anchor = now;
+    self.held = 0;
+    self.paused = false;
+    self.seek = false;
+    self.outcome = None;
+    self.started = false;
+    self.iteration = 0;
+    self.presentation.clear();
+    for track in &mut self.tracks {
+      track.retarget(target.read(track.definition.property, world, ui));
+    }
+  }
+
   pub(crate) fn deadline(&self, now: u64) -> Option<u64> {
     if !self.active || self.outcome.is_some() {
       return None;

@@ -65,6 +65,7 @@ pub struct Group {
   events: PointerHandlers,
   navigation: NavigationHandlers,
   pointer: battlement::WorldPointerSettings,
+  preserve_world_on_reparent: bool,
   id: Option<Uuid>,
   motion: MotionProps,
 }
@@ -107,6 +108,7 @@ impl Component for SceneRoot {
                   active: true,
                   clickable: false,
                   world_pointer: None,
+                  preserve_world_on_reparent: false,
                   render_order: None,
                   material_instances: Vec::new(),
                 })
@@ -132,6 +134,7 @@ impl Group {
       events: PointerHandlers::new(),
       navigation: NavigationHandlers::new(),
       pointer: battlement::WorldPointerSettings::default(),
+      preserve_world_on_reparent: false,
       id: None,
       motion: MotionProps::new(),
     }
@@ -187,6 +190,11 @@ impl Group {
   /// Sets the local transform relative to the physical parent.
   pub fn transform(mut self, transform: LocalTransform) -> Self {
     self.transform = transform;
+    self
+  }
+
+  pub(crate) fn preserve_world_on_reparent(mut self) -> Self {
+    self.preserve_world_on_reparent = true;
     self
   }
   /// Sets the local position.
@@ -287,6 +295,7 @@ impl Component for Group {
         .into_iter()
         .any(|enabled| enabled),
       world_pointer: Some(pointer),
+      preserve_world_on_reparent: self.preserve_world_on_reparent,
       render_order: self.render_order,
       material_instances: self.material_instances.clone(),
     })

@@ -141,6 +141,10 @@ key = "presentation-lifetime.released"
 screen = "presentation-lifetime"
 
 [[states]]
+key = "draw-reflow.ready"
+screen = "draw-reflow"
+
+[[states]]
 key = "destruction-queue.initial"
 screen = "destruction-queue"
 

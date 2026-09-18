@@ -21,6 +21,7 @@ pub(crate) struct WorldDescription {
   pub(crate) material_instances: Vec<battlement::MaterialInstance>,
   pub(crate) clickable: bool,
   pub(crate) world_pointer: Option<battlement::WorldPointerSettings>,
+  pub(crate) preserve_world_on_reparent: bool,
 }
 
 pub(crate) struct WorldAdapter;
@@ -120,11 +121,16 @@ impl HostAdapter for WorldAdapter {
     bodies.into_iter().map(Command::new_v4).collect()
   }
 
-  fn move_command(object_id: ObjectId, parent_id: ObjectId, _: u32) -> Command {
+  fn move_command(
+    description: &WorldDescription,
+    object_id: ObjectId,
+    parent_id: ObjectId,
+    _: u32,
+  ) -> Command {
     Command::new_v4(CommandBody::ObjectReparent(ObjectReparentPayload {
       object_id,
       parent_id: Some(parent_id),
-      world_position_stays: false,
+      world_position_stays: description.preserve_world_on_reparent,
     }))
   }
 

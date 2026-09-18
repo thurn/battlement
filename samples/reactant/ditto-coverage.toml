@@ -213,6 +213,12 @@ checkpoint = "released"
 owner = "reactant-testing::presentation_lifetime"
 
 [[mappings]]
+state = "draw-reflow.ready"
+scenario = "draw reflow"
+checkpoint = "ready"
+owner = "reactant-testing::world_layout"
+
+[[mappings]]
 state = "destruction-queue.initial"
 scenario = "queued destruction"
 checkpoint = "initial"

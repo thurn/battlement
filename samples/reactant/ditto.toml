@@ -306,6 +306,18 @@ accessibility_assert = { target = { role = "heading", name = "Active 0 / release
 screenshot = { name = "released" }
 
 [[scenarios]]
+name = "draw reflow"
+fixture = "draw-reflow"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Run draw reflow" }, role = "button", name = "Run draw reflow" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Draw ready" }, role = "heading", name = "Draw ready" }
+[[scenarios.steps]]
+screenshot = { name = "ready" }
+
+[[scenarios]]
 name = "queued destruction"
 fixture = "destruction-queue"
 [[scenarios.steps]]

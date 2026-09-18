@@ -48,6 +48,8 @@ pub struct AnimationScope {
 pub enum MotionSelector {
   /// One attached host ref.
   Element(ElementRef),
+  /// One exact stable presentation identity.
+  Identified(battlement::ObjectId),
   /// Hosts carrying a stable motion name.
   Name(String),
   /// The scope root.
@@ -74,9 +76,15 @@ pub struct SequenceTarget {
 /// A typed host or named world-anchor position used by a sequence target.
 #[derive(Clone)]
 pub struct MotionPositionRef {
-  element: ElementRef,
+  source: MotionPositionSource,
   anchor: Option<String>,
   resolution: MotionReferenceResolution,
+}
+
+#[derive(Clone)]
+enum MotionPositionSource {
+  Element(ElementRef),
+  Identified(battlement::ObjectId),
 }
 
 /// Placement for the most recently appended sequence step.
@@ -267,6 +275,11 @@ impl MotionSelector {
     Self::Element(value)
   }
 
+  /// Selects one host by its stable presentation identity.
+  pub fn identified(value: battlement::ObjectId) -> Self {
+    Self::Identified(value)
+  }
+
   /// Selects hosts with one nonempty stable name.
   pub fn name(value: impl Into<String>) -> Self {
     let value = value.into();
@@ -282,6 +295,7 @@ impl MotionSelector {
           .2
           .expect("motion selector element ref is not attached"),
       ),
+      Self::Identified(value) => battlement::MotionSelector::Element(value),
       Self::Name(value) => battlement::MotionSelector::Name(value),
       Self::ScopeRoot => battlement::MotionSelector::ScopeRoot,
       Self::Children => battlement::MotionSelector::Children,
@@ -302,8 +316,8 @@ impl SequenceTarget {
 
   /// Moves to one typed host or named world-anchor position.
   #[must_use]
-  pub fn position(mut self, value: MotionPositionRef) -> Self {
-    self.position = Some(value);
+  pub fn position(mut self, value: impl Into<MotionPositionRef>) -> Self {
+    self.position = Some(value.into());
     self
   }
 }
@@ -325,7 +339,18 @@ impl MotionPositionRef {
   #[must_use]
   pub fn element(value: ElementRef) -> Self {
     Self {
-      element: value,
+      source: MotionPositionSource::Element(value),
+      anchor: None,
+      resolution: MotionReferenceResolution::CaptureAtStart,
+    }
+  }
+
+  /// References a host by stable presentation identity.
+  #[doc(hidden)]
+  #[must_use]
+  pub fn identified(value: battlement::ObjectId) -> Self {
+    Self {
+      source: MotionPositionSource::Identified(value),
       anchor: None,
       resolution: MotionReferenceResolution::CaptureAtStart,
     }
@@ -337,7 +362,7 @@ impl MotionPositionRef {
     let anchor = anchor.into();
     assert!(!anchor.is_empty(), "Motion position anchor is empty");
     Self {
-      element: value,
+      source: MotionPositionSource::Element(value),
       anchor: Some(anchor),
       resolution: MotionReferenceResolution::CaptureAtStart,
     }
@@ -359,11 +384,13 @@ impl MotionPositionRef {
 
   fn into_protocol(self) -> battlement::MotionPositionReference {
     battlement::MotionPositionReference {
-      object_id: self
-        .element
-        .geometry_identity()
-        .2
-        .expect("Motion position ref is not attached"),
+      object_id: match self.source {
+        MotionPositionSource::Element(value) => value
+          .geometry_identity()
+          .2
+          .expect("Motion position ref is not attached"),
+        MotionPositionSource::Identified(value) => value,
+      },
       anchor: self.anchor,
       resolution: self.resolution,
     }
