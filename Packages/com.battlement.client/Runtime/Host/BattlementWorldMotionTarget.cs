@@ -18,16 +18,22 @@ namespace Battlement
     }
 
     /// <summary>Composes transform placement and local interaction channels.</summary>
-    internal sealed class BattlementWorldMotionTarget : IBattlementMotionTarget
+    internal sealed class BattlementWorldMotionTarget
+        : IBattlementMotionTarget,
+            IBattlementLayoutProjectionTarget
     {
         private readonly Transform transform;
         private readonly IBattlementMotionAudio? audioSources;
+        private readonly IBattlementGeometryWorldSource? geometryWorld;
+        private readonly IBattlementGeometryDisplaySource geometryDisplays;
         private UnityVector3 position;
         private UnityVector3 rotation;
         private UnityVector3 scale;
         private UnityVector3 offset;
         private UnityVector3 tilt;
         private UnityVector3 scaleFactor = UnityVector3.one;
+        private UnityVector3 layoutOffset;
+        private UnityVector3 layoutScale = UnityVector3.one;
         private UnityVector3 displayedPosition;
         private UnityQuaternion displayedRotation;
         private UnityVector3 displayedScale;
@@ -42,11 +48,15 @@ namespace Battlement
 
         public BattlementWorldMotionTarget(
             Transform transform,
-            IBattlementMotionAudio? audioSources = null
+            IBattlementMotionAudio? audioSources = null,
+            IBattlementGeometryWorldSource? geometryWorld = null,
+            IBattlementGeometryDisplaySource? geometryDisplays = null
         )
         {
             this.transform = transform;
             this.audioSources = audioSources;
+            this.geometryWorld = geometryWorld;
+            this.geometryDisplays = geometryDisplays ?? new UnityBattlementGeometryDisplaySource();
             position = transform.localPosition;
             rotation = transform.localEulerAngles;
             scale = transform.localScale;
@@ -187,6 +197,21 @@ namespace Battlement
 
         public bool IsSpatial(MotionProperty property) => SupportsTransform(property);
 
+        internal Transform Transform => transform;
+
+        BattlementLayoutDomain IBattlementLayoutProjectionTarget.Domain =>
+            BattlementLayoutDomain.World;
+
+        ViewportRect IBattlementLayoutProjectionTarget.VisibleBounds(
+            MotionLayoutDescriptor descriptor
+        ) => ProjectionTarget().VisibleBounds(descriptor);
+
+        IBattlementLayoutProjection IBattlementLayoutProjectionTarget.CreateProjection(
+            MotionLayoutDescriptor descriptor,
+            BattlementLayoutOrigin origin,
+            ulong anchorMicros
+        ) => ProjectionTarget().CreateProjection(descriptor, origin, anchorMicros);
+
         public MotionValue Read(MotionProperty property)
         {
             Require(property);
@@ -284,13 +309,7 @@ namespace Battlement
                 default:
                     throw Invalid("Unknown transform Motion channel.");
             }
-            UnityQuaternion placement = UnityQuaternion.Euler(rotation);
-            transform.SetLocalPositionAndRotation(
-                position + placement * UnityVector3.Scale(scale, offset),
-                placement * UnityQuaternion.Euler(tilt)
-            );
-            transform.localScale = UnityVector3.Scale(scale, scaleFactor);
-            RememberPresentation();
+            ApplyPresentation();
         }
 
         public void WriteAdaptedScalar(MotionProperty property, double value) =>
@@ -302,6 +321,25 @@ namespace Battlement
             );
 
         public void RemoveContribution(MotionProperty property) { }
+
+        internal void SetLayoutProjection(UnityVector3 worldOffset, UnityVector3 projectedScale)
+        {
+            SynchronizePresentation();
+            layoutOffset =
+                transform.parent == null
+                    ? worldOffset
+                    : transform.parent.InverseTransformVector(worldOffset);
+            layoutScale = projectedScale;
+            ApplyPresentation();
+        }
+
+        internal void ClearLayoutProjection()
+        {
+            SynchronizePresentation();
+            layoutOffset = UnityVector3.zero;
+            layoutScale = UnityVector3.one;
+            ApplyPresentation();
+        }
 
         public bool Contains(IBattlementMotionTarget target) =>
             target is BattlementWorldMotionTarget world && world.transform.IsChildOf(transform);
@@ -341,6 +379,8 @@ namespace Battlement
                 light.intensity = lightOrigin;
             RestoreParticles();
             RestoreAudio();
+            if (transform != null)
+                ClearLayoutProjection();
             light = null;
             particles = Array.Empty<ParticleSystem>();
             particleOrigins = Array.Empty<float>();
@@ -363,13 +403,29 @@ namespace Battlement
             if (transform.localScale != displayedScale)
             {
                 for (int axis = 0; axis < 3; axis++)
-                    if (scaleFactor[axis] != 0)
-                        scale[axis] = transform.localScale[axis] / scaleFactor[axis];
+                    if (scaleFactor[axis] != 0 && layoutScale[axis] != 0)
+                        scale[axis] =
+                            transform.localScale[axis] / scaleFactor[axis] / layoutScale[axis];
             }
             if (transform.localPosition != displayedPosition)
                 position =
                     transform.localPosition
-                    - UnityQuaternion.Euler(rotation) * UnityVector3.Scale(scale, offset);
+                    - UnityQuaternion.Euler(rotation) * UnityVector3.Scale(scale, offset)
+                    - layoutOffset;
+        }
+
+        private void ApplyPresentation()
+        {
+            UnityQuaternion placement = UnityQuaternion.Euler(rotation);
+            transform.SetLocalPositionAndRotation(
+                position + placement * UnityVector3.Scale(scale, offset) + layoutOffset,
+                placement * UnityQuaternion.Euler(tilt)
+            );
+            transform.localScale = UnityVector3.Scale(
+                UnityVector3.Scale(scale, scaleFactor),
+                layoutScale
+            );
+            RememberPresentation();
         }
 
         private void RememberPresentation()
@@ -387,6 +443,16 @@ namespace Battlement
 
         private static BattlementUiException Invalid(string message) =>
             new(CoreErrorCode.InvalidProperty, message);
+
+        private BattlementWorldLayoutProjectionTarget ProjectionTarget() =>
+            new(
+                this,
+                geometryWorld
+                    ?? throw Invalid(
+                        "UI/world layout projection requires the native world geometry source."
+                    ),
+                geometryDisplays
+            );
 
         private static IEnumerable<MotionPropertyTrack> Tracks(MotionDescriptor descriptor) =>
             (descriptor.Initial?.Tracks ?? Array.Empty<MotionPropertyTrack>())

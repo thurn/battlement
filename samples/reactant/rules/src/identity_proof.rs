@@ -1,5 +1,6 @@
 use battlement::{
-  CameraProjection, CameraState, GameObject, ObjectId, ParentScene, UiDocument, Vector3, object_id,
+  CameraProjection, CameraState, GameObject, ObjectId, ParentScene, Rect, UiDocument, Vector3,
+  object_id,
 };
 use reactant::{
   app::App,
@@ -25,6 +26,14 @@ struct Card {
 }
 
 pub(crate) fn app() -> App<Game> {
+  app_with_projection(CameraProjection::Orthographic)
+}
+
+pub(crate) fn perspective_app() -> App<Game> {
+  app_with_projection(CameraProjection::Perspective)
+}
+
+fn app_with_projection(camera_projection: CameraProjection) -> App<Game> {
   let mut app = App::with_model(CONTENT_SCENE, model::new());
   let portal = app.create_portal_target();
   let destination = portal.clone();
@@ -60,7 +69,8 @@ pub(crate) fn app() -> App<Game> {
       GameObject::new(
         camera.object_id,
         CameraState::new()
-          .projection(CameraProjection::Orthographic)
+          .projection(camera_projection)
+          .field_of_view(50.0)
           .orthographic_size(5.0),
       )
       .parent_scene(ParentScene::Persistent)
@@ -91,6 +101,9 @@ impl Component for Card {
     let face = View::new()
       .id(*FACE_ID.as_uuid())
       .element_ref(reference)
+      .layout(Layout::Both)
+      .layout_id(CARD_ID)
+      .ui_world_projection(self::projection())
       .child((
         Heading::new(ls(format!("Card count: {count} at {location}")), 2),
         Button::new(ls("Increment card")).on_press(increment.clone()),
@@ -112,9 +125,25 @@ impl Component for Card {
             .id(*VISUAL_ID.as_uuid())
             .position(Vector3::new(4.5 + f64::from(count) * 0.12, -2.0, 0.0))
             .scale(Vector3::new(1.3, 1.3, 1.3))
-            .on_click(Callback::noop()),
+            .on_click(Callback::noop())
+            .motion(
+              MotionProps::new()
+                .layout(Layout::Both)
+                .layout_id(VISUAL_ID)
+                .ui_world_projection(self::projection()),
+            ),
         ),
       ),
     )
   }
+}
+
+fn projection() -> UiWorldProjection {
+  UiWorldProjection::new(
+    ProjectionCamera::Input,
+    Vector3::ZERO,
+    Vector3::new(1.0, 0.0, 0.0),
+    Vector3::new(0.0, 1.0, 0.0),
+    Rect::new(3.2, -3.3, 2.6, 2.6),
+  )
 }

@@ -544,8 +544,37 @@ namespace Battlement
                     value.Scroll,
                     value.Root,
                     value.PopLayout,
-                    Transition(value.Transition ?? throw Missing("motion layout transition"))
+                    Transition(value.Transition ?? throw Missing("motion layout transition")),
+                    value.Projection.HasValue ? MotionProjection(value.Projection.Value) : null
                 );
+
+            private static MotionProjectionDescriptor MotionProjection(
+                Wire.MotionProjectionDescriptor value
+            )
+            {
+                Wire.MotionProjectionPlane plane =
+                    value.Plane ?? throw Missing("motion projection plane");
+                Wire.Rectd rectangle =
+                    value.WorldRect ?? throw Missing("motion projection rectangle");
+                CameraTarget camera = value.CameraKind switch
+                {
+                    Wire.MotionProjectionCameraKind.Input => new CameraTarget.Input(),
+                    Wire.MotionProjectionCameraKind.Object when value.CameraObjectId.HasValue =>
+                        new CameraTarget.Object(ObjectId(value.CameraObjectId)),
+                    _ => throw new InvalidDataException(
+                        "Motion projection camera kind and payload do not match."
+                    ),
+                };
+                return new MotionProjectionDescriptor(
+                    camera,
+                    new MotionProjectionPlane(
+                        new Vector3(plane.Origin.X, plane.Origin.Y, plane.Origin.Z),
+                        new Vector3(plane.XAxis.X, plane.XAxis.Y, plane.XAxis.Z),
+                        new Vector3(plane.YAxis.X, plane.YAxis.Y, plane.YAxis.Z)
+                    ),
+                    new Rect(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height)
+                );
+            }
 
             private static MotionLayoutIdentity MotionLayoutIdentity(
                 Wire.MotionLayoutIdentity value

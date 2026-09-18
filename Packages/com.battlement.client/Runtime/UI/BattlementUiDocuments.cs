@@ -146,6 +146,7 @@ namespace Battlement.UI
                         );
                     },
                 resolveElement: id => hierarchy.TryGet(id, out VisualElement? value) ? value : null,
+                uiProjectionSpace: ProjectionSpace,
                 gestureTime: uiTime,
                 presentationChanged: presentationLayout.Refresh
             );
@@ -179,6 +180,43 @@ namespace Battlement.UI
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
+        }
+
+        private BattlementUiProjectionSpace ProjectionSpace(VisualElement element)
+        {
+            if (
+                !hierarchy.TryGetId(element, out Guid id)
+                || !hierarchy.TryGetGeometryTarget(
+                    new ObjectId(id),
+                    out _,
+                    out _,
+                    out UIDocument document
+                )
+                || element.panel is null
+            )
+                throw new BattlementUiException(
+                    CoreErrorCode.InvalidProperty,
+                    "Layout projection requires an attached Battlement UI element."
+                );
+            PanelSettings panel = document.panelSettings;
+            if (
+                panel.renderMode == UnityEngine.UIElements.PanelRenderMode.WorldSpace
+                || panel.targetTexture != null
+            )
+                throw new BattlementUiException(
+                    CoreErrorCode.InvalidProperty,
+                    "Shared UI layout requires a physical display panel mapping."
+                );
+            double scale = element.panel.scaledPixelsPerPoint;
+            if (!double.IsFinite(scale) || scale <= 0)
+                throw new BattlementUiException(
+                    CoreErrorCode.InvalidProperty,
+                    "Shared UI layout requires a positive panel scale."
+                );
+            return new BattlementUiProjectionSpace(
+                new DisplayId(checked((uint)panel.targetDisplay)),
+                scale
+            );
         }
 
         /// <summary>Creates an empty native UI-document GameObject.</summary>

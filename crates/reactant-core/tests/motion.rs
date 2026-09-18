@@ -10,8 +10,8 @@ use battlement::{
   MotionGeneration, MotionGestureAxis, MotionGestureEvent, MotionGestureEventKind,
   MotionGestureVector, MotionPointerDevice, MotionProperty, MotionRepeat, MotionRepeatType,
   MotionSequence, MotionValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset,
-  Prop, Scene, SceneId, SessionId, Snapshot, SpringConfiguration, Style, TransitionGenerator,
-  UiDocument, UiDocumentState, UiVisualElementProperties,
+  Prop, Rect, Scene, SceneId, SessionId, Snapshot, SpringConfiguration, Style, TransitionGenerator,
+  UiDocument, UiDocumentState, UiVisualElementProperties, Vector3,
 };
 use reactant_core::{
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -152,6 +152,13 @@ impl Component for LayoutContract {
       View::new()
         .layout(Layout::Both)
         .layout_id("active")
+        .ui_world_projection(UiWorldProjection::new(
+          ProjectionCamera::Input,
+          Vector3::new(0.0, 0.0, 0.0),
+          Vector3::new(1.0, 0.0, 0.0),
+          Vector3::new(0.0, 1.0, 0.0),
+          Rect::new(-2.0, -1.0, 4.0, 2.0),
+        ))
         .layout_scroll(true)
         .layout_root(true)
         .transition(Transition::tween().duration_secs(0.4).property(
@@ -1196,6 +1203,9 @@ fn layout_projection_shared_handoff_and_reorder_lower_native_contract() {
   let layout = descriptor.layout.as_ref().expect("layout configuration");
   assert_eq!(layout.mode, battlement::MotionLayoutMode::Both);
   assert!(layout.layout_id.is_some());
+  let projection = layout.projection.as_ref().expect("UI/world projection");
+  assert_eq!(projection.world_rect, Rect::new(-2.0, -1.0, 4.0, 2.0));
+  assert_eq!(projection.plane.x_axis, Vector3::new(1.0, 0.0, 0.0));
   assert!(layout.scroll);
   assert!(layout.root);
   assert!(matches!(

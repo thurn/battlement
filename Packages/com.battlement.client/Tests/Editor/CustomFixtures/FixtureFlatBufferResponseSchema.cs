@@ -14,7 +14,7 @@ namespace Battlement.CustomFixtures
             IBattlementFlatBufferClientSchema
     {
         public const string ContractDigest =
-            "5c6c5ecf617aca8c0b243721b70698637529c829532980b8fbc4704cfe5ec9c9";
+            "89c44c37122fcb8fef9566cf4784655dbc14446428751309785ce8818176c356";
 
         private readonly FlatBufferBuilder clientBuilder = new(1024);
         private readonly Func<object, byte> errorEncoder;

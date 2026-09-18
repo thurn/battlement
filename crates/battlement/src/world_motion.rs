@@ -12,7 +12,14 @@ pub(crate) fn validate(
   descriptor
     .validate()
     .map_err(|_| ValidationError::InvalidReference)?;
-  if descriptor.host_id != host || descriptor.layout.is_some() {
+  if descriptor.host_id != host {
+    return Err(ValidationError::InvalidReference);
+  }
+  if descriptor
+    .layout
+    .as_ref()
+    .is_some_and(|layout| layout.projection.is_none())
+  {
     return Err(ValidationError::InvalidReference);
   }
   if !descriptor.animations.is_empty() || !descriptor.decorations.is_empty() {

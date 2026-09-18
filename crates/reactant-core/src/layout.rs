@@ -6,7 +6,10 @@ use std::{
   hash::{Hash, Hasher},
 };
 
-use battlement::{MotionLayoutDescriptor, MotionLayoutIdentity, MotionLayoutMode};
+use battlement::{
+  MotionLayoutDescriptor, MotionLayoutIdentity, MotionLayoutMode, MotionProjectionCamera,
+  MotionProjectionDescriptor, MotionProjectionPlane, ObjectId, Rect, Vector3,
+};
 
 use crate::{
   gesture::DragAxis,
@@ -28,6 +31,25 @@ pub enum Layout {
   Size,
   /// Preserve both visual position and size.
   Both,
+}
+
+/// Camera used to project a compatible world representation.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ProjectionCamera {
+  /// Use the session's selected input camera.
+  Input,
+  /// Use the enabled camera component on this object.
+  Object(ObjectId),
+}
+
+/// Explicit camera, plane, and rectangle mapping for a UI/world handoff.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiWorldProjection {
+  camera: ProjectionCamera,
+  origin: Vector3,
+  x_axis: Vector3,
+  y_axis: Vector3,
+  world_rect: Rect,
 }
 
 /// Hostless logical boundary for shared-layout identity.
@@ -88,6 +110,42 @@ impl<R: Render> Sealed for LayoutGroup<R> {
   }
 }
 
+impl UiWorldProjection {
+  /// Creates a projection whose rectangle is expressed in the declared plane axes.
+  #[must_use]
+  pub fn new(
+    camera: ProjectionCamera,
+    origin: Vector3,
+    x_axis: Vector3,
+    y_axis: Vector3,
+    world_rect: Rect,
+  ) -> Self {
+    self::validate_projection(origin, x_axis, y_axis, world_rect);
+    Self {
+      camera,
+      origin,
+      x_axis,
+      y_axis,
+      world_rect,
+    }
+  }
+
+  fn descriptor(self) -> MotionProjectionDescriptor {
+    MotionProjectionDescriptor {
+      camera: match self.camera {
+        ProjectionCamera::Input => MotionProjectionCamera::Input,
+        ProjectionCamera::Object(value) => MotionProjectionCamera::Object(value),
+      },
+      plane: MotionProjectionPlane {
+        origin: self.origin,
+        x_axis: self.x_axis,
+        y_axis: self.y_axis,
+      },
+      world_rect: self.world_rect,
+    }
+  }
+}
+
 impl MotionProps {
   /// Enables state-driven layout projection.
   #[must_use]
@@ -100,6 +158,13 @@ impl MotionProps {
   #[must_use]
   pub fn layout_id<K: Hash + 'static>(mut self, value: K) -> Self {
     self.layout.layout_id = Some(identity(value));
+    self
+  }
+
+  /// Supplies the explicit projection required for a UI/world layout handoff.
+  #[must_use]
+  pub fn ui_world_projection(mut self, value: UiWorldProjection) -> Self {
+    self.layout.projection = Some(value);
     self
   }
 
@@ -153,6 +218,7 @@ impl MotionProps {
             .map(|(_, value)| value.clone())
         })
         .unwrap_or_else(|| Transition::spring().default),
+      projection: self.layout.projection.map(UiWorldProjection::descriptor),
     })
   }
 }
@@ -163,6 +229,45 @@ pub(crate) struct LayoutProps {
   pub(crate) layout_id: Option<MotionLayoutIdentity>,
   pub(crate) scroll: bool,
   pub(crate) root: bool,
+  pub(crate) projection: Option<UiWorldProjection>,
+}
+
+fn validate_projection(origin: Vector3, x_axis: Vector3, y_axis: Vector3, world_rect: Rect) {
+  let values = [
+    origin.x,
+    origin.y,
+    origin.z,
+    x_axis.x,
+    x_axis.y,
+    x_axis.z,
+    y_axis.x,
+    y_axis.y,
+    y_axis.z,
+    world_rect.x,
+    world_rect.y,
+    world_rect.width,
+    world_rect.height,
+  ];
+  assert!(
+    values.into_iter().all(f64::is_finite),
+    "UI/world projection values must be finite"
+  );
+  assert!(
+    world_rect.width > 0.0 && world_rect.height > 0.0,
+    "UI/world projection rectangle must be positive"
+  );
+  let length = |value: Vector3| (value.x * value.x + value.y * value.y + value.z * value.z).sqrt();
+  let x_length = length(x_axis);
+  let y_length = length(y_axis);
+  assert!(
+    (x_length - 1.0).abs() <= 1e-6 && (y_length - 1.0).abs() <= 1e-6,
+    "UI/world projection plane axes must be unit length"
+  );
+  let dot = x_axis.x * y_axis.x + x_axis.y * y_axis.y + x_axis.z * y_axis.z;
+  assert!(
+    dot.abs() <= 1e-6,
+    "UI/world projection plane axes must be orthogonal"
+  );
 }
 
 /// Returns the insertion index reached after dragging across ordered centers.

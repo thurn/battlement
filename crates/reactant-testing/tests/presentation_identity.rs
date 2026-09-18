@@ -3,7 +3,10 @@ use std::{
   rc::Rc,
 };
 
-use battlement::ObjectId;
+use battlement::{
+  CameraProjection, CameraState, GameObject, ObjectId, ParentScene, Rect,
+  UiVisualElementProperties, Vector3,
+};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{app::App, element_ref, hooks, host::ButtonHost, prelude::*};
 use reactant_testing::Display;
@@ -23,6 +26,82 @@ struct Counter(Probe);
 struct Screen {
   id: ObjectId,
   probe: Probe,
+}
+
+struct UiWorldTransfer {
+  ui_id: ObjectId,
+  world_id: ObjectId,
+}
+
+impl Component for UiWorldTransfer {
+  fn render(&self) -> impl Render {
+    let (world, set_world) = hooks::use_state(false);
+    let projection = UiWorldProjection::new(
+      ProjectionCamera::Input,
+      Vector3::new(0.0, 0.0, 0.0),
+      Vector3::new(1.0, 0.0, 0.0),
+      Vector3::new(0.0, 1.0, 0.0),
+      Rect::new(-2.0, -1.0, 4.0, 2.0),
+    );
+    (
+      ButtonHost::new(ls("Transfer"))
+        .name("transfer")
+        .on_click(set_world.update_callback(|value| !value)),
+      (!world).then(|| {
+        View::new()
+          .id(*self.ui_id.as_uuid())
+          .name("transfer-card")
+          .layout(Layout::Both)
+          .layout_id("public-transfer")
+          .ui_world_projection(projection)
+      }),
+      SceneRoot::new(battlement::ParentScene::PrimaryScene).child(world.then(|| {
+        WorldGroup::new().id(*self.world_id.as_uuid()).motion(
+          MotionProps::new()
+            .layout(Layout::Both)
+            .layout_id("public-transfer")
+            .ui_world_projection(projection),
+        )
+      })),
+    )
+  }
+}
+
+#[test]
+fn display_transfers_a_shared_layout_between_ui_and_world_with_explicit_projection() {
+  let ui_id = ObjectId::new_v4();
+  let world_id = ObjectId::new_v4();
+  let app = App::new("identity/scene")
+    .ui(UiWorldTransfer { ui_id, world_id })
+    .camera(|camera| {
+      GameObject::new(
+        camera.object_id,
+        CameraState::new()
+          .projection(CameraProjection::Orthographic)
+          .orthographic_size(5.0),
+      )
+      .parent_scene(ParentScene::Persistent)
+      .position(Vector3::new(0.0, 0.0, -10.0))
+    });
+  let root = app.root_document().root_id;
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("identity/scene");
+  let mut display = Display::connect(app, assets);
+  display.settle();
+  display.poll();
+
+  let ui = display.find_ui(root, "transfer-card");
+  let battlement::Prop::Set(motion) = &display.ui_element(ui).element().visual_element().motion
+  else {
+    panic!("transfer card has no Motion descriptor");
+  };
+  assert!(motion.layout.as_ref().unwrap().projection.is_some());
+
+  display.click_ui(display.find_ui(root, "transfer"));
+  display.poll();
+
+  assert!(!display.contains_ui(ui_id));
+  assert!(display.object(world_id).is_some());
 }
 
 impl Component for Counter {

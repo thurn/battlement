@@ -2,10 +2,13 @@ use battlement::{
   AnimatorSpeedPayload, AudioClipAddress, AudioPlayPayload, CameraClearMode, CameraClearPayload,
   CameraClippingPayload, CameraState, Color, Command, CommandBody, GameObject, GameObjectKind,
   MaterialAddress, MaterialAssignment, MaterialInstance, MaterialParameter,
-  MaterialParameterDeclaration, MaterialParameterKind, ParentScene, ParticlePlayPayload,
-  PreparedAsset, PropertyCommand, Quaternion, RepeatMode, RotationPayload, Scene, SceneAddress,
-  Snapshot, SpotAnglePayload, TextMeshProFontAddress, Tween, TweenRepeat, TweenScalePayload,
-  Validate, ValidationError, Vector3, WaitPayload,
+  MaterialParameterDeclaration, MaterialParameterKind, MotionClockSource, MotionDescriptor,
+  MotionGeneration, MotionLayoutDescriptor, MotionLayoutIdentity, MotionLayoutMode,
+  MotionProjectionCamera, MotionProjectionDescriptor, MotionProjectionPlane, ParentScene,
+  ParticlePlayPayload, PreparedAsset, PropertyCommand, Quaternion, Rect, ReducedMotionPolicy,
+  RepeatMode, RotationPayload, Scene, SceneAddress, Snapshot, SpotAnglePayload,
+  StyleTransitionDescriptor, TextMeshProFontAddress, TransitionDefinition, Tween, TweenRepeat,
+  TweenScalePayload, Validate, ValidationError, Vector3, WaitPayload,
 };
 
 const SESSION_ID: &str = "94fa422b-301d-442d-b9a7-10ea54318e78";
@@ -155,6 +158,37 @@ fn snapshot_validation_rejects_cross_placement_parents_and_duplicate_material_sl
 }
 
 #[test]
+fn snapshot_validation_requires_a_live_projection_camera_for_world_layout_motion() {
+  let host_id = OBJECT_ID.parse().unwrap();
+  let mut valid = base_snapshot();
+  let mut host = GameObject::new(host_id, GameObjectKind::Empty);
+  host.motion = Some(Box::new(world_layout_motion(
+    host_id,
+    MotionProjectionCamera::Input,
+  )));
+  valid.objects.push(host.clone());
+  assert_eq!(valid.validate(), Ok(()));
+
+  let mut missing_input = valid.clone();
+  missing_input.input_camera_id = None;
+  assert_eq!(
+    missing_input.validate(),
+    Err(ValidationError::InvalidReference)
+  );
+
+  let mut missing_object = base_snapshot();
+  host.motion = Some(Box::new(world_layout_motion(
+    host_id,
+    MotionProjectionCamera::Object(SECOND_SCENE_ID.parse().unwrap()),
+  )));
+  missing_object.objects.push(host);
+  assert_eq!(
+    missing_object.validate(),
+    Err(ValidationError::InvalidReference)
+  );
+}
+
+#[test]
 fn command_validation_rejects_cross_field_and_blocking_failures() {
   let command_id = COMMAND_ID.parse().unwrap();
   let object_id = OBJECT_ID.parse().unwrap();
@@ -291,6 +325,57 @@ fn base_snapshot() -> Snapshot {
     )],
     camera_id,
   )
+}
+
+fn world_layout_motion(
+  host_id: battlement::ObjectId,
+  camera: MotionProjectionCamera,
+) -> MotionDescriptor {
+  MotionDescriptor {
+    descriptor_id: COMMAND_ID.parse().unwrap(),
+    host_id,
+    generation: MotionGeneration(1),
+    initial: None,
+    initial_disabled: false,
+    slots: Vec::new(),
+    clock: MotionClockSource::Unscaled,
+    reduced_motion: ReducedMotionPolicy::Never,
+    pseudo_styles: Vec::new(),
+    style_transition: StyleTransitionDescriptor::default(),
+    animations: Vec::new(),
+    decorations: Vec::new(),
+    variants: None,
+    values: Vec::new(),
+    value_bindings: Vec::new(),
+    value_subscriptions: Vec::new(),
+    control_id: None,
+    scope_id: None,
+    scope_root: false,
+    motion_name: None,
+    named_targets: Vec::new(),
+    gestures: None,
+    layout: Some(MotionLayoutDescriptor {
+      mode: MotionLayoutMode::Both,
+      group: MotionLayoutIdentity {
+        value_type: "validation".to_owned(),
+        value_hash: 1,
+      },
+      layout_id: None,
+      scroll: false,
+      root: false,
+      pop_layout: false,
+      transition: TransitionDefinition::tween(),
+      projection: Some(MotionProjectionDescriptor {
+        camera,
+        plane: MotionProjectionPlane {
+          origin: Vector3::ZERO,
+          x_axis: Vector3::new(1.0, 0.0, 0.0),
+          y_axis: Vector3::new(0.0, 1.0, 0.0),
+        },
+        world_rect: Rect::new(-1.0, -1.0, 2.0, 2.0),
+      }),
+    }),
+  }
 }
 
 #[test]

@@ -170,8 +170,51 @@ namespace Battlement.UI
                 && string.IsNullOrWhiteSpace(layoutId.ValueType)
             )
                 throw Invalid("A shared layout identity type must be nonblank.");
+            if (layout.Projection is MotionProjectionDescriptor projection)
+                ValidateProjection(projection);
             ValidateTransition(MotionProperty.Layout, layout.Transition, 2);
         }
+
+        private static void ValidateProjection(MotionProjectionDescriptor projection)
+        {
+            MotionProjectionPlane plane = projection.Plane;
+            double[] values =
+            {
+                plane.Origin.X,
+                plane.Origin.Y,
+                plane.Origin.Z,
+                plane.XAxis.X,
+                plane.XAxis.Y,
+                plane.XAxis.Z,
+                plane.YAxis.X,
+                plane.YAxis.Y,
+                plane.YAxis.Z,
+                projection.WorldRect.X,
+                projection.WorldRect.Y,
+                projection.WorldRect.Width,
+                projection.WorldRect.Height,
+            };
+            foreach (double value in values)
+                if (!double.IsFinite(value))
+                    throw Invalid("UI/world projection values must be finite.");
+            if (projection.WorldRect.Width <= 0 || projection.WorldRect.Height <= 0)
+                throw Invalid("A UI/world projection rectangle must be positive.");
+            double xLength = Length(plane.XAxis);
+            double yLength = Length(plane.YAxis);
+            double dot =
+                plane.XAxis.X * plane.YAxis.X
+                + plane.XAxis.Y * plane.YAxis.Y
+                + plane.XAxis.Z * plane.YAxis.Z;
+            if (
+                Math.Abs(xLength - 1) > 0.000001
+                || Math.Abs(yLength - 1) > 0.000001
+                || Math.Abs(dot) > 0.000001
+            )
+                throw Invalid("UI/world projection axes must be orthogonal unit vectors.");
+        }
+
+        private static double Length(Vector3 value) =>
+            Math.Sqrt(value.X * value.X + value.Y * value.Y + value.Z * value.Z);
 
         private static void ValidateStyleTransition(TransitionDefinition transition)
         {

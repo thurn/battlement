@@ -161,7 +161,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void SharedLayoutRejectsCrossPanelHandoffs()
+        public void SharedLayoutAcceptsCrossPanelHandoffsOnOnePhysicalDisplay()
         {
             using var first = new PanelFixture();
             using var second = new PanelFixture();
@@ -174,11 +174,23 @@ namespace Battlement.Tests
             ObjectId destinationHost = Id("75300000-0000-4000-8000-000000000002");
             world.Install(source, sourceHost, Descriptor(sourceHost, 1));
 
-            Assert.Throws<BattlementUiException>(() =>
+            Assert.DoesNotThrow(() =>
             {
                 world.Install(destination, destinationHost, Descriptor(destinationHost, 2));
                 world.PostLayout();
             });
+        }
+
+        [Test]
+        public void UiProjectionSpaceConvertsThroughPhysicalPixelsAcrossPanelScales()
+        {
+            var first = new BattlementUiProjectionSpace(new DisplayId(0), 2);
+            var second = new BattlementUiProjectionSpace(new DisplayId(0), 1.25);
+
+            ViewportRect viewport = first.ToViewport(new UnityEngine.Rect(10, 20, 100, 50));
+            UnityEngine.Rect destination = second.FromViewport(viewport);
+
+            Assert.That(destination, Is.EqualTo(new UnityEngine.Rect(16, 32, 160, 80)));
         }
 
         private static MotionDescriptor Descriptor(ObjectId host, uint generation) =>

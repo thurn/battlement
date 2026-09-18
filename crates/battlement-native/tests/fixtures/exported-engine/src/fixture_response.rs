@@ -88,7 +88,7 @@ fn require_fixture_error(value: wire::FixtureError) -> Result<(), EngineError> {
 }
 
 pub(crate) const WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
-  b"5c6c5ecf617aca8c0b243721b70698637529c829532980b8fbc4704cfe5ec9c9\0";
+  b"89c44c37122fcb8fef9566cf4784655dbc14446428751309785ce8818176c356\0";
 
 pub(crate) fn write_response(
   response: &Response<AnyCommand<FlashPayload>>,

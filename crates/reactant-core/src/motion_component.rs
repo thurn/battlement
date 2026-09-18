@@ -5,6 +5,7 @@ use std::any::TypeId;
 use crate::{
   component::Component,
   key::StructuralRender,
+  layout::{Layout, UiWorldProjection},
   motion::{InitialValue, MotionProps, MotionTarget, Transition},
   render::{Render, RenderSink},
   render_value::Sealed,
@@ -54,6 +55,24 @@ pub trait MotionComponentExt: MotionComponent + Clone {
   #[must_use]
   fn transition(self, value: Transition) -> ForwardedMotion<Self> {
     ForwardedMotion::new(self, MotionProps::new().transition(value))
+  }
+
+  /// Enables state-driven native layout projection.
+  #[must_use]
+  fn layout(self, value: Layout) -> ForwardedMotion<Self> {
+    ForwardedMotion::new(self, MotionProps::new().layout(value))
+  }
+
+  /// Assigns typed identity for a shared-layout handoff.
+  #[must_use]
+  fn layout_id<K: std::hash::Hash + 'static>(self, value: K) -> ForwardedMotion<Self> {
+    ForwardedMotion::new(self, MotionProps::new().layout_id(value))
+  }
+
+  /// Supplies the explicit projection required for a UI/world layout handoff.
+  #[must_use]
+  fn ui_world_projection(self, value: UiWorldProjection) -> ForwardedMotion<Self> {
+    ForwardedMotion::new(self, MotionProps::new().ui_world_projection(value))
   }
 
   /// Replaces the typed target definitions available to the forwarded host.

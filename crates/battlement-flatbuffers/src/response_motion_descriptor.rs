@@ -377,6 +377,10 @@ fn write_layout<'a, A: Allocator + 'a>(
     .as_ref()
     .map(|value| write_layout_identity(builder, value));
   let transition = response_motion::write_transition(builder, &value.transition)?;
+  let projection = value
+    .projection
+    .as_ref()
+    .map(|value| write_projection(builder, value));
   Ok(wire::MotionLayoutDescriptor::create(
     builder,
     &wire::MotionLayoutDescriptorArgs {
@@ -391,8 +395,43 @@ fn write_layout<'a, A: Allocator + 'a>(
       root: value.root,
       pop_layout: value.pop_layout,
       transition: Some(transition),
+      projection,
     },
   ))
+}
+
+fn write_projection<'a, A: Allocator + 'a>(
+  builder: &mut FlatBufferBuilder<'a, A>,
+  value: &battlement::MotionProjectionDescriptor,
+) -> WIPOffset<wire::MotionProjectionDescriptor<'a>> {
+  let (camera_kind, camera_object_id) = match value.camera {
+    battlement::MotionProjectionCamera::Input => (wire::MotionProjectionCameraKind::Input, None),
+    battlement::MotionProjectionCamera::Object(value) => (
+      wire::MotionProjectionCameraKind::Object,
+      Some(uuid(value.as_uuid())),
+    ),
+  };
+  let vector = |value: battlement::Vector3| common::Vector3d::new(value.x, value.y, value.z);
+  let plane = wire::MotionProjectionPlane::new(
+    &vector(value.plane.origin),
+    &vector(value.plane.x_axis),
+    &vector(value.plane.y_axis),
+  );
+  let world_rect = common::Rectd::new(
+    value.world_rect.x,
+    value.world_rect.y,
+    value.world_rect.width,
+    value.world_rect.height,
+  );
+  wire::MotionProjectionDescriptor::create(
+    builder,
+    &wire::MotionProjectionDescriptorArgs {
+      camera_kind,
+      camera_object_id: camera_object_id.as_ref(),
+      plane: Some(&plane),
+      world_rect: Some(&world_rect),
+    },
+  )
 }
 
 fn write_layout_identity<'a, A: Allocator + 'a>(

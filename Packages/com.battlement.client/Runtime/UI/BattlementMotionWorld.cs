@@ -29,6 +29,7 @@ namespace Battlement.UI
         private readonly Func<double> scaledTime;
         private readonly Func<ObjectId, MotionClockSample>? audioTime;
         private readonly Func<ObjectId, VisualElement?> resolveElement;
+        private readonly Func<VisualElement, BattlementUiProjectionSpace> uiProjectionSpace;
         private readonly Func<TimeSpan> gestureTime;
         private readonly Func<bool> reducedMotion;
         private readonly System.Action? presentationChanged;
@@ -46,6 +47,7 @@ namespace Battlement.UI
             IBattlementUiAssetLookup? assetLookup = null,
             Func<ObjectId, MotionClockSample>? audioTime = null,
             Func<ObjectId, VisualElement?>? resolveElement = null,
+            Func<VisualElement, BattlementUiProjectionSpace>? uiProjectionSpace = null,
             Func<TimeSpan>? gestureTime = null,
             Func<bool>? reducedMotion = null,
             System.Action? presentationChanged = null
@@ -55,6 +57,7 @@ namespace Battlement.UI
             this.scaledTime = scaledTime ?? (() => Time.timeAsDouble);
             this.audioTime = audioTime;
             this.resolveElement = resolveElement ?? (_ => null);
+            this.uiProjectionSpace = uiProjectionSpace ?? DefaultUiProjectionSpace;
             this.gestureTime =
                 gestureTime ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble));
             this.reducedMotion = reducedMotion ?? BattlementReducedMotion.Read;
@@ -174,14 +177,18 @@ namespace Battlement.UI
                 }
             }
 
+            IBattlementLayoutProjectionTarget? layoutTarget = descriptor.Layout is null
+                ? null
+                : LayoutTarget(target);
             var prepared = new DescriptorState(
                 descriptor,
                 target,
                 ClockMicros(descriptor.Clock),
                 previous,
-                target is BattlementUiMotionTarget ui
-                    ? sharedLayouts.Origin(descriptor, ui.Element, previous, descriptors.Values)
-                    : null,
+                layoutTarget,
+                layoutTarget is null
+                    ? null
+                    : sharedLayouts.Origin(descriptor, layoutTarget, previous, descriptors.Values),
                 reconnect.Active,
                 retainedImperatives
             );
@@ -1993,6 +2000,21 @@ namespace Battlement.UI
 
         private static BattlementUiException Invalid(string message) =>
             new(CoreErrorCode.InvalidProperty, message);
+
+        private IBattlementLayoutProjectionTarget LayoutTarget(IBattlementMotionTarget target) =>
+            target switch
+            {
+                BattlementUiMotionTarget ui => new BattlementUiLayoutProjectionTarget(
+                    ui.Element,
+                    uiProjectionSpace
+                ),
+                IBattlementLayoutProjectionTarget projection => projection,
+                _ => throw Invalid("Layout Motion requires a projection-capable host."),
+            };
+
+        private static BattlementUiProjectionSpace DefaultUiProjectionSpace(
+            VisualElement element
+        ) => new(new DisplayId(0), element.panel is null ? 1 : element.panel.scaledPixelsPerPoint);
 
         private sealed record ActiveControl(
             ObjectId PlaybackId,

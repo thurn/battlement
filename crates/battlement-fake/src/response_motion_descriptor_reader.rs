@@ -1,7 +1,10 @@
 //! Verified retained decoding for UI motion descriptors.
 
 use battlement::Prop;
-use battlement_flatbuffers::schema_generated::{motion_generated as motion_wire, ui_generated};
+use battlement_flatbuffers::schema_generated::{
+  common_generated, motion_generated as motion_wire, ui_generated,
+};
+use common_generated::battlement::flat_buffers::generated as common_wire;
 use ui_generated::battlement::flat_buffers::generated as wire;
 
 use crate::{response_motion_reader as motion, response_reader::object_id};
@@ -604,6 +607,43 @@ fn layout(
     root: value.root(),
     pop_layout: value.pop_layout(),
     transition: motion::transition(value.transition())?,
+    projection: value.projection().map(projection).transpose()?,
+  })
+}
+
+fn projection(
+  value: wire::MotionProjectionDescriptor<'_>,
+) -> Result<battlement::MotionProjectionDescriptor, String> {
+  let vector = |value: &common_wire::Vector3d| battlement::Vector3 {
+    x: value.x(),
+    y: value.y(),
+    z: value.z(),
+  };
+  let plane = value.plane();
+  let world_rect = value.world_rect();
+  Ok(battlement::MotionProjectionDescriptor {
+    camera: match value.camera_kind() {
+      wire::MotionProjectionCameraKind::Input => battlement::MotionProjectionCamera::Input,
+      wire::MotionProjectionCameraKind::Object => {
+        battlement::MotionProjectionCamera::Object(object_id(
+          value
+            .camera_object_id()
+            .ok_or_else(|| "motion projection camera object is missing".to_owned())?,
+        )?)
+      }
+      _ => return Err("motion projection camera kind is unknown".to_owned()),
+    },
+    plane: battlement::MotionProjectionPlane {
+      origin: vector(plane.origin()),
+      x_axis: vector(plane.x_axis()),
+      y_axis: vector(plane.y_axis()),
+    },
+    world_rect: battlement::Rect::new(
+      world_rect.x(),
+      world_rect.y(),
+      world_rect.width(),
+      world_rect.height(),
+    ),
   })
 }
 

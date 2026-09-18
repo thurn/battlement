@@ -146,6 +146,7 @@ impl Validate for Snapshot {
       }
       validate_object(object, &prepared)?;
       validate_parent_chain(object, primary_scene, &objects)?;
+      validate_world_motion_projection_camera(object, self.input_camera_id, &objects)?;
     }
 
     crate::material_validation::prepared(self)?;
@@ -166,6 +167,34 @@ impl Validate for Snapshot {
     }
 
     Ok(())
+  }
+}
+
+fn validate_world_motion_projection_camera(
+  object: &GameObject,
+  input_camera_id: Option<ObjectId>,
+  objects: &HashMap<ObjectId, &GameObject>,
+) -> Result<(), ValidationError> {
+  let Some(projection) = object
+    .motion
+    .as_ref()
+    .and_then(|motion| motion.layout.as_ref())
+    .and_then(|layout| layout.projection)
+  else {
+    return Ok(());
+  };
+  let camera_id = match projection.camera {
+    MotionProjectionCamera::Input => input_camera_id.ok_or(ValidationError::InvalidReference)?,
+    MotionProjectionCamera::Object(camera_id) => camera_id,
+  };
+  let camera = objects
+    .get(&camera_id)
+    .ok_or(ValidationError::InvalidReference)?;
+  match &camera.kind {
+    GameObjectKind::Camera { camera: state } if state.enabled => {
+      validate_active_chain(camera, objects)
+    }
+    _ => Err(ValidationError::InvalidReference),
   }
 }
 

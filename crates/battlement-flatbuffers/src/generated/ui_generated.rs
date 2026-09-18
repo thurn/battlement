@@ -5333,6 +5333,97 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
+      pub const ENUM_MIN_MOTION_PROJECTION_CAMERA_KIND: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_MOTION_PROJECTION_CAMERA_KIND: u8 = 1;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_MOTION_PROJECTION_CAMERA_KIND: [MotionProjectionCameraKind; 2] = [
+        MotionProjectionCameraKind::Input,
+        MotionProjectionCameraKind::Object,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct MotionProjectionCameraKind(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl MotionProjectionCameraKind {
+        pub const Input: Self = Self(0);
+        pub const Object: Self = Self(1);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 1;
+        pub const ENUM_VALUES: &'static [Self] = &[Self::Input, Self::Object];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Input => Some("Input"),
+            Self::Object => Some("Object"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for MotionProjectionCameraKind {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for MotionProjectionCameraKind {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for MotionProjectionCameraKind {
+        type Output = MotionProjectionCameraKind;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for MotionProjectionCameraKind {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for MotionProjectionCameraKind {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for MotionProjectionCameraKind {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
       pub const ENUM_MIN_UI_PART: u16 = 0;
       #[deprecated(
         since = "2.0.0",
@@ -6287,6 +6378,115 @@ pub mod battlement {
               ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
             );
           }
+        }
+      }
+
+      // struct MotionProjectionPlane, aligned to 8
+      #[repr(transparent)]
+      #[derive(Clone, Copy, PartialEq)]
+      pub struct MotionProjectionPlane(pub [u8; 72]);
+      impl Default for MotionProjectionPlane {
+        fn default() -> Self {
+          Self([0; 72])
+        }
+      }
+      impl ::core::fmt::Debug for MotionProjectionPlane {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          f.debug_struct("MotionProjectionPlane")
+            .field("origin", &self.origin())
+            .field("x_axis", &self.x_axis())
+            .field("y_axis", &self.y_axis())
+            .finish()
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for MotionProjectionPlane {}
+      impl<'a> ::flatbuffers::Follow<'a> for MotionProjectionPlane {
+        type Inner = &'a MotionProjectionPlane;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          unsafe { <&'a MotionProjectionPlane>::follow(buf, loc) }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for &'a MotionProjectionPlane {
+        type Inner = &'a MotionProjectionPlane;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          unsafe { ::flatbuffers::follow_cast_ref::<MotionProjectionPlane>(buf, loc) }
+        }
+      }
+      impl<'b> ::flatbuffers::Push for MotionProjectionPlane {
+        type Output = MotionProjectionPlane;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          let src = unsafe {
+            ::core::slice::from_raw_parts(
+              self as *const MotionProjectionPlane as *const u8,
+              <Self as ::flatbuffers::Push>::size(),
+            )
+          };
+          dst.copy_from_slice(src);
+        }
+        #[inline]
+        fn alignment() -> ::flatbuffers::PushAlignment {
+          ::flatbuffers::PushAlignment::new(8)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for MotionProjectionPlane {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.in_buffer::<Self>(pos)
+        }
+      }
+
+      impl<'a> MotionProjectionPlane {
+        #[allow(clippy::too_many_arguments)]
+        pub fn new(origin: &Vector3d, x_axis: &Vector3d, y_axis: &Vector3d) -> Self {
+          let mut s = Self([0; 72]);
+          s.set_origin(origin);
+          s.set_x_axis(x_axis);
+          s.set_y_axis(y_axis);
+          s
+        }
+
+        pub fn origin(&self) -> &Vector3d {
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid struct in this slot
+          unsafe { &*(self.0[0..].as_ptr() as *const Vector3d) }
+        }
+
+        #[allow(clippy::identity_op)]
+        pub fn set_origin(&mut self, x: &Vector3d) {
+          self.0[0..0 + 24].copy_from_slice(&x.0)
+        }
+
+        pub fn x_axis(&self) -> &Vector3d {
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid struct in this slot
+          unsafe { &*(self.0[24..].as_ptr() as *const Vector3d) }
+        }
+
+        #[allow(clippy::identity_op)]
+        pub fn set_x_axis(&mut self, x: &Vector3d) {
+          self.0[24..24 + 24].copy_from_slice(&x.0)
+        }
+
+        pub fn y_axis(&self) -> &Vector3d {
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid struct in this slot
+          unsafe { &*(self.0[48..].as_ptr() as *const Vector3d) }
+        }
+
+        #[allow(clippy::identity_op)]
+        pub fn set_y_axis(&mut self, x: &Vector3d) {
+          self.0[48..48 + 24].copy_from_slice(&x.0)
         }
       }
 
@@ -21521,6 +21721,208 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum MotionProjectionDescriptorOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MotionProjectionDescriptor<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MotionProjectionDescriptor<'a> {
+        type Inner = MotionProjectionDescriptor<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MotionProjectionDescriptor<'a> {
+        pub const VT_CAMERA_KIND: ::flatbuffers::VOffsetT = 4;
+        pub const VT_CAMERA_OBJECT_ID: ::flatbuffers::VOffsetT = 6;
+        pub const VT_PLANE: ::flatbuffers::VOffsetT = 8;
+        pub const VT_WORLD_RECT: ::flatbuffers::VOffsetT = 10;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MotionProjectionDescriptor { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MotionProjectionDescriptorArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MotionProjectionDescriptor<'bldr>> {
+          let mut builder = MotionProjectionDescriptorBuilder::new(_fbb);
+          if let Some(x) = args.world_rect {
+            builder.add_world_rect(x);
+          }
+          if let Some(x) = args.plane {
+            builder.add_plane(x);
+          }
+          if let Some(x) = args.camera_object_id {
+            builder.add_camera_object_id(x);
+          }
+          builder.add_camera_kind(args.camera_kind);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn camera_kind(&self) -> MotionProjectionCameraKind {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MotionProjectionCameraKind>(
+                MotionProjectionDescriptor::VT_CAMERA_KIND,
+                Some(MotionProjectionCameraKind::Input),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn camera_object_id(&self) -> Option<&'a Uuid> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(MotionProjectionDescriptor::VT_CAMERA_OBJECT_ID, None)
+          }
+        }
+        #[inline]
+        pub fn plane(&self) -> &'a MotionProjectionPlane {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MotionProjectionPlane>(MotionProjectionDescriptor::VT_PLANE, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn world_rect(&self) -> &'a Rectd {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Rectd>(MotionProjectionDescriptor::VT_WORLD_RECT, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MotionProjectionDescriptor<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<MotionProjectionCameraKind>("camera_kind", Self::VT_CAMERA_KIND, false)?
+            .visit_field::<Uuid>("camera_object_id", Self::VT_CAMERA_OBJECT_ID, false)?
+            .visit_field::<MotionProjectionPlane>("plane", Self::VT_PLANE, true)?
+            .visit_field::<Rectd>("world_rect", Self::VT_WORLD_RECT, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MotionProjectionDescriptorArgs<'a> {
+        pub camera_kind: MotionProjectionCameraKind,
+        pub camera_object_id: Option<&'a Uuid>,
+        pub plane: Option<&'a MotionProjectionPlane>,
+        pub world_rect: Option<&'a Rectd>,
+      }
+      impl<'a> Default for MotionProjectionDescriptorArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MotionProjectionDescriptorArgs {
+            camera_kind: MotionProjectionCameraKind::Input,
+            camera_object_id: None,
+            plane: None,      // required field
+            world_rect: None, // required field
+          }
+        }
+      }
+
+      pub struct MotionProjectionDescriptorBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MotionProjectionDescriptorBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_camera_kind(&mut self, camera_kind: MotionProjectionCameraKind) {
+          self.fbb_.push_slot::<MotionProjectionCameraKind>(
+            MotionProjectionDescriptor::VT_CAMERA_KIND,
+            camera_kind,
+            MotionProjectionCameraKind::Input,
+          );
+        }
+        #[inline]
+        pub fn add_camera_object_id(&mut self, camera_object_id: &Uuid) {
+          self.fbb_.push_slot_always::<&Uuid>(
+            MotionProjectionDescriptor::VT_CAMERA_OBJECT_ID,
+            camera_object_id,
+          );
+        }
+        #[inline]
+        pub fn add_plane(&mut self, plane: &MotionProjectionPlane) {
+          self.fbb_.push_slot_always::<&MotionProjectionPlane>(
+            MotionProjectionDescriptor::VT_PLANE,
+            plane,
+          );
+        }
+        #[inline]
+        pub fn add_world_rect(&mut self, world_rect: &Rectd) {
+          self
+            .fbb_
+            .push_slot_always::<&Rectd>(MotionProjectionDescriptor::VT_WORLD_RECT, world_rect);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MotionProjectionDescriptorBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MotionProjectionDescriptorBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MotionProjectionDescriptor<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, MotionProjectionDescriptor::VT_PLANE, "plane");
+          self
+            .fbb_
+            .required(o, MotionProjectionDescriptor::VT_WORLD_RECT, "world_rect");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MotionProjectionDescriptor<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MotionProjectionDescriptor");
+          ds.field("camera_kind", &self.camera_kind());
+          ds.field("camera_object_id", &self.camera_object_id());
+          ds.field("plane", &self.plane());
+          ds.field("world_rect", &self.world_rect());
+          ds.finish()
+        }
+      }
       pub enum MotionLayoutDescriptorOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -21546,6 +21948,7 @@ pub mod battlement {
         pub const VT_ROOT: ::flatbuffers::VOffsetT = 12;
         pub const VT_POP_LAYOUT: ::flatbuffers::VOffsetT = 14;
         pub const VT_TRANSITION: ::flatbuffers::VOffsetT = 16;
+        pub const VT_PROJECTION: ::flatbuffers::VOffsetT = 18;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -21562,6 +21965,9 @@ pub mod battlement {
           args: &'args MotionLayoutDescriptorArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<MotionLayoutDescriptor<'bldr>> {
           let mut builder = MotionLayoutDescriptorBuilder::new(_fbb);
+          if let Some(x) = args.projection {
+            builder.add_projection(x);
+          }
           if let Some(x) = args.transition {
             builder.add_transition(x);
           }
@@ -21673,6 +22079,20 @@ pub mod battlement {
               .unwrap()
           }
         }
+        #[inline]
+        pub fn projection(&self) -> Option<MotionProjectionDescriptor<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<MotionProjectionDescriptor>>(
+                MotionLayoutDescriptor::VT_PROJECTION,
+                None,
+              )
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for MotionLayoutDescriptor<'_> {
@@ -21701,6 +22121,11 @@ pub mod battlement {
               Self::VT_TRANSITION,
               true,
             )?
+            .visit_field::<::flatbuffers::ForwardsUOffset<MotionProjectionDescriptor>>(
+              "projection",
+              Self::VT_PROJECTION,
+              false,
+            )?
             .finish();
           Ok(())
         }
@@ -21713,6 +22138,7 @@ pub mod battlement {
         pub root: bool,
         pub pop_layout: bool,
         pub transition: Option<::flatbuffers::WIPOffset<TransitionDefinition<'a>>>,
+        pub projection: Option<::flatbuffers::WIPOffset<MotionProjectionDescriptor<'a>>>,
       }
       impl<'a> Default for MotionLayoutDescriptorArgs<'a> {
         #[inline]
@@ -21725,6 +22151,7 @@ pub mod battlement {
             root: false,
             pop_layout: false,
             transition: None, // required field
+            projection: None,
           }
         }
       }
@@ -21794,6 +22221,18 @@ pub mod battlement {
             );
         }
         #[inline]
+        pub fn add_projection(
+          &mut self,
+          projection: ::flatbuffers::WIPOffset<MotionProjectionDescriptor<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<MotionProjectionDescriptor>>(
+              MotionLayoutDescriptor::VT_PROJECTION,
+              projection,
+            );
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> MotionLayoutDescriptorBuilder<'a, 'b, A> {
@@ -21826,6 +22265,7 @@ pub mod battlement {
           ds.field("root", &self.root());
           ds.field("pop_layout", &self.pop_layout());
           ds.field("transition", &self.transition());
+          ds.field("projection", &self.projection());
           ds.finish()
         }
       }

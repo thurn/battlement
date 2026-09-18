@@ -960,6 +960,7 @@ impl MotionProps {
         layout_id: None,
         scroll: false,
         root: false,
+        projection: None,
       },
     }
   }
@@ -1068,6 +1069,9 @@ impl MotionProps {
     }
     if value.layout.layout_id.is_some() {
       self.layout.layout_id = value.layout.layout_id;
+    }
+    if value.layout.projection.is_some() {
+      self.layout.projection = value.layout.projection;
     }
     self.layout.scroll |= value.layout.scroll;
     self.layout.root |= value.layout.root;

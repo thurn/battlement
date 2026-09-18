@@ -121,6 +121,11 @@ fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineErr
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("presentation-identity") {
     return Ok(crate::identity_proof::app());
   }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref()
+    == Ok("presentation-identity-perspective")
+  {
+    return Ok(crate::identity_proof::perspective_app());
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("mixed-tree") {
     return Ok(crate::mixed_proof::app());
   }

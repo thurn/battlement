@@ -121,6 +121,7 @@ fn decodes_nested_ui_state_from_verified_response_bytes() {
   let root_id = battlement::ObjectId::new_v4();
   let host_id = battlement::ObjectId::new_v4();
   let value_id = battlement::ObjectId::new_v4();
+  let projection_camera_id = battlement::ObjectId::new_v4();
   let descriptor = battlement::MotionDescriptor {
     descriptor_id: battlement::ObjectId::new_v4(),
     host_id,
@@ -167,7 +168,30 @@ fn decodes_nested_ui_state_from_verified_response_bytes() {
     motion_name: Some("card".to_owned()),
     named_targets: Vec::new(),
     gestures: None,
-    layout: None,
+    layout: Some(battlement::MotionLayoutDescriptor {
+      mode: battlement::MotionLayoutMode::Both,
+      group: battlement::MotionLayoutIdentity {
+        value_type: "projection-group".to_owned(),
+        value_hash: 17,
+      },
+      layout_id: Some(battlement::MotionLayoutIdentity {
+        value_type: "card".to_owned(),
+        value_hash: 29,
+      }),
+      scroll: false,
+      root: false,
+      pop_layout: false,
+      transition: battlement::TransitionDefinition::tween(),
+      projection: Some(battlement::MotionProjectionDescriptor {
+        camera: battlement::MotionProjectionCamera::Object(projection_camera_id),
+        plane: battlement::MotionProjectionPlane {
+          origin: battlement::Vector3::new(0.0, 0.0, 0.0),
+          x_axis: battlement::Vector3::new(1.0, 0.0, 0.0),
+          y_axis: battlement::Vector3::new(0.0, 1.0, 0.0),
+        },
+        world_rect: battlement::Rect::new(-2.0, -1.0, 4.0, 2.0),
+      }),
+    }),
   };
   let paint = battlement::PaintStyle::fill(battlement::Color::rgb(0.2, 0.3, 0.4)).box_shadow([
     battlement::Shadow {

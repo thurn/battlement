@@ -85,10 +85,15 @@ namespace Battlement.UI
                         "Motion gesture callbacks and viewport values require a UI Motion host."
                     );
             }
-            if (descriptor.Layout is not null || descriptor.StyleTransition?.All is not null)
+            if (descriptor.Layout is MotionLayoutDescriptor layout && layout.Projection is null)
                 throw new BattlementUiException(
                     CoreErrorCode.InvalidProperty,
-                    "UI layout and style transitions require a UI Motion host."
+                    "World layout Motion requires an explicit projection."
+                );
+            if (descriptor.StyleTransition?.All is not null)
+                throw new BattlementUiException(
+                    CoreErrorCode.InvalidProperty,
+                    "Style transitions require a UI Motion host."
                 );
             if (descriptor.StyleTransition?.Properties.Count > 0)
                 throw new BattlementUiException(

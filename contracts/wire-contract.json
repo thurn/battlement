@@ -18,7 +18,7 @@
       "geometry.fbs": "93ff8a952145709d22c2d62361cc10645901e9637de32eb7c8966e508b8696c7",
       "motion.fbs": "f2c8e28b86e6833d9d4c6c2354d114e3ee99fb4cb7523c4c6e2bd0cc48bebd78",
       "response.fbs": "a558cbe10c4ccbb3fa927d9fdc985ee58b99412e3f49469da8ec19aa4b4d52a1",
-      "ui.fbs": "49f1b64006a1c8dee26f40a88739b7f7b37b8646d7c70b38758eeab6c0184736",
+      "ui.fbs": "e2249f3147b68c520fec9697ad979058fcd1c6ef393f60fea7b3011f16cbb795",
       "ui_event.fbs": "eba5eb77a44c688c9bb0734f9640e53f478121dad57e508c0c97d6db1784d40d",
       "world.fbs": "b773efbf055f59304fdbbd1fdf7a8948f8ec54745f8e645e3607df702f7ba538"
     },

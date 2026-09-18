@@ -628,6 +628,12 @@ macro_rules! facade {
         self.motion(MotionProps::new().layout_id(value))
       }
 
+      /// Supplies the explicit projection required for a UI/world layout handoff.
+      #[must_use]
+      pub fn ui_world_projection(self, value: crate::layout::UiWorldProjection) -> Self {
+        self.motion(MotionProps::new().ui_world_projection(value))
+      }
+
       /// Marks this host as a projection-aware scroll boundary.
       #[must_use]
       pub fn layout_scroll(self, value: bool) -> Self {

@@ -9,7 +9,7 @@ using Object = UnityEngine.Object;
 
 namespace Battlement
 {
-    internal sealed class BattlementWorld : IDisposable
+    internal sealed class BattlementWorld : IDisposable, IBattlementGeometryWorldSource
     {
         private readonly Dictionary<Guid, BattlementIdentity> objects = new();
         private readonly Dictionary<Guid, GameObject> sceneContainers = new();
@@ -33,6 +33,19 @@ namespace Battlement
         internal BattlementWorldMotion Motion { get; }
 
         public Camera? InputCamera => input.Camera;
+
+        Camera? IBattlementGeometryWorldSource.InputCamera => InputCamera;
+
+        BattlementGeometryObjectKind IBattlementGeometryWorldSource.LookupObject(
+            ObjectId id,
+            out GameObject? gameObject
+        )
+        {
+            if (TryGetObject(id, out gameObject))
+                return BattlementGeometryObjectKind.World;
+            return BattlementGeometryObjectKind.Missing;
+        }
+
         internal IEnumerable<BattlementIdentity> Identities => objects.Values;
 
         public BattlementWorld(Scene hostScene, BattlementPreparedAssets preparedAssets)

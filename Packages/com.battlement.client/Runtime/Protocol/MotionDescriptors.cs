@@ -197,6 +197,16 @@ namespace Battlement
     /// <summary>Stable typed identity for a layout group or shared handoff.</summary>
     public sealed record MotionLayoutIdentity(string ValueType, ulong ValueHash);
 
+    /// <summary>Explicit world plane used by a compatible UI/world handoff.</summary>
+    public sealed record MotionProjectionPlane(Vector3 Origin, Vector3 XAxis, Vector3 YAxis);
+
+    /// <summary>Camera, plane, and rectangle mapping for a UI/world handoff.</summary>
+    public sealed record MotionProjectionDescriptor(
+        CameraTarget Camera,
+        MotionProjectionPlane Plane,
+        Rect WorldRect
+    );
+
     /// <summary>Native layout-projection configuration for one host.</summary>
     public sealed record MotionLayoutDescriptor(
         MotionLayoutMode Mode,
@@ -205,7 +215,8 @@ namespace Battlement
         bool Scroll,
         bool Root,
         bool PopLayout,
-        TransitionDefinition Transition
+        TransitionDefinition Transition,
+        MotionProjectionDescriptor? Projection = null
     );
 
     /// <summary>Complete validated animation state installed beside one host.</summary>

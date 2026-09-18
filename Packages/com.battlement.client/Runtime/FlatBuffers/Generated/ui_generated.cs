@@ -740,6 +740,12 @@ public enum MotionLayoutMode : byte
   Both = 2,
 };
 
+public enum MotionProjectionCameraKind : byte
+{
+  Input = 0,
+  Object = 1,
+};
+
 public enum UiPart : ushort
 {
   ButtonIcon = 0,
@@ -4542,6 +4548,76 @@ static public class MotionLayoutIdentityVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct MotionProjectionPlane : IFlatbufferObject
+{
+  private Struct __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Struct(_i, _bb); }
+  public MotionProjectionPlane __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Vector3d Origin { get { return (new Battlement.FlatBuffers.Generated.Vector3d()).__assign(__p.bb_pos + 0, __p.bb); } }
+  public Battlement.FlatBuffers.Generated.Vector3d XAxis { get { return (new Battlement.FlatBuffers.Generated.Vector3d()).__assign(__p.bb_pos + 24, __p.bb); } }
+  public Battlement.FlatBuffers.Generated.Vector3d YAxis { get { return (new Battlement.FlatBuffers.Generated.Vector3d()).__assign(__p.bb_pos + 48, __p.bb); } }
+
+  public static Offset<Battlement.FlatBuffers.Generated.MotionProjectionPlane> CreateMotionProjectionPlane(FlatBufferBuilder builder, double origin_X, double origin_Y, double origin_Z, double x_axis_X, double x_axis_Y, double x_axis_Z, double y_axis_X, double y_axis_Y, double y_axis_Z) {
+    builder.Prep(8, 72);
+    builder.Prep(8, 24);
+    builder.PutDouble(y_axis_Z);
+    builder.PutDouble(y_axis_Y);
+    builder.PutDouble(y_axis_X);
+    builder.Prep(8, 24);
+    builder.PutDouble(x_axis_Z);
+    builder.PutDouble(x_axis_Y);
+    builder.PutDouble(x_axis_X);
+    builder.Prep(8, 24);
+    builder.PutDouble(origin_Z);
+    builder.PutDouble(origin_Y);
+    builder.PutDouble(origin_X);
+    return new Offset<Battlement.FlatBuffers.Generated.MotionProjectionPlane>(builder.Offset);
+  }
+}
+
+public struct MotionProjectionDescriptor : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static MotionProjectionDescriptor GetRootAsMotionProjectionDescriptor(ByteBuffer _bb) { return GetRootAsMotionProjectionDescriptor(_bb, new MotionProjectionDescriptor()); }
+  public static MotionProjectionDescriptor GetRootAsMotionProjectionDescriptor(ByteBuffer _bb, MotionProjectionDescriptor obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public MotionProjectionDescriptor __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.MotionProjectionCameraKind CameraKind { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionProjectionCameraKind)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionProjectionCameraKind.Input; } }
+  public Battlement.FlatBuffers.Generated.Uuid? CameraObjectId { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionProjectionPlane? Plane { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionProjectionPlane?)(new Battlement.FlatBuffers.Generated.MotionProjectionPlane()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.Rectd? WorldRect { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.Rectd?)(new Battlement.FlatBuffers.Generated.Rectd()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+
+  public static void StartMotionProjectionDescriptor(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void AddCameraKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionProjectionCameraKind cameraKind) { builder.AddByte(0, (byte)cameraKind, 0); }
+  public static void AddCameraObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> cameraObjectIdOffset) { builder.AddStruct(1, cameraObjectIdOffset.Value, 0); }
+  public static void AddPlane(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionProjectionPlane> planeOffset) { builder.AddStruct(2, planeOffset.Value, 0); }
+  public static void AddWorldRect(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Rectd> worldRectOffset) { builder.AddStruct(3, worldRectOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.MotionProjectionDescriptor> EndMotionProjectionDescriptor(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 8);  // plane
+    builder.Required(o, 10);  // world_rect
+    return new Offset<Battlement.FlatBuffers.Generated.MotionProjectionDescriptor>(o);
+  }
+}
+
+
+static public class MotionProjectionDescriptorVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*CameraKind*/, 1 /*Battlement.FlatBuffers.Generated.MotionProjectionCameraKind*/, 1, false)
+      && verifier.VerifyField(tablePos, 6 /*CameraObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*Plane*/, 72 /*Battlement.FlatBuffers.Generated.MotionProjectionPlane*/, 8, true)
+      && verifier.VerifyField(tablePos, 10 /*WorldRect*/, 32 /*Battlement.FlatBuffers.Generated.Rectd*/, 8, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct MotionLayoutDescriptor : IFlatbufferObject
 {
   private Table __p;
@@ -4559,6 +4635,7 @@ public struct MotionLayoutDescriptor : IFlatbufferObject
   public bool Root { get { int o = __p.__offset(12); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public bool PopLayout { get { int o = __p.__offset(14); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public Battlement.FlatBuffers.Generated.TransitionDefinition? Transition { get { int o = __p.__offset(16); return o != 0 ? (Battlement.FlatBuffers.Generated.TransitionDefinition?)(new Battlement.FlatBuffers.Generated.TransitionDefinition()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionProjectionDescriptor? Projection { get { int o = __p.__offset(18); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionProjectionDescriptor?)(new Battlement.FlatBuffers.Generated.MotionProjectionDescriptor()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.MotionLayoutDescriptor> CreateMotionLayoutDescriptor(FlatBufferBuilder builder,
       Battlement.FlatBuffers.Generated.MotionLayoutMode mode = Battlement.FlatBuffers.Generated.MotionLayoutMode.Position,
@@ -4567,8 +4644,10 @@ public struct MotionLayoutDescriptor : IFlatbufferObject
       bool scroll = false,
       bool root = false,
       bool pop_layout = false,
-      Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> transitionOffset = default(Offset<Battlement.FlatBuffers.Generated.TransitionDefinition>)) {
-    builder.StartTable(7);
+      Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> transitionOffset = default(Offset<Battlement.FlatBuffers.Generated.TransitionDefinition>),
+      Offset<Battlement.FlatBuffers.Generated.MotionProjectionDescriptor> projectionOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionProjectionDescriptor>)) {
+    builder.StartTable(8);
+    MotionLayoutDescriptor.AddProjection(builder, projectionOffset);
     MotionLayoutDescriptor.AddTransition(builder, transitionOffset);
     MotionLayoutDescriptor.AddLayoutId(builder, layout_idOffset);
     MotionLayoutDescriptor.AddGroup(builder, groupOffset);
@@ -4579,7 +4658,7 @@ public struct MotionLayoutDescriptor : IFlatbufferObject
     return MotionLayoutDescriptor.EndMotionLayoutDescriptor(builder);
   }
 
-  public static void StartMotionLayoutDescriptor(FlatBufferBuilder builder) { builder.StartTable(7); }
+  public static void StartMotionLayoutDescriptor(FlatBufferBuilder builder) { builder.StartTable(8); }
   public static void AddMode(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionLayoutMode mode) { builder.AddByte(0, (byte)mode, 0); }
   public static void AddGroup(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionLayoutIdentity> groupOffset) { builder.AddOffset(1, groupOffset.Value, 0); }
   public static void AddLayoutId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionLayoutIdentity> layoutIdOffset) { builder.AddOffset(2, layoutIdOffset.Value, 0); }
@@ -4587,6 +4666,7 @@ public struct MotionLayoutDescriptor : IFlatbufferObject
   public static void AddRoot(FlatBufferBuilder builder, bool root) { builder.AddBool(4, root, false); }
   public static void AddPopLayout(FlatBufferBuilder builder, bool popLayout) { builder.AddBool(5, popLayout, false); }
   public static void AddTransition(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> transitionOffset) { builder.AddOffset(6, transitionOffset.Value, 0); }
+  public static void AddProjection(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionProjectionDescriptor> projectionOffset) { builder.AddOffset(7, projectionOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.MotionLayoutDescriptor> EndMotionLayoutDescriptor(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 6);  // group
@@ -4608,6 +4688,7 @@ static public class MotionLayoutDescriptorVerify
       && verifier.VerifyField(tablePos, 12 /*Root*/, 1 /*bool*/, 1, false)
       && verifier.VerifyField(tablePos, 14 /*PopLayout*/, 1 /*bool*/, 1, false)
       && verifier.VerifyTable(tablePos, 16 /*Transition*/, Battlement.FlatBuffers.Generated.TransitionDefinitionVerify.Verify, true)
+      && verifier.VerifyTable(tablePos, 18 /*Projection*/, Battlement.FlatBuffers.Generated.MotionProjectionDescriptorVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

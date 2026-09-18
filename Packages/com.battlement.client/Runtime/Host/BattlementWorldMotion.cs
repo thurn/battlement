@@ -92,7 +92,7 @@ namespace Battlement
                     ? prior
                     : new Target(
                         transform,
-                        new BattlementWorldMotionTarget(transform, audioSources)
+                        new BattlementWorldMotionTarget(transform, audioSources, world)
                     );
             target.Properties.Configure(descriptor);
             using BattlementPreparedMotionAdmission? prepared = documents.MotionWorld.Prepare(

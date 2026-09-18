@@ -17,7 +17,8 @@ namespace Battlement.UI
         private readonly BattlementPseudoStyleState? pseudoStyles;
         private readonly BattlementMotionLayerRestore? layerRestore;
         private readonly BattlementDecorationState? decorations;
-        private readonly BattlementLayoutProjection? layoutProjection;
+        private readonly IBattlementLayoutProjection? layoutProjection;
+        private readonly IBattlementLayoutProjectionTarget? layoutTarget;
         private readonly IReadOnlyDictionary<MotionProperty, MotionValue>? reconnectPresentation;
 
         public DescriptorState(
@@ -25,6 +26,7 @@ namespace Battlement.UI
             IBattlementMotionTarget properties,
             ulong clockMicros,
             DescriptorState? previous,
+            IBattlementLayoutProjectionTarget? layoutTarget = null,
             BattlementLayoutOrigin? layoutOrigin = null,
             bool reconnecting = false,
             bool retainUnchangedSlots = false
@@ -32,6 +34,7 @@ namespace Battlement.UI
         {
             Descriptor = descriptor;
             Properties = properties;
+            this.layoutTarget = layoutTarget ?? previous?.layoutTarget;
             IReadOnlyList<CssAnimationDescriptor> cssAnimations =
                 descriptor.Animations ?? Array.Empty<CssAnimationDescriptor>();
             slots = new SlotState[descriptor.Slots.Count + cssAnimations.Count];
@@ -77,6 +80,20 @@ namespace Battlement.UI
                 Array.Sort(slots, CompareSlots);
                 if (reconnecting && previous is not null)
                     reconnectPresentation = CapturePresentation(previous);
+                if (descriptor.Layout is not null)
+                    layoutProjection = RequireLayoutTarget(this.layoutTarget)
+                        .CreateProjection(
+                            descriptor.Layout,
+                            layoutOrigin
+                                ?? new BattlementLayoutOrigin(
+                                    previous?.LayoutProjection?.VisibleBounds
+                                        ?? RequireLayoutTarget(this.layoutTarget)
+                                            .VisibleBounds(descriptor.Layout),
+                                    previous?.LayoutProjection?.Domain
+                                        ?? RequireLayoutTarget(this.layoutTarget).Domain
+                                ),
+                            clockMicros
+                        );
                 return;
             }
             VisualElement target = ui.Element;
@@ -175,16 +192,19 @@ namespace Battlement.UI
                     previous?.decorations
                 );
             if (descriptor.Layout is not null)
-                layoutProjection = new BattlementLayoutProjection(
-                    target,
-                    descriptor.Layout,
-                    layoutOrigin
-                        ?? new BattlementLayoutOrigin(
-                            previous?.Target.worldBound ?? target.worldBound,
-                            previous?.Target.panel ?? target.panel
-                        ),
-                    clockMicros
-                );
+                layoutProjection = RequireLayoutTarget(this.layoutTarget)
+                    .CreateProjection(
+                        descriptor.Layout,
+                        layoutOrigin
+                            ?? new BattlementLayoutOrigin(
+                                previous?.LayoutProjection?.VisibleBounds
+                                    ?? RequireLayoutTarget(this.layoutTarget)
+                                        .VisibleBounds(descriptor.Layout),
+                                previous?.LayoutProjection?.Domain
+                                    ?? RequireLayoutTarget(this.layoutTarget).Domain
+                            ),
+                        clockMicros
+                    );
             if (reconnecting && previous is not null)
                 reconnectPresentation = CapturePresentation(previous);
         }
@@ -198,7 +218,7 @@ namespace Battlement.UI
 
         public IBattlementMotionTarget Properties { get; }
 
-        public BattlementLayoutProjection? LayoutProjection => layoutProjection;
+        public IBattlementLayoutProjection? LayoutProjection => layoutProjection;
 
         public int ActiveTimelineCount
         {
@@ -457,6 +477,10 @@ namespace Battlement.UI
             pseudoStyles?.Dispose();
             decorations?.Abort();
         }
+
+        private static IBattlementLayoutProjectionTarget RequireLayoutTarget(
+            IBattlementLayoutProjectionTarget? target
+        ) => target ?? throw Invalid("Layout Motion requires a projection target.");
 
         private IReadOnlyDictionary<MotionProperty, MotionValue> CapturePresentation(
             DescriptorState previous

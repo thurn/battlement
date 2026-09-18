@@ -538,6 +538,18 @@ table MotionGestureDescriptor {
 
 enum MotionLayoutMode:ubyte { Position, Size, Both }
 table MotionLayoutIdentity { value_type:string (required); value_hash:ulong; }
+enum MotionProjectionCameraKind:ubyte { Input, Object }
+struct MotionProjectionPlane {
+  origin:Vector3d;
+  x_axis:Vector3d;
+  y_axis:Vector3d;
+}
+table MotionProjectionDescriptor {
+  camera_kind:MotionProjectionCameraKind;
+  camera_object_id:Uuid;
+  plane:MotionProjectionPlane (required);
+  world_rect:Rectd (required);
+}
 table MotionLayoutDescriptor {
   mode:MotionLayoutMode;
   group:MotionLayoutIdentity (required);
@@ -546,6 +558,7 @@ table MotionLayoutDescriptor {
   root:bool;
   pop_layout:bool;
   transition:TransitionDefinition (required);
+  projection:MotionProjectionDescriptor;
 }
 
 table MotionDescriptor {

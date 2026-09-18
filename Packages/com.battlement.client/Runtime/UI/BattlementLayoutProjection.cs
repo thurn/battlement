@@ -7,13 +7,67 @@ using UnityEngine.UIElements;
 
 namespace Battlement.UI
 {
-    internal sealed class BattlementLayoutProjection
+    internal interface IBattlementLayoutProjection
+    {
+        MotionLayoutDescriptor Descriptor { get; }
+        BattlementLayoutDomain Domain { get; }
+        ViewportRect VisibleBounds { get; }
+        void CaptureDestination();
+        void Sample(ulong clockMicros, bool reducedMotion = false);
+        void Release();
+        void Abort();
+    }
+
+    internal interface IBattlementLayoutProjectionTarget
+    {
+        BattlementLayoutDomain Domain { get; }
+        ViewportRect VisibleBounds(MotionLayoutDescriptor descriptor);
+        IBattlementLayoutProjection CreateProjection(
+            MotionLayoutDescriptor descriptor,
+            BattlementLayoutOrigin origin,
+            ulong anchorMicros
+        );
+    }
+
+    internal sealed class BattlementUiLayoutProjectionTarget : IBattlementLayoutProjectionTarget
     {
         private readonly VisualElement target;
+        private readonly Func<VisualElement, BattlementUiProjectionSpace> projectionSpace;
+
+        public BattlementUiLayoutProjectionTarget(
+            VisualElement target,
+            Func<VisualElement, BattlementUiProjectionSpace> projectionSpace
+        ) => (this.target, this.projectionSpace) = (target, projectionSpace);
+
+        public BattlementLayoutDomain Domain => BattlementLayoutDomain.Ui;
+
+        public ViewportRect VisibleBounds(MotionLayoutDescriptor descriptor) =>
+            target.panel is null
+                ? new ViewportRect(0, 0, 0, 0, new DisplayId(0))
+                : projectionSpace(target).ToViewport(target.worldBound);
+
+        public IBattlementLayoutProjection CreateProjection(
+            MotionLayoutDescriptor descriptor,
+            BattlementLayoutOrigin origin,
+            ulong anchorMicros
+        ) =>
+            new BattlementLayoutProjection(
+                target,
+                projectionSpace,
+                descriptor,
+                origin,
+                anchorMicros
+            );
+    }
+
+    internal sealed class BattlementLayoutProjection : IBattlementLayoutProjection
+    {
+        private readonly VisualElement target;
+        private readonly Func<VisualElement, BattlementUiProjectionSpace> projectionSpace;
         private readonly MotionLayoutDescriptor descriptor;
         private readonly ulong anchorMicros;
-        private readonly UnityEngine.Rect origin;
-        private readonly IPanel? originPanel;
+        private readonly ViewportRect originViewport;
+        private UnityEngine.Rect origin;
         private readonly Dictionary<VisualElement, ScaleCorrectionState> childCorrections = new();
         private UnityEngine.Rect destination;
         private Vector2 lastTranslation;
@@ -31,15 +85,16 @@ namespace Battlement.UI
 
         public BattlementLayoutProjection(
             VisualElement target,
+            Func<VisualElement, BattlementUiProjectionSpace> projectionSpace,
             MotionLayoutDescriptor descriptor,
             BattlementLayoutOrigin origin,
             ulong anchorMicros
         )
         {
             this.target = target;
+            this.projectionSpace = projectionSpace;
             this.descriptor = descriptor;
-            this.origin = origin.Bounds;
-            originPanel = origin.Panel;
+            originViewport = origin.Bounds;
             this.anchorMicros = anchorMicros;
             lastPresentedTranslation = Translation(target.resolvedStyle.translate);
             lastPresentedScale = target.resolvedStyle.scale.value;
@@ -49,22 +104,21 @@ namespace Battlement.UI
 
         public MotionLayoutDescriptor Descriptor => descriptor;
 
-        public UnityEngine.Rect VisibleBounds => target.worldBound;
+        public BattlementLayoutDomain Domain => BattlementLayoutDomain.Ui;
+
+        public ViewportRect VisibleBounds =>
+            target.panel is null
+                ? originViewport
+                : projectionSpace(target).ToViewport(target.worldBound);
 
         public void CaptureDestination()
         {
             if (captured)
                 return;
-            if (
-                originPanel is not null
-                && target.panel is not null
-                && !ReferenceEquals(originPanel, target.panel)
-            )
-                throw new BattlementUiException(
-                    CoreErrorCode.InvalidProperty,
-                    "Shared layout handoffs cannot cross UI panels."
-                );
             destination = target.worldBound;
+            origin = Valid(originViewport)
+                ? projectionSpace(target).FromViewport(originViewport)
+                : destination;
             captured = Valid(origin) && Valid(destination);
             if (!captured || Approximately(origin, destination))
                 completed = true;
@@ -246,6 +300,14 @@ namespace Battlement.UI
             && float.IsFinite(value.height)
             && value.width > 0.001f
             && value.height > 0.001f;
+
+        private static bool Valid(ViewportRect value) =>
+            double.IsFinite(value.X)
+            && double.IsFinite(value.Y)
+            && double.IsFinite(value.Width)
+            && double.IsFinite(value.Height)
+            && value.Width > 0.001
+            && value.Height > 0.001;
 
         private static bool Approximately(UnityEngine.Rect left, UnityEngine.Rect right) =>
             Mathf.Abs(left.x - right.x) < 0.01f

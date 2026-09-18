@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use battlement_types::ObjectId;
+use battlement_types::{ObjectId, Rect, Vector3};
 
 use crate::MotionVariantResolution;
 use crate::{
@@ -457,6 +457,37 @@ pub struct MotionLayoutIdentity {
   pub value_hash: u64,
 }
 
+/// Camera selected for an explicit UI/world projection.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum MotionProjectionCamera {
+  /// Use the session's selected input camera.
+  Input,
+  /// Use the enabled camera component on this object.
+  Object(ObjectId),
+}
+
+/// World-space plane used by one explicit UI/world projection.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MotionProjectionPlane {
+  /// World-space origin for plane coordinates.
+  pub origin: Vector3,
+  /// Unit vector corresponding to increasing plane X.
+  pub x_axis: Vector3,
+  /// Unit vector corresponding to increasing plane Y.
+  pub y_axis: Vector3,
+}
+
+/// Explicit mapping required when a shared layout identity changes host domains.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MotionProjectionDescriptor {
+  /// Camera which projects the world plane onto the display.
+  pub camera: MotionProjectionCamera,
+  /// World-space plane containing the compatible transition representation.
+  pub plane: MotionProjectionPlane,
+  /// Rectangle occupied by the representation in plane coordinates.
+  pub world_rect: Rect,
+}
+
 /// Native layout-projection configuration for one host.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MotionLayoutDescriptor {
@@ -474,6 +505,8 @@ pub struct MotionLayoutDescriptor {
   pub pop_layout: bool,
   /// Timing used to animate the inverse projection to identity.
   pub transition: TransitionDefinition,
+  /// Explicit mapping for compatible UI/world shared-layout handoffs.
+  pub projection: Option<MotionProjectionDescriptor>,
 }
 
 /// Complete validated animation state installed beside one host.
@@ -553,8 +586,60 @@ impl MotionDescriptor {
     )?;
     validate_gestures(self)?;
     validate_css(self)?;
+    validate_layout(self.layout.as_ref())?;
     Ok(())
   }
+}
+
+fn validate_layout(layout: Option<&MotionLayoutDescriptor>) -> Result<(), String> {
+  let Some(layout) = layout else {
+    return Ok(());
+  };
+  if layout.group.value_type.trim().is_empty()
+    || layout
+      .layout_id
+      .as_ref()
+      .is_some_and(|value| value.value_type.trim().is_empty())
+  {
+    return Err("motion layout identities must have a nonblank type".to_owned());
+  }
+  layout.transition.validate().map_err(str::to_owned)?;
+  let Some(projection) = layout.projection else {
+    return Ok(());
+  };
+  let plane = projection.plane;
+  let values = [
+    plane.origin.x,
+    plane.origin.y,
+    plane.origin.z,
+    plane.x_axis.x,
+    plane.x_axis.y,
+    plane.x_axis.z,
+    plane.y_axis.x,
+    plane.y_axis.y,
+    plane.y_axis.z,
+    projection.world_rect.x,
+    projection.world_rect.y,
+    projection.world_rect.width,
+    projection.world_rect.height,
+  ];
+  if values.into_iter().any(|value| !value.is_finite()) {
+    return Err("UI/world projection values must be finite".to_owned());
+  }
+  if projection.world_rect.width <= 0.0 || projection.world_rect.height <= 0.0 {
+    return Err("UI/world projection rectangle must be positive".to_owned());
+  }
+  let length = |value: Vector3| (value.x * value.x + value.y * value.y + value.z * value.z).sqrt();
+  if (length(plane.x_axis) - 1.0).abs() > 1e-6 || (length(plane.y_axis) - 1.0).abs() > 1e-6 {
+    return Err("UI/world projection plane axes must be unit length".to_owned());
+  }
+  let dot = plane.x_axis.x * plane.y_axis.x
+    + plane.x_axis.y * plane.y_axis.y
+    + plane.x_axis.z * plane.y_axis.z;
+  if dot.abs() > 1e-6 {
+    return Err("UI/world projection plane axes must be orthogonal".to_owned());
+  }
+  Ok(())
 }
 
 fn validate_gestures(descriptor: &MotionDescriptor) -> Result<(), String> {
