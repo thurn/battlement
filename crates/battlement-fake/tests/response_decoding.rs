@@ -12,6 +12,7 @@ fn decodes_every_motion_command_from_verified_response_bytes() {
   let target = battlement::MotionTargetDescriptor {
     tracks: vec![battlement::MotionPropertyTrack {
       property: battlement::MotionProperty::Opacity,
+      target: battlement::MotionPropertyTarget::Host,
       values: vec![battlement::MotionValue::Scalar(0.25)],
       times: None,
       transition: battlement::TransitionDefinition::tween(),
@@ -112,6 +113,7 @@ fn decodes_nested_ui_state_from_verified_response_bytes() {
       target: battlement::MotionTargetDescriptor {
         tracks: vec![battlement::MotionPropertyTrack {
           property: battlement::MotionProperty::Opacity,
+          target: battlement::MotionPropertyTarget::Host,
           values: vec![battlement::MotionValue::Scalar(0.75)],
           times: None,
           transition: battlement::TransitionDefinition::tween(),

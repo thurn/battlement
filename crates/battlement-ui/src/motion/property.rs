@@ -246,6 +246,10 @@ properties! {
   LocalScaleFactorX => ("local_scale_factor_x", Scalar, "number", "1", Numeric, None, Multiply),
   LocalScaleFactorY => ("local_scale_factor_y", Scalar, "number", "1", Numeric, None, Multiply),
   LocalScaleFactorZ => ("local_scale_factor_z", Scalar, "number", "1", Numeric, None, Multiply),
+  MaterialScalar => ("material_scalar", Scalar, "number", "0", Numeric, None, Sum),
+  LightIntensity => ("light_intensity", Scalar, "intensity", "0", Numeric, None, Sum),
+  ParticleEmission => ("particle_emission", Scalar, "particles-per-second", "0", Numeric, None, Sum),
+  AudioVolume => ("audio_volume", Scalar, "gain", "1", Numeric, None, Sum),
 
 }
 
@@ -254,6 +258,12 @@ impl MotionProperty {
   #[must_use]
   pub fn is_world_transform(self) -> bool {
     self >= Self::LocalPositionX && self <= Self::LocalScaleFactorZ
+  }
+
+  /// Whether this property belongs to a world effect writer.
+  #[must_use]
+  pub fn is_world_effect(self) -> bool {
+    self >= Self::MaterialScalar && self <= Self::AudioVolume
   }
 
   /// Whether this property is an interaction contribution after base placement.

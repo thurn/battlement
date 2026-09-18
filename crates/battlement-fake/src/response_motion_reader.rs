@@ -246,6 +246,7 @@ pub(crate) fn target(
       .map(|track| {
         Ok(battlement::MotionPropertyTrack {
           property: property(track.property())?,
+          target: property_target(track.target())?,
           values: track
             .values()
             .iter()
@@ -266,6 +267,31 @@ pub(crate) fn target(
         })
       })
       .collect::<Result<_, String>>()?,
+  })
+}
+
+fn property_target(
+  value: wire::MotionPropertyTarget<'_>,
+) -> Result<battlement::MotionPropertyTarget, String> {
+  Ok(match value.kind() {
+    wire::MotionPropertyTargetKind::Host => battlement::MotionPropertyTarget::Host,
+    wire::MotionPropertyTargetKind::MaterialScalar => {
+      battlement::MotionPropertyTarget::MaterialScalar {
+        slot: value.material_slot(),
+        parameter: value
+          .material_parameter()
+          .ok_or_else(|| "material scalar Motion target has no parameter".to_owned())?
+          .to_owned(),
+      }
+    }
+    wire::MotionPropertyTargetKind::AudioVolume => battlement::MotionPropertyTarget::AudioVolume {
+      playback_id: object_id(
+        value
+          .playback_id()
+          .ok_or_else(|| "audio volume Motion target has no playback".to_owned())?,
+      )?,
+    },
+    _ => return Err("Motion property target kind is unknown".to_owned()),
   })
 }
 

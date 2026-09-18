@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 
 namespace Battlement
 {
-    internal sealed class BattlementAudioSources : IDisposable
+    internal sealed class BattlementAudioSources : IDisposable, IBattlementMotionAudio
     {
         private readonly BattlementWorld world;
         private readonly BattlementPreparedAssets preparedAssets;
@@ -227,6 +227,15 @@ namespace Battlement
                 ? (elapsed, false)
                 : (TimeSpan.Zero, false);
         }
+
+        public bool HasMotionPlayback(ObjectId playbackId) =>
+            live.TryGetValue(playbackId.Value, out AudioInstance instance) && instance.IsActive;
+
+        public float ReadMotionVolume(ObjectId playbackId) =>
+            Require(new CommandId(playbackId.Value)).Volume;
+
+        public void WriteMotionVolume(ObjectId playbackId, double requested) =>
+            Require(new CommandId(playbackId.Value)).SetVolume(RequireVolume(requested));
 
         public void ClearInactive(bool clearSuppressed = false)
         {

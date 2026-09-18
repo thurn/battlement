@@ -2,8 +2,9 @@
 
 use battlement::{
   MotionCallbackSubscriptions, MotionGeneration, MotionLayer, MotionPlaybackCommand,
-  MotionPlaybackOutcome, MotionProperty, MotionPropertyTrack, MotionSlotDescriptor, MotionSlotId,
-  MotionTargetDescriptor, MotionValue, ObjectId, TransitionDefinition,
+  MotionPlaybackOutcome, MotionProperty, MotionPropertyTarget, MotionPropertyTrack,
+  MotionSlotDescriptor, MotionSlotId, MotionTargetDescriptor, MotionValue, ObjectId,
+  TransitionDefinition,
 };
 
 use crate::{motion_graph_node::Node, motion_slot::Slot, motion_track::Track};
@@ -24,6 +25,7 @@ impl Playback {
   ) -> Self {
     let track = MotionPropertyTrack {
       property: MotionProperty::Opacity,
+      target: MotionPropertyTarget::Host,
       values: vec![target],
       times: None,
       transition,

@@ -26,13 +26,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_MOTION_PROPERTY: u16 = 116;
+      pub const ENUM_MAX_MOTION_PROPERTY: u16 = 120;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_MOTION_PROPERTY: [MotionProperty; 117] = [
+      pub const ENUM_VALUES_MOTION_PROPERTY: [MotionProperty; 121] = [
         MotionProperty::AlignContent,
         MotionProperty::AlignItems,
         MotionProperty::AlignSelf,
@@ -150,6 +150,10 @@ pub mod battlement {
         MotionProperty::LocalScaleFactorX,
         MotionProperty::LocalScaleFactorY,
         MotionProperty::LocalScaleFactorZ,
+        MotionProperty::MaterialScalar,
+        MotionProperty::LightIntensity,
+        MotionProperty::ParticleEmission,
+        MotionProperty::AudioVolume,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -274,9 +278,13 @@ pub mod battlement {
         pub const LocalScaleFactorX: Self = Self(114);
         pub const LocalScaleFactorY: Self = Self(115);
         pub const LocalScaleFactorZ: Self = Self(116);
+        pub const MaterialScalar: Self = Self(117);
+        pub const LightIntensity: Self = Self(118);
+        pub const ParticleEmission: Self = Self(119);
+        pub const AudioVolume: Self = Self(120);
 
         pub const ENUM_MIN: u16 = 0;
-        pub const ENUM_MAX: u16 = 116;
+        pub const ENUM_MAX: u16 = 120;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::AlignContent,
           Self::AlignItems,
@@ -395,6 +403,10 @@ pub mod battlement {
           Self::LocalScaleFactorX,
           Self::LocalScaleFactorY,
           Self::LocalScaleFactorZ,
+          Self::MaterialScalar,
+          Self::LightIntensity,
+          Self::ParticleEmission,
+          Self::AudioVolume,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -516,6 +528,10 @@ pub mod battlement {
             Self::LocalScaleFactorX => Some("LocalScaleFactorX"),
             Self::LocalScaleFactorY => Some("LocalScaleFactorY"),
             Self::LocalScaleFactorZ => Some("LocalScaleFactorZ"),
+            Self::MaterialScalar => Some("MaterialScalar"),
+            Self::LightIntensity => Some("LightIntensity"),
+            Self::ParticleEmission => Some("ParticleEmission"),
+            Self::AudioVolume => Some("AudioVolume"),
             _ => None,
           }
         }
@@ -1674,6 +1690,101 @@ pub mod battlement {
       }
 
       impl ::flatbuffers::SimpleToVerifyInSlice for MotionPlaybackOutcome {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_MOTION_PROPERTY_TARGET_KIND: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_MOTION_PROPERTY_TARGET_KIND: u8 = 2;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_MOTION_PROPERTY_TARGET_KIND: [MotionPropertyTargetKind; 3] = [
+        MotionPropertyTargetKind::Host,
+        MotionPropertyTargetKind::MaterialScalar,
+        MotionPropertyTargetKind::AudioVolume,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct MotionPropertyTargetKind(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl MotionPropertyTargetKind {
+        pub const Host: Self = Self(0);
+        pub const MaterialScalar: Self = Self(1);
+        pub const AudioVolume: Self = Self(2);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 2;
+        pub const ENUM_VALUES: &'static [Self] =
+          &[Self::Host, Self::MaterialScalar, Self::AudioVolume];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Host => Some("Host"),
+            Self::MaterialScalar => Some("MaterialScalar"),
+            Self::AudioVolume => Some("AudioVolume"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for MotionPropertyTargetKind {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for MotionPropertyTargetKind {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for MotionPropertyTargetKind {
+        type Output = MotionPropertyTargetKind;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for MotionPropertyTargetKind {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for MotionPropertyTargetKind {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for MotionPropertyTargetKind {}
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -9897,6 +10008,206 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum MotionPropertyTargetOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MotionPropertyTarget<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MotionPropertyTarget<'a> {
+        type Inner = MotionPropertyTarget<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MotionPropertyTarget<'a> {
+        pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+        pub const VT_MATERIAL_SLOT: ::flatbuffers::VOffsetT = 6;
+        pub const VT_MATERIAL_PARAMETER: ::flatbuffers::VOffsetT = 8;
+        pub const VT_PLAYBACK_ID: ::flatbuffers::VOffsetT = 10;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MotionPropertyTarget { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MotionPropertyTargetArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MotionPropertyTarget<'bldr>> {
+          let mut builder = MotionPropertyTargetBuilder::new(_fbb);
+          if let Some(x) = args.playback_id {
+            builder.add_playback_id(x);
+          }
+          if let Some(x) = args.material_parameter {
+            builder.add_material_parameter(x);
+          }
+          builder.add_material_slot(args.material_slot);
+          builder.add_kind(args.kind);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn kind(&self) -> MotionPropertyTargetKind {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MotionPropertyTargetKind>(
+                MotionPropertyTarget::VT_KIND,
+                Some(MotionPropertyTargetKind::Host),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn material_slot(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(MotionPropertyTarget::VT_MATERIAL_SLOT, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn material_parameter(&self) -> Option<&'a str> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(
+              MotionPropertyTarget::VT_MATERIAL_PARAMETER,
+              None,
+            )
+          }
+        }
+        #[inline]
+        pub fn playback_id(&self) -> Option<&'a Uuid> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(MotionPropertyTarget::VT_PLAYBACK_ID, None)
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MotionPropertyTarget<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<MotionPropertyTargetKind>("kind", Self::VT_KIND, false)?
+            .visit_field::<u32>("material_slot", Self::VT_MATERIAL_SLOT, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>(
+              "material_parameter",
+              Self::VT_MATERIAL_PARAMETER,
+              false,
+            )?
+            .visit_field::<Uuid>("playback_id", Self::VT_PLAYBACK_ID, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MotionPropertyTargetArgs<'a> {
+        pub kind: MotionPropertyTargetKind,
+        pub material_slot: u32,
+        pub material_parameter: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub playback_id: Option<&'a Uuid>,
+      }
+      impl<'a> Default for MotionPropertyTargetArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MotionPropertyTargetArgs {
+            kind: MotionPropertyTargetKind::Host,
+            material_slot: 0,
+            material_parameter: None,
+            playback_id: None,
+          }
+        }
+      }
+
+      pub struct MotionPropertyTargetBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MotionPropertyTargetBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_kind(&mut self, kind: MotionPropertyTargetKind) {
+          self.fbb_.push_slot::<MotionPropertyTargetKind>(
+            MotionPropertyTarget::VT_KIND,
+            kind,
+            MotionPropertyTargetKind::Host,
+          );
+        }
+        #[inline]
+        pub fn add_material_slot(&mut self, material_slot: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(MotionPropertyTarget::VT_MATERIAL_SLOT, material_slot, 0);
+        }
+        #[inline]
+        pub fn add_material_parameter(
+          &mut self,
+          material_parameter: ::flatbuffers::WIPOffset<&'b str>,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MotionPropertyTarget::VT_MATERIAL_PARAMETER,
+            material_parameter,
+          );
+        }
+        #[inline]
+        pub fn add_playback_id(&mut self, playback_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(MotionPropertyTarget::VT_PLAYBACK_ID, playback_id);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MotionPropertyTargetBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MotionPropertyTargetBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MotionPropertyTarget<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MotionPropertyTarget<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MotionPropertyTarget");
+          ds.field("kind", &self.kind());
+          ds.field("material_slot", &self.material_slot());
+          ds.field("material_parameter", &self.material_parameter());
+          ds.field("playback_id", &self.playback_id());
+          ds.finish()
+        }
+      }
       pub enum MotionEasingDefinitionOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -10869,9 +11180,10 @@ pub mod battlement {
 
       impl<'a> MotionPropertyTrack<'a> {
         pub const VT_PROPERTY: ::flatbuffers::VOffsetT = 4;
-        pub const VT_VALUES: ::flatbuffers::VOffsetT = 6;
-        pub const VT_TIMES: ::flatbuffers::VOffsetT = 8;
-        pub const VT_TRANSITION: ::flatbuffers::VOffsetT = 10;
+        pub const VT_TARGET: ::flatbuffers::VOffsetT = 6;
+        pub const VT_VALUES: ::flatbuffers::VOffsetT = 8;
+        pub const VT_TIMES: ::flatbuffers::VOffsetT = 10;
+        pub const VT_TRANSITION: ::flatbuffers::VOffsetT = 12;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -10897,6 +11209,9 @@ pub mod battlement {
           if let Some(x) = args.values {
             builder.add_values(x);
           }
+          if let Some(x) = args.target {
+            builder.add_target(x);
+          }
           builder.add_property(args.property);
           builder.finish()
         }
@@ -10912,6 +11227,21 @@ pub mod battlement {
               .get::<MotionProperty>(
                 MotionPropertyTrack::VT_PROPERTY,
                 Some(MotionProperty::AlignContent),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn target(&self) -> MotionPropertyTarget<'a> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<MotionPropertyTarget>>(
+                MotionPropertyTrack::VT_TARGET,
+                None,
               )
               .unwrap()
           }
@@ -10972,6 +11302,11 @@ pub mod battlement {
         ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
           v.visit_table(pos)?
             .visit_field::<MotionProperty>("property", Self::VT_PROPERTY, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<MotionPropertyTarget>>(
+              "target",
+              Self::VT_TARGET,
+              true,
+            )?
             .visit_field::<::flatbuffers::ForwardsUOffset<
               ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MotionValueEntry>>,
             >>("values", Self::VT_VALUES, true)?
@@ -10991,6 +11326,7 @@ pub mod battlement {
       }
       pub struct MotionPropertyTrackArgs<'a> {
         pub property: MotionProperty,
+        pub target: Option<::flatbuffers::WIPOffset<MotionPropertyTarget<'a>>>,
         pub values: Option<
           ::flatbuffers::WIPOffset<
             ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionValueEntry<'a>>>,
@@ -11004,6 +11340,7 @@ pub mod battlement {
         fn default() -> Self {
           MotionPropertyTrackArgs {
             property: MotionProperty::AlignContent,
+            target: None, // required field
             values: None, // required field
             times: None,
             transition: None, // required field
@@ -11023,6 +11360,15 @@ pub mod battlement {
             property,
             MotionProperty::AlignContent,
           );
+        }
+        #[inline]
+        pub fn add_target(&mut self, target: ::flatbuffers::WIPOffset<MotionPropertyTarget<'b>>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<MotionPropertyTarget>>(
+              MotionPropertyTrack::VT_TARGET,
+              target,
+            );
         }
         #[inline]
         pub fn add_values(
@@ -11072,6 +11418,9 @@ pub mod battlement {
           let o = self.fbb_.end_table(self.start_);
           self
             .fbb_
+            .required(o, MotionPropertyTrack::VT_TARGET, "target");
+          self
+            .fbb_
             .required(o, MotionPropertyTrack::VT_VALUES, "values");
           self
             .fbb_
@@ -11084,6 +11433,7 @@ pub mod battlement {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
           let mut ds = f.debug_struct("MotionPropertyTrack");
           ds.field("property", &self.property());
+          ds.field("target", &self.target());
           ds.field("values", &self.values());
           ds.field("times", &self.times());
           ds.field("transition", &self.transition());

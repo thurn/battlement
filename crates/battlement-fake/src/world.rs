@@ -91,6 +91,7 @@ pub struct FakeObject {
   light: Option<battlement::LightState>,
   animator_descriptor: Option<assets::FakeAnimator>,
   particles_playing: Option<bool>,
+  particle_emission: Option<f64>,
   collider: bool,
   automatic_collider: bool,
   children: Vec<battlement::ObjectId>,
@@ -237,6 +238,12 @@ impl FakeObject {
   #[must_use]
   pub fn particles_playing(&self) -> Option<bool> {
     self.particles_playing
+  }
+
+  /// Returns the current logical particle emission rate, if declared.
+  #[must_use]
+  pub fn particle_emission(&self) -> Option<f64> {
+    self.particle_emission
   }
 }
 
@@ -827,6 +834,39 @@ impl FakeWorld {
       .unwrap_or_else(|| panic!("object has no particle systems: {id}"))
   }
 
+  pub(crate) fn particle_emission_mut(&mut self, id: battlement::ObjectId) -> &mut f64 {
+    self
+      .require_object_mut(id)
+      .particle_emission
+      .as_mut()
+      .unwrap_or_else(|| panic!("object has no particle systems: {id}"))
+  }
+
+  pub(crate) fn set_material_scalar(
+    &mut self,
+    id: battlement::ObjectId,
+    slot: u32,
+    name: &str,
+    value: f64,
+  ) {
+    let parameter = self
+      .require_object_mut(id)
+      .material_instances
+      .iter_mut()
+      .find(|instance| instance.slot == slot)
+      .and_then(|instance| {
+        instance
+          .parameters
+          .iter_mut()
+          .find(|item| item.name == name)
+      })
+      .unwrap_or_else(|| panic!("material scalar target is absent: slot {slot} {name}"));
+    match &mut parameter.value {
+      battlement::MaterialValue::Float(current) => *current = value,
+      _ => panic!("material scalar target has a non-float prepared type"),
+    }
+  }
+
   pub(crate) fn descendant_ids(&self, id: battlement::ObjectId) -> Vec<battlement::ObjectId> {
     self.require_object(id);
     self.descendants(id)
@@ -1082,32 +1122,34 @@ impl FakeObject {
       !matches!(object.render_order, Some(RenderOrder::Layer(_))) || has_renderer,
       "layer ordering requires a renderer"
     );
-    let (camera, light, animator_descriptor, particles_playing, collider) = match &object.kind {
-      GameObjectKind::Camera { camera } => (Some(*camera), None, None, None, false),
-      GameObjectKind::Light { light } => (None, Some(*light), None, None, false),
-      GameObjectKind::Prefab { address, .. } => {
-        let prefab = catalog.prefab(address).expect("unknown prefab asset");
-        (
-          prefab.camera(),
-          prefab.light(),
-          prefab.animator().cloned(),
-          prefab.particle_systems().then_some(false),
-          prefab.pointer_collider(),
-        )
-      }
-      GameObjectKind::BoxHitRegion { .. }
-      | GameObjectKind::Cube { .. }
-      | GameObjectKind::Sphere { .. }
-      | GameObjectKind::Capsule { .. }
-      | GameObjectKind::Cylinder { .. }
-      | GameObjectKind::Plane { .. }
-      | GameObjectKind::Quad { .. }
-      | GameObjectKind::Mesh { .. }
-      | GameObjectKind::Image { .. } => (None, None, None, None, true),
-      GameObjectKind::Empty | GameObjectKind::UiDocument(_) | GameObjectKind::Text { .. } => {
-        (None, None, None, None, false)
-      }
-    };
+    let (camera, light, animator_descriptor, particles_playing, particle_emission, collider) =
+      match &object.kind {
+        GameObjectKind::Camera { camera } => (Some(*camera), None, None, None, None, false),
+        GameObjectKind::Light { light } => (None, Some(*light), None, None, None, false),
+        GameObjectKind::Prefab { address, .. } => {
+          let prefab = catalog.prefab(address).expect("unknown prefab asset");
+          (
+            prefab.camera(),
+            prefab.light(),
+            prefab.animator().cloned(),
+            prefab.particle_systems().then_some(false),
+            prefab.particle_systems().then_some(0.0),
+            prefab.pointer_collider(),
+          )
+        }
+        GameObjectKind::BoxHitRegion { .. }
+        | GameObjectKind::Cube { .. }
+        | GameObjectKind::Sphere { .. }
+        | GameObjectKind::Capsule { .. }
+        | GameObjectKind::Cylinder { .. }
+        | GameObjectKind::Plane { .. }
+        | GameObjectKind::Quad { .. }
+        | GameObjectKind::Mesh { .. }
+        | GameObjectKind::Image { .. } => (None, None, None, None, None, true),
+        GameObjectKind::Empty | GameObjectKind::UiDocument(_) | GameObjectKind::Text { .. } => {
+          (None, None, None, None, None, false)
+        }
+      };
     let automatic_collider = matches!(
       object.kind,
       GameObjectKind::BoxHitRegion { .. }
@@ -1142,6 +1184,7 @@ impl FakeObject {
       light,
       animator_descriptor,
       particles_playing,
+      particle_emission,
       collider,
       automatic_collider,
       children: Vec::new(),

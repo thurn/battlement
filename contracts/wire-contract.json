@@ -16,7 +16,7 @@
       "common.fbs": "4c4a2e9519a92af36e074fcaab98c7186d29b2ba41fd80c7fcb548c0762eaf36",
       "connect.fbs": "936884f7d251d148ec678a6d80b99dcf5ad570048df540965defbc75f30c4893",
       "geometry.fbs": "37085d76a20e8fc22bd3399f61e47b7bba47a6060e058e35e5c5bc0733c8e5d1",
-      "motion.fbs": "ee810b5561063bcc97382ca5fb507353a3351bb927d25635fa07bbd164610a84",
+      "motion.fbs": "0e8586a7ec02c74b86cfa8eeda30dd8641303acb21ad82e73083f78e5f6cf814",
       "response.fbs": "a558cbe10c4ccbb3fa927d9fdc985ee58b99412e3f49469da8ec19aa4b4d52a1",
       "ui.fbs": "49f1b64006a1c8dee26f40a88739b7f7b37b8646d7c70b38758eeab6c0184736",
       "ui_event.fbs": "eba5eb77a44c688c9bb0734f9640e53f478121dad57e508c0c97d6db1784d40d",

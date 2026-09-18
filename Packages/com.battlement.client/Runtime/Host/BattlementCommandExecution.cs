@@ -57,6 +57,7 @@ namespace Battlement
             this.setInputEnabled = setInputEnabled;
             this.uiDocuments = uiDocuments;
             world.Motion.Bind(uiDocuments);
+            world.Motion.Bind(audioSources);
             this.updateGeometry = updateGeometry;
             this.updateDirectGeometry = updateDirectGeometry;
             this.modules = modules;

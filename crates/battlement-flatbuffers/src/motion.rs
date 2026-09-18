@@ -621,7 +621,7 @@ fn validate_batch(value: wire::MotionEventBatch<'_>) -> Result<(), ProtocolError
 }
 
 fn validate_property_value(value: wire::MotionPropertyValue<'_>) -> Result<(), ProtocolError> {
-  if value.property().0 > wire::MotionProperty::LocalScaleFactorZ.0 {
+  if value.property().0 > wire::MotionProperty::AudioVolume.0 {
     return Err(error("unknown Motion property"));
   }
   let valid = match value.value_type() {

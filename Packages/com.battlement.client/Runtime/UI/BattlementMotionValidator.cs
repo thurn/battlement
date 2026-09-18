@@ -314,6 +314,7 @@ namespace Battlement.UI
                     throw Invalid("A motion target cannot repeat a property.");
                 if (track.Values.Count == 0)
                     throw Invalid("A motion property track cannot be empty.");
+                ValidateTarget(track.Property, track.Target);
                 foreach (MotionValue value in track.Values)
                     ValidateValue(track.Property, value);
                 ValidateTimes(track.Times, track.Values.Count, requiredMatch: true);
@@ -326,6 +327,27 @@ namespace Battlement.UI
                     throw Invalid("transition_end cannot repeat a property.");
                 ValidateValue(value.Property, value.Value);
             }
+        }
+
+        private static void ValidateTarget(MotionProperty property, MotionPropertyTarget target)
+        {
+            bool valid = (property, target) switch
+            {
+                (MotionProperty.MaterialScalar, MotionPropertyTarget.MaterialScalar value) =>
+                    !string.IsNullOrEmpty(value.Parameter),
+                (MotionProperty.AudioVolume, MotionPropertyTarget.AudioVolume) => true,
+                (
+                    MotionProperty.LightIntensity
+                        or MotionProperty.ParticleEmission,
+                    MotionPropertyTarget.Host
+                ) => true,
+                (_, MotionPropertyTarget.Host) => property
+                    is not MotionProperty.MaterialScalar
+                        and not MotionProperty.AudioVolume,
+                _ => false,
+            };
+            if (!valid)
+                throw Invalid("A motion property received an incompatible native target.");
         }
 
         private static void ValidatePropertyValues(
@@ -465,7 +487,16 @@ namespace Battlement.UI
             if (ExpectedKind(property) != Kind(value))
                 throw Invalid("A motion property received an incompatible value shape.");
             if (value is MotionValue.Scalar scalar)
+            {
                 Finite(scalar.Value);
+                if (
+                    property is MotionProperty.LightIntensity or MotionProperty.ParticleEmission
+                    && scalar.Value < 0
+                )
+                    throw Invalid("A motion effect property must be nonnegative.");
+                if (property == MotionProperty.AudioVolume && scalar.Value is < 0 or > 1)
+                    throw Invalid("Motion audio volume must be between zero and one.");
+            }
             else if (value is MotionValue.Length length)
                 Finite(length.Value.Pixels, length.Value.Percentage);
             else if (value is MotionValue.Color color)
@@ -522,7 +553,11 @@ namespace Battlement.UI
                 or MotionProperty.LocalTiltZ
                 or MotionProperty.LocalScaleFactorX
                 or MotionProperty.LocalScaleFactorY
-                or MotionProperty.LocalScaleFactorZ => MotionValueKind.Scalar,
+                or MotionProperty.LocalScaleFactorZ
+                or MotionProperty.MaterialScalar
+                or MotionProperty.LightIntensity
+                or MotionProperty.ParticleEmission
+                or MotionProperty.AudioVolume => MotionValueKind.Scalar,
                 MotionProperty.BackgroundPositionX
                 or MotionProperty.BackgroundPositionY
                 or MotionProperty.BorderBottomLeftRadius

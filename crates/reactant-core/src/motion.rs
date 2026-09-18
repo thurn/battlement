@@ -1,10 +1,10 @@
 //! Typed Motion authoring for Reactant hosts and forwarding components.
 
 use battlement::{
-  Color, Gradient, Length, MotionBindingComposition, MotionProperty, MotionPropertyTrack,
-  MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionTargetDescriptor, MotionValue,
-  ObjectId, Shadow, SpringConfiguration, StepPosition, TransformOperation, TransitionDefinition,
-  TransitionGenerator, Visibility,
+  Color, Gradient, Length, MotionBindingComposition, MotionProperty, MotionPropertyTarget,
+  MotionPropertyTrack, MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionTargetDescriptor,
+  MotionValue, ObjectId, Shadow, SpringConfiguration, StepPosition, TransformOperation,
+  TransitionDefinition, TransitionGenerator, Visibility,
 };
 
 use crate::{
@@ -162,6 +162,7 @@ pub struct Transition {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct StyleTargetEntry {
   pub(crate) property: MotionProperty,
+  pub(crate) target: MotionPropertyTarget,
   pub(crate) values: Vec<MotionValue>,
   pub(crate) times: Option<Vec<f64>>,
   pub(crate) binding: Option<ErasedMotionValue>,
@@ -207,7 +208,7 @@ impl StyleTarget {
   pub(crate) fn merge(mut self, value: Self) -> Self {
     for entry in value.entries {
       if !entry.values.is_empty() {
-        self = self.set(entry.property, entry.values, entry.times);
+        self = self.set_targeted(entry.property, entry.target, entry.values, entry.times);
       }
       if let Some(binding) = entry.binding {
         self = if entry.composition == MotionBindingComposition::Compose {
@@ -665,13 +666,24 @@ impl StyleTarget {
   }
 
   pub(crate) fn set(
+    self,
+    property: MotionProperty,
+    values: Vec<MotionValue>,
+    times: Option<Vec<f64>>,
+  ) -> Self {
+    self.set_targeted(property, MotionPropertyTarget::Host, values, times)
+  }
+
+  pub(crate) fn set_targeted(
     mut self,
     property: MotionProperty,
+    target: MotionPropertyTarget,
     values: Vec<MotionValue>,
     times: Option<Vec<f64>>,
   ) -> Self {
     let mut entry = StyleTargetEntry {
       property,
+      target,
       values,
       times,
       binding: None,
@@ -696,6 +708,7 @@ impl StyleTarget {
   pub(crate) fn bind(mut self, property: MotionProperty, binding: ErasedMotionValue) -> Self {
     let entry = StyleTargetEntry {
       property,
+      target: MotionPropertyTarget::Host,
       values: Vec::new(),
       times: None,
       binding: Some(binding),
@@ -740,6 +753,7 @@ impl StyleTarget {
         .filter(|entry| !entry.values.is_empty())
         .map(|entry| MotionPropertyTrack {
           property: entry.property,
+          target: entry.target.clone(),
           values: entry.values.clone(),
           times: entry.times.clone(),
           transition: transition.map_or_else(

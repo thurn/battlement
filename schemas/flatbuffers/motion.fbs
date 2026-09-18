@@ -22,7 +22,8 @@ enum MotionProperty:ushort {
   WordSpacing, X, Y, Z, RotateX, RotateY, ScaleX, ScaleY, SkewX, SkewY,
   TransformList, PaintFilter, BackgroundGradient, BoxShadow, ClipInset,
   ClipPolygon, Mask, Layout,
-  LocalPositionX, LocalPositionY, LocalPositionZ, LocalRotationX, LocalRotationY, LocalRotationZ, LocalScaleX, LocalScaleY, LocalScaleZ, LocalOffsetX, LocalOffsetY, LocalOffsetZ, LocalTiltX, LocalTiltY, LocalTiltZ, LocalScaleFactorX, LocalScaleFactorY, LocalScaleFactorZ
+  LocalPositionX, LocalPositionY, LocalPositionZ, LocalRotationX, LocalRotationY, LocalRotationZ, LocalScaleX, LocalScaleY, LocalScaleZ, LocalOffsetX, LocalOffsetY, LocalOffsetZ, LocalTiltX, LocalTiltY, LocalTiltZ, LocalScaleFactorX, LocalScaleFactorY, LocalScaleFactorZ,
+  MaterialScalar, LightIntensity, ParticleEmission, AudioVolume
 }
 
 struct MotionLength { pixels:float; percentage:float; }
@@ -180,6 +181,14 @@ table MotionEventBatch {
 
 table MotionValueEntry { value:MotionValue (required); }
 
+enum MotionPropertyTargetKind:ubyte { Host, MaterialScalar, AudioVolume }
+table MotionPropertyTarget {
+  kind:MotionPropertyTargetKind;
+  material_slot:uint;
+  material_parameter:string;
+  playback_id:Uuid;
+}
+
 enum StepPosition:ubyte { Start, End }
 enum MotionEasingKind:ubyte { Linear, EaseIn, EaseOut, EaseInOut, CubicBezier, Steps }
 table MotionEasingDefinition {
@@ -224,6 +233,7 @@ table TransitionDefinition {
 
 table MotionPropertyTrack {
   property:MotionProperty;
+  target:MotionPropertyTarget (required);
   values:[MotionValueEntry] (required);
   times:[double];
   transition:TransitionDefinition (required);

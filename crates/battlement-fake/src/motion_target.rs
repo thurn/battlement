@@ -3,8 +3,9 @@
 use std::collections::HashMap;
 
 use battlement::{
-  Color, FilterList, Gradient, Length, MotionDiscreteValue, MotionProperty, MotionValue,
-  MotionValueKind, ObjectId,
+  Color, FilterList, Gradient, Length, MaterialValue, MotionDescriptor, MotionDiscreteValue,
+  MotionProperty, MotionPropertyTarget, MotionPropertyTrack, MotionValue, MotionValueKind,
+  ObjectId,
 };
 use battlement_ui_fake::UiWorld;
 
@@ -17,6 +18,8 @@ pub(crate) struct Target {
   presentation: HashMap<MotionProperty, MotionValue>,
   pub(crate) failure: Option<String>,
   scale_contribution: Option<[f32; 2]>,
+  material_scalar: Option<(u32, String)>,
+  audio_volume: Option<ObjectId>,
 }
 
 impl Target {
@@ -33,17 +36,87 @@ impl Target {
       presentation: HashMap::new(),
       failure: None,
       scale_contribution: None,
+      material_scalar: None,
+      audio_volume: None,
     }
   }
 
-  pub(crate) fn reconnect(&mut self, world: &mut FakeWorld, ui: &mut UiWorld) {
+  pub(crate) fn reconnect(
+    &mut self,
+    definition: &MotionDescriptor,
+    world: &mut FakeWorld,
+    ui: &mut UiWorld,
+  ) {
     let presentation = self.presentation.clone();
     let scale_contribution = self.scale_contribution;
     *self = Self::new(self.host, world, ui);
+    self.configure(definition, world);
     self.scale_contribution = scale_contribution;
     for (property, value) in presentation {
       self.write(property, value, world, ui);
     }
+  }
+
+  pub(crate) fn configure(&mut self, definition: &MotionDescriptor, world: &FakeWorld) {
+    let mut material = None;
+    let mut audio = None;
+    for track in tracks(definition) {
+      match &track.target {
+        MotionPropertyTarget::Host => {}
+        MotionPropertyTarget::MaterialScalar { slot, parameter } => {
+          let next = (*slot, parameter.clone());
+          assert!(
+            material.as_ref().is_none_or(|value| value == &next),
+            "one Motion host cannot target multiple material scalars"
+          );
+          material = Some(next);
+        }
+        MotionPropertyTarget::AudioVolume { playback_id } => {
+          assert!(
+            audio.is_none_or(|value| value == *playback_id),
+            "one Motion host cannot target multiple audio playbacks"
+          );
+          audio = Some(*playback_id);
+        }
+      }
+    }
+    if let Some((slot, parameter)) = &material {
+      assert!(
+        matches!(
+          world
+            .object(self.host)
+            .and_then(|object| object.material_parameter(*slot, parameter)),
+          Some(MaterialValue::Float(_))
+        ),
+        "material scalar Motion requires a prepared float parameter"
+      );
+    }
+    if tracks(definition).any(|track| track.property == MotionProperty::LightIntensity) {
+      assert!(
+        world
+          .object(self.host)
+          .and_then(|object| object.light())
+          .is_some(),
+        "light intensity Motion requires a light host"
+      );
+    }
+    if tracks(definition).any(|track| track.property == MotionProperty::ParticleEmission) {
+      assert!(
+        world
+          .object(self.host)
+          .and_then(|object| object.particle_emission())
+          .is_some(),
+        "particle emission Motion requires a particle host"
+      );
+    }
+    if let Some(playback_id) = audio {
+      assert!(
+        world.audio(command_id(playback_id)).is_some(),
+        "audio volume Motion requires a live audio playback"
+      );
+    }
+    self.material_scalar = material;
+    self.audio_volume = audio;
   }
 
   pub(crate) fn capture(&mut self, property: MotionProperty, world: &FakeWorld, ui: &UiWorld) {
@@ -69,6 +142,51 @@ impl Target {
     world: &FakeWorld,
     ui: &UiWorld,
   ) -> MotionValue {
+    match property {
+      MotionProperty::MaterialScalar => {
+        let (slot, parameter) = self
+          .material_scalar
+          .as_ref()
+          .expect("material scalar Motion target is unconfigured");
+        let MaterialValue::Float(value) = world
+          .object(self.host)
+          .and_then(|object| object.material_parameter(*slot, parameter))
+          .expect("material scalar Motion target is absent")
+        else {
+          panic!("material scalar Motion target has a non-float prepared type")
+        };
+        return MotionValue::Scalar(*value as f32);
+      }
+      MotionProperty::LightIntensity => {
+        return MotionValue::Scalar(
+          world
+            .object(self.host)
+            .and_then(|object| object.light())
+            .expect("light intensity Motion target is absent")
+            .intensity as f32,
+        );
+      }
+      MotionProperty::ParticleEmission => {
+        return MotionValue::Scalar(
+          world
+            .object(self.host)
+            .and_then(|object| object.particle_emission())
+            .expect("particle emission Motion target is absent") as f32,
+        );
+      }
+      MotionProperty::AudioVolume => {
+        let playback = self
+          .audio_volume
+          .expect("audio volume Motion target is unconfigured");
+        return MotionValue::Scalar(
+          world
+            .audio(command_id(playback))
+            .expect("audio volume Motion playback is absent")
+            .volume() as f32,
+        );
+      }
+      _ => {}
+    }
     if let Some(writer) = &mut self.world {
       return writer.read(property, world);
     }
@@ -131,7 +249,34 @@ impl Target {
       return;
     }
     if let Some(writer) = &mut self.world {
-      writer.write(property, &value, world);
+      let MotionValue::Scalar(number) = &value else {
+        writer.write(property, &value, world);
+        self.presentation.insert(property, value);
+        return;
+      };
+      let number = *number;
+      match property {
+        MotionProperty::MaterialScalar => {
+          let (slot, parameter) = self
+            .material_scalar
+            .as_ref()
+            .expect("material scalar Motion target is unconfigured");
+          world.set_material_scalar(self.host, *slot, parameter, f64::from(number));
+        }
+        MotionProperty::LightIntensity => {
+          world.light_mut(self.host).intensity = f64::from(number);
+        }
+        MotionProperty::ParticleEmission => {
+          *world.particle_emission_mut(self.host) = f64::from(number);
+        }
+        MotionProperty::AudioVolume => {
+          let playback = self
+            .audio_volume
+            .expect("audio volume Motion target is unconfigured");
+          world.audio_mut(command_id(playback)).volume = f64::from(number);
+        }
+        _ => writer.write(property, &MotionValue::Scalar(number), world),
+      }
     } else {
       let presented = match (&value, self.scale_contribution) {
         (MotionValue::Vector2(base), Some(factor)) if property == MotionProperty::Scale => {
@@ -161,6 +306,24 @@ impl Target {
     }
     self.presentation.insert(property, value);
   }
+}
+
+fn command_id(value: ObjectId) -> battlement::CommandId {
+  battlement::CommandId::from_uuid(*value.as_uuid()).expect("Motion playback identity is nonzero")
+}
+
+fn tracks(definition: &MotionDescriptor) -> impl Iterator<Item = &MotionPropertyTrack> {
+  definition
+    .initial
+    .iter()
+    .flat_map(|target| &target.tracks)
+    .chain(definition.slots.iter().flat_map(|slot| &slot.target.tracks))
+    .chain(
+      definition
+        .named_targets
+        .iter()
+        .flat_map(|target| &target.target.tracks),
+    )
 }
 
 // Native host reads use empty shapes to represent absent gradient or polygon paint.

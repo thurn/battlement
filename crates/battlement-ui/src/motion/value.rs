@@ -108,6 +108,19 @@ impl MotionValue {
 
   pub(crate) fn validate_for(&self, property: crate::MotionProperty) -> Result<(), &'static str> {
     self.validate()?;
+    if let Self::Scalar(value) = self {
+      match property {
+        crate::MotionProperty::LightIntensity | crate::MotionProperty::ParticleEmission
+          if *value < 0.0 =>
+        {
+          return Err("motion effect property must be nonnegative");
+        }
+        crate::MotionProperty::AudioVolume if !(0.0..=1.0).contains(value) => {
+          return Err("motion audio volume must be between zero and one");
+        }
+        _ => {}
+      }
+    }
     let Self::FilterList(values) = self else {
       return Ok(());
     };

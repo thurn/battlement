@@ -497,6 +497,14 @@ wait = { object = "root", state = "visible" }
 [[scenarios.steps]]
 screenshot = { name = "independent-values" }
 [[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Play parameter audio" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Animate parameters" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Parameter motion: running" }, role = "heading", name = "Parameter motion: running" }
+[[scenarios.steps]]
+screenshot = { name = "parameter-motion" }
+[[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Change left card" }, action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "left-changed" }

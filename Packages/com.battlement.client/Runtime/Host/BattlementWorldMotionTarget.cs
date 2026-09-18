@@ -1,6 +1,8 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Battlement.UI;
 using UnityEngine;
 using UnityQuaternion = UnityEngine.Quaternion;
@@ -8,10 +10,18 @@ using UnityVector3 = UnityEngine.Vector3;
 
 namespace Battlement
 {
+    internal interface IBattlementMotionAudio
+    {
+        bool HasMotionPlayback(ObjectId playbackId);
+        float ReadMotionVolume(ObjectId playbackId);
+        void WriteMotionVolume(ObjectId playbackId, double value);
+    }
+
     /// <summary>Composes transform placement and local interaction channels.</summary>
     internal sealed class BattlementWorldMotionTarget : IBattlementMotionTarget
     {
         private readonly Transform transform;
+        private readonly IBattlementMotionAudio? audioSources;
         private UnityVector3 position;
         private UnityVector3 rotation;
         private UnityVector3 scale;
@@ -21,10 +31,22 @@ namespace Battlement
         private UnityVector3 displayedPosition;
         private UnityQuaternion displayedRotation;
         private UnityVector3 displayedScale;
+        private BattlementMaterialInstances? materials;
+        private MotionPropertyTarget.MaterialScalar? materialTarget;
+        private Light? light;
+        private ParticleSystem[] particles = Array.Empty<ParticleSystem>();
+        private ObjectId? audioPlayback;
+        private float lightOrigin;
+        private float[] particleOrigins = Array.Empty<float>();
+        private float audioOrigin;
 
-        public BattlementWorldMotionTarget(Transform transform)
+        public BattlementWorldMotionTarget(
+            Transform transform,
+            IBattlementMotionAudio? audioSources = null
+        )
         {
             this.transform = transform;
+            this.audioSources = audioSources;
             position = transform.localPosition;
             rotation = transform.localEulerAngles;
             scale = transform.localScale;
@@ -38,10 +60,10 @@ namespace Battlement
             BattlementMotionValidator.Validate(descriptor, host);
             BattlementMotionDescriptorValidator.ValidateCapabilities(
                 descriptor,
-                SupportsWorld,
+                SupportsCatalog,
                 false
             );
-            BattlementMotionGraph.ValidateDescriptor(descriptor, SupportsWorld);
+            BattlementMotionGraph.ValidateDescriptor(descriptor, SupportsCatalog);
             foreach (
                 MotionValueBinding binding in descriptor.ValueBindings
                     ?? Array.Empty<MotionValueBinding>()
@@ -52,19 +74,132 @@ namespace Battlement
                     );
         }
 
-        public bool Supports(MotionProperty property) => SupportsWorld(property);
+        internal void Configure(MotionDescriptor descriptor)
+        {
+            MotionPropertyTarget.MaterialScalar? nextMaterial = null;
+            ObjectId? nextAudio = null;
+            bool usesLight = false;
+            bool usesParticles = false;
+            foreach (MotionPropertyTrack track in Tracks(descriptor))
+            {
+                switch (track.Target)
+                {
+                    case MotionPropertyTarget.Host:
+                        break;
+                    case MotionPropertyTarget.MaterialScalar target:
+                        if (nextMaterial is not null && nextMaterial != target)
+                            throw Invalid(
+                                "One Motion host cannot target multiple material scalars."
+                            );
+                        nextMaterial = target;
+                        break;
+                    case MotionPropertyTarget.AudioVolume target:
+                        if (nextAudio is ObjectId prior && prior != target.PlaybackId)
+                            throw Invalid(
+                                "One Motion host cannot target multiple audio playbacks."
+                            );
+                        nextAudio = target.PlaybackId;
+                        break;
+                    default:
+                        throw Invalid("Unknown Motion property target.");
+                }
+                usesLight |= track.Property == MotionProperty.LightIntensity;
+                usesParticles |= track.Property == MotionProperty.ParticleEmission;
+            }
 
-        private static bool SupportsWorld(MotionProperty property) =>
+            if (nextMaterial != materialTarget)
+                ReleaseMaterial();
+            if (nextMaterial is not null)
+            {
+                if (
+                    !transform.TryGetComponent(out BattlementMaterialInstances candidate)
+                    || !candidate.SupportsMotionScalar(nextMaterial.Slot, nextMaterial.Parameter)
+                )
+                    throw Invalid("Material Motion requires the exact prepared float parameter.");
+                materials = candidate;
+                materialTarget = nextMaterial;
+            }
+
+            if (usesLight && light == null)
+            {
+                if (!transform.TryGetComponent(out Light candidate))
+                    throw Invalid("Light-intensity Motion requires a Light host.");
+                light = candidate;
+                lightOrigin = candidate.intensity;
+            }
+            else if (!usesLight && light != null)
+            {
+                light.intensity = lightOrigin;
+                light = null;
+            }
+
+            if (usesParticles && particles.Length == 0)
+            {
+                particles = transform.GetComponentsInChildren<ParticleSystem>(true);
+                if (particles.Length == 0)
+                    throw Invalid("Particle-emission Motion requires a ParticleSystem host.");
+                particleOrigins = particles
+                    .Select(system => system.emission.rateOverTimeMultiplier)
+                    .ToArray();
+            }
+            else if (!usesParticles && particles.Length != 0)
+            {
+                RestoreParticles();
+                particles = Array.Empty<ParticleSystem>();
+                particleOrigins = Array.Empty<float>();
+            }
+
+            if (nextAudio != audioPlayback)
+            {
+                RestoreAudio();
+                if (nextAudio is ObjectId playback)
+                {
+                    if (audioSources?.HasMotionPlayback(playback) != true)
+                        throw Invalid(
+                            "Audio-volume Motion requires a live Battlement audio playback."
+                        );
+                    audioPlayback = playback;
+                    audioOrigin = audioSources.ReadMotionVolume(playback);
+                }
+            }
+        }
+
+        public bool Supports(MotionProperty property) =>
+            SupportsTransform(property)
+            || (property == MotionProperty.MaterialScalar && materialTarget is not null)
+            || (property == MotionProperty.LightIntensity && light != null)
+            || (property == MotionProperty.ParticleEmission && particles.Length != 0)
+            || (property == MotionProperty.AudioVolume && audioPlayback is not null);
+
+        private static bool SupportsTransform(MotionProperty property) =>
             property >= MotionProperty.LocalPositionX
             && property <= MotionProperty.LocalScaleFactorZ;
 
+        private static bool SupportsCatalog(MotionProperty property) =>
+            SupportsTransform(property)
+            || property
+                is MotionProperty.MaterialScalar
+                    or MotionProperty.LightIntensity
+                    or MotionProperty.ParticleEmission
+                    or MotionProperty.AudioVolume;
+
         public bool IsLayout(MotionProperty property) => false;
 
-        public bool IsSpatial(MotionProperty property) => Supports(property);
+        public bool IsSpatial(MotionProperty property) => SupportsTransform(property);
 
         public MotionValue Read(MotionProperty property)
         {
             Require(property);
+            if (property == MotionProperty.MaterialScalar)
+                return new MotionValue.Scalar(
+                    materials!.ReadMotionScalar(materialTarget!.Slot, materialTarget.Parameter)
+                );
+            if (property == MotionProperty.LightIntensity)
+                return new MotionValue.Scalar(light!.intensity);
+            if (property == MotionProperty.ParticleEmission)
+                return new MotionValue.Scalar(particles[0].emission.rateOverTimeMultiplier);
+            if (property == MotionProperty.AudioVolume)
+                return new MotionValue.Scalar(audioSources!.ReadMotionVolume(audioPlayback!.Value));
             if (transform != null)
                 SynchronizePresentation();
             int channel = (int)property - (int)MotionProperty.LocalPositionX;
@@ -92,10 +227,38 @@ namespace Battlement
         public void WriteScalar(MotionProperty property, double value)
         {
             Require(property);
-            SynchronizePresentation();
             float number = checked((float)value);
             if (!float.IsFinite(number))
-                throw Invalid("Transform Motion channels must remain finite.");
+                throw Invalid("World Motion channels must remain finite.");
+            if (property == MotionProperty.MaterialScalar)
+            {
+                materials!.WriteMotionScalar(
+                    materialTarget!.Slot,
+                    materialTarget.Parameter,
+                    number
+                );
+                return;
+            }
+            if (property == MotionProperty.LightIntensity)
+            {
+                light!.intensity = Math.Max(0, number);
+                return;
+            }
+            if (property == MotionProperty.ParticleEmission)
+            {
+                foreach (ParticleSystem system in particles)
+                {
+                    ParticleSystem.EmissionModule emission = system.emission;
+                    emission.rateOverTimeMultiplier = Math.Max(0, number);
+                }
+                return;
+            }
+            if (property == MotionProperty.AudioVolume)
+            {
+                audioSources!.WriteMotionVolume(audioPlayback!.Value, number);
+                return;
+            }
+            SynchronizePresentation();
             int channel = (int)property - (int)MotionProperty.LocalPositionX;
             int axis = channel % 3;
             switch (channel / 3)
@@ -146,7 +309,17 @@ namespace Battlement
         public bool IsParentOf(IBattlementMotionTarget target) =>
             target is BattlementWorldMotionTarget world && world.transform.parent == transform;
 
-        public void Release() { }
+        public void Release()
+        {
+            ReleaseMaterial();
+            if (light != null)
+                light.intensity = lightOrigin;
+            RestoreParticles();
+            RestoreAudio();
+            light = null;
+            particles = Array.Empty<ParticleSystem>();
+            particleOrigins = Array.Empty<float>();
+        }
 
         internal void CapturePresentation()
         {
@@ -189,5 +362,43 @@ namespace Battlement
 
         private static BattlementUiException Invalid(string message) =>
             new(CoreErrorCode.InvalidProperty, message);
+
+        private static IEnumerable<MotionPropertyTrack> Tracks(MotionDescriptor descriptor) =>
+            (descriptor.Initial?.Tracks ?? Array.Empty<MotionPropertyTrack>())
+                .Concat(descriptor.Slots.SelectMany(slot => slot.Target.Tracks))
+                .Concat(
+                    (descriptor.NamedTargets ?? Array.Empty<MotionNamedTarget>()).SelectMany(
+                        target => target.Target.Tracks
+                    )
+                );
+
+        private void ReleaseMaterial()
+        {
+            if (materials != null && materialTarget is not null)
+                materials.ClearMotionScalar(materialTarget.Slot, materialTarget.Parameter);
+            materials = null;
+            materialTarget = null;
+        }
+
+        private void RestoreParticles()
+        {
+            for (int index = 0; index < Math.Min(particles.Length, particleOrigins.Length); index++)
+            {
+                if (particles[index] == null)
+                    continue;
+                ParticleSystem.EmissionModule emission = particles[index].emission;
+                emission.rateOverTimeMultiplier = particleOrigins[index];
+            }
+        }
+
+        private void RestoreAudio()
+        {
+            if (
+                audioPlayback is ObjectId playback
+                && audioSources?.HasMotionPlayback(playback) == true
+            )
+                audioSources.WriteMotionVolume(playback, audioOrigin);
+            audioPlayback = null;
+        }
     }
 }

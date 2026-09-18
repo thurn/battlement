@@ -67,7 +67,7 @@ fn validate_target(target: &MotionTargetDescriptor) -> Result<(), ValidationErro
   let end = target.transition_end.iter().map(|value| value.property);
   if tracks
     .chain(end)
-    .any(|property| !property.is_world_transform())
+    .any(|property| !property.is_world_transform() && !property.is_world_effect())
   {
     return Err(ValidationError::InvalidReference);
   }

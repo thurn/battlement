@@ -38,6 +38,7 @@ namespace Battlement.UI
                 }
                 result[index] = new MotionPropertyTrack(
                     track.Property,
+                    new MotionPropertyTarget.Host(),
                     values,
                     track.Transition,
                     times
@@ -347,7 +348,12 @@ namespace Battlement.UI
                 trackAnchors[property] = currentMicros;
                 tracks.Add(
                     new TrackState(
-                        new MotionPropertyTrack(property, new[] { value }, timing),
+                        new MotionPropertyTrack(
+                            property,
+                            new MotionPropertyTarget.Host(),
+                            new[] { value },
+                            timing
+                        ),
                         transitionOrigins.TryGetValue(property, out MotionValue origin)
                             ? origin
                             : BattlementMotionPropertyWriter.Read(target, property),

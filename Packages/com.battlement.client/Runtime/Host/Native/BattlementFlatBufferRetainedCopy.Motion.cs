@@ -303,6 +303,7 @@ namespace Battlement
                 }
                 tracks[index] = new MotionPropertyTrack(
                     (MotionProperty)(ushort)track.Property,
+                    MotionPropertyTarget(track.Target ?? throw Missing("motion property target")),
                     values,
                     Transition(track.Transition ?? throw Missing("motion transition")),
                     times
@@ -320,6 +321,21 @@ namespace Battlement
             }
             return new MotionTargetDescriptor(tracks, transitionEnd);
         }
+
+        private static MotionPropertyTarget MotionPropertyTarget(Wire.MotionPropertyTarget value) =>
+            value.Kind switch
+            {
+                Wire.MotionPropertyTargetKind.Host => new MotionPropertyTarget.Host(),
+                Wire.MotionPropertyTargetKind.MaterialScalar =>
+                    new MotionPropertyTarget.MaterialScalar(
+                        value.MaterialSlot,
+                        Required(value.MaterialParameter, "motion material parameter")
+                    ),
+                Wire.MotionPropertyTargetKind.AudioVolume => new MotionPropertyTarget.AudioVolume(
+                    new ObjectId(Uuid(value.PlaybackId, "motion audio playback"))
+                ),
+                _ => throw new InvalidDataException("Unknown Motion property target."),
+            };
 
         internal static TransitionDefinition Transition(Wire.TransitionDefinition value)
         {

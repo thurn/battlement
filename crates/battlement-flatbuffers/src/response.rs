@@ -3623,6 +3623,7 @@ mod tests {
     let target = battlement::MotionTargetDescriptor {
       tracks: vec![battlement::MotionPropertyTrack {
         property: battlement::MotionProperty::Opacity,
+        target: battlement::MotionPropertyTarget::Host,
         values: vec![battlement::MotionValue::Scalar(0.25)],
         times: None,
         transition: battlement::TransitionDefinition::tween(),
@@ -3736,6 +3737,7 @@ mod tests {
         target: battlement::MotionTargetDescriptor {
           tracks: vec![battlement::MotionPropertyTrack {
             property: battlement::MotionProperty::Opacity,
+            target: battlement::MotionPropertyTarget::Host,
             values: vec![battlement::MotionValue::Scalar(0.75)],
             times: None,
             transition: battlement::TransitionDefinition::tween(),

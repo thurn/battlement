@@ -29,6 +29,8 @@ pub struct MotionSequence(pub u64);
 pub struct MotionPropertyTrack {
   /// Catalog property identity.
   pub property: MotionProperty,
+  /// Native destination for the property writer.
+  pub target: MotionPropertyTarget,
   /// One or more property values; one value is a constant target.
   pub values: Vec<MotionValue>,
   /// Optional property-local normalized times.
@@ -40,6 +42,7 @@ pub struct MotionPropertyTrack {
 impl MotionPropertyTrack {
   /// Validates finite values, property shapes, times, and transition compatibility.
   pub fn validate(&self) -> Result<(), String> {
+    self.target.validate_for(self.property)?;
     if self.values.is_empty() {
       return Err(format!(
         "motion property {} has an empty keyframe sequence",
@@ -77,6 +80,50 @@ impl MotionPropertyTrack {
       ));
     }
     Ok(())
+  }
+}
+
+/// Native destination selected by one Motion property track.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum MotionPropertyTarget {
+  /// The component represented by the Motion host.
+  Host,
+  /// One renderer-local float parameter on a prepared material instance.
+  MaterialScalar {
+    /// Renderer material slot.
+    slot: u32,
+    /// Exact prepared shader parameter name.
+    parameter: String,
+  },
+  /// One Battlement-owned audio playback operation.
+  AudioVolume {
+    /// Stable playback operation identity.
+    playback_id: ObjectId,
+  },
+}
+
+impl MotionPropertyTarget {
+  fn validate_for(&self, property: MotionProperty) -> Result<(), String> {
+    match (property, self) {
+      (MotionProperty::MaterialScalar, Self::MaterialScalar { parameter, .. })
+        if !parameter.is_empty() =>
+      {
+        Ok(())
+      }
+      (MotionProperty::AudioVolume, Self::AudioVolume { .. }) => Ok(()),
+      (MotionProperty::LightIntensity | MotionProperty::ParticleEmission, Self::Host) => Ok(()),
+      (property, Self::Host) if !property.is_world_effect() => Ok(()),
+      (MotionProperty::MaterialScalar, _) => {
+        Err("material scalar Motion requires a nonempty material parameter target".to_owned())
+      }
+      (MotionProperty::AudioVolume, _) => {
+        Err("audio volume Motion requires an audio playback target".to_owned())
+      }
+      _ => Err(format!(
+        "motion property {} received an incompatible native target",
+        property.metadata().wire_name
+      )),
+    }
   }
 }
 
@@ -1111,7 +1158,7 @@ mod tests {
 
   use crate::{
     FilterFunction, FilterList, MotionClockSource, MotionDescriptor, MotionGeneration,
-    MotionProperty, MotionPropertyTrack, MotionSlotDescriptor, MotionSlotId,
+    MotionProperty, MotionPropertyTarget, MotionPropertyTrack, MotionSlotDescriptor, MotionSlotId,
     MotionTargetDescriptor, MotionValue, ReducedMotionPolicy, Shadow, TransitionDefinition,
   };
 
@@ -1120,6 +1167,7 @@ mod tests {
     let target = MotionTargetDescriptor {
       tracks: vec![MotionPropertyTrack {
         property: MotionProperty::Opacity,
+        target: MotionPropertyTarget::Host,
         values: vec![MotionValue::Scalar(1.0)],
         times: None,
         transition: TransitionDefinition::tween(),
@@ -1181,6 +1229,7 @@ mod tests {
     };
     let track = |property, filter| MotionPropertyTrack {
       property,
+      target: MotionPropertyTarget::Host,
       values: vec![MotionValue::FilterList(FilterList::new([filter]))],
       times: None,
       transition: TransitionDefinition::tween(),
@@ -1209,6 +1258,7 @@ mod tests {
     assert!(
       MotionPropertyTrack {
         property: MotionProperty::PaintFilter,
+        target: MotionPropertyTarget::Host,
         values: vec![MotionValue::FilterList(FilterList::new([
           FilterFunction::DropShadow(shadow),
           FilterFunction::DropShadow(shadow),
@@ -1222,6 +1272,7 @@ mod tests {
     assert!(
       MotionPropertyTrack {
         property: MotionProperty::BoxShadow,
+        target: MotionPropertyTarget::Host,
         values: vec![MotionValue::ShadowList(vec![shadow])],
         times: None,
         transition: TransitionDefinition::tween(),
@@ -1232,6 +1283,7 @@ mod tests {
     assert!(
       MotionPropertyTrack {
         property: MotionProperty::BoxShadow,
+        target: MotionPropertyTarget::Host,
         values: vec![MotionValue::ShadowList(vec![Shadow {
           blur: -1.0,
           ..shadow

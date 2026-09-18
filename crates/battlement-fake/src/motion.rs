@@ -103,7 +103,9 @@ impl MotionWorld {
       .as_ref()
       .map_or_else(|| Target::new(host, world, ui), |old| old.target.clone());
     if reconnect && previous.is_some() {
-      target.reconnect(world, ui);
+      target.reconnect(&definition, world, ui);
+    } else {
+      target.configure(&definition, world);
     }
     if !definition
       .value_bindings

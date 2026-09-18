@@ -1,11 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
-use battlement::{Connect, ObjectId, Vector3};
+use battlement::{CommandId, Connect, ObjectId, Vector3};
 use battlement_fake::{
   assets::FakeAssetCatalog,
   client::FakeClient,
   effects::{AudioOccurrence, ParticleOccurrence},
-  world::FakeObject,
+  world::{FakeAudio, FakeObject},
 };
 use battlement_native::Engine;
 
@@ -200,6 +200,12 @@ where
   #[must_use]
   pub fn object(&self, object_id: ObjectId) -> Option<&FakeObject> {
     self.client.world().object(object_id)
+  }
+
+  /// Returns one live audio playback when it is currently presented.
+  #[must_use]
+  pub fn audio(&self, command_id: CommandId) -> Option<&FakeAudio> {
+    self.client.world().audio(command_id)
   }
 
   /// Observes a presented local point without advancing time, work, or frames.

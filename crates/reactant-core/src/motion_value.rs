@@ -91,6 +91,12 @@ pub struct AudioPlayback {
   operation_id: ObjectId,
 }
 
+impl AudioPlayback {
+  pub(crate) const fn operation_id(self) -> ObjectId {
+    self.operation_id
+  }
+}
+
 /// Options used when creating one stable audio playback operation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AudioPlaybackOptions {

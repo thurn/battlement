@@ -15,6 +15,7 @@ namespace Battlement
         private readonly BattlementWorldMotionGestures gestures;
         private readonly Dictionary<Guid, Target> targets = new();
         private BattlementUiDocuments? documents;
+        private BattlementAudioSources? audioSources;
         private int rebuilding;
 
         public BattlementWorldMotion(BattlementWorld world)
@@ -37,6 +38,15 @@ namespace Battlement
                 throw new InvalidOperationException("A world cannot use two Motion registries.");
             documents = value;
             value.RestoreNativeMotion = Restore;
+        }
+
+        public void Bind(BattlementAudioSources value)
+        {
+            if (ReferenceEquals(audioSources, value))
+                return;
+            if (audioSources is not null)
+                throw new InvalidOperationException("A world cannot use two audio hosts.");
+            audioSources = value;
         }
 
         public IDisposable Rebuild()
@@ -80,7 +90,11 @@ namespace Battlement
                 targets.TryGetValue(id.Value, out Target prior)
                 && ReferenceEquals(prior.Transform, transform)
                     ? prior
-                    : new Target(transform, new BattlementWorldMotionTarget(transform));
+                    : new Target(
+                        transform,
+                        new BattlementWorldMotionTarget(transform, audioSources)
+                    );
+            target.Properties.Configure(descriptor);
             using BattlementPreparedMotionAdmission? prepared = documents.MotionWorld.Prepare(
                 target.Properties,
                 id,
@@ -108,6 +122,7 @@ namespace Battlement
             if (documents is not null)
                 documents.RestoreNativeMotion = null;
             documents = null;
+            audioSources = null;
         }
 
         private void Restore()

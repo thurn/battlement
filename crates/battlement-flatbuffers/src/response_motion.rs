@@ -1,8 +1,8 @@
 use battlement::{
   FilterFunction, Gradient, InertiaTarget, MotionDiscreteValue, MotionEasing,
-  MotionPlaybackCommand, MotionProperty, MotionRepeat, MotionRepeatType, MotionTargetDescriptor,
-  MotionValue, SpringConfiguration, StepPosition, TransformOperation, TransitionDefinition,
-  TransitionGenerator,
+  MotionPlaybackCommand, MotionProperty, MotionPropertyTarget, MotionRepeat, MotionRepeatType,
+  MotionTargetDescriptor, MotionValue, SpringConfiguration, StepPosition, TransformOperation,
+  TransitionDefinition, TransitionGenerator,
 };
 use flatbuffers::{Allocator, FlatBufferBuilder, UnionWIPOffset, WIPOffset};
 
@@ -225,6 +225,34 @@ pub(crate) fn write_target<'a, A: Allocator + 'a>(
     .tracks
     .iter()
     .map(|track| {
+      let material_parameter = match &track.target {
+        MotionPropertyTarget::MaterialScalar { parameter, .. } => {
+          Some(builder.create_string(parameter))
+        }
+        _ => None,
+      };
+      let playback_id = match track.target {
+        MotionPropertyTarget::AudioVolume { playback_id } => Some(uuid(playback_id.as_uuid())),
+        _ => None,
+      };
+      let target = wire::MotionPropertyTarget::create(
+        builder,
+        &wire::MotionPropertyTargetArgs {
+          kind: match track.target {
+            MotionPropertyTarget::Host => wire::MotionPropertyTargetKind::Host,
+            MotionPropertyTarget::MaterialScalar { .. } => {
+              wire::MotionPropertyTargetKind::MaterialScalar
+            }
+            MotionPropertyTarget::AudioVolume { .. } => wire::MotionPropertyTargetKind::AudioVolume,
+          },
+          material_slot: match track.target {
+            MotionPropertyTarget::MaterialScalar { slot, .. } => slot,
+            _ => 0,
+          },
+          material_parameter,
+          playback_id: playback_id.as_ref(),
+        },
+      );
       let values = track
         .values
         .iter()
@@ -249,6 +277,7 @@ pub(crate) fn write_target<'a, A: Allocator + 'a>(
         builder,
         &wire::MotionPropertyTrackArgs {
           property: property(track.property),
+          target: Some(target),
           values: Some(values),
           times,
           transition: Some(transition),

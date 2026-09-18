@@ -169,6 +169,10 @@ namespace Battlement
         LocalScaleFactorX,
         LocalScaleFactorY,
         LocalScaleFactorZ,
+        MaterialScalar,
+        LightIntensity,
+        ParticleEmission,
+        AudioVolume,
     }
 
     /// <summary>Complete generated metadata for one animation property.</summary>

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Battlement
@@ -170,8 +171,50 @@ namespace Battlement
                             throw new InvalidOperationException("Unknown material parameter kind.");
                     }
                 }
+                foreach ((string name, float value) in entry.MotionScalars)
+                    block.SetFloat(name, value);
                 target.SetPropertyBlock(block, slot);
             }
+        }
+
+        internal bool SupportsMotionScalar(uint slot, string parameter) =>
+            entries.TryGetValue((int)slot, out Entry entry)
+            && entry.Parameters.Any(value =>
+                value.Name == parameter && value.Kind == MaterialParameterKind.Float
+            );
+
+        internal float ReadMotionScalar(uint slot, string parameter)
+        {
+            Entry entry = RequireMotionScalar(slot, parameter);
+            if (entry.MotionScalars.TryGetValue(parameter, out float presented))
+                return presented;
+            return (float)entry.Parameters.First(value => value.Name == parameter).X;
+        }
+
+        internal void WriteMotionScalar(uint slot, string parameter, float value)
+        {
+            Entry entry = RequireMotionScalar(slot, parameter);
+            entry.MotionScalars[parameter] = value;
+            entry.Block.SetFloat(parameter, value);
+            target!.SetPropertyBlock(entry.Block, (int)slot);
+        }
+
+        internal void ClearMotionScalar(uint slot, string parameter)
+        {
+            if (
+                entries.TryGetValue((int)slot, out Entry entry)
+                && entry.MotionScalars.Remove(parameter)
+            )
+                Refresh();
+        }
+
+        private Entry RequireMotionScalar(uint slot, string parameter)
+        {
+            if (!SupportsMotionScalar(slot, parameter))
+                throw BattlementMaterialParameters.Invalid(
+                    $"Material Motion float parameter '{parameter}' is not prepared in slot {slot}."
+                );
+            return entries[(int)slot];
         }
 
         internal void Release()
@@ -191,7 +234,10 @@ namespace Battlement
             IReadOnlyList<MaterialParameterValue> Parameters,
             IBattlementAssetLease Lease,
             MaterialPropertyBlock Block
-        );
+        )
+        {
+            internal Dictionary<string, float> MotionScalars { get; } = new();
+        }
 
         private sealed record Original(Material Material, MaterialPropertyBlock Block);
     }

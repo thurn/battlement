@@ -10,7 +10,29 @@ namespace Battlement
         IReadOnlyList<MotionValue> Values,
         TransitionDefinition Transition,
         IReadOnlyList<double>? Times = null
-    );
+    )
+    {
+        public MotionPropertyTarget Target { get; init; } = new MotionPropertyTarget.Host();
+
+        public MotionPropertyTrack(
+            MotionProperty property,
+            MotionPropertyTarget target,
+            IReadOnlyList<MotionValue> values,
+            TransitionDefinition transition,
+            IReadOnlyList<double>? times = null
+        )
+            : this(property, values, transition, times) => Target = target;
+    }
+
+    /// <summary>Native destination selected by one Motion property track.</summary>
+    public abstract record MotionPropertyTarget
+    {
+        public sealed record Host : MotionPropertyTarget;
+
+        public sealed record MaterialScalar(uint Slot, string Parameter) : MotionPropertyTarget;
+
+        public sealed record AudioVolume(ObjectId PlaybackId) : MotionPropertyTarget;
+    }
 
     /// <summary>One property assignment outside a sampled timeline.</summary>
     public sealed record MotionPropertyValue(MotionProperty Property, MotionValue Value);

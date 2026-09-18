@@ -83,6 +83,11 @@ impl<T: IntoMaterialValue> MaterialParameter<T> {
       value: PhantomData,
     }
   }
+  /// Returns the exact shader property name.
+  #[must_use]
+  pub const fn name(self) -> &'static str {
+    self.name
+  }
   /// Creates a named value from this declaration.
   pub fn value(self, value: T) -> MaterialParameterValue {
     assert!(

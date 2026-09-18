@@ -130,6 +130,10 @@ public enum MotionProperty : ushort
   LocalScaleFactorX = 114,
   LocalScaleFactorY = 115,
   LocalScaleFactorZ = 116,
+  MaterialScalar = 117,
+  LightIntensity = 118,
+  ParticleEmission = 119,
+  AudioVolume = 120,
 };
 
 public enum MotionTransformKind : byte
@@ -291,6 +295,13 @@ public enum MotionPlaybackOutcome : byte
   Stopped = 1,
   Cancelled = 2,
   Failed = 3,
+};
+
+public enum MotionPropertyTargetKind : byte
+{
+  Host = 0,
+  MaterialScalar = 1,
+  AudioVolume = 2,
 };
 
 public enum StepPosition : byte
@@ -1667,6 +1678,51 @@ static public class MotionValueEntryVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct MotionPropertyTarget : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static MotionPropertyTarget GetRootAsMotionPropertyTarget(ByteBuffer _bb) { return GetRootAsMotionPropertyTarget(_bb, new MotionPropertyTarget()); }
+  public static MotionPropertyTarget GetRootAsMotionPropertyTarget(ByteBuffer _bb, MotionPropertyTarget obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public MotionPropertyTarget __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.MotionPropertyTargetKind Kind { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionPropertyTargetKind)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionPropertyTargetKind.Host; } }
+  public uint MaterialSlot { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+  public string MaterialParameter { get { int o = __p.__offset(8); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetMaterialParameterBytes() { return __p.__vector_as_span<byte>(8, 1); }
+#else
+  public ArraySegment<byte>? GetMaterialParameterBytes() { return __p.__vector_as_arraysegment(8); }
+#endif
+  public byte[] GetMaterialParameterArray() { return __p.__vector_as_array<byte>(8); }
+  public Battlement.FlatBuffers.Generated.Uuid? PlaybackId { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+
+  public static void StartMotionPropertyTarget(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void AddKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionPropertyTargetKind kind) { builder.AddByte(0, (byte)kind, 0); }
+  public static void AddMaterialSlot(FlatBufferBuilder builder, uint materialSlot) { builder.AddUint(1, materialSlot, 0); }
+  public static void AddMaterialParameter(FlatBufferBuilder builder, StringOffset materialParameterOffset) { builder.AddOffset(2, materialParameterOffset.Value, 0); }
+  public static void AddPlaybackId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> playbackIdOffset) { builder.AddStruct(3, playbackIdOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.MotionPropertyTarget> EndMotionPropertyTarget(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<Battlement.FlatBuffers.Generated.MotionPropertyTarget>(o);
+  }
+}
+
+
+static public class MotionPropertyTargetVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Kind*/, 1 /*Battlement.FlatBuffers.Generated.MotionPropertyTargetKind*/, 1, false)
+      && verifier.VerifyField(tablePos, 6 /*MaterialSlot*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyString(tablePos, 8 /*MaterialParameter*/, false)
+      && verifier.VerifyField(tablePos, 10 /*PlaybackId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct MotionEasingDefinition : IFlatbufferObject
 {
   private Table __p;
@@ -1917,50 +1973,55 @@ public struct MotionPropertyTrack : IFlatbufferObject
   public MotionPropertyTrack __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public Battlement.FlatBuffers.Generated.MotionProperty Property { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionProperty)__p.bb.GetUshort(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionProperty.AlignContent; } }
-  public Battlement.FlatBuffers.Generated.MotionValueEntry? Values(int j) { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionValueEntry?)(new Battlement.FlatBuffers.Generated.MotionValueEntry()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
-  public int ValuesLength { get { int o = __p.__offset(6); return o != 0 ? __p.__vector_len(o) : 0; } }
-  public double Times(int j) { int o = __p.__offset(8); return o != 0 ? __p.bb.GetDouble(__p.__vector(o) + j * 8) : (double)0; }
-  public int TimesLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public Battlement.FlatBuffers.Generated.MotionPropertyTarget? Target { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionPropertyTarget?)(new Battlement.FlatBuffers.Generated.MotionPropertyTarget()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionValueEntry? Values(int j) { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionValueEntry?)(new Battlement.FlatBuffers.Generated.MotionValueEntry()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int ValuesLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public double Times(int j) { int o = __p.__offset(10); return o != 0 ? __p.bb.GetDouble(__p.__vector(o) + j * 8) : (double)0; }
+  public int TimesLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
 #if ENABLE_SPAN_T
-  public Span<double> GetTimesBytes() { return __p.__vector_as_span<double>(8, 8); }
+  public Span<double> GetTimesBytes() { return __p.__vector_as_span<double>(10, 8); }
 #else
-  public ArraySegment<byte>? GetTimesBytes() { return __p.__vector_as_arraysegment(8); }
+  public ArraySegment<byte>? GetTimesBytes() { return __p.__vector_as_arraysegment(10); }
 #endif
-  public double[] GetTimesArray() { return __p.__vector_as_array<double>(8); }
-  public Battlement.FlatBuffers.Generated.TransitionDefinition? Transition { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.TransitionDefinition?)(new Battlement.FlatBuffers.Generated.TransitionDefinition()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public double[] GetTimesArray() { return __p.__vector_as_array<double>(10); }
+  public Battlement.FlatBuffers.Generated.TransitionDefinition? Transition { get { int o = __p.__offset(12); return o != 0 ? (Battlement.FlatBuffers.Generated.TransitionDefinition?)(new Battlement.FlatBuffers.Generated.TransitionDefinition()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.MotionPropertyTrack> CreateMotionPropertyTrack(FlatBufferBuilder builder,
       Battlement.FlatBuffers.Generated.MotionProperty property = Battlement.FlatBuffers.Generated.MotionProperty.AlignContent,
+      Offset<Battlement.FlatBuffers.Generated.MotionPropertyTarget> targetOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionPropertyTarget>),
       VectorOffset valuesOffset = default(VectorOffset),
       VectorOffset timesOffset = default(VectorOffset),
       Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> transitionOffset = default(Offset<Battlement.FlatBuffers.Generated.TransitionDefinition>)) {
-    builder.StartTable(4);
+    builder.StartTable(5);
     MotionPropertyTrack.AddTransition(builder, transitionOffset);
     MotionPropertyTrack.AddTimes(builder, timesOffset);
     MotionPropertyTrack.AddValues(builder, valuesOffset);
+    MotionPropertyTrack.AddTarget(builder, targetOffset);
     MotionPropertyTrack.AddProperty(builder, property);
     return MotionPropertyTrack.EndMotionPropertyTrack(builder);
   }
 
-  public static void StartMotionPropertyTrack(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartMotionPropertyTrack(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddProperty(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionProperty property) { builder.AddUshort(0, (ushort)property, 0); }
-  public static void AddValues(FlatBufferBuilder builder, VectorOffset valuesOffset) { builder.AddOffset(1, valuesOffset.Value, 0); }
+  public static void AddTarget(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionPropertyTarget> targetOffset) { builder.AddOffset(1, targetOffset.Value, 0); }
+  public static void AddValues(FlatBufferBuilder builder, VectorOffset valuesOffset) { builder.AddOffset(2, valuesOffset.Value, 0); }
   public static VectorOffset CreateValuesVector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionValueEntry>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionValueEntry>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Battlement.FlatBuffers.Generated.MotionValueEntry>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateValuesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Battlement.FlatBuffers.Generated.MotionValueEntry>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartValuesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
-  public static void AddTimes(FlatBufferBuilder builder, VectorOffset timesOffset) { builder.AddOffset(2, timesOffset.Value, 0); }
+  public static void AddTimes(FlatBufferBuilder builder, VectorOffset timesOffset) { builder.AddOffset(3, timesOffset.Value, 0); }
   public static VectorOffset CreateTimesVector(FlatBufferBuilder builder, double[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddDouble(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateTimesVectorBlock(FlatBufferBuilder builder, double[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateTimesVectorBlock(FlatBufferBuilder builder, ArraySegment<double> data) { builder.StartVector(8, data.Count, 8); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateTimesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<double>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartTimesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
-  public static void AddTransition(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> transitionOffset) { builder.AddOffset(3, transitionOffset.Value, 0); }
+  public static void AddTransition(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> transitionOffset) { builder.AddOffset(4, transitionOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.MotionPropertyTrack> EndMotionPropertyTrack(FlatBufferBuilder builder) {
     int o = builder.EndTable();
-    builder.Required(o, 6);  // values
-    builder.Required(o, 10);  // transition
+    builder.Required(o, 6);  // target
+    builder.Required(o, 8);  // values
+    builder.Required(o, 12);  // transition
     return new Offset<Battlement.FlatBuffers.Generated.MotionPropertyTrack>(o);
   }
 }
@@ -1972,9 +2033,10 @@ static public class MotionPropertyTrackVerify
   {
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*Property*/, 2 /*Battlement.FlatBuffers.Generated.MotionProperty*/, 2, false)
-      && verifier.VerifyVectorOfTables(tablePos, 6 /*Values*/, Battlement.FlatBuffers.Generated.MotionValueEntryVerify.Verify, true)
-      && verifier.VerifyVectorOfData(tablePos, 8 /*Times*/, 8 /*double*/, false)
-      && verifier.VerifyTable(tablePos, 10 /*Transition*/, Battlement.FlatBuffers.Generated.TransitionDefinitionVerify.Verify, true)
+      && verifier.VerifyTable(tablePos, 6 /*Target*/, Battlement.FlatBuffers.Generated.MotionPropertyTargetVerify.Verify, true)
+      && verifier.VerifyVectorOfTables(tablePos, 8 /*Values*/, Battlement.FlatBuffers.Generated.MotionValueEntryVerify.Verify, true)
+      && verifier.VerifyVectorOfData(tablePos, 10 /*Times*/, 8 /*double*/, false)
+      && verifier.VerifyTable(tablePos, 12 /*Transition*/, Battlement.FlatBuffers.Generated.TransitionDefinitionVerify.Verify, true)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

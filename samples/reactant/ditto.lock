@@ -685,41 +685,51 @@ source = "a7acee9c7b94f4ef755772c5ef5f66a446b32ce8492d681b9beacd54a373fce8"
 profile = "macos"
 scenario = "world material independence"
 checkpoint = "independent-values"
-sha256 = "3ac6f5a7bfa781567a18d02eb0eaddb72447c8ca15fbd3ab422a9650bc973304"
+sha256 = "cfc2d25abc72f05d83ddf9dd4deba9545d7f3d92027ec45df32fd17d691e5385"
 width = 1280
 height = 720
-size_bytes = 48877
-source = "60c38fcb6574a0f2f919d8f71d223d2ce8eb75eead018de7a9f4f15efedbc3ee"
+size_bytes = 57041
+source = "85fd5c4cd3cb7940bc51479cff3d08eacf1e0fcc9b5563908e899417bc7fcf0a"
 
 [[baselines]]
 profile = "macos"
 scenario = "world material independence"
 checkpoint = "left-changed"
-sha256 = "2fe966d0e0c9307f9e810d5d1ba7717e8594c29bd94bc29c2f259ac0f51ba14c"
+sha256 = "8c32c23a681ccf7dac2c81913fc3b2e25a8b5d91965bab679ffa41f716c14e74"
 width = 1280
 height = 720
-size_bytes = 47460
-source = "60c38fcb6574a0f2f919d8f71d223d2ce8eb75eead018de7a9f4f15efedbc3ee"
+size_bytes = 54850
+source = "85fd5c4cd3cb7940bc51479cff3d08eacf1e0fcc9b5563908e899417bc7fcf0a"
 
 [[baselines]]
 profile = "macos"
 scenario = "world material independence"
 checkpoint = "left-faded"
-sha256 = "3474a63a78436c42386755c1fc6ef681e7a8a200d4fe7c1ed9a012e5c054c0ba"
+sha256 = "58303e51b794b983bf0a8918066d63d99e628a575fdce77ed23ec4ced74fe763"
 width = 1280
 height = 720
-size_bytes = 47269
-source = "60c38fcb6574a0f2f919d8f71d223d2ce8eb75eead018de7a9f4f15efedbc3ee"
+size_bytes = 54766
+source = "85fd5c4cd3cb7940bc51479cff3d08eacf1e0fcc9b5563908e899417bc7fcf0a"
 
 [[baselines]]
 profile = "macos"
 scenario = "world material independence"
 checkpoint = "left-restored"
-sha256 = "152b83eb14ab16a9e0b4a727c5ad6652c93336156823d83fefdaa83dd03aa899"
+sha256 = "1bb49fe9f41e4720934f3b540d328fee01f8117d0ad43e9d0b423f7f89b832d9"
 width = 1280
 height = 720
-size_bytes = 48810
-source = "60c38fcb6574a0f2f919d8f71d223d2ce8eb75eead018de7a9f4f15efedbc3ee"
+size_bytes = 56327
+source = "85fd5c4cd3cb7940bc51479cff3d08eacf1e0fcc9b5563908e899417bc7fcf0a"
+
+[[baselines]]
+profile = "macos"
+scenario = "world material independence"
+checkpoint = "parameter-motion"
+sha256 = "d29fd9e01e7c874a3f8eb5eee61edd51e688bdb204ef6f15242e6e25bf45d545"
+width = 1280
+height = 720
+size_bytes = 56470
+source = "85fd5c4cd3cb7940bc51479cff3d08eacf1e0fcc9b5563908e899417bc7fcf0a"
 
 [[baselines]]
 profile = "macos"

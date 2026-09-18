@@ -1,13 +1,133 @@
 //! World-space units and local interaction offsets for shared Motion targets.
 
-use battlement::{MotionProperty, MotionValue};
+use battlement::{MaterialParameter, MotionProperty, MotionPropertyTarget, MotionValue};
 
 use crate::{
   motion::{Keyframes, StyleTarget},
-  motion_value::MotionValue as TypedMotionValue,
+  motion_value::{AudioPlayback, MotionValue as TypedMotionValue},
 };
 
 impl StyleTarget {
+  /// Sets a scalar parameter on slot zero of a prepared material instance.
+  #[must_use]
+  pub fn material_scalar(self, parameter: MaterialParameter<f64>, value: f32) -> Self {
+    self.material_scalar_at(0, parameter, value)
+  }
+
+  /// Sets scalar keyframes on slot zero of a prepared material instance.
+  #[must_use]
+  pub fn material_scalar_keyframes(
+    self,
+    parameter: MaterialParameter<f64>,
+    value: Keyframes<f32>,
+  ) -> Self {
+    self.material_scalar_keyframes_at(0, parameter, value)
+  }
+
+  /// Sets a scalar parameter on one prepared renderer material slot.
+  #[must_use]
+  pub fn material_scalar_at(
+    self,
+    slot: u32,
+    parameter: MaterialParameter<f64>,
+    value: f32,
+  ) -> Self {
+    self.set_targeted(
+      MotionProperty::MaterialScalar,
+      MotionPropertyTarget::MaterialScalar {
+        slot,
+        parameter: parameter.name().to_owned(),
+      },
+      vec![MotionValue::Scalar(value)],
+      None,
+    )
+  }
+
+  /// Sets scalar keyframes on one prepared renderer material slot.
+  #[must_use]
+  pub fn material_scalar_keyframes_at(
+    self,
+    slot: u32,
+    parameter: MaterialParameter<f64>,
+    value: Keyframes<f32>,
+  ) -> Self {
+    self.set_targeted(
+      MotionProperty::MaterialScalar,
+      MotionPropertyTarget::MaterialScalar {
+        slot,
+        parameter: parameter.name().to_owned(),
+      },
+      value.values.into_iter().map(MotionValue::Scalar).collect(),
+      value.times,
+    )
+  }
+
+  /// Sets the intensity of the host light.
+  #[must_use]
+  pub fn light_intensity(self, value: f32) -> Self {
+    self.set(
+      MotionProperty::LightIntensity,
+      vec![MotionValue::Scalar(value)],
+      None,
+    )
+  }
+
+  /// Sets keyframes for the intensity of the host light.
+  #[must_use]
+  pub fn light_intensity_keyframes(self, value: Keyframes<f32>) -> Self {
+    self.set(
+      MotionProperty::LightIntensity,
+      value.values.into_iter().map(MotionValue::Scalar).collect(),
+      value.times,
+    )
+  }
+
+  /// Sets the emission rate of every particle system owned by the host.
+  #[must_use]
+  pub fn particle_emission(self, value: f32) -> Self {
+    self.set(
+      MotionProperty::ParticleEmission,
+      vec![MotionValue::Scalar(value)],
+      None,
+    )
+  }
+
+  /// Sets emission-rate keyframes for the host particle systems.
+  #[must_use]
+  pub fn particle_emission_keyframes(self, value: Keyframes<f32>) -> Self {
+    self.set(
+      MotionProperty::ParticleEmission,
+      value.values.into_iter().map(MotionValue::Scalar).collect(),
+      value.times,
+    )
+  }
+
+  /// Sets the volume of one Battlement-owned audio playback.
+  #[must_use]
+  pub fn audio_volume(self, playback: AudioPlayback, value: f32) -> Self {
+    self.set_targeted(
+      MotionProperty::AudioVolume,
+      MotionPropertyTarget::AudioVolume {
+        playback_id: playback.operation_id(),
+      },
+      vec![MotionValue::Scalar(value)],
+      None,
+    )
+  }
+
+  /// Sets volume keyframes for one Battlement-owned audio playback.
+  #[must_use]
+  pub fn audio_volume_keyframes(self, playback: AudioPlayback, value: Keyframes<f32>) -> Self {
+    self.set_targeted(
+      MotionProperty::AudioVolume,
+      MotionPropertyTarget::AudioVolume {
+        playback_id: playback.operation_id(),
+      },
+      value.values.into_iter().map(MotionValue::Scalar).collect(),
+      value.times,
+    )
+  }
+
   /// Sets the `local_position_x` channel in world-units.
   #[must_use]
   pub fn local_position_x(self, value: f32) -> Self {

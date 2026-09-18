@@ -245,6 +245,10 @@ key = "world-materials.independent-values"
 screen = "world-materials"
 
 [[states]]
+key = "world-materials.parameter-motion"
+screen = "world-materials"
+
+[[states]]
 key = "world-materials.left-changed"
 screen = "world-materials"
 

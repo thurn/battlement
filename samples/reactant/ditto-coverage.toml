@@ -369,6 +369,12 @@ checkpoint = "independent-values"
 owner = "reactant-testing::world_materials"
 
 [[mappings]]
+state = "world-materials.parameter-motion"
+scenario = "world material independence"
+checkpoint = "parameter-motion"
+owner = "reactant-testing::world_motion_parameters"
+
+[[mappings]]
 state = "world-materials.left-changed"
 scenario = "world material independence"
 checkpoint = "left-changed"
