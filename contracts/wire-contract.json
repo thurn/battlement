@@ -20,7 +20,7 @@
       "response.fbs": "a558cbe10c4ccbb3fa927d9fdc985ee58b99412e3f49469da8ec19aa4b4d52a1",
       "ui.fbs": "49f1b64006a1c8dee26f40a88739b7f7b37b8646d7c70b38758eeab6c0184736",
       "ui_event.fbs": "eba5eb77a44c688c9bb0734f9640e53f478121dad57e508c0c97d6db1784d40d",
-      "world.fbs": "6c2bdf80f645b623b1113c986b5ec4dedec1caa472003009cb730b2e004f5caa"
+      "world.fbs": "b773efbf055f59304fdbbd1fdf7a8948f8ec54745f8e645e3607df702f7ba538"
     },
     "rust_runtime": "flatbuffers=25.12.19",
     "csharp_runtime": "v25.12.19+battlement-verifier-limits"

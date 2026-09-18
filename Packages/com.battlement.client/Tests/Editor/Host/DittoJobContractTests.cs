@@ -37,6 +37,45 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void NativeProfileAcceptsControlledPointerStepsAndOtherProfilesRejectThem()
+        {
+            JObject valid = (JObject)
+                JObject.Parse(File.ReadAllText(FixturePath))["valid"]!.DeepClone();
+            valid["profile"]!["capabilities"] = new JArray(
+                "click",
+                "hover",
+                "drag",
+                "png",
+                "video"
+            );
+            valid["scenarios"]![0]!["steps"] = JArray.Parse(
+                "["
+                    + "{\"index\":0,\"name\":null,\"timeout_ms\":1000,"
+                    + "\"action\":{\"hover\":{\"target\":[0.5,0.5]}}},"
+                    + "{\"index\":1,\"name\":null,\"timeout_ms\":1000,"
+                    + "\"action\":{\"drag\":{\"from\":"
+                    + "\"4aac8ca0-af3d-409e-958e-62954e6cb3d1\",\"to\":[0.9,0.2]}}},"
+                    + "{\"index\":2,\"name\":null,\"timeout_ms\":1000,"
+                    + "\"action\":{\"pointer-sample\":{\"pointer_id\":0,"
+                    + "\"phase\":\"cancel\",\"target\":null}}}"
+                    + "]"
+            );
+
+            DittoJob job = Decode(valid);
+
+            Assert.That(job.Scenarios[0].Steps[0].Action, Is.TypeOf<DittoStepAction.Hover>());
+            Assert.That(job.Scenarios[0].Steps[1].Action, Is.TypeOf<DittoStepAction.Drag>());
+            Assert.That(
+                job.Scenarios[0].Steps[2].Action,
+                Is.TypeOf<DittoStepAction.PointerSample>()
+            );
+            valid["profile"]!["platform"] = "webgl";
+            valid["profile"]!["native_execution_id"] = null;
+            valid["profile"]!["capabilities"] = new JArray("click", "hover", "drag", "png");
+            Assert.Throws<JsonSerializationException>(() => Decode(valid));
+        }
+
+        [Test]
         public void DiagnosticsDisabledAssemblyHasNoExecutorOrLogViewerReference()
         {
 #if !BATTLEMENT_DITTO_DIAGNOSTICS

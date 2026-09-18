@@ -49,7 +49,7 @@ pub struct PointerEventsPayload {
 }
 
 /// Native arbitration and capture for logical world pointer events.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WorldPointerSettings {
   /// Higher layers win before distance is compared.
   pub interaction_layer: i32,
@@ -59,6 +59,20 @@ pub struct WorldPointerSettings {
   pub capture_on_press: bool,
   /// Allows semantic keyboard/controller focus and activation.
   pub focusable: bool,
+  /// Sends logical input through the Rust UI event dispatcher.
+  pub forwards_ui_events: bool,
+}
+
+impl Default for WorldPointerSettings {
+  fn default() -> Self {
+    Self {
+      interaction_layer: 0,
+      order: 0,
+      capture_on_press: false,
+      focusable: false,
+      forwards_ui_events: true,
+    }
+  }
 }
 
 /// Replaces a world's logical pointer route without replacing its host.

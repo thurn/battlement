@@ -397,6 +397,7 @@ fn unstarted_result(
         screenshot: None,
         video: None,
         performance: None,
+        input_trace: None,
       })
       .collect(),
     logs: None,
@@ -471,6 +472,7 @@ fn step_name(value: &StepKind) -> StepName {
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
     StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
     StepKind::PointerAction { .. } => StepName::PointerAction,
+    StepKind::PointerSample { .. } => StepName::PointerSample,
     StepKind::Navigation { .. } => StepName::Navigation,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,

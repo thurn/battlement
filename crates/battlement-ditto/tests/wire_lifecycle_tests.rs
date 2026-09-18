@@ -2,13 +2,14 @@ use std::fmt::Debug;
 
 use battlement_ditto::wire::{
   common::{DeadlineKind, ErrorCode, ErrorSource, StepName, StepStatus},
-  job::{Capability, Job},
+  job::{Capability, InputTarget, Job, PointerPhase, ResolvedStep, StepKind},
   lifecycle::{
     AcceptedPlayerSessionIdentity, ArtifactAck, ArtifactKind, BoundaryStage, DittoContext,
-    DittoEventRecord, DittoLogSeverity, DittoLogSource, ExecutionStatus, HttpError, JobComplete,
-    JobCompleteAck, JobFailed, JobFailedAck, LogBatchAck, NextAction, PlayerFailureFrame,
-    PlayerInfrastructureFailure, ScenarioBoundaryOutcome, ScenarioComplete, ScenarioDecision,
-    Started, StartupIdentity, TerminalReason, decode_ndjson,
+    DittoEventRecord, DittoLogSeverity, DittoLogSource, ExecutionStatus, HttpError, InputTrace,
+    JobComplete, JobCompleteAck, JobFailed, JobFailedAck, LogBatchAck, NextAction,
+    PlayerFailureFrame, PlayerInfrastructureFailure, PlayerStepResult, PointerReceipt,
+    ScenarioBoundaryOutcome, ScenarioComplete, ScenarioDecision, Started, StartupIdentity,
+    TerminalReason, decode_ndjson,
   },
 };
 use serde::{Serialize, de::DeserializeOwned};
@@ -100,6 +101,74 @@ fn complete_cold_lifecycle_exchange_validates() {
   }
   .validate(JOB_ID)
   .unwrap();
+}
+
+#[test]
+fn controlled_input_traces_preserve_one_lease_and_contiguous_boundaries() {
+  let mut job = job();
+  job
+    .profile
+    .capabilities
+    .extend([Capability::Hover, Capability::Drag]);
+  let target = InputTarget::Object("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned());
+  job.scenarios[0].steps.extend([
+    ResolvedStep {
+      index: 5,
+      name: None,
+      timeout_ms: 1_000,
+      measure: false,
+      action: StepKind::Hover {
+        target: target.clone(),
+      },
+    },
+    ResolvedStep {
+      index: 6,
+      name: None,
+      timeout_ms: 1_000,
+      measure: false,
+      action: StepKind::Drag {
+        from: target.clone(),
+        to: InputTarget::Coordinates([0.8, 0.2]),
+      },
+    },
+    ResolvedStep {
+      index: 7,
+      name: None,
+      timeout_ms: 1_000,
+      measure: false,
+      action: StepKind::PointerSample {
+        pointer_id: 0,
+        phase: PointerPhase::Cancel,
+        target: None,
+      },
+    },
+  ]);
+  job.validate().unwrap();
+  let mut complete = completion();
+  complete.steps.extend([
+    controlled_step(5, StepName::Hover, vec![receipt(0, 10)]),
+    controlled_step(
+      6,
+      StepName::Drag,
+      vec![receipt(1, 11), receipt(2, 12), receipt(3, 13)],
+    ),
+    controlled_step(7, StepName::PointerSample, vec![receipt(4, 14)]),
+  ]);
+  complete.validate(&job, &["P0001".to_owned()]).unwrap();
+
+  let mut wrong_owner = complete.clone();
+  wrong_owner.steps[6]
+    .input_trace
+    .as_mut()
+    .unwrap()
+    .generation = 8;
+  assert!(wrong_owner.validate(&job, &["P0001".to_owned()]).is_err());
+  let mut gap = complete.clone();
+  gap.steps[6].input_trace.as_mut().unwrap().receipts[0].sequence = 2;
+  assert!(gap.validate(&job, &["P0001".to_owned()]).is_err());
+  let mut boundary = complete;
+  boundary.steps[6].input_trace.as_mut().unwrap().receipts[0].presentation_boundary = 10;
+  assert!(boundary.validate(&job, &["P0001".to_owned()]).is_err());
 }
 
 #[test]
@@ -593,6 +662,41 @@ fn job() -> Job {
 
 fn completion() -> ScenarioComplete {
   serde_json::from_str(SCENARIO_COMPLETE).unwrap()
+}
+
+fn controlled_step(index: u32, kind: StepName, receipts: Vec<PointerReceipt>) -> PlayerStepResult {
+  PlayerStepResult {
+    index,
+    name: None,
+    kind,
+    status: StepStatus::Passed,
+    duration_ms: 1,
+    expired_deadline: None,
+    error_refs: vec![],
+    assertion: None,
+    screenshot_artifact_id: None,
+    video_input_id: None,
+    performance: None,
+    input_trace: Some(InputTrace {
+      session: format!("{SCENARIO_ID}:0"),
+      generation: 7,
+      receipts,
+    }),
+  }
+}
+
+fn receipt(sequence: u64, presentation_boundary: u64) -> PointerReceipt {
+  PointerReceipt {
+    sequence,
+    pointer_id: 0,
+    x: 640.0,
+    y: 360.0,
+    expected_target: Some("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned()),
+    actual_hit: Some("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned()),
+    capture_owner: None,
+    route: "world-logical".to_owned(),
+    presentation_boundary,
+  }
 }
 
 fn context_bodies() -> Vec<Value> {

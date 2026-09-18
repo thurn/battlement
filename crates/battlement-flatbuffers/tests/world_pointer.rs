@@ -11,6 +11,7 @@ fn owned_and_direct_pointer_settings_are_verified_and_clearable() {
       order: u32::MAX,
       capture_on_press: true,
       focusable: true,
+      forwards_ui_events: false,
     }),
     None,
   ] {
@@ -64,6 +65,7 @@ fn owned_and_direct_pointer_settings_are_verified_and_clearable() {
           order: s.order(),
           capture_on_press: s.capture_on_press(),
           focusable: s.focusable(),
+          forwards_ui_events: s.forwards_ui_events(),
         }),
         settings
       );

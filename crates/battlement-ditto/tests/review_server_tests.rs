@@ -223,6 +223,7 @@ fn capture_result() -> RunResult {
         }),
         video: None,
         performance: None,
+        input_trace: None,
       }],
       logs: None,
       failure_frame: None,

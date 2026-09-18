@@ -376,6 +376,7 @@ fn profile_result_validates_headline_attempts_and_hotspots() {
           managed_allocation_deltas: Some(vec![0, 0]),
           observer_timings: vec![observer_frame_timing(), observer_frame_timing()],
         }),
+        input_trace: None,
       }],
       logs: None,
       failure_frame: None,
@@ -926,6 +927,7 @@ fn scenario() -> ScenarioResult {
         screenshot: None,
         video: None,
         performance: None,
+        input_trace: None,
       },
     ],
     logs: Some(LogSpan {
@@ -965,6 +967,7 @@ fn assertion_step() -> StepResult {
     screenshot: None,
     video: None,
     performance: None,
+    input_trace: None,
   }
 }
 
@@ -996,6 +999,7 @@ fn screenshot_step() -> StepResult {
     }),
     video: None,
     performance: None,
+    input_trace: None,
   }
 }
 
@@ -1021,6 +1025,7 @@ fn video_step() -> StepResult {
       truncated: false,
     }),
     performance: None,
+    input_trace: None,
   }
 }
 

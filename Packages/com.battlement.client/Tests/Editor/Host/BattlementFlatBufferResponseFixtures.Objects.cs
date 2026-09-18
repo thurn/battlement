@@ -30,7 +30,8 @@ namespace Battlement.Tests
                     settings.InteractionLayer,
                     settings.Order,
                     settings.CaptureOnPress,
-                    settings.Focusable
+                    settings.Focusable,
+                    settings.ForwardsUiEvents
                 )
                 : default;
             Wire.GameObject.StartGameObject(builder);

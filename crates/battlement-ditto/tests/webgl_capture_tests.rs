@@ -253,6 +253,7 @@ fn step_result(player: &PlayerStepResult) -> StepResult {
     screenshot: None,
     video: None,
     performance: player.performance.clone(),
+    input_trace: player.input_trace.clone(),
   }
 }
 

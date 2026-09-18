@@ -690,5 +690,6 @@ pub(crate) fn read_world_pointer(
     order: value.order(),
     capture_on_press: value.capture_on_press(),
     focusable: value.focusable(),
+    forwards_ui_events: value.forwards_ui_events(),
   }
 }

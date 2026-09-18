@@ -190,6 +190,16 @@ destruction emit capture loss; input generated for an inert or destroyed target
 cannot dispatch after that entity is shown elsewhere or the original native handle is destroyed.
 Native default prevention stays synchronous without reentrant engine calls.
 
+The macOS native Ditto player feeds ordered hover and drag samples through the
+same UI/world picking and capture path under an exclusive generation-scoped
+lease. Authored targets and normalized coordinates use framebuffer space with a
+top-left origin; the controlled source receives display pixels in Unity screen
+space with a bottom-left origin for the current viewport and input camera. Its
+result trace records the consumed screen coordinate, actual route, and
+presentation boundary.
+WebGL and iOS profiles reject these controlled-pointer capabilities until their
+native delivery paths have equivalent evidence.
+
 Gameplay input answers the current presented prompt or starts an action at a
 completed-action boundary. Inspection, settings, and menus remain usable while
 rules or required animation are pending.

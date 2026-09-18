@@ -87,10 +87,14 @@ namespace Battlement
                 "profile contains a capability unsupported by its platform"
             );
             Require(
-                !unique.Contains(DittoCapability.Hover)
-                    && !unique.Contains(DittoCapability.Drag)
-                    && !unique.Contains(DittoCapability.Key),
+                !unique.Contains(DittoCapability.Key),
                 "profile contains a capability without a deterministic delivery contract"
+            );
+            Require(
+                profile.Platform == DittoPlatform.Macos
+                    || !unique.Contains(DittoCapability.Hover)
+                        && !unique.Contains(DittoCapability.Drag),
+                "controlled pointer delivery is supported only by the macOS native player"
             );
             Require(
                 profile.DeterminismContract == "ditto-v3",
@@ -223,13 +227,16 @@ namespace Battlement
             {
                 case DittoStepAction.Click click:
                     Capability(job, DittoCapability.Click);
-                    Target(click.Target);
+                    Target(click.Target, false);
                     break;
-                case DittoStepAction.Hover:
-                    Require(false, "hover has no deterministic delivery contract");
+                case DittoStepAction.Hover hover:
+                    Capability(job, DittoCapability.Hover);
+                    Target(hover.Target, true);
                     break;
-                case DittoStepAction.Drag:
-                    Require(false, "drag has no deterministic delivery contract");
+                case DittoStepAction.Drag drag:
+                    Capability(job, DittoCapability.Drag);
+                    Target(drag.From, true);
+                    Target(drag.To, true);
                     break;
                 case DittoStepAction.Key:
                     Require(
@@ -279,6 +286,27 @@ namespace Battlement
                         );
                     }
                     break;
+                case DittoStepAction.PointerSample pointer:
+                    Require(pointer.PointerId >= 0, "pointer identity must be nonnegative");
+                    bool requiresTarget =
+                        pointer.Phase
+                        is DittoPointerPhase.Hover
+                            or DittoPointerPhase.Press
+                            or DittoPointerPhase.Move
+                            or DittoPointerPhase.Release;
+                    Require(
+                        requiresTarget == (pointer.Target is not null),
+                        "pointer phase target does not match its contract"
+                    );
+                    Capability(
+                        job,
+                        pointer.Phase is DittoPointerPhase.Hover or DittoPointerPhase.Leave
+                            ? DittoCapability.Hover
+                            : DittoCapability.Drag
+                    );
+                    if (pointer.Target is not null)
+                        Target(pointer.Target, true);
+                    break;
                 case DittoStepAction.Screenshot screenshot:
                     Capability(job, DittoCapability.Png);
                     Screenshot(screenshot.Value, state);
@@ -312,17 +340,24 @@ namespace Battlement
                 $"step requires unsupported capability {required}"
             );
 
-        private static void Target(DittoInputTarget target)
+        private static void Target(DittoInputTarget target, bool allowCoordinates)
         {
             switch (target)
             {
                 case DittoInputTarget.Object value:
                     Identifier("input target", value.Id);
                     break;
-                case DittoInputTarget.Coordinates:
+                case DittoInputTarget.Coordinates coordinates:
                     Require(
-                        false,
+                        allowCoordinates,
                         "coordinate input has no deterministic semantic delivery contract"
+                    );
+                    Require(
+                        double.IsFinite(coordinates.X)
+                            && double.IsFinite(coordinates.Y)
+                            && coordinates.X is >= 0 and <= 1
+                            && coordinates.Y is >= 0 and <= 1,
+                        "controlled pointer coordinates must be finite normalized values"
                     );
                     break;
                 default:

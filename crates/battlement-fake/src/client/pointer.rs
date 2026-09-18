@@ -307,6 +307,18 @@ impl<E: Engine> FakeClient<E> {
       self.pointers.states.insert(id, state);
     }
   }
+
+  pub(crate) fn repick_geometric_pointers(&mut self) {
+    let states = self
+      .pointers
+      .states
+      .iter()
+      .map(|(id, state)| (*id, state.position, state.down))
+      .collect::<Vec<_>>();
+    for (id, position, down) in states {
+      self.sample_pointer(id, position, down);
+    }
+  }
   fn reconcile_ui_captures(&mut self) {
     if !self.pointers.active {
       return;

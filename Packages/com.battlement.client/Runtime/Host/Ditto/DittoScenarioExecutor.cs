@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Battlement
 {
@@ -45,6 +46,8 @@ namespace Battlement
             ProfileIdle,
             PointerBaseline,
             PointerPressPresentation,
+            ControlledDragPress,
+            ControlledDragMove,
             ActionPresentation,
             Settle,
             ScreenshotSettle,
@@ -70,6 +73,8 @@ namespace Battlement
         private readonly Func<bool> isFocused;
         private readonly ulong runTimeoutMs;
         private readonly List<DittoPlayerStepResult> results = new();
+        private readonly Dictionary<int, ControlledPointerState> controlledPointers = new();
+        private readonly List<BattlementControlledPointerReceipt> controlledReceipts = new();
         private TimeSpan scenarioStarted;
         private TimeSpan executionStarted;
         private TimeSpan stepStarted;
@@ -114,6 +119,8 @@ namespace Battlement
         private ulong inputReleaseAndSyncTransportNs;
         private ulong responseDecodeNs;
         private ulong responseApplyNs;
+        private ulong nextPointerSequence;
+        private DittoInputResolution? pendingDragDestination;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -199,7 +206,7 @@ namespace Battlement
             motion = new DittoMotionController(runner);
             _ = platform;
             targets = new DittoInputTargets(runner, aliases, width, height);
-            runner.BeginDittoInput();
+            runner.BeginDittoInput($"{scenario.Id}:{scenario.RunIndex}");
         }
 
         public DittoScenarioExecution? Result { get; private set; }
@@ -406,13 +413,34 @@ namespace Battlement
                         }
                     }
                     break;
-                case DittoStepAction.Hover:
-                case DittoStepAction.Drag:
-                    FailStep(
-                        step,
-                        DittoErrorCode.InputUnreachable,
-                        "Hover and drag have no deterministic semantic delivery contract."
-                    );
+                case DittoStepAction.Hover hover:
+                    presentationReady = false;
+                    if (
+                        TryResolve(
+                            hover.Target,
+                            step,
+                            out DittoInputResolution? hoverResolution,
+                            true
+                        )
+                    )
+                    {
+                        QueuePointer(0, DittoPointerPhase.Hover, hoverResolution);
+                        phase = Phase.ActionPresentation;
+                        phaseStarted = now();
+                    }
+                    break;
+                case DittoStepAction.Drag drag:
+                    presentationReady = false;
+                    if (
+                        TryResolve(drag.From, step, out DittoInputResolution? from, true)
+                        && TryResolve(drag.To, step, out DittoInputResolution? to, true)
+                    )
+                    {
+                        pendingDragDestination = to;
+                        QueuePointer(0, DittoPointerPhase.Press, from);
+                        phase = Phase.ControlledDragPress;
+                        phaseStarted = now();
+                    }
                     break;
                 case DittoStepAction.Key:
                     FailStep(
@@ -522,6 +550,18 @@ namespace Battlement
                                 + witnessDiagnostic
                         );
                     }
+                    break;
+                case DittoStepAction.PointerSample pointer:
+                    presentationReady = false;
+                    DittoInputResolution? pointerResolution = null;
+                    if (
+                        pointer.Target is not null
+                        && !TryResolve(pointer.Target, step, out pointerResolution, true)
+                    )
+                        break;
+                    QueuePointer(pointer.PointerId, pointer.Phase, pointerResolution);
+                    phase = Phase.ActionPresentation;
+                    phaseStarted = now();
                     break;
                 case DittoStepAction.Screenshot:
                     if (presentationReady)
@@ -733,7 +773,36 @@ namespace Battlement
                     phase = Phase.ActionPresentation;
                     phaseStarted = now();
                     break;
+                case Phase.ControlledDragPress:
+                    if (!CollectControlledReceipt(step, requireCapture: true))
+                        return;
+                    QueuePointer(
+                        0,
+                        DittoPointerPhase.Move,
+                        pendingDragDestination,
+                        expectTarget: false
+                    );
+                    phase = Phase.ControlledDragMove;
+                    phaseStarted = now();
+                    break;
+                case Phase.ControlledDragMove:
+                    if (!CollectControlledReceipt(step, requireCapture: true))
+                        return;
+                    QueuePointer(
+                        0,
+                        DittoPointerPhase.Release,
+                        pendingDragDestination,
+                        expectTarget: false
+                    );
+                    phase = Phase.ActionPresentation;
+                    phaseStarted = now();
+                    break;
                 case Phase.ActionPresentation:
+                    if (controlledReceipts.Count != 0 || IsControlledPointerStep(step.Action))
+                    {
+                        if (!CollectControlledReceipt(step, requireCapture: false))
+                            return;
+                    }
                     if (activationTransactionId is string transactionId)
                     {
                         if (
@@ -861,6 +930,116 @@ namespace Battlement
                 inputReleaseAndSyncTransportNs = ElapsedNanoseconds(started);
             }
         }
+
+        private void QueuePointer(
+            int pointerId,
+            DittoPointerPhase phase,
+            DittoInputResolution? resolution,
+            bool expectTarget = true
+        )
+        {
+            controlledPointers.TryGetValue(pointerId, out ControlledPointerState state);
+            UnityEngine.Vector2 position = resolution is null
+                ? state?.Position ?? default
+                : targets.ToPointerScreenPosition(resolution.Position);
+            var buttons = state?.Buttons.ToHashSet() ?? new HashSet<PointerButton>();
+            bool present = true;
+            bool cancelled = false;
+            switch (phase)
+            {
+                case DittoPointerPhase.Hover:
+                    buttons.Clear();
+                    break;
+                case DittoPointerPhase.Press:
+                    buttons.Add(PointerButton.Left);
+                    break;
+                case DittoPointerPhase.Move:
+                    break;
+                case DittoPointerPhase.Release:
+                    buttons.Remove(PointerButton.Left);
+                    break;
+                case DittoPointerPhase.Leave:
+                    buttons.Clear();
+                    present = false;
+                    break;
+                case DittoPointerPhase.Cancel:
+                    buttons.Clear();
+                    cancelled = true;
+                    break;
+                default:
+                    throw new InvalidOperationException("Unknown controlled pointer phase.");
+            }
+            runner.EnqueueDittoPointerSample(
+                nextPointerSequence++,
+                pointerId,
+                position,
+                buttons,
+                present,
+                cancelled,
+                expectTarget ? resolution?.ObjectId : null,
+                NextPresentedFrame
+            );
+            if (present)
+                controlledPointers[pointerId] = new ControlledPointerState(position, buttons);
+            else
+                controlledPointers.Remove(pointerId);
+        }
+
+        private bool CollectControlledReceipt(DittoResolvedStep step, bool requireCapture)
+        {
+            IReadOnlyList<BattlementControlledPointerReceipt> received =
+                runner.TakeDittoPointerReceipts();
+            if (received.Count != 1)
+            {
+                FailInfrastructureStep(
+                    step,
+                    DittoErrorCode.InputUnreachable,
+                    $"Controlled input produced {received.Count} receipts instead of one."
+                );
+                return false;
+            }
+            BattlementControlledPointerReceipt receipt = received[0];
+            if (
+                receipt.ExpectedTarget is ObjectId expected
+                && receipt.ActualHit != expected
+                && receipt.CaptureOwner != expected
+            )
+            {
+                FailInfrastructureStep(
+                    step,
+                    DittoErrorCode.InputUnreachable,
+                    $"Controlled sample {receipt.Sequence} reached "
+                        + $"{receipt.ActualHit?.Value.ToString() ?? "nothing"} instead of "
+                        + $"{expected.Value}."
+                );
+                return false;
+            }
+            if (requireCapture && receipt.CaptureOwner is null)
+            {
+                FailInfrastructureStep(
+                    step,
+                    DittoErrorCode.InputUnreachable,
+                    $"Controlled sample {receipt.Sequence} did not retain pointer capture."
+                );
+                return false;
+            }
+            controlledReceipts.Add(receipt);
+            UnityEngine.Debug.Log(
+                "[Battlement/Ditto] pointer-receipt "
+                    + $"session={receipt.Session} generation={receipt.Generation} "
+                    + $"sequence={receipt.Sequence} pointer={receipt.PointerId} "
+                    + $"route={receipt.Route} hit={receipt.ActualHit?.Value.ToString() ?? "none"} "
+                    + $"capture={receipt.CaptureOwner?.Value.ToString() ?? "none"} "
+                    + $"boundary={receipt.PresentationBoundary}"
+            );
+            return true;
+        }
+
+        private static bool IsControlledPointerStep(DittoStepAction action) =>
+            action
+                is DittoStepAction.Hover
+                    or DittoStepAction.Drag
+                    or DittoStepAction.PointerSample;
 
         private void EvaluateObjectWait(DittoResolvedStep step)
         {
@@ -996,7 +1175,8 @@ namespace Battlement
         private bool TryResolve(
             DittoInputTarget target,
             DittoResolvedStep step,
-            out DittoInputResolution? resolved
+            out DittoInputResolution? resolved,
+            bool allowCoordinates = false
         )
         {
             DittoInputResolution resolution = targets.Resolve(target);
@@ -1008,7 +1188,7 @@ namespace Battlement
                     + $"bounds={resolution.Bounds?.ToString() ?? "none"} "
                     + $"candidates={resolution.Candidates.Count} committed={committedFrame}"
             );
-            if (resolution.IsReachable && resolution.ObjectId is not null)
+            if (resolution.IsReachable && (resolution.ObjectId is not null || allowCoordinates))
             {
                 return true;
             }
@@ -1223,11 +1403,14 @@ namespace Battlement
                 assertion,
                 artifactId,
                 videoInputId,
-                status == DittoStepStatus.Passed ? performanceRecorder?.Finish() : null
+                status == DittoStepStatus.Passed ? performanceRecorder?.Finish() : null,
+                ControlledTrace()
             );
             performanceRecorder = null;
             pointerClickTarget = null;
             pendingPointerAction = null;
+            pendingDragDestination = null;
+            controlledReceipts.Clear();
             visualObservationRegion = null;
             previousVisualFingerprint = null;
             completionWitnessMatched = false;
@@ -1378,6 +1561,33 @@ namespace Battlement
                 throw new ObjectDisposedException(nameof(DittoScenarioExecutor));
             }
         }
+
+        private DittoInputTrace? ControlledTrace()
+        {
+            if (controlledReceipts.Count == 0)
+                return null;
+            BattlementControlledPointerReceipt first = controlledReceipts[0];
+            return new DittoInputTrace(
+                first.Session,
+                first.Generation,
+                controlledReceipts.ConvertAll(receipt => new DittoPointerReceipt(
+                    receipt.Sequence,
+                    receipt.PointerId,
+                    receipt.Position.x,
+                    receipt.Position.y,
+                    receipt.ExpectedTarget?.Value.ToString(),
+                    receipt.ActualHit?.Value.ToString(),
+                    receipt.CaptureOwner?.Value.ToString(),
+                    receipt.Route,
+                    receipt.PresentationBoundary
+                ))
+            );
+        }
+
+        private sealed record ControlledPointerState(
+            UnityEngine.Vector2 Position,
+            HashSet<PointerButton> Buttons
+        );
 
         private static DittoScreenshotCapture Wrap(
             Func<DittoResolvedStep, DittoScreenshotStepOutcome> captureScreenshot

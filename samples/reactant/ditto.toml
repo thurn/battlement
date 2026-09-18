@@ -592,6 +592,46 @@ pointer_action = { target = { role = "button", name = "Remove or restore card" }
 screenshot = { name = "removed" }
 
 [[scenarios]]
+name = "controlled pointer delivery"
+fixture = "pointer-routing"
+[[scenarios.steps]]
+wait = { object = "39110000-0000-4000-8000-000000000001", state = "visible" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Toggle passthrough" }, action = "click" }
+[[scenarios.steps]]
+hover = { target = "39110000-0000-4000-8000-000000000001" }
+[[scenarios.steps]]
+drag = { from = "39110000-0000-4000-8000-000000000001", to = [0.9, 0.2] }
+[[scenarios.steps]]
+pointer = { phase = "press", target = "39110000-0000-4000-8000-000000000001" }
+[[scenarios.steps]]
+pointer = { phase = "cancel" }
+[[scenarios.steps]]
+pointer = { phase = "hover", target = [0.5, 0.5] }
+[[scenarios.steps]]
+pointer = { phase = "leave" }
+
+[[scenarios]]
+name = "controlled pointer removal and modal"
+fixture = "pointer-routing"
+[[scenarios.steps]]
+wait = { object = "39110000-0000-4000-8000-000000000001", state = "visible" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Toggle passthrough" }, action = "click" }
+[[scenarios.steps]]
+pointer = { phase = "press", target = "39110000-0000-4000-8000-000000000001" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Remove or restore card" }, action = "activate" }
+[[scenarios.steps]]
+pointer = { phase = "cancel" }
+[[scenarios.steps]]
+assert = { object = "39110000-0000-4000-8000-000000000001", state = "absent" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Open outer modal" }, action = "click" }
+[[scenarios.steps]]
+pointer = { phase = "hover", target = [0.5, 0.5] }
+
+[[scenarios]]
 name = "world focus and navigation"
 fixture = "world-navigation"
 [[scenarios.steps]]

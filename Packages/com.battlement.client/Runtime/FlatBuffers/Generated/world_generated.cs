@@ -1580,25 +1580,29 @@ public struct WorldPointerSettings : IFlatbufferObject
   public uint Order { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
   public bool CaptureOnPress { get { int o = __p.__offset(8); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public bool Focusable { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public bool ForwardsUiEvents { get { int o = __p.__offset(12); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)true; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.WorldPointerSettings> CreateWorldPointerSettings(FlatBufferBuilder builder,
       int interaction_layer = 0,
       uint order = 0,
       bool capture_on_press = false,
-      bool focusable = false) {
-    builder.StartTable(4);
+      bool focusable = false,
+      bool forwards_ui_events = true) {
+    builder.StartTable(5);
     WorldPointerSettings.AddOrder(builder, order);
     WorldPointerSettings.AddInteractionLayer(builder, interaction_layer);
+    WorldPointerSettings.AddForwardsUiEvents(builder, forwards_ui_events);
     WorldPointerSettings.AddFocusable(builder, focusable);
     WorldPointerSettings.AddCaptureOnPress(builder, capture_on_press);
     return WorldPointerSettings.EndWorldPointerSettings(builder);
   }
 
-  public static void StartWorldPointerSettings(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartWorldPointerSettings(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddInteractionLayer(FlatBufferBuilder builder, int interactionLayer) { builder.AddInt(0, interactionLayer, 0); }
   public static void AddOrder(FlatBufferBuilder builder, uint order) { builder.AddUint(1, order, 0); }
   public static void AddCaptureOnPress(FlatBufferBuilder builder, bool captureOnPress) { builder.AddBool(2, captureOnPress, false); }
   public static void AddFocusable(FlatBufferBuilder builder, bool focusable) { builder.AddBool(3, focusable, false); }
+  public static void AddForwardsUiEvents(FlatBufferBuilder builder, bool forwardsUiEvents) { builder.AddBool(4, forwardsUiEvents, true); }
   public static Offset<Battlement.FlatBuffers.Generated.WorldPointerSettings> EndWorldPointerSettings(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<Battlement.FlatBuffers.Generated.WorldPointerSettings>(o);
@@ -1615,6 +1619,7 @@ static public class WorldPointerSettingsVerify
       && verifier.VerifyField(tablePos, 6 /*Order*/, 4 /*uint*/, 4, false)
       && verifier.VerifyField(tablePos, 8 /*CaptureOnPress*/, 1 /*bool*/, 1, false)
       && verifier.VerifyField(tablePos, 10 /*Focusable*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyField(tablePos, 12 /*ForwardsUiEvents*/, 1 /*bool*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

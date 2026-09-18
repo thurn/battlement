@@ -204,6 +204,7 @@ namespace Battlement
                 ),
                 "accessibility-action" => AccessibilityActionStep(body),
                 "pointer-action" => PointerActionStep(body),
+                "pointer-sample" => PointerSampleStep(body),
                 "screenshot" => new DittoStepAction.Screenshot(Screenshot(body)),
                 "video" => new DittoStepAction.Video(Video(body)),
                 _ => throw new JsonSerializationException($"Unknown action {variant.Name}."),
@@ -246,6 +247,29 @@ namespace Battlement
                     : null,
                 Field(value, "completion") is { Type: not JTokenType.Null } completion
                     ? AccessibilityAssertion(Object(completion, "completion"))
+                    : null
+            );
+        }
+
+        private static DittoStepAction.PointerSample PointerSampleStep(JObject value)
+        {
+            Exact(value, "pointer_id", "phase", "target");
+            return new DittoStepAction.PointerSample(
+                Int32(Field(value, "pointer_id")),
+                String(Field(value, "phase")) switch
+                {
+                    "hover" => DittoPointerPhase.Hover,
+                    "press" => DittoPointerPhase.Press,
+                    "move" => DittoPointerPhase.Move,
+                    "release" => DittoPointerPhase.Release,
+                    "leave" => DittoPointerPhase.Leave,
+                    "cancel" => DittoPointerPhase.Cancel,
+                    var unknown => throw new JsonSerializationException(
+                        $"Unknown pointer phase {unknown}."
+                    ),
+                },
+                Field(value, "target") is { Type: not JTokenType.Null } target
+                    ? Target(target)
                     : null
             );
         }
@@ -482,6 +506,11 @@ namespace Battlement
                 ? (uint)parsed
                 : throw new JsonSerializationException("Integer exceeds UInt32.");
         }
+
+        private static int Int32(JToken value) =>
+            value.Type == JTokenType.Integer
+                ? value.ToObject<int>()
+                : throw new JsonSerializationException("Expected an integer.");
 
         private static ulong UInt64(JToken value) =>
             value.Type == JTokenType.Integer

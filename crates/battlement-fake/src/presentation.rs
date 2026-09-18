@@ -295,6 +295,8 @@ where
     }
     self.presentation_advancing = true;
     self.advance_batches();
+    self.repick_geometric_pointers();
+    self.advance_batches();
     while let Some(events) = self.motion.drain() {
       self.submit_motion(events);
       self.advance_batches();

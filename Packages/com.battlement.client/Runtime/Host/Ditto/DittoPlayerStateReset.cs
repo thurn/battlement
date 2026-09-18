@@ -64,6 +64,16 @@ namespace Battlement
 
             started = true;
             startedAt = now();
+
+            try
+            {
+                runner.BeginDittoReset();
+            }
+            catch (Exception exception)
+            {
+                Fail(DittoBoundaryStage.Reset, exception.Message);
+            }
+
             if (engine is not null)
             {
                 BattlementTransportResult result = engine.Destroy();
@@ -75,15 +85,6 @@ namespace Battlement
                         result.Diagnostic ?? $"Engine destruction returned {result.Status}."
                     );
                 }
-            }
-
-            try
-            {
-                runner.BeginDittoReset();
-            }
-            catch (Exception exception)
-            {
-                Fail(DittoBoundaryStage.Reset, exception.Message);
             }
 
             Advance();

@@ -265,6 +265,106 @@ fn geometric_hover_composes_with_moving_placement_and_releases_to_the_latest_bas
 }
 
 #[test]
+fn a_stationary_pointer_is_repicked_as_a_target_crosses_its_screen_position() {
+  let app = App::with_model("motion/scene", (0_u32, 0_u32))
+    .root(|_| {
+      world::SceneRoot::new(ParentScene::PrimaryScene).child(
+        world::Group::new()
+          .id(*WORLD.as_uuid())
+          .child(
+            world::BoxHitRegion::new()
+              .size(battlement::Vector3::new(2.0, 2.0, 0.2))
+              .events(
+                world::PointerHandlers::new()
+                  .on_pointer_enter(
+                    |model: &mut (u32, u32),
+                     _: reactant::event::ReactantEvent<battlement::PointerBoundaryEvent>| {
+                      model.0 += 1;
+                    },
+                  )
+                  .on_pointer_leave(
+                    |model: &mut (u32, u32),
+                     _: reactant::event::ReactantEvent<battlement::PointerBoundaryEvent>| {
+                      model.1 += 1;
+                    },
+                  ),
+              ),
+          )
+          .initial(StyleTarget::new().local_position_x(-2.0))
+          .animate(StyleTarget::new().local_position_x(2.0))
+          .while_hover(StyleTarget::new().local_offset_y(0.5))
+          .transition(Transition::tween().duration_secs(1.0).ease(Easing::Linear)),
+      )
+    })
+    .document(|mut document| {
+      document.element.picking_mode = Prop::Set(battlement::PickingMode::Ignore);
+      document
+    })
+    .camera(|camera| {
+      world::Camera::new()
+        .orthographic(5.0)
+        .position(battlement::Vector3::new(0.0, 0.0, -10.0))
+        .into_object(camera.object_id)
+    });
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("motion/scene");
+  let mut display = Display::connect(app, assets);
+  let stationary = battlement::PanelPoint::new(960.0, 540.0);
+  display.pointer_move(0, stationary, false);
+  assert_eq!(display.with_engine(|app| *app.model()), (0, 0));
+  display.advance_time(Duration::from_millis(500));
+  assert_eq!(display.with_engine(|app| *app.model()), (1, 0));
+  display.advance_time(Duration::from_millis(100));
+  assert!(display.object(WORLD).unwrap().local_transform().position.y > 0.0);
+  display.advance_time(Duration::from_millis(300));
+  assert_eq!(display.with_engine(|app| *app.model()), (1, 1));
+  display.settle();
+  let pose = display.object(WORLD).unwrap().local_transform().position;
+  assert!((pose.x - 2.0).abs() < 0.00001, "{pose:?}");
+  assert!(pose.y.abs() < 0.00001, "{pose:?}");
+}
+
+struct NativeHoverScene(Rc<Cell<usize>>);
+
+impl Component for NativeHoverScene {
+  fn render(&self) -> impl Render {
+    self.0.set(self.0.get() + 1);
+    world::SceneRoot::new(ParentScene::PrimaryScene).child(
+      world::Group::new()
+        .id(*WORLD.as_uuid())
+        .child(world::BoxHitRegion::new().size(battlement::Vector3::new(2.0, 2.0, 0.2)))
+        .while_hover(StyleTarget::new().local_offset_y(0.5))
+        .transition(Transition::tween().duration_secs(1.0).ease(Easing::Linear)),
+    )
+  }
+}
+
+#[test]
+fn native_only_hover_does_not_evaluate_rust() {
+  let renders = Rc::new(Cell::new(0));
+  let app = App::new("motion/scene")
+    .ui(NativeHoverScene(renders.clone()))
+    .document(|mut document| {
+      document.element.picking_mode = Prop::Set(battlement::PickingMode::Ignore);
+      document
+    })
+    .camera(|camera| {
+      world::Camera::new()
+        .orthographic(5.0)
+        .position(battlement::Vector3::new(0.0, 0.0, -10.0))
+        .into_object(camera.object_id)
+    });
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("motion/scene");
+  let mut display = Display::connect(app, assets);
+  let render_count = renders.get();
+  display.pointer_move(0, battlement::PanelPoint::new(960.0, 540.0), false);
+  display.advance_time(Duration::from_millis(500));
+  assert!(display.object(WORLD).unwrap().local_transform().position.y > 0.0);
+  assert_eq!(renders.get(), render_count);
+}
+
+#[test]
 fn a_retarget_uses_the_presented_pose_and_keeps_spring_velocity() {
   let app = App::with_model("motion/scene", false).root(|reversed| {
     let transition = Transition::spring().stiffness(100.0).damping(10.0);

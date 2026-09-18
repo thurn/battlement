@@ -329,6 +329,8 @@ pub struct StepResult {
   pub video: Option<VideoResult>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub performance: Option<StepPerformance>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub input_trace: Option<crate::wire::lifecycle::InputTrace>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

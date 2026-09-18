@@ -107,10 +107,13 @@ pub(super) fn profile_capabilities(platform: Platform, capabilities: &[Capabilit
   platform_capabilities(platform, capabilities)?;
   let unique: BTreeSet<Capability> = capabilities.iter().copied().collect();
   ensure!(
-    !unique.contains(&Capability::Hover)
-      && !unique.contains(&Capability::Drag)
-      && !unique.contains(&Capability::Key),
+    !unique.contains(&Capability::Key),
     "profile contains a capability without a deterministic delivery contract"
+  );
+  ensure!(
+    platform == Platform::Macos
+      || (!unique.contains(&Capability::Hover) && !unique.contains(&Capability::Drag)),
+    "controlled pointer delivery is supported only by the macOS native player"
   );
   Ok(())
 }
@@ -274,11 +277,18 @@ fn validate_step<'a>(
   match &step.action {
     StepKind::Click { target, .. } => {
       capability(job, Capability::Click)?;
-      input_target(target)
+      input_target(target, false)
     }
     StepKind::Navigation { .. } => Ok(()),
-    StepKind::Hover { .. } => anyhow::bail!("hover has no deterministic delivery contract"),
-    StepKind::Drag { .. } => anyhow::bail!("drag has no deterministic delivery contract"),
+    StepKind::Hover { target } => {
+      capability(job, Capability::Hover)?;
+      input_target(target, true)
+    }
+    StepKind::Drag { from, to } => {
+      capability(job, Capability::Drag)?;
+      input_target(from, true)?;
+      input_target(to, true)
+    }
     StepKind::Key { .. } => {
       anyhow::bail!("physical key input has no deterministic semantic delivery contract")
     }
@@ -310,6 +320,39 @@ fn validate_step<'a>(
           "pointer completion witnesses require a click"
         );
         accessibility_assertion(completion)?;
+      }
+      Ok(())
+    }
+    StepKind::PointerSample {
+      pointer_id,
+      phase,
+      target,
+    } => {
+      ensure!(*pointer_id >= 0, "pointer identity must be nonnegative");
+      let requires_target = matches!(
+        phase,
+        crate::wire::job::PointerPhase::Hover
+          | crate::wire::job::PointerPhase::Press
+          | crate::wire::job::PointerPhase::Move
+          | crate::wire::job::PointerPhase::Release
+      );
+      ensure!(
+        requires_target == target.is_some(),
+        "pointer phase target does not match its contract"
+      );
+      capability(
+        job,
+        if matches!(
+          phase,
+          crate::wire::job::PointerPhase::Hover | crate::wire::job::PointerPhase::Leave
+        ) {
+          Capability::Hover
+        } else {
+          Capability::Drag
+        },
+      )?;
+      if let Some(target) = target {
+        input_target(target, true)?;
       }
       Ok(())
     }
@@ -357,11 +400,21 @@ fn capability(job: &Job, required: Capability) -> Result<()> {
   Ok(())
 }
 
-fn input_target(target: &InputTarget) -> Result<()> {
+fn input_target(target: &InputTarget, allow_coordinates: bool) -> Result<()> {
   match target {
     InputTarget::Object(value) => identifier("input target", value),
-    InputTarget::Coordinates(_) => {
-      anyhow::bail!("coordinate input has no deterministic semantic delivery contract")
+    InputTarget::Coordinates(value) => {
+      ensure!(
+        allow_coordinates,
+        "coordinate input has no deterministic semantic delivery contract"
+      );
+      ensure!(
+        value
+          .iter()
+          .all(|coordinate| coordinate.is_finite() && (0.0..=1.0).contains(coordinate)),
+        "controlled pointer coordinates must be finite normalized values"
+      );
+      Ok(())
     }
   }
 }

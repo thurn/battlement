@@ -244,6 +244,7 @@ namespace Battlement
                 DittoStepAction.AccessibilityAssert => DittoStepName.AccessibilityAssert,
                 DittoStepAction.AccessibilityAction => DittoStepName.AccessibilityAction,
                 DittoStepAction.PointerAction => DittoStepName.PointerAction,
+                DittoStepAction.PointerSample => DittoStepName.PointerSample,
                 DittoStepAction.Navigation => DittoStepName.Navigation,
                 DittoStepAction.Screenshot => DittoStepName.Screenshot,
                 DittoStepAction.Video => DittoStepName.Video,
@@ -376,6 +377,12 @@ namespace Battlement
             Require(
                 !unsupported.HasValue || !unique.Contains(unsupported.Value),
                 "profile contains a capability unsupported by its platform"
+            );
+            Require(
+                report.Platform == DittoPlatform.Macos
+                    || !unique.Contains(DittoCapability.Hover)
+                        && !unique.Contains(DittoCapability.Drag),
+                "controlled pointer delivery is supported only by the macOS native player"
             );
         }
 

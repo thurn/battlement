@@ -3,9 +3,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Battlement.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using ControlledPointerSample = Battlement.BattlementControlledPointerSample;
 using Object = UnityEngine.Object;
 using ProtocolVector3 = Battlement.Vector3;
 
@@ -21,15 +23,48 @@ namespace Battlement
         private readonly InputSystemUIInputModule inputModule;
         private readonly GameObject? ownedEventSystemObject;
         private readonly InputSystemUIInputModule? ownedInputModule;
+        private readonly BattlementControlledPointerSource controlled = new();
+        private readonly SortedDictionary<int, BattlementControlledPointerSample> controlledState =
+            new();
         private PhysicsRaycaster? raycaster;
         private bool ownsRaycaster;
         private bool? inputModuleEnabledBeforeDitto;
         private BattlementLogicalPointerInput? logical;
         private Func<bool> modalBlocked = () => false;
         private Func<int, UnityEngine.Vector2, bool> blocksWorld = (_, _) => false;
+        private Func<
+            int,
+            UnityEngine.Vector2,
+            int,
+            bool,
+            bool,
+            BattlementUiControlledPointerResult
+        >? controlledUi;
+        private System.Action? resetControlledUi;
 
         internal bool IsWorldCaptured(int id) =>
             logical?.IsCaptured(BattlementPointerDevices.WorldPointerId(id)) == true;
+
+        internal BattlementControlledPointerSpace ControlledSpace =>
+            new(
+                Screen.width,
+                Screen.height,
+                raycaster != null && raycaster.eventCamera != null
+                    ? raycaster.eventCamera.GetEntityId().ToString()
+                    : null
+            );
+
+        internal void ConfigureControlledUi(
+            Func<
+                int,
+                UnityEngine.Vector2,
+                int,
+                bool,
+                bool,
+                BattlementUiControlledPointerResult
+            > process,
+            System.Action reset
+        ) => (controlledUi, resetControlledUi) = (process, reset);
 
         internal void ConfigureLogical(
             Func<UiEvent, UiEventDisposition?> emitEvent,
@@ -84,8 +119,21 @@ namespace Battlement
             }
         }
 
-        public void Update(bool isInputAvailable)
+        public void Update(bool isInputAvailable, bool readPhysical = true)
         {
+            if (controlled.IsActive)
+            {
+                if (!isInputAvailable)
+                {
+                    if (controlled.HasPendingSamples)
+                        FailControlled("Controlled pointer input became unavailable.");
+                    return;
+                }
+                ProcessControlled();
+                return;
+            }
+            if (!readPhysical)
+                return;
             SortedDictionary<int, BattlementPointerSample> samples = BattlementPointerDevices.Read(
                 pointers.Keys
             );
@@ -104,7 +152,7 @@ namespace Battlement
                     sample = BattlementPointerSample.Absent(state.Position);
                 }
 
-                Process(pointerId, state, sample);
+                Process(pointerId, state, sample, null);
                 if (!isPresent)
                 {
                     pointers.Remove(pointerId);
@@ -114,34 +162,61 @@ namespace Battlement
 
         public void CancelPresses()
         {
+            resetControlledUi?.Invoke();
             logical?.Reset();
+            controlledState.Clear();
             foreach (PointerState pointer in pointers.Values)
             {
                 pointer.CancelGestures();
             }
         }
 
-        public void BeginDittoControl()
+        public BattlementControlledPointerLease BeginDittoControl(string session)
         {
             if (inputModuleEnabledBeforeDitto is not null)
                 throw new InvalidOperationException("Ditto already controls native input.");
             inputModuleEnabledBeforeDitto = inputModule.enabled;
             inputModule.enabled = false;
             Suspend();
+            return controlled.Begin(session);
         }
 
-        public void EndDittoControl()
+        public void EndDittoControl(BattlementControlledPointerLease lease)
         {
             if (inputModuleEnabledBeforeDitto is not bool wasEnabled)
                 throw new InvalidOperationException("Ditto does not control native input.");
-            inputModule.enabled = wasEnabled;
-            inputModuleEnabledBeforeDitto = null;
+            try
+            {
+                controlled.End(lease);
+                Reset();
+            }
+            finally
+            {
+                inputModule.enabled = wasEnabled;
+                inputModuleEnabledBeforeDitto = null;
+            }
+        }
+
+        public void EnqueueControlled(BattlementControlledPointerSample sample) =>
+            controlled.Enqueue(sample);
+
+        public IReadOnlyList<BattlementControlledPointerReceipt> TakeControlledReceipts(
+            BattlementControlledPointerLease lease
+        ) => controlled.TakeReceipts(lease);
+
+        public string? ControlledFailure => controlled.Failure;
+
+        public void FailControlled(string reason)
+        {
+            controlled.Fail(reason);
             Reset();
         }
 
         public void Suspend()
         {
+            resetControlledUi?.Invoke();
             logical?.Reset();
+            controlledState.Clear();
             foreach (PointerState pointer in pointers.Values)
             {
                 pointer.Target = null;
@@ -152,7 +227,9 @@ namespace Battlement
 
         public void Reset()
         {
+            resetControlledUi?.Invoke();
             logical?.Reset();
+            controlledState.Clear();
             foreach (PointerState pointer in pointers.Values)
             {
                 pointer.CancelGestures();
@@ -177,7 +254,12 @@ namespace Battlement
             }
         }
 
-        private void Process(int pointerId, PointerState state, BattlementPointerSample sample)
+        private BattlementPointerProcessingResult Process(
+            int pointerId,
+            PointerState state,
+            BattlementPointerSample sample,
+            BattlementUiControlledPointerResult? ui
+        )
         {
             bool blocked = modalBlocked();
             if (blocked)
@@ -192,7 +274,12 @@ namespace Battlement
                 state.Target = null;
                 state.Position = sample.Position;
                 state.SetButtons(sample.Buttons);
-                return;
+                return Result(
+                    ui,
+                    target,
+                    logical.CaptureOwner(pointerId),
+                    target == null ? "none" : "world-logical"
+                );
             }
             state.CancelUnavailablePresses();
             if (!ReferenceEquals(state.Target, target))
@@ -208,7 +295,7 @@ namespace Battlement
                 )
                 {
                     Reset();
-                    return;
+                    return Result(ui, target, null, "rejected");
                 }
 
                 state.Target = target;
@@ -216,7 +303,7 @@ namespace Battlement
                 if (!EmitHover(target, PointerEvent.Enter, pointerId, sample.Position, hit.World))
                 {
                     Reset();
-                    return;
+                    return Result(ui, target, null, "rejected");
                 }
             }
             else if (target != null)
@@ -229,7 +316,7 @@ namespace Battlement
             {
                 state.CancelGestures();
                 state.SetButtons(sample.Buttons);
-                return;
+                return Result(ui, target, DragIdentity(state), Route(ui, target, state));
             }
 
             foreach (PointerButton button in Enum.GetValues(typeof(PointerButton)))
@@ -251,13 +338,13 @@ namespace Battlement
                     )
                     {
                         Reset();
-                        return;
+                        return Result(ui, target, null, "rejected");
                     }
 
                     if (!BeginDrag(state, target, pointerId, sample.Position, button))
                     {
                         Reset();
-                        return;
+                        return Result(ui, target, null, "rejected");
                     }
                 }
                 else if (!isPressed && wasPressed)
@@ -273,7 +360,7 @@ namespace Battlement
                     if (!EndDrag(state, pointerId, sample.Position, button))
                     {
                         Reset();
-                        return;
+                        return Result(ui, target, null, "rejected");
                     }
 
                     if (
@@ -288,7 +375,7 @@ namespace Battlement
                     )
                     {
                         Reset();
-                        return;
+                        return Result(ui, target, null, "rejected");
                     }
 
                     if (
@@ -305,11 +392,117 @@ namespace Battlement
                     )
                     {
                         Reset();
-                        return;
+                        return Result(ui, target, null, "rejected");
                     }
                 }
             }
+            return Result(ui, target, DragIdentity(state), Route(ui, target, state));
         }
+
+        private void ProcessControlled()
+        {
+            var processed = new HashSet<int>();
+            foreach (BattlementControlledPointerSample input in controlled.Drain())
+            {
+                processed.Add(input.PointerId);
+                if (!ProcessControlled(input, recordReceipt: true))
+                    return;
+                if (input.IsPresent && !input.IsCancelled)
+                    controlledState[input.PointerId] = input;
+                else
+                    controlledState.Remove(input.PointerId);
+            }
+
+            foreach (
+                BattlementControlledPointerSample retained in controlledState
+                    .Values.Where(value => !processed.Contains(value.PointerId))
+                    .ToArray()
+            )
+                if (!ProcessControlled(retained, recordReceipt: false))
+                    return;
+        }
+
+        private bool ProcessControlled(ControlledPointerSample input, bool recordReceipt)
+        {
+            if (input.Space != ControlledSpace)
+            {
+                FailControlled(
+                    $"Controlled pointer sample {input.Sequence} does not match "
+                        + "the active viewport and camera."
+                );
+                return false;
+            }
+            BattlementPointerSample sample = new(
+                input.Position,
+                input.Buttons.ToHashSet(),
+                input.IsPresent,
+                input.IsCancelled
+            );
+            BattlementUiControlledPointerResult? ui = controlledUi?.Invoke(
+                input.PointerId,
+                sample.Position,
+                UiButtons(sample.Buttons),
+                sample.IsPresent,
+                sample.IsCancelled
+            );
+            PointerState state = GetState(input.PointerId, sample.Position);
+            BattlementPointerProcessingResult result = Process(input.PointerId, state, sample, ui);
+            if (!sample.IsPresent)
+                pointers.Remove(input.PointerId);
+            if (result.Route == "rejected")
+            {
+                FailControlled(
+                    $"Controlled pointer sample {input.Sequence} was rejected by the host."
+                );
+                return false;
+            }
+            if (recordReceipt)
+                controlled.Record(
+                    new BattlementControlledPointerReceipt(
+                        input.Lease.Session,
+                        input.Lease.Generation,
+                        input.Sequence,
+                        input.PointerId,
+                        input.Position,
+                        input.ExpectedTarget,
+                        result.Hit,
+                        result.Capture,
+                        result.Route,
+                        input.PresentationBoundary
+                    )
+                );
+            return true;
+        }
+
+        private static BattlementPointerProcessingResult Result(
+            BattlementUiControlledPointerResult? ui,
+            BattlementIdentity? world,
+            ObjectId? capture,
+            string route
+        ) =>
+            new(
+                ui?.Hit ?? (world == null ? null : new ObjectId(world.Id)),
+                ui?.Capture ?? capture,
+                ui?.Handled == true && world == null ? "ui-toolkit" : route
+            );
+
+        private static ObjectId? DragIdentity(PointerState state) =>
+            state.DragIdentity is BattlementIdentity value ? new ObjectId(value.Id) : null;
+
+        private static int UiButtons(IReadOnlyCollection<PointerButton> buttons) =>
+            (buttons.Contains(PointerButton.Left) ? 1 : 0)
+            | (buttons.Contains(PointerButton.Right) ? 2 : 0)
+            | (buttons.Contains(PointerButton.Middle) ? 4 : 0);
+
+        private static string Route(
+            BattlementUiControlledPointerResult? ui,
+            BattlementIdentity? world,
+            PointerState state
+        ) =>
+            ui?.Handled == true && world == null ? "ui-toolkit"
+            : state.DragIdentity != null ? "world-drag"
+            : world != null ? "world-pointer"
+            : "none";
 
         private bool BeginDrag(
             PointerState state,
@@ -596,6 +789,19 @@ namespace Battlement
             public BattlementIdentity? Identity { get; }
 
             public UnityEngine.Vector3 World { get; }
+        }
+
+        private readonly struct BattlementPointerProcessingResult
+        {
+            internal BattlementPointerProcessingResult(
+                ObjectId? hit,
+                ObjectId? capture,
+                string route
+            ) => (Hit, Capture, Route) = (hit, capture, route);
+
+            internal ObjectId? Hit { get; }
+            internal ObjectId? Capture { get; }
+            internal string Route { get; }
         }
 
         private sealed class PointerState

@@ -248,6 +248,149 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ControlledHoverAndDragReturnOneOrderedLeaseTrace()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            ObjectId camera = new(Guid.NewGuid());
+            ObjectId target = new(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.SnapshotResponse(
+                    session,
+                    objects: new[] { CameraObject(camera), DraggableCube(target) },
+                    inputCameraId: camera
+                )
+            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
+            harness.Runner.Connect();
+            Physics.SyncTransforms();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Hover(new DittoInputTarget.Object("target"))),
+                Step(
+                    1,
+                    new DittoStepAction.Drag(
+                        new DittoInputTarget.Object("target"),
+                        Coordinates(0.7, 0.25)
+                    )
+                )
+            );
+            string? diagnostic = null;
+            using DittoScenarioExecutor executor = Executor(
+                harness,
+                scenario,
+                () => TimeSpan.Zero,
+                aliases: new Dictionary<string, ObjectId> { ["target"] = target },
+                error: value => diagnostic = value
+            );
+
+            Drain(executor);
+
+            Assert.That(
+                executor.Result!.Status,
+                Is.EqualTo(DittoExecutionStatus.Passed),
+                diagnostic
+            );
+            DittoInputTrace hover = executor.Result.Steps[0].InputTrace!;
+            DittoInputTrace drag = executor.Result.Steps[1].InputTrace!;
+            Assert.That(hover.Session, Is.EqualTo($"{scenario.Id}:0"));
+            Assert.That(drag.Session, Is.EqualTo(hover.Session));
+            Assert.That(drag.Generation, Is.EqualTo(hover.Generation));
+            Assert.That(
+                hover.Receipts.Select(value => value.Sequence),
+                Is.EqualTo(new ulong[] { 0 })
+            );
+            Assert.That(
+                drag.Receipts.Select(value => value.Sequence),
+                Is.EqualTo(new ulong[] { 1, 2, 3 })
+            );
+            Assert.That(
+                drag.Receipts.Take(2).Select(value => value.CaptureOwner),
+                Is.All.EqualTo(target.Value.ToString("D"))
+            );
+            Assert.That(
+                drag.Receipts[1].Y,
+                Is.EqualTo(Screen.height - (float)(0.25 * (Screen.height - 1))).Within(0.01f)
+            );
+            Assert.That(
+                harness.Transport.Actions.Select(value => value.Body.GetType()),
+                Does.Contain(typeof(ActionBody.DragStart))
+            );
+            Assert.That(
+                harness.Transport.Actions.Select(value => value.Body.GetType()),
+                Does.Contain(typeof(ActionBody.DragEnd))
+            );
+        }
+
+        [Test]
+        public void ObjectTargetedDragKeepsSourceCaptureAcrossTheDestination()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            ObjectId camera = new(Guid.NewGuid());
+            ObjectId source = new(Guid.NewGuid());
+            ObjectId destination = new(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.SnapshotResponse(
+                    session,
+                    objects: new[]
+                    {
+                        CameraObject(camera),
+                        DraggableCube(source),
+                        CubeAt(destination, 2),
+                    },
+                    inputCameraId: camera
+                )
+            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
+            harness.Runner.Connect();
+            Physics.SyncTransforms();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(
+                    0,
+                    new DittoStepAction.Drag(
+                        new DittoInputTarget.Object("source"),
+                        new DittoInputTarget.Object("destination")
+                    )
+                )
+            );
+            string? diagnostic = null;
+            using DittoScenarioExecutor executor = Executor(
+                harness,
+                scenario,
+                () => TimeSpan.Zero,
+                aliases: new Dictionary<string, ObjectId>
+                {
+                    ["source"] = source,
+                    ["destination"] = destination,
+                },
+                error: value => diagnostic = value
+            );
+
+            Drain(executor);
+
+            Assert.That(
+                executor.Result!.Status,
+                Is.EqualTo(DittoExecutionStatus.Passed),
+                diagnostic
+            );
+            Assert.That(
+                executor
+                    .Result.Steps[0]
+                    .InputTrace!.Receipts.Take(2)
+                    .Select(value => value.CaptureOwner),
+                Is.All.EqualTo(source.Value.ToString("D"))
+            );
+        }
+
+        [Test]
         public void FramebufferFailureIsInfrastructureAtTheScreenshotStep()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -555,6 +698,28 @@ namespace Battlement.Tests
                 true,
                 LocalTransform.Identity,
                 new[] { PointerEvent.Click }
+            );
+
+        private static BattlementGameObject CubeAt(ObjectId id, double x) =>
+            Cube(id) with
+            {
+                LocalTransform = new LocalTransform(
+                    new Battlement.Vector3(x, 0, 0),
+                    Quaternion.Identity,
+                    Battlement.Vector3.One
+                ),
+            };
+
+        private static BattlementGameObject DraggableCube(ObjectId id) =>
+            new(
+                id,
+                new GameObjectKind.Cube(),
+                new ParentScene.Persistent(),
+                null,
+                true,
+                LocalTransform.Identity,
+                Array.Empty<PointerEvent>(),
+                DragMode.SnapToPointer
             );
 
         private static DittoResolvedScenario Scenario(

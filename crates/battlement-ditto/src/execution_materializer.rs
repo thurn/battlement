@@ -274,6 +274,7 @@ impl ExecutionMaterializer {
         screenshot,
         video,
         performance: player.performance.clone(),
+        input_trace: player.input_trace.clone(),
       },
       failure,
       timings,

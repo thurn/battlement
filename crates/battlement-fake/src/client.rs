@@ -1029,12 +1029,20 @@ where
   }
 
   pub(crate) fn submit_ui_event(&mut self, event: UiEvent) -> UiEventDisposition {
+    let forwards_ui_events = self
+      .world
+      .object(event.target_id)
+      .and_then(|object| object.world_pointer)
+      .is_none_or(|settings| settings.forwards_ui_events);
     self.motion.handle(
       &event,
       &mut self.world,
       &mut self.ui_world,
       self.presentation_ms * 1000,
     );
+    if !forwards_ui_events {
+      return UiEventDisposition::Continue;
+    }
     let action_id = ActionId::from_uuid(Uuid::from_u128(self.next_action_number))
       .expect("deterministic action ID must be nonzero");
     self.next_action_number += 1;

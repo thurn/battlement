@@ -6,9 +6,10 @@ use crate::wire::{
   common::{ErrorCode, StepName},
   job::{Job, ResolvedScenario, StepKind, VideoStep},
   lifecycle::{
-    ArtifactAck, ArtifactKind, HttpError, JobComplete, JobCompleteAck, JobFailed, JobFailedAck,
-    LogBatchAck, NativeVideoInput, NextAction, PlayerFailureFrame, PlayerInfrastructureFailure,
-    ScenarioDecision, Started, StartupIdentity, StartupReport, TerminalReason, UnstartedScenario,
+    ArtifactAck, ArtifactKind, HttpError, InputTrace, JobComplete, JobCompleteAck, JobFailed,
+    JobFailedAck, LogBatchAck, NativeVideoInput, NextAction, PlayerFailureFrame,
+    PlayerInfrastructureFailure, ScenarioDecision, Started, StartupIdentity, StartupReport,
+    TerminalReason, UnstartedScenario,
   },
   validation,
 };
@@ -322,10 +323,66 @@ pub(super) fn step_name(kind: &StepKind) -> StepName {
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
     StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
     StepKind::PointerAction { .. } => StepName::PointerAction,
+    StepKind::PointerSample { .. } => StepName::PointerSample,
     StepKind::Navigation { .. } => StepName::Navigation,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,
   }
+}
+
+pub(super) fn input_trace(trace: &InputTrace) -> Result<()> {
+  ensure!(
+    !trace.session.trim().is_empty(),
+    "input trace session is empty"
+  );
+  ensure!(
+    trace.generation > 0,
+    "input trace generation must be positive"
+  );
+  ensure!(
+    !trace.receipts.is_empty() && trace.receipts.len() <= 16,
+    "input trace must contain between one and 16 receipts"
+  );
+  let mut sequence = trace.receipts[0].sequence;
+  for receipt in &trace.receipts {
+    ensure!(
+      receipt.sequence == sequence,
+      "input receipts are out of order"
+    );
+    sequence = sequence
+      .checked_add(1)
+      .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))?;
+    ensure!(
+      receipt.pointer_id >= 0,
+      "input receipt pointer identity is negative"
+    );
+    ensure!(
+      receipt.x.is_finite() && receipt.y.is_finite(),
+      "input receipt coordinates must be finite"
+    );
+    ensure!(
+      receipt.presentation_boundary > 0,
+      "input receipt presentation boundary must be positive"
+    );
+    ensure!(
+      !receipt.route.trim().is_empty(),
+      "input receipt route is empty"
+    );
+    for object in [
+      &receipt.expected_target,
+      &receipt.actual_hit,
+      &receipt.capture_owner,
+    ]
+    .into_iter()
+    .flatten()
+    {
+      ensure!(
+        uuid::Uuid::parse_str(object).is_ok_and(|value| !value.is_nil()),
+        "input receipt object identity is invalid"
+      );
+    }
+  }
+  Ok(())
 }
 
 pub(super) fn player_error_ref(value: &str) -> Result<()> {

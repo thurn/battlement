@@ -169,6 +169,7 @@ pub(super) struct RawStep {
   pub accessibility_assert: Option<RawAccessibilityAssertion>,
   pub accessibility_action: Option<RawAccessibilityActionStep>,
   pub pointer_action: Option<RawPointerActionStep>,
+  pub pointer: Option<RawPointerSample>,
   pub screenshot: Option<RawScreenshot>,
   pub video: Option<RawVideo>,
 }
@@ -187,6 +188,26 @@ pub(super) struct RawPointerActionStep {
 pub(super) enum RawPointerAction {
   Click,
   Hover,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RawPointerSample {
+  #[serde(default)]
+  pub pointer_id: i32,
+  pub phase: RawPointerPhase,
+  pub target: Option<RawInputTarget>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum RawPointerPhase {
+  Hover,
+  Press,
+  Move,
+  Release,
+  Leave,
+  Cancel,
 }
 
 #[derive(Debug, Deserialize)]

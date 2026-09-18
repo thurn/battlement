@@ -19,6 +19,12 @@ namespace Battlement
         internal bool IsCaptured(int pointerId) =>
             pointers.TryGetValue(pointerId, out State value) && value.Captured != null;
 
+        internal ObjectId? CaptureOwner(int pointerId) =>
+            pointers.TryGetValue(pointerId, out State value)
+            && value.Captured is BattlementIdentity captured
+                ? new ObjectId(captured.Id)
+                : null;
+
         internal bool Process(
             int pointerId,
             BattlementPointerSample sample,

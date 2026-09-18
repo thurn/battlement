@@ -45,6 +45,7 @@ namespace Battlement
         private bool isApplicationPaused;
         private bool hasApplicationFocus = true;
         private bool dittoInputActive;
+        private BattlementControlledPointerLease? dittoPointerLease;
         private DittoActivationTransaction? dittoActivationTransaction;
         private ApplicationState? publishedApplicationState;
         private ReducedMotionPreference publishedReducedMotionPreference;
@@ -114,22 +115,27 @@ namespace Battlement
         internal bool IsDittoConfigured => configuredRuntime is not null;
 
         internal string? DittoInputDiagnostic =>
-            CanEmitInput
-                ? null
-                : $"Runner input is unavailable: focused={hasApplicationFocus}, "
-                    + $"paused={isApplicationPaused}, sessionInput={session.IsInputAvailable}, "
-                    + $"pendingUiFailure={pendingUiFailure is not null}.";
+            configuredRuntime?.PointerInput.ControlledFailure is string controlledFailure
+                ? controlledFailure
+            : CanEmitInput ? null
+            : $"Runner input is unavailable: focused={hasApplicationFocus}, "
+                + $"paused={isApplicationPaused}, sessionInput={session.IsInputAvailable}, "
+                + $"pendingUiFailure={pendingUiFailure is not null}.";
 
-        internal void BeginDittoInput()
+        internal BattlementControlledPointerLease BeginDittoInput(string? sessionId = null)
         {
             if (dittoInputActive)
                 throw new InvalidOperationException(
                     "A Ditto executor already owns this runner's input."
                 );
-            configuredRuntime?.PointerInput.BeginDittoControl();
+            BattlementPointerInput pointer =
+                configuredRuntime?.PointerInput
+                ?? throw new InvalidOperationException("Ditto input requires a configured runner.");
+            dittoPointerLease = pointer.BeginDittoControl(sessionId ?? Guid.NewGuid().ToString());
             configuredRuntime?.KeyboardInput.Reset();
             configuredRuntime?.ControllerInput.Reset();
             dittoInputActive = true;
+            return dittoPointerLease;
         }
 
         internal void EndDittoInput()
@@ -137,12 +143,54 @@ namespace Battlement
             dittoActivationTransaction = null;
             try
             {
-                configuredRuntime?.PointerInput.EndDittoControl();
+                if (dittoPointerLease is BattlementControlledPointerLease lease)
+                    configuredRuntime?.PointerInput.EndDittoControl(lease);
             }
             finally
             {
+                dittoPointerLease = null;
                 dittoInputActive = false;
             }
+        }
+
+        internal void EnqueueDittoPointerSample(
+            ulong sequence,
+            int pointerId,
+            UnityEngine.Vector2 position,
+            IReadOnlyCollection<PointerButton> buttons,
+            bool isPresent,
+            bool isCancelled,
+            ObjectId? expectedTarget,
+            ulong presentationBoundary
+        )
+        {
+            EnsureMainThread();
+            BattlementControlledPointerLease lease =
+                dittoPointerLease
+                ?? throw new InvalidOperationException("Ditto input is not leased.");
+            configuredRuntime!.PointerInput.EnqueueControlled(
+                new BattlementControlledPointerSample(
+                    lease,
+                    sequence,
+                    pointerId,
+                    configuredRuntime.PointerInput.ControlledSpace,
+                    position,
+                    buttons,
+                    isPresent,
+                    isCancelled,
+                    expectedTarget,
+                    presentationBoundary
+                )
+            );
+        }
+
+        internal IReadOnlyList<BattlementControlledPointerReceipt> TakeDittoPointerReceipts()
+        {
+            EnsureMainThread();
+            BattlementControlledPointerLease lease =
+                dittoPointerLease
+                ?? throw new InvalidOperationException("Ditto input is not leased.");
+            return configuredRuntime!.PointerInput.TakeControlledReceipts(lease);
         }
 
         internal void BeginDittoActivationTransaction(
@@ -555,6 +603,10 @@ namespace Battlement
                             position
                         ),
                     uiDocuments.HasPointerModal
+                );
+                pointerInput.ConfigureControlledUi(
+                    uiDocuments.ProcessControlledPointer,
+                    uiDocuments.ResetControlledPointer
                 );
                 uiDocuments.SetWorldCaptureResolver(pointerInput.IsWorldCaptured);
                 BattlementGeometrySampler geometrySampler = new BattlementGeometrySampler(
@@ -1006,7 +1058,7 @@ namespace Battlement
             PublishApplicationState();
             PublishReducedMotionPreference();
             bool physicalInputAvailable = CanEmitInput && !dittoInputActive;
-            configuredRuntime.PointerInput.Update(physicalInputAvailable);
+            configuredRuntime.PointerInput.Update(CanEmitInput, !dittoInputActive);
             configuredRuntime.KeyboardInput.Update(physicalInputAvailable);
             configuredRuntime.ControllerInput.Update(
                 physicalInputAvailable,
@@ -1229,6 +1281,10 @@ namespace Battlement
                     "Application suspension interrupted semantic activation."
                 );
                 configuredRuntime?.PointerInput.CancelPresses();
+                if (dittoInputActive)
+                    configuredRuntime?.PointerInput.FailControlled(
+                        "Application suspension interrupted controlled pointer input."
+                    );
                 configuredRuntime?.KeyboardInput.Reset();
                 configuredRuntime?.ControllerInput.Reset();
             }
@@ -2233,6 +2289,18 @@ namespace Battlement
                     + $"kind={value.Body.GetType().Name} available={CanEmitInput}"
             );
             configuredRuntime?.World.Motion.Handle(value);
+            if (
+                configuredRuntime?.World.TryGetObject(value.TargetId, out GameObject? target)
+                    == true
+                && target != null
+            )
+            {
+                BattlementIdentity identity = target.GetComponent<BattlementIdentity>();
+                if (identity != null && identity.WorldPointer?.ForwardsUiEvents == false)
+                {
+                    return UiEventDisposition.Continue;
+                }
+            }
             if (!CanEmitInput || session.LastSession is not SessionId currentSession)
             {
                 return null;

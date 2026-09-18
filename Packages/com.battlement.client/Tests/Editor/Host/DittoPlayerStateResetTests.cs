@@ -62,6 +62,7 @@ namespace Battlement.Tests
             );
             DittoNativeEngineSession engine = CreateEngine(engineTransport, "ditto-reset");
             var journal = new List<UnityState>();
+            bool runnerResetBeforeEngineDestroyed = false;
             journal.Add(
                 State("before", harness, engineTransport, authored, cameraId, preparedScene)
             );
@@ -69,7 +70,12 @@ namespace Battlement.Tests
             var boundary = new DittoPlayerStateReset(
                 harness.Runner,
                 engine,
-                () => harness.Clock.Elapsed
+                () => harness.Clock.Elapsed,
+                result =>
+                    runnerResetBeforeEngineDestroyed =
+                        !harness.Runner.IsInputAvailable
+                        && result.Status == BattlementTransportStatus.Success
+                        && !harness.Runner.TryGetObject(cameraId, out GameObject? ignored)
             );
             boundary.Begin();
             journal.Add(
@@ -97,6 +103,7 @@ namespace Battlement.Tests
             Assert.That(harness.AssetStorage.LiveHandleCount, Is.Zero);
             Assert.That(harness.AssetStorage.SceneHandles, Is.Empty);
             Assert.That(boundary.IsReusable, Is.True);
+            Assert.That(runnerResetBeforeEngineDestroyed, Is.True);
 
             DittoNativeEngineSession next = CreateEngine(engineTransport, "ditto-next");
             boundary.Begin();

@@ -285,6 +285,7 @@ fn reached_result(
         screenshot: None,
         video: None,
         performance: step.performance.clone(),
+        input_trace: step.input_trace.clone(),
       })
       .collect(),
     logs: None,
@@ -332,6 +333,7 @@ fn completion(
       screenshot_artifact_id: None,
       video_input_id: None,
       performance: None,
+      input_trace: None,
     }],
     artifacts: Vec::new(),
     failure_frame: None,

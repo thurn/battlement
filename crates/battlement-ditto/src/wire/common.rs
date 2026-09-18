@@ -18,6 +18,7 @@ pub enum StepName {
   AccessibilityAssert,
   AccessibilityAction,
   PointerAction,
+  PointerSample,
   Screenshot,
   Video,
 }

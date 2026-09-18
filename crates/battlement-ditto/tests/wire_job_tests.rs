@@ -1,7 +1,7 @@
 use battlement_ditto::wire::job::{
   AccessibilityRole, AccessibilityTarget, Capability, Command, Job, KeyAction, Motion, ObjectState,
-  Orientation, PerformanceAttempt, PerformancePass, Platform, PointerAction, ResolvedStep,
-  StepKind, VideoStep,
+  Orientation, PerformanceAttempt, PerformancePass, Platform, PointerAction, PointerPhase,
+  ResolvedStep, StepKind, VideoStep,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
@@ -52,6 +52,48 @@ fn complete_job_round_trips_every_deterministic_step_variant() {
   assert!(encoded.contains(r#""wait":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1""#));
   assert!(encoded.contains(r#""video":{"action":"start""#));
   assert!(encoded.contains(r#""video":{"action":"stop"}"#));
+}
+
+#[test]
+fn controlled_pointer_steps_round_trip_for_the_native_profile() {
+  let mut value = job();
+  let object = battlement_ditto::wire::job::InputTarget::Object(UUID.to_owned());
+  value.scenarios[0].steps = vec![
+    ResolvedStep {
+      index: 0,
+      name: None,
+      timeout_ms: 1_000,
+      measure: false,
+      action: StepKind::Hover {
+        target: object.clone(),
+      },
+    },
+    ResolvedStep {
+      index: 1,
+      name: None,
+      timeout_ms: 1_000,
+      measure: false,
+      action: StepKind::Drag {
+        from: object,
+        to: battlement_ditto::wire::job::InputTarget::Coordinates([0.9, 0.2]),
+      },
+    },
+    ResolvedStep {
+      index: 2,
+      name: None,
+      timeout_ms: 1_000,
+      measure: false,
+      action: StepKind::PointerSample {
+        pointer_id: 3,
+        phase: PointerPhase::Cancel,
+        target: None,
+      },
+    },
+  ];
+  value.validate().unwrap();
+  let encoded = serde_json::to_string(&value).unwrap();
+  assert_eq!(serde_json::from_str::<Job>(&encoded).unwrap(), value);
+  assert!(encoded.contains(r#""pointer-sample":{"pointer_id":3,"phase":"cancel""#));
 }
 
 #[test]
@@ -158,7 +200,10 @@ fn all_platform_profiles_validate_with_their_supported_capabilities() {
   let mut webgl = job();
   webgl.profile.platform = Platform::Webgl;
   webgl.profile.native_execution_id = None;
-  webgl.profile.capabilities.pop();
+  webgl
+    .profile
+    .capabilities
+    .retain(|value| matches!(value, Capability::Click | Capability::Png));
   webgl.scenarios[0]
     .steps
     .retain(|step| !matches!(step.action, StepKind::Video(_)));
@@ -167,6 +212,10 @@ fn all_platform_profiles_validate_with_their_supported_capabilities() {
 
   let mut ios = job();
   ios.profile.platform = Platform::IosSimulator;
+  ios
+    .profile
+    .capabilities
+    .retain(|value| !matches!(value, Capability::Hover | Capability::Drag));
   ios.profile.display.orientation = Some(battlement_ditto::wire::job::Orientation::Portrait);
   ios.profile.display.safe_area = [0, 24, 1280, 672];
   reindex(&mut ios);
@@ -344,15 +393,9 @@ fn scenario_step_input_wait_and_comparison_invariants_are_enforced() {
       target: battlement_ditto::wire::job::InputTarget::Coordinates([0.5, 0.5]),
     }
   });
-  invalid("hover action", |job| {
+  invalid("hover coordinate range", |job| {
     job.scenarios[0].steps[0].action = StepKind::Hover {
-      target: battlement_ditto::wire::job::InputTarget::Object(UUID.to_owned()),
-    }
-  });
-  invalid("drag action", |job| {
-    job.scenarios[0].steps[0].action = StepKind::Drag {
-      from: battlement_ditto::wire::job::InputTarget::Object(UUID.to_owned()),
-      to: battlement_ditto::wire::job::InputTarget::Object(UUID.to_owned()),
+      target: battlement_ditto::wire::job::InputTarget::Coordinates([1.1, 0.5]),
     }
   });
   invalid("frame count", |job| {
@@ -428,8 +471,13 @@ fn rejected_key_video_and_capability_state_is_validated() {
     job.profile.platform = Platform::Webgl;
     job.profile.capabilities.pop();
   });
-  invalid("forbidden hover capability", |job| {
-    job.profile.capabilities.push(Capability::Hover);
+  invalid("unsupported web pointer capability", |job| {
+    job.profile.platform = Platform::Webgl;
+    job.profile.native_execution_id = None;
+    job
+      .profile
+      .capabilities
+      .retain(|value| *value != Capability::Video);
   });
   invalid("forbidden key capability", |job| {
     job.profile.capabilities.push(Capability::Key);
@@ -493,7 +541,7 @@ const VALID_JOB: &str = r#"{
     "native_execution_id":"e257ed09-a084-46fa-b711-5a8757418e31",
     "build_fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "source_fingerprint":"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
-    "capabilities":["click","png","video"]
+    "capabilities":["click","hover","drag","png","video"]
   },
   "scenarios":[{
     "id":"1f160ce4-dcdc-47ac-9613-31011f8afc96",

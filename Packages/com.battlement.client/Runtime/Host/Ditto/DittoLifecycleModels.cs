@@ -63,6 +63,7 @@ namespace Battlement
         AccessibilityAssert,
         AccessibilityAction,
         PointerAction,
+        PointerSample,
         Screenshot,
         Video,
     }
@@ -214,7 +215,27 @@ namespace Battlement
         string? ScreenshotArtifactId,
         string? VideoInputId,
         [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-            DittoStepPerformance? Performance = null
+            DittoStepPerformance? Performance = null,
+        [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            DittoInputTrace? InputTrace = null
+    );
+
+    internal sealed record DittoInputTrace(
+        string Session,
+        ulong Generation,
+        IReadOnlyList<DittoPointerReceipt> Receipts
+    );
+
+    internal sealed record DittoPointerReceipt(
+        ulong Sequence,
+        int PointerId,
+        double X,
+        double Y,
+        string? ExpectedTarget,
+        string? ActualHit,
+        string? CaptureOwner,
+        string Route,
+        ulong PresentationBoundary
     );
 
     internal sealed record DittoStepPerformance(

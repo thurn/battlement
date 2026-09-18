@@ -36,6 +36,9 @@ struct SceneAttachment(ParentScene);
 #[derive(Clone, Default, PartialEq)]
 struct MotionPointerInput(bool);
 
+#[derive(Clone, Default, PartialEq)]
+struct RustPointerInput(bool);
+
 /// An explicit attachment to a loaded scene or the persistent scene container.
 pub struct SceneRoot {
   scene: ParentScene,
@@ -87,18 +90,22 @@ impl Component for SceneRoot {
         ContextProvider::new()
           .context(MotionPointerInput(false))
           .child(
-            NativeHost::<WorldAdapter>::new(WorldDescription {
-              kind: GameObjectKind::Empty,
-              scene: self.scene,
-              root: true,
-              transform: LocalTransform::default(),
-              active: true,
-              clickable: false,
-              world_pointer: None,
-              render_order: None,
-              material_instances: Vec::new(),
-            })
-            .child(self.children.clone()),
+            ContextProvider::new()
+              .context(RustPointerInput(false))
+              .child(
+                NativeHost::<WorldAdapter>::new(WorldDescription {
+                  kind: GameObjectKind::Empty,
+                  scene: self.scene,
+                  root: true,
+                  transform: LocalTransform::default(),
+                  active: true,
+                  clickable: false,
+                  world_pointer: None,
+                  render_order: None,
+                  material_instances: Vec::new(),
+                })
+                .child(self.children.clone()),
+              ),
           ),
       )
   }
@@ -254,6 +261,10 @@ impl Component for Group {
     let scene = hooks::use_required_context::<SceneAttachment>();
     let pointer_motion =
       hooks::use_context::<MotionPointerInput>().0 || self.motion.has_pointer_gestures();
+    let rust_pointer =
+      hooks::use_context::<RustPointerInput>().0 || self.click.is_some() || !self.events.is_empty();
+    let mut pointer = self.pointer;
+    pointer.forwards_ui_events = rust_pointer;
     let mut host = NativeHost::<WorldAdapter>::new(WorldDescription {
       kind: self.kind.clone(),
       scene: scene.0,
@@ -269,7 +280,7 @@ impl Component for Group {
         ]
         .into_iter()
         .any(|enabled| enabled),
-      world_pointer: Some(self.pointer),
+      world_pointer: Some(pointer),
       render_order: self.render_order,
       material_instances: self.material_instances.clone(),
     })
@@ -288,7 +299,11 @@ impl Component for Group {
     }
     ContextProvider::new()
       .context(MotionPointerInput(pointer_motion))
-      .child(host)
+      .child(
+        ContextProvider::new()
+          .context(RustPointerInput(rust_pointer))
+          .child(host),
+      )
   }
 }
 

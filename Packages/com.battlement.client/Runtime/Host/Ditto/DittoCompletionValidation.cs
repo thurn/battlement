@@ -59,11 +59,51 @@ namespace Battlement
                     );
                 }
             }
+            ValidateOrderedInputTraces(complete.Steps);
             ValidateStatus(complete, observed);
             HashSet<string> artifactIds = ValidateArtifacts(complete, scenario);
             ValidateFailureFrame(complete, artifactIds, observed);
             ValidateVideos(complete, scenario);
             ValidateBoundary(complete.Boundary, observed);
+        }
+
+        private static void ValidateOrderedInputTraces(IReadOnlyList<DittoPlayerStepResult> steps)
+        {
+            string? session = null;
+            ulong generation = 0;
+            ulong nextSequence = 0;
+            ulong previousBoundary = 0;
+            foreach (
+                DittoInputTrace trace in steps
+                    .Select(value => value.InputTrace)
+                    .OfType<DittoInputTrace>()
+            )
+            {
+                if (session is null)
+                {
+                    session = trace.Session;
+                    generation = trace.Generation;
+                }
+                else
+                {
+                    Require(
+                        trace.Session == session && trace.Generation == generation,
+                        "scenario input traces changed lease ownership"
+                    );
+                }
+                foreach (DittoPointerReceipt receipt in trace.Receipts)
+                {
+                    Require(
+                        receipt.Sequence == nextSequence++,
+                        "scenario input receipts are not contiguous"
+                    );
+                    Require(
+                        receipt.PresentationBoundary > previousBoundary,
+                        "scenario input presentation boundaries are not increasing"
+                    );
+                    previousBoundary = receipt.PresentationBoundary;
+                }
+            }
         }
 
         internal static void ValidateStepResult(
@@ -113,6 +153,7 @@ namespace Battlement
             ValidateScreenshot(expected, result);
             ValidateVideo(expected, result);
             ValidatePerformance(expected, result, performanceTargetFps);
+            ValidateInputTrace(expected, result);
         }
 
         private static bool NotRunHasNoPayload(DittoPlayerStepResult result)
@@ -120,7 +161,67 @@ namespace Battlement
             bool timing = result.DurationMs == 0 && !result.ExpiredDeadline.HasValue;
             bool errors = result.ErrorRefs.Count == 0 && result.Assertion is null;
             bool media = result.ScreenshotArtifactId is null && result.VideoInputId is null;
-            return timing && errors && media && result.Performance is null;
+            return timing
+                && errors
+                && media
+                && result.Performance is null
+                && result.InputTrace is null;
+        }
+
+        private static void ValidateInputTrace(
+            DittoResolvedStep expected,
+            DittoPlayerStepResult result
+        )
+        {
+            bool controlled =
+                expected.Action
+                is DittoStepAction.Hover
+                    or DittoStepAction.Drag
+                    or DittoStepAction.PointerSample;
+            if (result.InputTrace is null)
+            {
+                Require(
+                    !controlled || result.Status != DittoStepStatus.Passed,
+                    "passed controlled pointer step requires an input trace"
+                );
+                return;
+            }
+            Require(controlled, "input trace belongs only to controlled pointer steps");
+            DittoInputTrace trace = result.InputTrace;
+            Require(!string.IsNullOrWhiteSpace(trace.Session), "input trace session is empty");
+            Require(trace.Generation > 0, "input trace generation must be positive");
+            Require(
+                trace.Receipts.Count is > 0 and <= 16,
+                "input trace must contain between one and 16 receipts"
+            );
+            ulong expectedSequence = trace.Receipts[0].Sequence;
+            foreach (DittoPointerReceipt receipt in trace.Receipts)
+            {
+                Require(receipt.Sequence == expectedSequence++, "input receipts are out of order");
+                Require(receipt.PointerId >= 0, "input receipt pointer identity is negative");
+                Require(
+                    double.IsFinite(receipt.X) && double.IsFinite(receipt.Y),
+                    "input receipt coordinates must be finite"
+                );
+                Require(
+                    receipt.PresentationBoundary > 0,
+                    "input receipt presentation boundary must be positive"
+                );
+                Require(!string.IsNullOrWhiteSpace(receipt.Route), "input receipt route is empty");
+                OptionalIdentifier(receipt.ExpectedTarget);
+                OptionalIdentifier(receipt.ActualHit);
+                OptionalIdentifier(receipt.CaptureOwner);
+            }
+        }
+
+        private static void OptionalIdentifier(string? value)
+        {
+            if (value is null)
+                return;
+            Require(
+                Guid.TryParse(value, out Guid parsed) && parsed != Guid.Empty,
+                "input receipt object identity is invalid"
+            );
         }
 
         private static void ValidatePerformance(

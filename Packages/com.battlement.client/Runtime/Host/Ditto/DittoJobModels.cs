@@ -67,6 +67,16 @@ namespace Battlement
         Hover,
     }
 
+    internal enum DittoPointerPhase
+    {
+        Hover,
+        Press,
+        Move,
+        Release,
+        Leave,
+        Cancel,
+    }
+
     internal enum DittoKeyAction
     {
         Down,
@@ -171,6 +181,12 @@ namespace Battlement
             DittoPointerAction Action,
             DittoAccessibilityTarget? VisualWitness,
             DittoAccessibilityAssertion? Completion
+        ) : DittoStepAction;
+
+        internal sealed record PointerSample(
+            int PointerId,
+            DittoPointerPhase Phase,
+            DittoInputTarget? Target
         ) : DittoStepAction;
 
         internal sealed record Screenshot(DittoScreenshot Value) : DittoStepAction;

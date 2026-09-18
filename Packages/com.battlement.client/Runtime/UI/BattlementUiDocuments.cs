@@ -39,6 +39,7 @@ namespace Battlement.UI
         private readonly BattlementUiPartProperties partProperties;
         private readonly BattlementUiRepeatControls repeatControls;
         private readonly BattlementUiSyntheticInputAdapter syntheticInput;
+        private readonly BattlementUiControlledPointerInput controlledPointerInput;
         private readonly BattlementMotionWorld motionWorld;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
@@ -93,6 +94,10 @@ namespace Battlement.UI
                 hierarchy,
                 events,
                 booleanControls
+            );
+            controlledPointerInput = new BattlementUiControlledPointerInput(
+                () => hierarchy.InputDocuments,
+                element => hierarchy.TryGetId(element, out Guid id) ? new ObjectId(id) : null
             );
             choiceControls = new BattlementUiChoiceControls(properties.EventForwarder);
             dropdownControls = new BattlementUiDropdownControls(properties.EventForwarder);
@@ -483,6 +488,16 @@ namespace Battlement.UI
             return false;
         }
 
+        internal BattlementUiControlledPointerResult ProcessControlledPointer(
+            int pointerId,
+            UnityEngine.Vector2 position,
+            int buttons,
+            bool isPresent,
+            bool isCancelled
+        ) => controlledPointerInput.Process(pointerId, position, buttons, isPresent, isCancelled);
+
+        internal void ResetControlledPointer() => controlledPointerInput.Reset();
+
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
         internal BattlementMotionWorld MotionWorld => motionWorld;
         internal System.Action? RestoreNativeMotion { get; set; }
@@ -706,6 +721,7 @@ namespace Battlement.UI
             lifecycleEvents.SetInputEnabled(enabled);
             if (enabled)
                 return;
+            controlledPointerInput.Reset();
             eventObserver.Clear();
             textFieldControls.CancelAll();
             scrollControls.CancelAll();
@@ -736,6 +752,7 @@ namespace Battlement.UI
         public void Clear()
         {
             syntheticInput.Clear();
+            controlledPointerInput.Reset();
             particles.Clear();
             motionWorld.Clear();
             eventObserver.Clear();

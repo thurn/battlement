@@ -981,6 +981,8 @@ namespace Battlement
                 DittoPlatform.Macos => new[]
                 {
                     DittoCapability.Click,
+                    DittoCapability.Hover,
+                    DittoCapability.Drag,
                     DittoCapability.Png,
                     DittoCapability.Video,
                 },

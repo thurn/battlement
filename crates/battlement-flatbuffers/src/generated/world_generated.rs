@@ -7560,6 +7560,7 @@ pub mod battlement {
         pub const VT_ORDER: ::flatbuffers::VOffsetT = 6;
         pub const VT_CAPTURE_ON_PRESS: ::flatbuffers::VOffsetT = 8;
         pub const VT_FOCUSABLE: ::flatbuffers::VOffsetT = 10;
+        pub const VT_FORWARDS_UI_EVENTS: ::flatbuffers::VOffsetT = 12;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7578,6 +7579,7 @@ pub mod battlement {
           let mut builder = WorldPointerSettingsBuilder::new(_fbb);
           builder.add_order(args.order);
           builder.add_interaction_layer(args.interaction_layer);
+          builder.add_forwards_ui_events(args.forwards_ui_events);
           builder.add_focusable(args.focusable);
           builder.add_capture_on_press(args.capture_on_press);
           builder.finish()
@@ -7631,6 +7633,18 @@ pub mod battlement {
               .unwrap()
           }
         }
+        #[inline]
+        pub fn forwards_ui_events(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(WorldPointerSettings::VT_FORWARDS_UI_EVENTS, Some(true))
+              .unwrap()
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for WorldPointerSettings<'_> {
@@ -7644,6 +7658,7 @@ pub mod battlement {
             .visit_field::<u32>("order", Self::VT_ORDER, false)?
             .visit_field::<bool>("capture_on_press", Self::VT_CAPTURE_ON_PRESS, false)?
             .visit_field::<bool>("focusable", Self::VT_FOCUSABLE, false)?
+            .visit_field::<bool>("forwards_ui_events", Self::VT_FORWARDS_UI_EVENTS, false)?
             .finish();
           Ok(())
         }
@@ -7653,6 +7668,7 @@ pub mod battlement {
         pub order: u32,
         pub capture_on_press: bool,
         pub focusable: bool,
+        pub forwards_ui_events: bool,
       }
       impl<'a> Default for WorldPointerSettingsArgs {
         #[inline]
@@ -7662,6 +7678,7 @@ pub mod battlement {
             order: 0,
             capture_on_press: false,
             focusable: false,
+            forwards_ui_events: true,
           }
         }
       }
@@ -7700,6 +7717,14 @@ pub mod battlement {
             .push_slot::<bool>(WorldPointerSettings::VT_FOCUSABLE, focusable, false);
         }
         #[inline]
+        pub fn add_forwards_ui_events(&mut self, forwards_ui_events: bool) {
+          self.fbb_.push_slot::<bool>(
+            WorldPointerSettings::VT_FORWARDS_UI_EVENTS,
+            forwards_ui_events,
+            true,
+          );
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> WorldPointerSettingsBuilder<'a, 'b, A> {
@@ -7723,6 +7748,7 @@ pub mod battlement {
           ds.field("order", &self.order());
           ds.field("capture_on_press", &self.capture_on_press());
           ds.field("focusable", &self.focusable());
+          ds.field("forwards_ui_events", &self.forwards_ui_events());
           ds.finish()
         }
       }

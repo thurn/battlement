@@ -113,6 +113,7 @@ fn completed_step(
     screenshot,
     video,
     performance: player.performance,
+    input_trace: player.input_trace,
   })
 }
 
@@ -138,6 +139,7 @@ fn crashed_step(index: u32, name: Option<String>, action: &StepKind, error_id: &
       }
     }),
     performance: None,
+    input_trace: None,
   }
 }
 
@@ -155,6 +157,7 @@ fn not_run_step(index: u32, name: Option<String>, action: &StepKind) -> StepResu
     screenshot: None,
     video: None,
     performance: None,
+    input_trace: None,
   }
 }
 
@@ -187,6 +190,7 @@ pub(crate) fn step_kind(kind: &StepKind) -> StepName {
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
     StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
     StepKind::PointerAction { .. } => StepName::PointerAction,
+    StepKind::PointerSample { .. } => StepName::PointerSample,
     StepKind::Navigation { .. } => StepName::Navigation,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,

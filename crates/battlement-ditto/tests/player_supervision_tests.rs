@@ -397,6 +397,7 @@ fn result_step(step: &PlayerStepResult) -> StepResult {
     screenshot: None,
     video: None,
     performance: step.performance.clone(),
+    input_trace: step.input_trace.clone(),
   }
 }
 
@@ -413,6 +414,7 @@ fn player_step(status: StepStatus) -> PlayerStepResult {
     screenshot_artifact_id: None,
     video_input_id: None,
     performance: None,
+    input_trace: None,
   }
 }
 

@@ -11,8 +11,8 @@ use crate::config::{
   },
   raw::{
     RawAccessibilityAction, RawAccessibilityRole, RawAccessibilityTarget, RawComparison,
-    RawCondition, RawInputTarget, RawObjectState, RawPointerAction, RawScenario, RawStep, RawVideo,
-    RawVideoAction,
+    RawCondition, RawInputTarget, RawObjectState, RawPointerAction, RawPointerPhase, RawScenario,
+    RawStep, RawVideo, RawVideoAction,
   },
   validate::{Validation, comparison, duration, motion, name},
   value::DurationValue,
@@ -168,6 +168,7 @@ fn step_value(
     raw.accessibility_assert.is_some(),
     raw.accessibility_action.is_some(),
     raw.pointer_action.is_some(),
+    raw.pointer.is_some(),
     raw.screenshot.is_some(),
     raw.video.is_some(),
   ]
@@ -184,24 +185,27 @@ fn step_value(
   }
   let action = if let Some(click) = raw.click.take() {
     StepKind::Click {
-      target: input_target(validation, &format!("{key}.click.target"), click.target)?,
+      target: input_target(
+        validation,
+        &format!("{key}.click.target"),
+        click.target,
+        false,
+      )?,
     }
   } else if let Some(hover) = raw.hover.take() {
-    let _ = hover.target;
-    return Err(invalid(
-      validation.path,
-      validation.source,
-      format!("{key}.hover"),
-      "hover has no deterministic semantic delivery contract",
-    ));
+    StepKind::Hover {
+      target: input_target(
+        validation,
+        &format!("{key}.hover.target"),
+        hover.target,
+        true,
+      )?,
+    }
   } else if let Some(drag) = raw.drag.take() {
-    let _ = (drag.from, drag.to);
-    return Err(invalid(
-      validation.path,
-      validation.source,
-      format!("{key}.drag"),
-      "drag has no deterministic semantic delivery contract",
-    ));
+    StepKind::Drag {
+      from: input_target(validation, &format!("{key}.drag.from"), drag.from, true)?,
+      to: input_target(validation, &format!("{key}.drag.to"), drag.to, true)?,
+    }
   } else if let Some(key_step) = raw.key.take() {
     let _ = (key_step.key, key_step.action);
     return Err(invalid(
@@ -268,6 +272,49 @@ fn step_value(
             assertion,
           )
         })
+        .transpose()?,
+    }
+  } else if let Some(pointer) = raw.pointer.take() {
+    let requires_target = matches!(
+      pointer.phase,
+      RawPointerPhase::Hover
+        | RawPointerPhase::Press
+        | RawPointerPhase::Move
+        | RawPointerPhase::Release
+    );
+    if requires_target != pointer.target.is_some() {
+      return Err(invalid(
+        validation.path,
+        validation.source,
+        format!("{key}.pointer.target"),
+        if requires_target {
+          "this pointer phase requires a target"
+        } else {
+          "leave and cancel pointer phases do not accept a target"
+        },
+      ));
+    }
+    if pointer.pointer_id < 0 {
+      return Err(invalid(
+        validation.path,
+        validation.source,
+        format!("{key}.pointer.pointer_id"),
+        "pointer identity must be nonnegative",
+      ));
+    }
+    StepKind::PointerSample {
+      pointer_id: pointer.pointer_id,
+      phase: match pointer.phase {
+        RawPointerPhase::Hover => crate::config::model::PointerPhase::Hover,
+        RawPointerPhase::Press => crate::config::model::PointerPhase::Press,
+        RawPointerPhase::Move => crate::config::model::PointerPhase::Move,
+        RawPointerPhase::Release => crate::config::model::PointerPhase::Release,
+        RawPointerPhase::Leave => crate::config::model::PointerPhase::Leave,
+        RawPointerPhase::Cancel => crate::config::model::PointerPhase::Cancel,
+      },
+      target: pointer
+        .target
+        .map(|target| input_target(validation, &format!("{key}.pointer.target"), target, true))
         .transpose()?,
     }
   } else if let Some(screenshot) = raw.screenshot.take() {
@@ -424,6 +471,7 @@ fn input_target(
   validation: &Validation<'_>,
   key: &str,
   raw: RawInputTarget,
+  allow_coordinates: bool,
 ) -> Result<InputTarget, ConfigError> {
   match raw {
     RawInputTarget::Object(value) => {
@@ -431,13 +479,26 @@ fn input_target(
       Ok(InputTarget::Object(value))
     }
     RawInputTarget::Coordinates(coordinates) => {
-      let _ = coordinates;
-      Err(invalid(
-        validation.path,
-        validation.source,
-        key,
-        "coordinate input has no deterministic semantic delivery contract",
-      ))
+      if !allow_coordinates {
+        return Err(invalid(
+          validation.path,
+          validation.source,
+          key,
+          "coordinate input has no deterministic semantic delivery contract",
+        ));
+      }
+      if coordinates
+        .iter()
+        .any(|value| !value.is_finite() || !(0.0..=1.0).contains(value))
+      {
+        return Err(invalid(
+          validation.path,
+          validation.source,
+          key,
+          "controlled pointer coordinates must be finite normalized values",
+        ));
+      }
+      Ok(InputTarget::Coordinates(coordinates))
     }
   }
 }

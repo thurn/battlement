@@ -178,6 +178,30 @@ pub struct PlayerStepResult {
   pub video_input_id: Option<String>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub performance: Option<StepPerformance>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub input_trace: Option<InputTrace>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct InputTrace {
+  pub session: String,
+  pub generation: u64,
+  pub receipts: Vec<PointerReceipt>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PointerReceipt {
+  pub sequence: u64,
+  pub pointer_id: i32,
+  pub x: f64,
+  pub y: f64,
+  pub expected_target: Option<String>,
+  pub actual_hit: Option<String>,
+  pub capture_owner: Option<String>,
+  pub route: String,
+  pub presentation_boundary: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

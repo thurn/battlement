@@ -181,6 +181,7 @@ fn image_result(run_id: &str, command: ResultCommand, missing: bool, suite: &str
         }),
         video: None,
         performance: None,
+        input_trace: None,
       }],
       logs: None,
       failure_frame: None,

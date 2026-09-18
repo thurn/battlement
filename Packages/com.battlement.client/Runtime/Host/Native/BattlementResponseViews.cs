@@ -5157,7 +5157,8 @@ namespace Battlement
                     settings.InteractionLayer,
                     settings.Order,
                     settings.CaptureOnPress,
-                    settings.Focusable
+                    settings.Focusable,
+                    settings.ForwardsUiEvents
                 )
                 : null;
 

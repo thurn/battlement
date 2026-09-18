@@ -1,13 +1,17 @@
 #nullable enable
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
+using UnityEngine.UIElements;
+using MouseButton = UnityEngine.InputSystem.LowLevel.MouseButton;
 using Object = UnityEngine.Object;
 using ProtocolVector3 = Battlement.Vector3;
 
@@ -424,6 +428,288 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ControlledWorldHoverIgnoresFocusAndPhysicalMouseState()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            var targetId = new ObjectId(Guid.NewGuid());
+            Connect(harness, session, cameraId, Cube(targetId, 0));
+            Camera camera = Identity(cameraId).GetComponent<Camera>();
+            UnityEngine.Vector2 target = camera.WorldToScreenPoint(UnityEngine.Vector3.zero);
+            BattlementControlledPointerLease lease = harness.Runner.BeginDittoInput("hover");
+            try
+            {
+                InputSystem.QueueStateEvent(
+                    mouse!,
+                    new MouseState { position = UnityEngine.Vector2.zero }.WithButton(
+                        MouseButton.Left,
+                        true
+                    )
+                );
+                InputSystem.Update();
+                SetFocus(harness.Runner, false);
+                harness.Runner.EnqueueDittoPointerSample(
+                    0,
+                    0,
+                    target,
+                    Array.Empty<PointerButton>(),
+                    true,
+                    false,
+                    targetId,
+                    1
+                );
+
+                harness.Runner.RunFrame();
+
+                BattlementControlledPointerReceipt receipt = harness
+                    .Runner.TakeDittoPointerReceipts()
+                    .Single();
+                Assert.That(receipt.Session, Is.EqualTo("hover"));
+                Assert.That(receipt.Generation, Is.EqualTo(lease.Generation));
+                Assert.That(receipt.Sequence, Is.Zero);
+                Assert.That(receipt.ActualHit, Is.EqualTo(targetId));
+                Assert.That(receipt.Route, Is.EqualTo("world-pointer"));
+                Assert.That(
+                    Actions(harness).Select(value => value.Body.GetType()),
+                    Is.EqualTo(new[] { typeof(ActionBody.PointerEnter) })
+                );
+            }
+            finally
+            {
+                harness.Runner.EndDittoInput();
+            }
+        }
+
+        [Test]
+        public void ControlledDragRetainsCaptureAcrossFocusAndUiCrossing()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            var targetId = new ObjectId(Guid.NewGuid());
+            Connect(
+                harness,
+                session,
+                cameraId,
+                Cube(targetId, 0, Array.Empty<PointerEvent>(), DragMode.SnapToPointer)
+            );
+            Camera camera = Identity(cameraId).GetComponent<Camera>();
+            UnityEngine.Vector2 pickup = camera.WorldToScreenPoint(UnityEngine.Vector3.zero);
+            UnityEngine.Vector2 destination = camera.WorldToScreenPoint(
+                new UnityEngine.Vector3(1, 0, 0)
+            );
+            harness.Runner.BeginDittoInput("drag");
+            try
+            {
+                harness.Runner.EnqueueDittoPointerSample(
+                    0,
+                    0,
+                    pickup,
+                    new[] { PointerButton.Left },
+                    true,
+                    false,
+                    targetId,
+                    1
+                );
+                harness.Runner.RunFrame();
+                Assert.That(
+                    harness.Runner.TakeDittoPointerReceipts().Single().CaptureOwner,
+                    Is.EqualTo(targetId)
+                );
+
+                SetFocus(harness.Runner, false);
+                InputSystem.QueueStateEvent(mouse!, new MouseState { position = pickup });
+                InputSystem.Update();
+                harness.Runner.EnqueueDittoPointerSample(
+                    1,
+                    0,
+                    destination,
+                    new[] { PointerButton.Left },
+                    true,
+                    false,
+                    null,
+                    2
+                );
+                harness.Runner.RunFrame();
+                Assert.That(
+                    harness.Runner.TakeDittoPointerReceipts().Single().CaptureOwner,
+                    Is.EqualTo(targetId)
+                );
+                Assert.That(Identity(targetId).transform.position.x, Is.EqualTo(1).Within(0.01));
+
+                harness.Runner.EnqueueDittoPointerSample(
+                    2,
+                    0,
+                    destination,
+                    Array.Empty<PointerButton>(),
+                    true,
+                    false,
+                    null,
+                    3
+                );
+                harness.Runner.RunFrame();
+                Assert.That(harness.Runner.TakeDittoPointerReceipts(), Has.Count.EqualTo(1));
+                Assert.That(
+                    Actions(harness).Select(value => value.Body.GetType()),
+                    Is.EqualTo(new[] { typeof(ActionBody.DragStart), typeof(ActionBody.DragEnd) })
+                );
+            }
+            finally
+            {
+                harness.Runner.EndDittoInput();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ControlledUiPressUsesNativeDispatchAndCapture()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            var documentId = new ObjectId(Guid.NewGuid());
+            var rootId = new ObjectId(Guid.NewGuid());
+            var buttonId = new ObjectId(Guid.NewGuid());
+            BattlementGameObject document = new(
+                documentId,
+                new GameObjectKind.UiDocumentState(
+                    rootId,
+                    new PanelSettingsValue(ScaleMode: PanelScaleMode.ConstantPixelSize)
+                ),
+                new ParentScene.Persistent(),
+                null,
+                true,
+                LocalTransform.Identity,
+                Array.Empty<PointerEvent>()
+            );
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.ResponseResult(
+                    new Response(
+                        session,
+                        new ResponseMessage<Command>[]
+                        {
+                            new ResponseMessage<Command>.SnapshotMessage(
+                                FakeBattlementTransport.CompleteSnapshot(
+                                    session,
+                                    objects: new[] { document, CameraObject(cameraId) }
+                                ) with
+                                {
+                                    InputCameraId = cameraId,
+                                    Ui = new[]
+                                    {
+                                        new UiDocument(
+                                            documentId,
+                                            rootId,
+                                            PickingMode: Prop<UiPickingMode>.Set(
+                                                UiPickingMode.Ignore
+                                            ),
+                                            Children: new[]
+                                            {
+                                                new UiNode(
+                                                    buttonId,
+                                                    new UiElement.Button
+                                                    {
+                                                        Text = "controlled",
+                                                        Events = new[]
+                                                        {
+                                                            UiEventKind.PointerDown,
+                                                            UiEventKind.PointerCapture,
+                                                            UiEventKind.PointerCaptureOut,
+                                                            UiEventKind.Click,
+                                                        },
+                                                        Style = new UiStyle(
+                                                            Position: UiStyle.Set(
+                                                                UiPosition.Absolute
+                                                            ),
+                                                            Left: UiStyle.Set<UiLengthOrAuto>(
+                                                                new UiLengthOrAuto.Px(40)
+                                                            ),
+                                                            Top: UiStyle.Set<UiLengthOrAuto>(
+                                                                new UiLengthOrAuto.Px(40)
+                                                            ),
+                                                            Width: UiStyle.Set<UiLengthOrAuto>(
+                                                                new UiLengthOrAuto.Px(180)
+                                                            ),
+                                                            Height: UiStyle.Set<UiLengthOrAuto>(
+                                                                new UiLengthOrAuto.Px(80)
+                                                            )
+                                                        ),
+                                                    }
+                                                ),
+                                            }
+                                        ),
+                                    },
+                                }
+                            ),
+                        }
+                    )
+                )
+            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
+            harness.Runner.Connect();
+            yield return null;
+            yield return null;
+            Assert.That(
+                harness.Runner.UiDocumentsForTests.TryGet(buttonId, out VisualElement? button),
+                Is.True
+            );
+            UnityEngine.Vector2 position = new(
+                button!.worldBound.center.x,
+                Screen.height - button.worldBound.center.y
+            );
+            harness.Runner.BeginDittoInput("native-ui");
+            try
+            {
+                SetFocus(harness.Runner, false);
+                harness.Runner.EnqueueDittoPointerSample(
+                    0,
+                    0,
+                    position,
+                    new[] { PointerButton.Left },
+                    true,
+                    false,
+                    buttonId,
+                    1
+                );
+                harness.Runner.RunFrame();
+                BattlementControlledPointerReceipt down = harness
+                    .Runner.TakeDittoPointerReceipts()
+                    .Single();
+                Assert.That(down.ActualHit, Is.EqualTo(buttonId));
+                Assert.That(down.CaptureOwner, Is.EqualTo(buttonId));
+                Assert.That(down.Route, Is.EqualTo("ui-toolkit"));
+
+                harness.Runner.EnqueueDittoPointerSample(
+                    1,
+                    0,
+                    position,
+                    Array.Empty<PointerButton>(),
+                    true,
+                    false,
+                    buttonId,
+                    2
+                );
+                harness.Runner.RunFrame();
+                BattlementControlledPointerReceipt up = harness
+                    .Runner.TakeDittoPointerReceipts()
+                    .Single();
+                Assert.That(up.ActualHit, Is.EqualTo(buttonId));
+                Assert.That(up.CaptureOwner, Is.Null);
+                Assert.That(
+                    harness.Transport.UiEventActions.Select(value => value.Event.Body.GetType()),
+                    Does.Contain(typeof(UiEventBody.Click))
+                );
+            }
+            finally
+            {
+                harness.Runner.EndDittoInput();
+            }
+        }
+
+        [Test]
         public void SnapshotCancelsHeldPressWithoutUpOrClick()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -645,6 +931,11 @@ namespace Battlement.Tests
             Object
                 .FindObjectsByType<BattlementIdentity>()
                 .Single(identity => identity.Id == id.Value);
+
+        private static void SetFocus(BattlementRunner runner, bool focused) =>
+            typeof(BattlementRunner)
+                .GetMethod("OnApplicationFocus", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(runner, new object[] { focused });
 
         private static Action[] Actions(BattlementTestHarness harness) =>
             harness

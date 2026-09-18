@@ -188,6 +188,11 @@ pub enum StepKind {
     visual_witness: Option<AccessibilityTarget>,
     completion: Option<AccessibilityAssertion>,
   },
+  PointerSample {
+    pointer_id: i32,
+    phase: PointerPhase,
+    target: Option<InputTarget>,
+  },
   Screenshot(ScreenshotStep),
   Video(VideoStep),
 }
@@ -197,6 +202,17 @@ pub enum StepKind {
 pub enum PointerAction {
   Click,
   Hover,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PointerPhase {
+  Hover,
+  Press,
+  Move,
+  Release,
+  Leave,
+  Cancel,
 }
 
 /// A semantic node selected by role and accessible name.

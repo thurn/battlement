@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use battlement_ditto::config::{
   self,
-  model::{Baseline, Motion, PointerAction, Profile, StepKind, VideoStep},
+  model::{Baseline, Motion, PointerAction, PointerPhase, Profile, StepKind, VideoStep},
 };
 
 #[test]
@@ -312,7 +312,52 @@ fn targets_waits_profiles_and_baselines_reject_cross_field_errors() {
 }
 
 #[test]
-fn deterministic_contract_rejects_uncontrolled_scenario_capabilities() {
+fn deterministic_contract_accepts_owned_pointer_delivery_and_rejects_misuse() {
+  let hover = Fixture::new(&MINIMAL_SUITE.replace(
+    "click = { target = \"item\" }",
+    "hover = { target = \"item\" }",
+  ))
+  .load()
+  .unwrap();
+  assert!(matches!(
+    hover.scenarios[0].steps[0].action,
+    StepKind::Hover { .. }
+  ));
+  let drag = Fixture::new(&MINIMAL_SUITE.replace(
+    "click = { target = \"item\" }",
+    "drag = { from = \"item\", to = \"item\" }",
+  ))
+  .load()
+  .unwrap();
+  assert!(matches!(
+    drag.scenarios[0].steps[0].action,
+    StepKind::Drag { .. }
+  ));
+  let pointer = Fixture::new(&MINIMAL_SUITE.replace(
+    "click = { target = \"item\" }",
+    "pointer = { pointer_id = 4, phase = \"press\", target = \"item\" }",
+  ))
+  .load()
+  .unwrap();
+  assert!(matches!(
+    pointer.scenarios[0].steps[0].action,
+    StepKind::PointerSample {
+      pointer_id: 4,
+      phase: PointerPhase::Press,
+      ..
+    }
+  ));
+  let coordinates = Fixture::new(&MINIMAL_SUITE.replace(
+    "click = { target = \"item\" }",
+    "hover = { target = [0.25, 0.75] }",
+  ))
+  .load()
+  .unwrap();
+  assert!(matches!(
+    coordinates.scenarios[0].steps[0].action,
+    StepKind::Hover { .. }
+  ));
+
   let cases = [
     (
       MINIMAL_SUITE.replace("motion = \"controlled\"", "motion = \"real-time\""),
@@ -325,16 +370,30 @@ fn deterministic_contract_rejects_uncontrolled_scenario_capabilities() {
     (
       MINIMAL_SUITE.replace(
         "click = { target = \"item\" }",
-        "hover = { target = \"item\" }",
+        "pointer = { phase = \"press\" }",
       ),
-      "hover has no deterministic semantic delivery contract",
+      "this pointer phase requires a target",
     ),
     (
       MINIMAL_SUITE.replace(
         "click = { target = \"item\" }",
-        "drag = { from = \"item\", to = \"item\" }",
+        "pointer = { phase = \"cancel\", target = \"item\" }",
       ),
-      "drag has no deterministic semantic delivery contract",
+      "leave and cancel pointer phases do not accept a target",
+    ),
+    (
+      MINIMAL_SUITE.replace(
+        "click = { target = \"item\" }",
+        "pointer = { pointer_id = -1, phase = \"leave\" }",
+      ),
+      "pointer identity must be nonnegative",
+    ),
+    (
+      MINIMAL_SUITE.replace(
+        "click = { target = \"item\" }",
+        "hover = { target = [1.1, 0.5] }",
+      ),
+      "controlled pointer coordinates must be finite normalized values",
     ),
     (
       MINIMAL_SUITE.replace(

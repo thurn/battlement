@@ -196,7 +196,22 @@ fn validate_step(
     video_result(video, errors, artifacts)?;
   }
   step_performance(step, command)?;
+  step_input_trace(step)?;
   Ok(())
+}
+
+fn step_input_trace(step: &StepResult) -> Result<()> {
+  let Some(trace) = &step.input_trace else {
+    return Ok(());
+  };
+  ensure!(
+    matches!(
+      step.kind,
+      StepName::Hover | StepName::Drag | StepName::PointerSample
+    ),
+    "input trace belongs only to controlled pointer steps"
+  );
+  crate::wire::lifecycle_validation::input_trace(trace)
 }
 
 fn step_performance(step: &StepResult, command: ResultCommand) -> Result<()> {

@@ -59,11 +59,43 @@ pub(super) fn scenario_complete(
       );
     }
   }
+  ordered_input_traces(&complete.steps)?;
   validate_status(complete, &observed)?;
   let artifact_ids = artifacts(complete, scenario)?;
   failure_frame(complete, &artifact_ids, &observed)?;
   videos(complete, scenario)?;
   boundary(&complete.boundary, &observed)?;
+  Ok(())
+}
+
+fn ordered_input_traces(steps: &[PlayerStepResult]) -> Result<()> {
+  let mut owner: Option<(&str, u64)> = None;
+  let mut next_sequence = 0_u64;
+  let mut previous_boundary = 0_u64;
+  for trace in steps.iter().filter_map(|step| step.input_trace.as_ref()) {
+    if let Some((session, generation)) = owner {
+      ensure!(
+        trace.session == session && trace.generation == generation,
+        "scenario input traces changed lease ownership"
+      );
+    } else {
+      owner = Some((&trace.session, trace.generation));
+    }
+    for receipt in &trace.receipts {
+      ensure!(
+        receipt.sequence == next_sequence,
+        "scenario input receipts are not contiguous"
+      );
+      ensure!(
+        receipt.presentation_boundary > previous_boundary,
+        "scenario input presentation boundaries are not increasing"
+      );
+      next_sequence = next_sequence
+        .checked_add(1)
+        .ok_or_else(|| anyhow::anyhow!("input sequence overflow"))?;
+      previous_boundary = receipt.presentation_boundary;
+    }
+  }
   Ok(())
 }
 
@@ -115,14 +147,36 @@ pub(super) fn step_result(
         && result.error_refs.is_empty()
         && result.assertion.is_none()
         && result.screenshot_artifact_id.is_none()
-        && result.video_input_id.is_none(),
+        && result.video_input_id.is_none()
+        && result.input_trace.is_none(),
       "not-run step must have zero duration and no reached payload"
     ),
     StepStatus::Interrupted => {}
   }
   assertion(expected, result)?;
   screenshot(expected, result)?;
-  video(expected, result).and_then(|_| performance(expected, result, performance_target_fps))
+  video(expected, result)?;
+  performance(expected, result, performance_target_fps)?;
+  input_trace(expected, result)
+}
+
+fn input_trace(expected: &ResolvedStep, result: &PlayerStepResult) -> Result<()> {
+  let controlled = matches!(
+    expected.action,
+    StepKind::Hover { .. } | StepKind::Drag { .. } | StepKind::PointerSample { .. }
+  );
+  let Some(trace) = &result.input_trace else {
+    ensure!(
+      !controlled || result.status != StepStatus::Passed,
+      "passed controlled pointer step requires an input trace"
+    );
+    return Ok(());
+  };
+  ensure!(
+    controlled,
+    "input trace belongs only to controlled pointer steps"
+  );
+  lifecycle_validation::input_trace(trace)
 }
 
 fn performance(

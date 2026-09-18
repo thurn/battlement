@@ -281,6 +281,7 @@ fn reviewed_result(images: &[Vec<u8>; 2]) -> RunResult {
       }),
       video: None,
       performance: None,
+      input_trace: None,
     })
     .collect();
   RunResult {

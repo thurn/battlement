@@ -36,7 +36,13 @@ pub(crate) fn resolve(
     Profile::Macos { display } => (
       Platform::Macos,
       display,
-      vec![Capability::Click, Capability::Png, Capability::Video],
+      vec![
+        Capability::Click,
+        Capability::Hover,
+        Capability::Drag,
+        Capability::Png,
+        Capability::Video,
+      ],
     ),
     Profile::Webgl { display, .. } => (
       Platform::Webgl,
@@ -241,6 +247,25 @@ fn resolved_step(
           current_page: assertion.current_page,
           parent: assertion.parent.as_ref().map(accessibility_target),
         }),
+      },
+      AuthoredStepKind::PointerSample {
+        pointer_id,
+        phase,
+        target,
+      } => StepKind::PointerSample {
+        pointer_id: *pointer_id,
+        phase: match phase {
+          crate::config::model::PointerPhase::Hover => crate::wire::job::PointerPhase::Hover,
+          crate::config::model::PointerPhase::Press => crate::wire::job::PointerPhase::Press,
+          crate::config::model::PointerPhase::Move => crate::wire::job::PointerPhase::Move,
+          crate::config::model::PointerPhase::Release => crate::wire::job::PointerPhase::Release,
+          crate::config::model::PointerPhase::Leave => crate::wire::job::PointerPhase::Leave,
+          crate::config::model::PointerPhase::Cancel => crate::wire::job::PointerPhase::Cancel,
+        },
+        target: target
+          .as_ref()
+          .map(|value| input_target(value, aliases))
+          .transpose()?,
       },
       AuthoredStepKind::Screenshot(screenshot) => StepKind::Screenshot(ScreenshotStep {
         name: screenshot.name.clone(),

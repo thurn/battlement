@@ -386,6 +386,10 @@ namespace Battlement
             return new DittoInputResolution(false, default, bounds, candidates, id);
         }
 
+        /// <summary>Converts top-left framebuffer coordinates to Unity screen space.</summary>
+        public UnityVector2 ToPointerScreenPosition(UnityVector2 position) =>
+            new(position.x, height - position.y);
+
         private bool TryBounds(ObjectId id, out UnityRect bounds)
         {
             bounds = default;

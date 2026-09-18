@@ -124,6 +124,111 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ControlledInputTracesRequireOneContiguousScenarioLease()
+        {
+            JObject fixture = Fixture();
+            JObject jobToken = (JObject)fixture["job"]!.DeepClone();
+            jobToken["profile"]!["capabilities"] = new JArray(
+                "click",
+                "hover",
+                "drag",
+                "png",
+                "video"
+            );
+            jobToken["scenarios"]![0]!["steps"] = JArray.Parse(
+                "["
+                    + "{\"index\":0,\"name\":null,\"timeout_ms\":1000,"
+                    + "\"action\":{\"hover\":{\"target\":"
+                    + "\"4aac8ca0-af3d-409e-958e-62954e6cb3d1\"}}},"
+                    + "{\"index\":1,\"name\":null,\"timeout_ms\":1000,"
+                    + "\"action\":{\"drag\":{\"from\":"
+                    + "\"4aac8ca0-af3d-409e-958e-62954e6cb3d1\",\"to\":[0.9,0.2]}}}"
+                    + "]"
+            );
+            DittoJob job = DittoJobCodec.Decode(
+                Encoding.UTF8.GetBytes(jobToken.ToString(Formatting.None))
+            );
+            string scenarioId = (string)jobToken["scenarios"]![0]!["id"]!;
+            JObject completeToken = JObject.Parse(
+                "{"
+                    + $"\"scenario_id\":\"{scenarioId}\",\"execution_status\":\"passed\","
+                    + "\"steps\":["
+                    + ControlledStep(0, "hover", 0, 10, 1)
+                    + ","
+                    + ControlledStep(1, "drag", 1, 11, 3)
+                    + "],\"artifacts\":[],\"failure_frame\":null,\"video_inputs\":[],"
+                    + "\"last_log_sequence\":90,\"execution_duration_ms\":5,"
+                    + "\"startup_duration_ms\":1,\"settle_duration_ms\":2,"
+                    + "\"capture_duration_ms\":0,"
+                    + "\"boundary\":{\"status\":\"passed\",\"duration_ms\":1},"
+                    + "\"primary_error_ref\":null}"
+            );
+            DittoPlayerStepResult[] steps = completeToken["steps"]!
+                .Select(Decode<DittoPlayerStepResult>)
+                .ToArray();
+            var complete = new DittoScenarioComplete(
+                scenarioId,
+                DittoExecutionStatus.Passed,
+                steps,
+                Array.Empty<DittoReachedArtifact>(),
+                null,
+                Array.Empty<DittoNativeVideoInput>(),
+                90,
+                5,
+                1,
+                2,
+                0,
+                new DittoScenarioBoundary.Passed(1),
+                null
+            );
+            DittoCompletionValidation.ValidateScenarioComplete(
+                complete,
+                job,
+                Array.Empty<string>()
+            );
+
+            DittoInputTrace trace = steps[1].InputTrace!;
+            DittoScenarioComplete wrongOwner = complete with
+            {
+                Steps = new[]
+                {
+                    steps[0],
+                    steps[1] with
+                    {
+                        InputTrace = trace with { Generation = 8 },
+                    },
+                },
+            };
+            Assert.Throws<JsonSerializationException>(() =>
+                DittoCompletionValidation.ValidateScenarioComplete(
+                    wrongOwner,
+                    job,
+                    Array.Empty<string>()
+                )
+            );
+            DittoPointerReceipt[] receipts = trace.Receipts.ToArray();
+            receipts[0] = receipts[0] with { Sequence = 2 };
+            DittoScenarioComplete sequenceGap = complete with
+            {
+                Steps = new[]
+                {
+                    steps[0],
+                    steps[1] with
+                    {
+                        InputTrace = trace with { Receipts = receipts },
+                    },
+                },
+            };
+            Assert.Throws<JsonSerializationException>(() =>
+                DittoCompletionValidation.ValidateScenarioComplete(
+                    sequenceGap,
+                    job,
+                    Array.Empty<string>()
+                )
+            );
+        }
+
+        [Test]
         public void TerminalAccountingAndFailureResponsesAreClosed()
         {
             DittoJob job = Job();
@@ -201,6 +306,38 @@ namespace Battlement.Tests
         }
 
         private static JObject Fixture() => JObject.Parse(File.ReadAllText(FixturePath));
+
+        private static string ControlledStep(
+            int index,
+            string kind,
+            int firstSequence,
+            int firstBoundary,
+            int count
+        )
+        {
+            string receipts = string.Join(
+                ",",
+                Enumerable
+                    .Range(0, count)
+                    .Select(offset =>
+                        "{"
+                        + $"\"sequence\":{firstSequence + offset},\"pointer_id\":0,"
+                        + "\"x\":640.0,\"y\":360.0,"
+                        + "\"expected_target\":\"4aac8ca0-af3d-409e-958e-62954e6cb3d1\","
+                        + "\"actual_hit\":\"4aac8ca0-af3d-409e-958e-62954e6cb3d1\","
+                        + "\"capture_owner\":null,\"route\":\"world-logical\","
+                        + $"\"presentation_boundary\":{firstBoundary + offset}}}"
+                    )
+            );
+            return "{"
+                + $"\"index\":{index},\"name\":null,\"kind\":\"{kind}\","
+                + "\"status\":\"passed\",\"duration_ms\":1,\"expired_deadline\":null,"
+                + "\"error_refs\":[],\"assertion\":null,\"screenshot_artifact_id\":null,"
+                + "\"video_input_id\":null,\"input_trace\":{"
+                + "\"session\":\"scenario:0\",\"generation\":7,"
+                + $"\"receipts\":[{receipts}]"
+                + "}}";
+        }
 
         private static byte[] Ndjson(JArray records) =>
             Encoding.UTF8.GetBytes(
