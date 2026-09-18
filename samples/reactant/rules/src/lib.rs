@@ -12,6 +12,7 @@ mod controls;
 mod design_system;
 mod destruction_queue_proof;
 mod draw_reflow_proof;
+mod effect_exit_retention_proof;
 mod effect_occurrence_proof;
 mod effects_stores;
 mod events_portals;

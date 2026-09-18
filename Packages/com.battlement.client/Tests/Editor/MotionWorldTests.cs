@@ -183,6 +183,50 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ReconnectCancelsASequenceWhoseSnapshottedTargetWasRemoved()
+        {
+            ObjectId clock = Id("d17f15a2-9754-47cd-a72f-65a44de96140");
+            ObjectId scope = Id("d17f15a2-9754-47cd-a72f-65a44de96141");
+            ObjectId child = Id("d17f15a2-9754-47cd-a72f-65a44de96142");
+            ObjectId playback = Id("d17f15a2-9754-47cd-a72f-65a44de96143");
+            var root = new VisualElement();
+            var target = new VisualElement();
+            root.Add(target);
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            MotionDescriptor rootDescriptor = EmptyDescriptor(scope, clock) with
+            {
+                ScopeId = scope,
+                ScopeRoot = true,
+            };
+            world.Install(root, scope, rootDescriptor);
+            world.Install(target, child, EmptyDescriptor(child, clock));
+            world.Apply(
+                new MotionScopeOperation(
+                    scope,
+                    new MotionScopeCommand.Start(
+                        playback,
+                        1,
+                        new MotionSequenceEntry[]
+                        {
+                            Animate(Target(1, 1_000_000), new MotionSequenceSchedule.Absolute(0)),
+                        }
+                    )
+                )
+            );
+
+            world.BeginReconnect();
+            world.Install(new VisualElement(), scope, rootDescriptor);
+            world.EndReconnect();
+
+            MotionPlaybackEvent cancelled = world
+                .DrainEventBatch()!
+                .PlaybackEvents.Single(value => value.PlaybackId == playback);
+            Assert.That(cancelled.Outcome, Is.EqualTo(MotionPlaybackOutcome.Cancelled));
+            world.SetControlledClock(clock, 1_000_000);
+            Assert.DoesNotThrow(world.PostLayout);
+        }
+
+        [Test]
         public void KeyframeBoundaryStructuredDiscreteAndTransitionEndSampleTogether()
         {
             ObjectId clock = Id("d0961886-84a6-49cb-af9e-ea4e49dc6f26");
@@ -958,7 +1002,12 @@ namespace Battlement.Tests
                 new(
                     new MotionParticleOccurrence(
                         "particle/burst",
-                        new MotionPositionReference(target, null, resolution),
+                        new MotionPositionReference(
+                            target,
+                            null,
+                            Battlement.Vector3.Zero,
+                            resolution
+                        ),
                         250
                     ),
                     new MotionSequenceSchedule.Absolute(100)

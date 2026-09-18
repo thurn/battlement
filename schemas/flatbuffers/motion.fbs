@@ -327,6 +327,7 @@ enum MotionReferenceResolution:ubyte { CaptureAtStart, Follow }
 table MotionPositionReference {
   object_id:Uuid (required);
   anchor:string;
+  offset:MotionVector3 (required);
   resolution:MotionReferenceResolution;
 }
 

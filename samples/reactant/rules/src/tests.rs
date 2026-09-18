@@ -14,6 +14,22 @@ fn effect_occurrence_fixture_connects_through_the_public_display() {
 }
 
 #[test]
+fn effect_exit_retention_fixture_connects_through_the_public_display() {
+  let app = crate::effect_exit_retention_proof::app();
+  let mut assets = battlement_fake::assets::FakeAssetCatalog::new();
+  assets.add_scene(crate::CONTENT_SCENE);
+  assets.add_texture("reactant/assets/texture");
+  assets.add_textures(crate::generated_asset_addresses());
+  assets.add_material_with_parameters(
+    "reactant/world/card-material",
+    [battlement::MaterialParameter::<f64>::new("_Clip").value(0.0)],
+  );
+  assets.add_text_mesh_pro_font("reactant/world/font");
+  let mut display = battlement_fake::client::FakeClient::connect(app, assets);
+  display.poll();
+}
+
+#[test]
 fn deterministic_registry_matches_the_static_composition_scenario() {
   let suite = include_str!("../../ditto.toml");
   assert!(DITTO_VISUAL_STATE_REGISTRY.contains("key = \"composition.initial\""));

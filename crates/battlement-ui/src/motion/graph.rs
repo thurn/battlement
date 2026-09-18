@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use battlement_types::ObjectId;
+use battlement_types::{ObjectId, Vector3};
 
 use crate::{
   MotionClockSource, MotionProperty, MotionTargetDescriptor, MotionValue, SpringConfiguration,
@@ -315,12 +315,14 @@ pub enum MotionReferenceResolution {
 }
 
 /// One typed host or named world-anchor position used by a sequence target.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionPositionReference {
   /// Referenced host identity.
   pub object_id: ObjectId,
   /// Optional named anchor inside a prepared world visual.
   pub anchor: Option<String>,
+  /// Local-space offset on the referenced host or named anchor.
+  pub offset: Vector3,
   /// Capture or live-follow behavior.
   pub resolution: MotionReferenceResolution,
 }
@@ -503,6 +505,7 @@ pub fn validate_motion_sequence(entries: &[MotionSequenceEntry]) -> Result<(), S
         {
           return Err("Motion sequence position anchor is empty".to_owned());
         }
+        validate_position_reference(position.as_ref())?;
       }
       MotionSequenceEntry::Label { name, .. } => {
         if name.is_empty() {
@@ -535,6 +538,7 @@ pub fn validate_motion_sequence(entries: &[MotionSequenceEntry]) -> Result<(), S
         {
           return Err("Motion sequence particle anchor is empty".to_owned());
         }
+        validate_position_reference(Some(&particle.position))?;
       }
     }
   }
@@ -558,6 +562,17 @@ pub fn validate_motion_sequence(entries: &[MotionSequenceEntry]) -> Result<(), S
   let mut visited = HashSet::new();
   for index in 0..entries.len() {
     visit_sequence(index, &dependencies, &mut visiting, &mut visited)?;
+  }
+  Ok(())
+}
+
+fn validate_position_reference(value: Option<&MotionPositionReference>) -> Result<(), String> {
+  if value.is_some_and(|value| {
+    [value.offset.x, value.offset.y, value.offset.z]
+      .into_iter()
+      .any(|component| !component.is_finite() || component.abs() > f64::from(f32::MAX))
+  }) {
+    return Err("Motion sequence position offset is invalid".to_owned());
   }
   Ok(())
 }
@@ -780,6 +795,7 @@ mod tests {
         position: Some(MotionPositionReference {
           object_id: ObjectId::new_v4(),
           anchor: None,
+          offset: Vector3::ZERO,
           resolution: MotionReferenceResolution::Follow,
         }),
         position_transition: Box::new(transition),

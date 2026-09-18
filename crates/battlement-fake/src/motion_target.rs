@@ -20,6 +20,9 @@ pub(crate) struct Target {
   scale_contribution: Option<[f32; 2]>,
   material_scalar: Option<(u32, String)>,
   audio_volume: Option<ObjectId>,
+  light_intensity: bool,
+  particle_emission: bool,
+  world_text: bool,
 }
 
 impl Target {
@@ -38,6 +41,12 @@ impl Target {
       scale_contribution: None,
       material_scalar: None,
       audio_volume: None,
+      light_intensity: false,
+      particle_emission: false,
+      world_text: world
+        .object(host)
+        .and_then(|object| object.text())
+        .is_some(),
     }
   }
 
@@ -91,7 +100,9 @@ impl Target {
         "material scalar Motion requires a prepared float parameter"
       );
     }
-    if tracks(definition).any(|track| track.property == MotionProperty::LightIntensity) {
+    let light_intensity =
+      tracks(definition).any(|track| track.property == MotionProperty::LightIntensity);
+    if light_intensity {
       assert!(
         world
           .object(self.host)
@@ -100,7 +111,9 @@ impl Target {
         "light intensity Motion requires a light host"
       );
     }
-    if tracks(definition).any(|track| track.property == MotionProperty::ParticleEmission) {
+    let particle_emission =
+      tracks(definition).any(|track| track.property == MotionProperty::ParticleEmission);
+    if particle_emission {
       assert!(
         world
           .object(self.host)
@@ -117,6 +130,8 @@ impl Target {
     }
     self.material_scalar = material;
     self.audio_volume = audio;
+    self.light_intensity = light_intensity;
+    self.particle_emission = particle_emission;
   }
 
   pub(crate) fn capture(&mut self, property: MotionProperty, world: &FakeWorld, ui: &UiWorld) {
@@ -134,6 +149,18 @@ impl Target {
 
   pub(crate) fn is_world(&self) -> bool {
     self.world.is_some()
+  }
+
+  pub(crate) fn supports(&self, property: MotionProperty) -> bool {
+    if self.is_world() {
+      return property.is_world_transform()
+        || (property == MotionProperty::Opacity && self.world_text)
+        || (property == MotionProperty::MaterialScalar && self.material_scalar.is_some())
+        || (property == MotionProperty::AudioVolume && self.audio_volume.is_some())
+        || (property == MotionProperty::LightIntensity && self.light_intensity)
+        || (property == MotionProperty::ParticleEmission && self.particle_emission);
+    }
+    !property.is_world_transform() && !property.is_world_effect()
   }
 
   pub(crate) fn read(
@@ -156,6 +183,16 @@ impl Target {
           panic!("material scalar Motion target has a non-float prepared type")
         };
         return MotionValue::Scalar(*value as f32);
+      }
+      MotionProperty::Opacity if self.world_text => {
+        return MotionValue::Scalar(
+          world
+            .object(self.host)
+            .and_then(|object| object.text())
+            .expect("world text Motion target is absent")
+            .color
+            .a as f32,
+        );
       }
       MotionProperty::LightIntensity => {
         return MotionValue::Scalar(
@@ -262,6 +299,13 @@ impl Target {
             .as_ref()
             .expect("material scalar Motion target is unconfigured");
           world.set_material_scalar(self.host, *slot, parameter, f64::from(number));
+        }
+        MotionProperty::Opacity if self.world_text => {
+          let object = world.object_mut(self.host);
+          let battlement::GameObjectKind::Text { text } = &mut object.kind else {
+            panic!("world text Motion target is absent")
+          };
+          text.color.a = f64::from(number.clamp(0.0, 1.0));
         }
         MotionProperty::LightIntensity => {
           world.light_mut(self.host).intensity = f64::from(number);

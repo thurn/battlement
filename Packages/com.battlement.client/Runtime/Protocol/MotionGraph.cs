@@ -217,6 +217,7 @@ namespace Battlement
     public sealed record MotionPositionReference(
         ObjectId ObjectId,
         string? Anchor,
+        Vector3 Offset,
         MotionReferenceResolution Resolution
     );
 

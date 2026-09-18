@@ -176,6 +176,10 @@ namespace Battlement
 
         public bool Supports(MotionProperty property) =>
             SupportsTransform(property)
+            || (
+                property == MotionProperty.Opacity
+                && transform.TryGetComponent(out BattlementText _)
+            )
             || (property == MotionProperty.MaterialScalar && materialTarget is not null)
             || (property == MotionProperty.LightIntensity && light != null)
             || (property == MotionProperty.ParticleEmission && particles.Length != 0)
@@ -188,7 +192,8 @@ namespace Battlement
         private static bool SupportsCatalog(MotionProperty property) =>
             SupportsTransform(property)
             || property
-                is MotionProperty.MaterialScalar
+                is MotionProperty.Opacity
+                    or MotionProperty.MaterialScalar
                     or MotionProperty.LightIntensity
                     or MotionProperty.ParticleEmission
                     or MotionProperty.AudioVolume;
@@ -219,6 +224,8 @@ namespace Battlement
                 return new MotionValue.Scalar(
                     materials!.ReadMotionScalar(materialTarget!.Slot, materialTarget.Parameter)
                 );
+            if (property == MotionProperty.Opacity)
+                return new MotionValue.Scalar(transform.GetComponent<BattlementText>().Color.a);
             if (property == MotionProperty.LightIntensity)
                 return new MotionValue.Scalar(light!.intensity);
             if (property == MotionProperty.ParticleEmission)
@@ -262,6 +269,14 @@ namespace Battlement
                     materialTarget.Parameter,
                     number
                 );
+                return;
+            }
+            if (property == MotionProperty.Opacity)
+            {
+                BattlementText text = transform.GetComponent<BattlementText>();
+                UnityEngine.Color color = text.Color;
+                color.a = Mathf.Clamp01(number);
+                text.ApplyColor(color);
                 return;
             }
             if (property == MotionProperty.LightIntensity)
@@ -349,7 +364,8 @@ namespace Battlement
 
         public IReadOnlyList<MotionPropertyValue> ResolvePosition(
             IBattlementMotionTarget reference,
-            string? anchor
+            string? anchor,
+            Vector3 offset
         )
         {
             if (reference is not BattlementWorldMotionTarget world)
@@ -360,10 +376,12 @@ namespace Battlement
                     world.transform.gameObject,
                     new AnchorName(anchor)
                 );
+            UnityVector3 localOffset = new((float)offset.X, (float)offset.Y, (float)offset.Z);
+            UnityVector3 worldPoint = point.TransformPoint(localOffset);
             UnityVector3 value =
                 transform.parent == null
-                    ? point.position
-                    : transform.parent.InverseTransformPoint(point.position);
+                    ? worldPoint
+                    : transform.parent.InverseTransformPoint(worldPoint);
             return new MotionPropertyValue[]
             {
                 new(MotionProperty.LocalPositionX, new MotionValue.Scalar(value.x)),

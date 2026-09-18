@@ -2629,15 +2629,18 @@ public struct MotionPositionReference : IFlatbufferObject
   public ArraySegment<byte>? GetAnchorBytes() { return __p.__vector_as_arraysegment(6); }
 #endif
   public byte[] GetAnchorArray() { return __p.__vector_as_array<byte>(6); }
-  public Battlement.FlatBuffers.Generated.MotionReferenceResolution Resolution { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionReferenceResolution)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionReferenceResolution.CaptureAtStart; } }
+  public Battlement.FlatBuffers.Generated.MotionVector3? Offset { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionVector3?)(new Battlement.FlatBuffers.Generated.MotionVector3()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionReferenceResolution Resolution { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionReferenceResolution)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionReferenceResolution.CaptureAtStart; } }
 
-  public static void StartMotionPositionReference(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void StartMotionPositionReference(FlatBufferBuilder builder) { builder.StartTable(4); }
   public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }
   public static void AddAnchor(FlatBufferBuilder builder, StringOffset anchorOffset) { builder.AddOffset(1, anchorOffset.Value, 0); }
-  public static void AddResolution(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionReferenceResolution resolution) { builder.AddByte(2, (byte)resolution, 0); }
+  public static void AddOffset(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionVector3> offsetOffset) { builder.AddStruct(2, offsetOffset.Value, 0); }
+  public static void AddResolution(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionReferenceResolution resolution) { builder.AddByte(3, (byte)resolution, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.MotionPositionReference> EndMotionPositionReference(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 4);  // object_id
+    builder.Required(o, 8);  // offset
     return new Offset<Battlement.FlatBuffers.Generated.MotionPositionReference>(o);
   }
 }
@@ -2650,7 +2653,8 @@ static public class MotionPositionReferenceVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*ObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
       && verifier.VerifyString(tablePos, 6 /*Anchor*/, false)
-      && verifier.VerifyField(tablePos, 8 /*Resolution*/, 1 /*Battlement.FlatBuffers.Generated.MotionReferenceResolution*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*Offset*/, 12 /*Battlement.FlatBuffers.Generated.MotionVector3*/, 4, true)
+      && verifier.VerifyField(tablePos, 10 /*Resolution*/, 1 /*Battlement.FlatBuffers.Generated.MotionReferenceResolution*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

@@ -152,7 +152,78 @@ namespace Battlement.Tests
         private static Payload MotionScope(
             FlatBufferBuilder builder,
             CommandBody.Motion.Scope value
-        ) => throw Unsupported(value);
+        )
+        {
+            if (value.Payload.Command is not MotionScopeCommand.Start start)
+                throw Unsupported(value);
+            var entries = new int[start.Entries.Count];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                if (
+                    start.Entries[index] is not MotionSequenceEntry.Particle particle
+                    || particle.Schedule is not MotionSequenceSchedule.Absolute schedule
+                )
+                    throw Unsupported(value);
+                MotionPositionReference position = particle.Occurrence.Position;
+                StringOffset? anchor = position.Anchor is null
+                    ? null
+                    : builder.CreateString(position.Anchor);
+                Wire.MotionPositionReference.StartMotionPositionReference(builder);
+                Wire.MotionPositionReference.AddResolution(
+                    builder,
+                    (Wire.MotionReferenceResolution)position.Resolution
+                );
+                Wire.MotionPositionReference.AddOffset(
+                    builder,
+                    Wire.MotionVector3.CreateMotionVector3(
+                        builder,
+                        (float)position.Offset.X,
+                        (float)position.Offset.Y,
+                        (float)position.Offset.Z
+                    )
+                );
+                if (anchor is StringOffset anchorValue)
+                    Wire.MotionPositionReference.AddAnchor(builder, anchorValue);
+                Wire.MotionPositionReference.AddObjectId(
+                    builder,
+                    Uuid(builder, position.ObjectId.Value)
+                );
+                Offset<Wire.MotionPositionReference> reference =
+                    Wire.MotionPositionReference.EndMotionPositionReference(builder);
+                Offset<Wire.MotionSequenceSchedule> wireSchedule =
+                    Wire.MotionSequenceSchedule.CreateMotionSequenceSchedule(
+                        builder,
+                        Wire.MotionSequenceScheduleKind.Absolute,
+                        absolute_micros: schedule.StartMicros
+                    );
+                StringOffset address = builder.CreateString(particle.Occurrence.Address);
+                entries[index] = Wire
+                    .MotionSequenceEntry.CreateMotionSequenceEntry(
+                        builder,
+                        Wire.MotionSequenceEntryKind.Particle,
+                        scheduleOffset: wireSchedule,
+                        effect_addressOffset: address,
+                        effect_positionOffset: reference,
+                        effect_lifetime_millis: particle.Occurrence.LifetimeMilliseconds
+                    )
+                    .Value;
+            }
+            VectorOffset entryVector = OffsetVector(builder, entries);
+            Wire.MotionScopeOperation.StartMotionScopeOperation(builder);
+            Wire.MotionScopeOperation.AddEntries(builder, entryVector);
+            Wire.MotionScopeOperation.AddGeneration(builder, start.Generation);
+            Wire.MotionScopeOperation.AddPlaybackId(builder, Uuid(builder, start.PlaybackId.Value));
+            Wire.MotionScopeOperation.AddCommand(builder, Wire.MotionScopeCommandKind.Start);
+            Wire.MotionScopeOperation.AddScopeId(
+                builder,
+                Uuid(builder, value.Payload.ScopeId.Value)
+            );
+            return new Payload(
+                Wire.CoreCommandKind.MotionScope,
+                Wire.CoreCommandPayload.MotionScopeOperation,
+                Wire.MotionScopeOperation.EndMotionScopeOperation(builder).Value
+            );
+        }
 
         private static Payload MotionDragControl(
             FlatBufferBuilder builder,

@@ -43,6 +43,47 @@ struct Entry {
 }
 
 impl MotionWorld {
+  pub(crate) fn cancel_invalid_sequences(&mut self, world: &FakeWorld, ui: &UiWorld, now: u64) {
+    let invalid = self
+      .sequences
+      .iter()
+      .filter_map(|(id, sequence)| {
+        (!self.sequence_dependencies_present(sequence, world)).then_some(*id)
+      })
+      .collect::<Vec<_>>();
+    for id in invalid {
+      let sequence = self.sequences.remove(&id).expect("known Motion sequence");
+      self.clear_sequence_imperatives(&sequence, world, ui, now);
+      self
+        .playbacks
+        .finish(sequence.playback_id, MotionPlaybackOutcome::Cancelled);
+    }
+  }
+
+  fn sequence_dependencies_present(&self, sequence: &Sequence, world: &FakeWorld) -> bool {
+    sequence
+      .entries
+      .iter()
+      .all(|entry| match &entry.definition {
+        MotionSequenceEntry::Animate { position, .. } => {
+          entry
+            .targets
+            .iter()
+            .all(|target| self.entries.contains_key(target))
+            && position.as_ref().is_none_or(|reference| {
+              self
+                .hosts
+                .get(&reference.object_id)
+                .is_some_and(|descriptor| self.entries.contains_key(descriptor))
+            })
+        }
+        MotionSequenceEntry::Particle { particle, .. } => {
+          world.object(particle.position.object_id).is_some()
+        }
+        MotionSequenceEntry::Label { .. } | MotionSequenceEntry::Sound { .. } => true,
+      })
+  }
+
   pub(crate) fn scope(
     &mut self,
     operation: &MotionScopeOperation,
@@ -548,7 +589,8 @@ impl MotionWorld {
         reference.anchor.is_none(),
         "fake Motion cannot resolve prepared world anchor metadata"
       );
-      let desired = world.world_transform(reference.object_id);
+      let mut desired = world.world_transform(reference.object_id);
+      desired.position = world.world_point(reference.object_id, reference.offset);
       let parent = world
         .object(target_descriptor.definition.host_id)
         .and_then(|object| object.parent_id())
@@ -592,7 +634,7 @@ impl MotionWorld {
     world: &FakeWorld,
   ) -> battlement::Vector3 {
     self.validate_effect_position(reference, world);
-    world.world_transform(reference.object_id).position
+    world.world_point(reference.object_id, reference.offset)
   }
 
   fn select(

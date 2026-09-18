@@ -170,6 +170,7 @@ impl<G: 'static> Reactant<G> {
   pub fn new(spawner: impl Spawner) -> Self {
     crate::performance::initialize();
     let runtime_id = NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed);
+    let element_refs = ElementRefRuntime::new();
     Self {
       runtime_id,
       context_defaults: Rc::new(RefCell::new(context::ContextDefaults::default())),
@@ -182,8 +183,8 @@ impl<G: 'static> Reactant<G> {
       pending_effects: Vec::new(),
       pending_geometry_effects: Vec::new(),
       pending_error_reports: Vec::new(),
-      element_refs: ElementRefRuntime::new(),
-      motion_values: MotionValueRuntime::new(runtime_id),
+      motion_values: MotionValueRuntime::new(runtime_id, &element_refs),
+      element_refs,
       geometry: GeometryRuntime::new(runtime_id),
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
@@ -204,6 +205,10 @@ impl<G: 'static> Reactant<G> {
   #[must_use]
   pub fn retained_ui_allocation_bytes(&self) -> usize {
     self.retained_ui_budget.allocated_bytes()
+  }
+
+  pub(crate) fn clear_motion_playbacks(&mut self) {
+    self.motion_values.borrow_mut().clear_playbacks();
   }
 
   /// Configures source-language resolution while registration is open.
@@ -1432,6 +1437,7 @@ impl<G: 'static> Reactant<G> {
   ) -> Vec<Command> {
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
       let commit_effects = self.install_rendered(committed, attachments, false, local_transactions);
+      self.refresh_motion_scope_targets();
       let mut runtime = self.geometry.borrow_mut();
       runtime.commit(geometry);
       runtime.acknowledge_render(geometry_revision);
@@ -1455,6 +1461,30 @@ impl<G: 'static> Reactant<G> {
         panic::resume_unwind(payload);
       }
     }
+  }
+
+  fn refresh_motion_scope_targets(&mut self) {
+    let trees = self
+      .roots
+      .iter()
+      .map(|root| &root.committed)
+      .collect::<Vec<_>>();
+    let layout = portal::layout(
+      self.runtime_id,
+      &trees,
+      &self.external_portals.active_bindings(),
+    );
+    let mut scope_roots = layout
+      .roots
+      .iter()
+      .map(|root| root.hosts.as_slice())
+      .collect::<Vec<_>>();
+    scope_roots.extend(layout.externals.values().map(|root| root.hosts.as_slice()));
+    scope_roots.push(layout.objects.as_slice());
+    self
+      .motion_values
+      .borrow_mut()
+      .install_scope_targets(&scope_roots);
   }
 
   pub(crate) fn extract_scoped_snapshot(&self, snapshot: &mut Snapshot) -> Vec<Batch> {
@@ -1732,6 +1762,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
       let groups = self
         .external_portals
         .commit(external.take().expect("external session is committed once"));
+      self.refresh_motion_scope_targets();
       let geometry = geometry.take().expect("geometry session is committed once");
       let mut groups = geometry.command_groups(groups);
       let has_accessibility = !semantic_snapshot.nodes.is_empty();

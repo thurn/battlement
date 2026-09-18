@@ -14482,7 +14482,8 @@ pub mod battlement {
       impl<'a> MotionPositionReference<'a> {
         pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 4;
         pub const VT_ANCHOR: ::flatbuffers::VOffsetT = 6;
-        pub const VT_RESOLUTION: ::flatbuffers::VOffsetT = 8;
+        pub const VT_OFFSET: ::flatbuffers::VOffsetT = 8;
+        pub const VT_RESOLUTION: ::flatbuffers::VOffsetT = 10;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14499,6 +14500,9 @@ pub mod battlement {
           args: &'args MotionPositionReferenceArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<MotionPositionReference<'bldr>> {
           let mut builder = MotionPositionReferenceBuilder::new(_fbb);
+          if let Some(x) = args.offset {
+            builder.add_offset(x);
+          }
           if let Some(x) = args.anchor {
             builder.add_anchor(x);
           }
@@ -14533,6 +14537,18 @@ pub mod battlement {
           }
         }
         #[inline]
+        pub fn offset(&self) -> &'a MotionVector3 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MotionVector3>(MotionPositionReference::VT_OFFSET, None)
+              .unwrap()
+          }
+        }
+        #[inline]
         pub fn resolution(&self) -> MotionReferenceResolution {
           // Safety:
           // Created from valid Table for this object
@@ -14558,6 +14574,7 @@ pub mod battlement {
           v.visit_table(pos)?
             .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, true)?
             .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("anchor", Self::VT_ANCHOR, false)?
+            .visit_field::<MotionVector3>("offset", Self::VT_OFFSET, true)?
             .visit_field::<MotionReferenceResolution>("resolution", Self::VT_RESOLUTION, false)?
             .finish();
           Ok(())
@@ -14566,6 +14583,7 @@ pub mod battlement {
       pub struct MotionPositionReferenceArgs<'a> {
         pub object_id: Option<&'a Uuid>,
         pub anchor: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub offset: Option<&'a MotionVector3>,
         pub resolution: MotionReferenceResolution,
       }
       impl<'a> Default for MotionPositionReferenceArgs<'a> {
@@ -14574,6 +14592,7 @@ pub mod battlement {
           MotionPositionReferenceArgs {
             object_id: None, // required field
             anchor: None,
+            offset: None, // required field
             resolution: MotionReferenceResolution::CaptureAtStart,
           }
         }
@@ -14596,6 +14615,12 @@ pub mod battlement {
             MotionPositionReference::VT_ANCHOR,
             anchor,
           );
+        }
+        #[inline]
+        pub fn add_offset(&mut self, offset: &MotionVector3) {
+          self
+            .fbb_
+            .push_slot_always::<&MotionVector3>(MotionPositionReference::VT_OFFSET, offset);
         }
         #[inline]
         pub fn add_resolution(&mut self, resolution: MotionReferenceResolution) {
@@ -14621,6 +14646,9 @@ pub mod battlement {
           self
             .fbb_
             .required(o, MotionPositionReference::VT_OBJECT_ID, "object_id");
+          self
+            .fbb_
+            .required(o, MotionPositionReference::VT_OFFSET, "offset");
           ::flatbuffers::WIPOffset::new(o.value())
         }
       }
@@ -14630,6 +14658,7 @@ pub mod battlement {
           let mut ds = f.debug_struct("MotionPositionReference");
           ds.field("object_id", &self.object_id());
           ds.field("anchor", &self.anchor());
+          ds.field("offset", &self.offset());
           ds.field("resolution", &self.resolution());
           ds.finish()
         }

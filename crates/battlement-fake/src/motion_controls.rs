@@ -400,7 +400,7 @@ pub(crate) fn validate(entry: &Descriptor, target: &MotionTargetDescriptor, bloc
   assert!(
     properties
       .into_iter()
-      .all(|property| property.is_world_transform() == entry.target.is_world()),
+      .all(|property| entry.target.supports(property)),
     "imperative Motion target is incompatible with its host"
   );
 }

@@ -68,6 +68,7 @@ fn decodes_every_motion_command_from_verified_response_bytes() {
             position: Some(battlement::MotionPositionReference {
               object_id: value_id,
               anchor: Some("socket".to_owned()),
+              offset: battlement::Vector3::new(1.0, 2.0, 3.0),
               resolution: battlement::MotionReferenceResolution::Follow,
             }),
             position_transition: Box::new(battlement::TransitionDefinition::spring()),
@@ -100,6 +101,7 @@ fn decodes_every_motion_command_from_verified_response_bytes() {
               position: battlement::MotionPositionReference {
                 object_id: value_id,
                 anchor: Some("socket".to_owned()),
+                offset: battlement::Vector3::new(4.0, 5.0, 6.0),
                 resolution: battlement::MotionReferenceResolution::CaptureAtStart,
               },
               lifetime_ms: 750,

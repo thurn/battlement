@@ -20,7 +20,8 @@ namespace Battlement.UI
         bool IsParentOf(IBattlementMotionTarget target);
         IReadOnlyList<MotionPropertyValue> ResolvePosition(
             IBattlementMotionTarget reference,
-            string? anchor
+            string? anchor,
+            Vector3 offset
         );
         void Release();
     }

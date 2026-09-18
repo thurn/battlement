@@ -252,9 +252,15 @@ fn sequence_schedule(
 fn position_reference(
   value: wire::MotionPositionReference<'_>,
 ) -> Result<battlement::MotionPositionReference, String> {
+  let offset = value.offset();
   Ok(battlement::MotionPositionReference {
     object_id: object_id(value.object_id())?,
     anchor: value.anchor().map(str::to_owned),
+    offset: battlement::Vector3::new(
+      f64::from(offset.x()),
+      f64::from(offset.y()),
+      f64::from(offset.z()),
+    ),
     resolution: match value.resolution() {
       wire::MotionReferenceResolution::CaptureAtStart => {
         battlement::MotionReferenceResolution::CaptureAtStart

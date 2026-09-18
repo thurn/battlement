@@ -36,6 +36,9 @@ impl<G: 'static> App<G> {
       }
     } else {
       self.runtime.resources.reset();
+      if self.reset {
+        self.runtime.clear_motion_playbacks();
+      }
     }
     self.session = Some(SessionId::new_v4());
     {

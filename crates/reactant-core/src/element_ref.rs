@@ -126,6 +126,17 @@ impl ElementRef {
       .retain(object_id)
   }
 
+  pub(crate) fn native_identity_lease(
+    &self,
+    object_id: ObjectId,
+  ) -> Option<Weak<crate::native_identity_lease::NativeIdentityLease>> {
+    self
+      .inner
+      .runtime
+      .upgrade()
+      .and_then(|runtime| runtime.borrow().native_leases.weak(object_id))
+  }
+
   pub(crate) fn identity(&self) -> u64 {
     self.inner.identity
   }
@@ -343,6 +354,13 @@ impl ElementRefRuntime {
     }
     self.attached.clear();
     self.actions.clear();
+  }
+
+  pub(crate) fn retain_native_identity(
+    &self,
+    object_id: ObjectId,
+  ) -> Rc<crate::native_identity_lease::NativeIdentityLease> {
+    self.native_leases.retain(object_id)
   }
 }
 

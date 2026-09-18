@@ -161,9 +161,16 @@ namespace Battlement
         public UnityEngine.Vector3 Resolve(MotionPositionReference reference)
         {
             GameObject target = world.RequireObject(reference.ObjectId);
-            return reference.Anchor is string anchor
-                ? BattlementWorldPointGeometry.FindAnchor(target, new AnchorName(anchor)).position
-                : target.transform.position;
+            Transform point = reference.Anchor is string anchor
+                ? BattlementWorldPointGeometry.FindAnchor(target, new AnchorName(anchor))
+                : target.transform;
+            return point.TransformPoint(
+                new UnityEngine.Vector3(
+                    (float)reference.Offset.X,
+                    (float)reference.Offset.Y,
+                    (float)reference.Offset.Z
+                )
+            );
         }
 
         private static string Address(PreparedAsset asset) =>

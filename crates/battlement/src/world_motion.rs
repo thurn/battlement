@@ -72,10 +72,11 @@ pub(crate) fn validate(
 fn validate_target(target: &MotionTargetDescriptor) -> Result<(), ValidationError> {
   let tracks = target.tracks.iter().map(|track| track.property);
   let end = target.transition_end.iter().map(|value| value.property);
-  if tracks
-    .chain(end)
-    .any(|property| !property.is_world_transform() && !property.is_world_effect())
-  {
+  if tracks.chain(end).any(|property| {
+    !property.is_world_transform()
+      && !property.is_world_effect()
+      && property != crate::MotionProperty::Opacity
+  }) {
     return Err(ValidationError::InvalidReference);
   }
   Ok(())

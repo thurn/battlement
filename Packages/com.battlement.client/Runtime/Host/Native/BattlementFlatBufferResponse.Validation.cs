@@ -1394,8 +1394,8 @@ namespace Battlement
                                         "A motion sequence animation entry is incomplete."
                                     );
                                 if (entry.Position.HasValue)
-                                    _ = ReadUuid(
-                                        entry.Position.Value.ObjectId,
+                                    ValidateMotionPositionReference(
+                                        entry.Position.Value,
                                         "motion position reference"
                                     );
                                 break;
@@ -1449,8 +1449,8 @@ namespace Battlement
                                     throw new InvalidDataException(
                                         "A motion sequence particle entry is noncanonical."
                                     );
-                                _ = ReadUuid(
-                                    entry.EffectPosition.Value.ObjectId,
+                                ValidateMotionPositionReference(
+                                    entry.EffectPosition.Value,
                                     "motion particle position reference"
                                 );
                                 break;
@@ -1474,6 +1474,19 @@ namespace Battlement
                 default:
                     throw new InvalidDataException("A motion scope command is unknown.");
             }
+        }
+
+        private static void ValidateMotionPositionReference(
+            Wire.MotionPositionReference value,
+            string field
+        )
+        {
+            _ = ReadUuid(value.ObjectId, field);
+            Wire.MotionVector3 offset =
+                value.Offset ?? throw new InvalidDataException($"A {field} offset is absent.");
+            RequireFinite(offset.X);
+            RequireFinite(offset.Y);
+            RequireFinite(offset.Z);
         }
 
         private static void ValidateDirectMotionSelector(Wire.MotionSelector? optional)

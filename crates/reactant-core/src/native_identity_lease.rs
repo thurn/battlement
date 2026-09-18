@@ -32,6 +32,21 @@ impl NativeIdentityLeases {
     leases.insert(object_id, Rc::downgrade(&lease));
     lease
   }
+
+  pub(crate) fn weak(&self, object_id: ObjectId) -> Option<Weak<NativeIdentityLease>> {
+    self
+      .0
+      .borrow()
+      .get(&object_id)
+      .filter(|lease| lease.strong_count() > 0)
+      .cloned()
+  }
+}
+
+impl NativeIdentityLease {
+  pub(crate) const fn object_id(&self) -> ObjectId {
+    self.object_id
+  }
 }
 impl Drop for NativeIdentityLease {
   fn drop(&mut self) {

@@ -97,10 +97,13 @@ namespace Battlement
 
         private static MotionPositionReference MotionPositionReference(
             Wire.MotionPositionReference value
-        ) =>
-            new(
+        )
+        {
+            Wire.MotionVector3 offset = value.Offset ?? throw Missing("motion position offset");
+            return new(
                 ObjectId(value.ObjectId),
                 value.Anchor,
+                new Vector3(offset.X, offset.Y, offset.Z),
                 value.Resolution switch
                 {
                     Wire.MotionReferenceResolution.CaptureAtStart =>
@@ -111,6 +114,7 @@ namespace Battlement
                     ),
                 }
             );
+        }
 
         internal static MotionValue MotionValue(Wire.MotionValueOperation value) =>
             value.ValueType switch

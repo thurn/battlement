@@ -372,6 +372,7 @@ impl MotionWorld {
     for definition in definitions {
       self.install_inner(definition.host_id, Some(definition), world, ui, now, true);
     }
+    self.cancel_invalid_sequences(world, ui, now);
   }
 
   pub(crate) fn install_tree(

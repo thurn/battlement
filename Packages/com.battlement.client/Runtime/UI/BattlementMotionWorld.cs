@@ -295,7 +295,26 @@ namespace Battlement.UI
                 descriptor.Properties.Release();
                 graph.Remove(descriptor.Descriptor.DescriptorId);
             }
+            foreach (
+                BattlementMotionSequence sequence in activeSequences
+                    .Values.Where(value => !SequenceDependenciesExist(value))
+                    .ToArray()
+            )
+            {
+                ClearSequenceImperatives(sequence);
+                FinishImperative(sequence.PlaybackId.Value, MotionPlaybackOutcome.Cancelled);
+            }
         }
+
+        private bool SequenceDependenciesExist(BattlementMotionSequence sequence) =>
+            sequence.Entries.All(entry =>
+                entry.Targets.All(descriptors.ContainsKey)
+                && (
+                    entry.Definition is not MotionSequenceEntry.Animate animation
+                    || animation.Position is not MotionPositionReference position
+                    || descriptorByHost.ContainsKey(position.ObjectId.Value)
+                )
+            );
 
         public void AbortReconnect() => Clear();
 
@@ -1519,7 +1538,8 @@ namespace Battlement.UI
                 {
                     values = target.Properties.ResolvePosition(
                         reference.Properties,
-                        position.Anchor
+                        position.Anchor,
+                        position.Offset
                     );
                 }
                 catch (Exception failure)
@@ -1748,7 +1768,11 @@ namespace Battlement.UI
                 || !descriptors.TryGetValue(referenceId, out DescriptorState reference)
             )
                 throw Invalid("A Motion sequence position reference does not exist.");
-            return target.Properties.ResolvePosition(reference.Properties, position.Anchor);
+            return target.Properties.ResolvePosition(
+                reference.Properties,
+                position.Anchor,
+                position.Offset
+            );
         }
 
         private bool SequenceEntryTerminal(MotionSequenceEntryState entry)

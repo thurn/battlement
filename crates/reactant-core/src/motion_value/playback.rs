@@ -18,6 +18,7 @@ use crate::{
     MotionValueRuntimeHandle, PlaybackInner, PlaybackOutcome, duration_micros, duration_millis,
   },
   motion_value_runtime::{self, MotionValueRuntime},
+  native_identity_lease::NativeIdentityLease,
   work_scope,
 };
 
@@ -177,6 +178,15 @@ impl AnimationPlayback {
     runtime: Weak<RefCell<MotionValueRuntime>>,
     scope: Option<u64>,
   ) -> Self {
+    Self::new_with_retainers(runtime_id, runtime, scope, Vec::new())
+  }
+
+  pub(crate) fn new_with_retainers(
+    runtime_id: u64,
+    runtime: Weak<RefCell<MotionValueRuntime>>,
+    scope: Option<u64>,
+    native_identities: Vec<Rc<NativeIdentityLease>>,
+  ) -> Self {
     let inner = Rc::new(PlaybackInner {
       runtime_id,
       runtime: runtime.clone(),
@@ -193,6 +203,7 @@ impl AnimationPlayback {
       runtime.borrow_mut().register_playback(
         inner.playback_id,
         inner.generation,
+        scope,
         move |outcome| {
           playback
             .upgrade()
@@ -206,6 +217,7 @@ impl AnimationPlayback {
               .is_some_and(|playback| playback.label(label))
           }
         },
+        native_identities,
       );
     }
     Self { inner }
@@ -213,6 +225,18 @@ impl AnimationPlayback {
 
   pub(crate) fn from_handle(handle: &MotionValueRuntimeHandle) -> Self {
     Self::new(handle.runtime_id, handle.runtime.clone(), handle.scope)
+  }
+
+  pub(crate) fn from_handle_with_retainers(
+    handle: &MotionValueRuntimeHandle,
+    native_identities: Vec<Rc<NativeIdentityLease>>,
+  ) -> Self {
+    Self::new_with_retainers(
+      handle.runtime_id,
+      handle.runtime.clone(),
+      handle.scope,
+      native_identities,
+    )
   }
 
   pub(crate) fn protocol_identity(&self) -> (ObjectId, u32) {
@@ -369,6 +393,16 @@ impl MotionValueRuntimeHandle {
   pub(crate) fn queue_blocking(&self, body: CommandBody) {
     motion_value_runtime::queue_blocking(self.runtime_id, &self.runtime, self.scope, body);
   }
+
+  pub(crate) fn retain_scope_targets(
+    &self,
+    scope_id: ObjectId,
+    selectors: &[battlement::MotionSelector],
+  ) -> Vec<Rc<NativeIdentityLease>> {
+    self.runtime.upgrade().map_or_else(Vec::new, |runtime| {
+      runtime.borrow().retain_scope_targets(scope_id, selectors)
+    })
+  }
 }
 
 impl ErasedMotionValue {
@@ -431,7 +465,8 @@ mod tests {
 
   #[test]
   fn playback_callbacks_wait_for_the_matching_native_terminal_event() {
-    let runtime = MotionValueRuntime::new(7);
+    let element_refs = crate::element_ref::ElementRefRuntime::new();
+    let runtime = MotionValueRuntime::new(7, &element_refs);
     let playback = AnimationPlayback::new(7, Rc::downgrade(&runtime), None);
     let completed = Rc::new(Cell::new(0));
     let observed = completed.clone();

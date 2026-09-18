@@ -1,9 +1,9 @@
-use std::any::TypeId;
-
 use battlement::{MotionLayer, OverlayLayer, OverlayPlacement, Prop, UiVisualElementProperties};
+use std::any::TypeId;
 
 use crate::{
   motion_lifecycle::{self, MotionCallbacks},
+  native_identity_lease::NativeIdentityLease,
   presence::{
     self, AutomaticExit, PresenceBoundaryState, PresenceConfig, PresenceExit, PresenceHold,
     PresenceMode, PresenceRenderState,
@@ -99,12 +99,13 @@ pub(crate) fn push<R: 'static>(
       mark_pop_layout(&mut exiting);
     }
     let exit = existing.unwrap_or_else(|| {
-      let (automatic, holds) = start_exit(&mut exiting, config.custom.as_ref());
+      let (automatic, holds, native) = start_exit(&mut exiting, config.custom.as_ref());
       PresenceExit {
         key: key.clone(),
         generation: exit_generation,
         automatic,
         holds,
+        native,
         resources: crate::retained_visual::resources(&exiting),
       }
     });
@@ -240,8 +241,13 @@ fn validate_keyed(tree: &RenderTree) {
 fn start_exit(
   position: &mut RenderPosition,
   custom: Option<&crate::variant_map::ErasedVariantData>,
-) -> (Vec<AutomaticExit>, Vec<PresenceHold>) {
+) -> (
+  Vec<AutomaticExit>,
+  Vec<PresenceHold>,
+  Vec<std::rc::Weak<NativeIdentityLease>>,
+) {
   let mut automatic = Vec::new();
+  let mut native = Vec::new();
   let mut holds = position
     .component
     .as_ref()
@@ -273,25 +279,33 @@ fn start_exit(
       *motion = Prop::Set(descriptor);
     }
   }
+  if let (Some(host), Some(element_ref)) = (&position.host, &position.element_ref)
+    && let Some(lease) = element_ref.native_identity_lease(host.object_id)
+  {
+    native.push(lease);
+  }
   if let Some(presence) = &position.presence {
     for exit in &presence.exits {
       automatic.extend(exit.automatic.iter().cloned());
       holds.extend(exit.holds.iter().cloned());
+      native.extend(exit.native.iter().cloned());
     }
   }
   if let Some(suspense) = &mut position.suspense {
     for child in &mut suspense.primary.positions {
-      let (child_automatic, child_holds) = start_exit(child, custom);
+      let (child_automatic, child_holds, child_native) = start_exit(child, custom);
       automatic.extend(child_automatic);
       holds.extend(child_holds);
+      native.extend(child_native);
     }
   }
   for child in &mut position.children.positions {
-    let (child_automatic, child_holds) = start_exit(child, custom);
+    let (child_automatic, child_holds, child_native) = start_exit(child, custom);
     automatic.extend(child_automatic);
     holds.extend(child_holds);
+    native.extend(child_native);
   }
-  (automatic, holds)
+  (automatic, holds, native)
 }
 
 fn freeze_exit_motion(current: &mut RenderPosition, previous: &RenderPosition) {

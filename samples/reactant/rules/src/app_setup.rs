@@ -85,6 +85,9 @@ fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineErr
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("effect-occurrences") {
     return Ok(crate::effect_occurrence_proof::app());
   }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("effect-exit-retention") {
+    return Ok(crate::effect_exit_retention_proof::app());
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("world-navigation") {
     return Ok(crate::navigation_proof::app());
   }

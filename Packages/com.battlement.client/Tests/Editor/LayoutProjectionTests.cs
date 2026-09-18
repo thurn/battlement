@@ -333,7 +333,8 @@ namespace Battlement.Tests
 
             public IReadOnlyList<MotionPropertyValue> ResolvePosition(
                 IBattlementMotionTarget reference,
-                string? anchor
+                string? anchor,
+                Battlement.Vector3 offset
             ) => Array.Empty<MotionPropertyValue>();
 
             public void Release() { }

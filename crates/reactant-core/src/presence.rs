@@ -11,6 +11,7 @@ use battlement::{MotionEventKind, MotionGeneration, MotionLifecycleEvent, Motion
 use crate::{
   hook_storage::HookOwner,
   key::ErasedKey,
+  native_identity_lease::NativeIdentityLease,
   render::{Render, RenderSink},
   render_value::Sealed,
   retained_visual::RetainedResources,
@@ -102,6 +103,7 @@ pub(crate) struct PresenceExit {
   pub(crate) generation: u64,
   pub(crate) automatic: Vec<AutomaticExit>,
   pub(crate) holds: Vec<PresenceHold>,
+  pub(crate) native: Vec<Weak<NativeIdentityLease>>,
   pub(crate) resources: Rc<RetainedResources>,
 }
 
@@ -373,6 +375,7 @@ impl PresenceExit {
         .holds
         .iter()
         .all(|(value, _)| value.ready(self.generation))
+      && self.native.iter().all(|value| value.upgrade().is_none())
   }
 }
 

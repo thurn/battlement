@@ -89,6 +89,9 @@ impl LocalPointTarget {
 }
 
 impl ResolvedLocalPoint {
+  pub(crate) fn lease(&self) -> Rc<NativeIdentityLease> {
+    Rc::clone(&self._lease)
+  }
   /// The original native object, including a terminal host awaiting queued removal.
   pub fn object_id(&self) -> ObjectId {
     self.object_id

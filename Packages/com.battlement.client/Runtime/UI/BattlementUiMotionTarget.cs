@@ -57,10 +57,15 @@ namespace Battlement.UI
 
         public IReadOnlyList<MotionPropertyValue> ResolvePosition(
             IBattlementMotionTarget reference,
-            string? anchor
+            string? anchor,
+            Vector3 offset
         )
         {
-            if (reference is not BattlementUiMotionTarget ui || anchor is not null)
+            if (
+                reference is not BattlementUiMotionTarget ui
+                || anchor is not null
+                || offset != Vector3.Zero
+            )
                 throw new InvalidOperationException(
                     "UI Motion positions require an unanchored UI reference."
                 );

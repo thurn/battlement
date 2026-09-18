@@ -825,11 +825,17 @@ fn write_position_reference<'a, A: Allocator + 'a>(
     .anchor
     .as_ref()
     .map(|value| builder.create_string(value));
+  let offset = wire::MotionVector3::new(
+    value.offset.x as f32,
+    value.offset.y as f32,
+    value.offset.z as f32,
+  );
   wire::MotionPositionReference::create(
     builder,
     &wire::MotionPositionReferenceArgs {
       object_id: Some(&object_id),
       anchor,
+      offset: Some(&offset),
       resolution: match value.resolution {
         battlement::MotionReferenceResolution::CaptureAtStart => {
           wire::MotionReferenceResolution::CaptureAtStart

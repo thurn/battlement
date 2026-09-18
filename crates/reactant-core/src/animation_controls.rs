@@ -3,6 +3,7 @@
 use std::{
   any::{Any, TypeId},
   marker::PhantomData,
+  rc::Rc,
   time::Duration,
 };
 
@@ -16,8 +17,11 @@ use crate::{
   element_ref::ElementRef,
   hook_storage::{HookKind, HookSlot},
   hooks,
+  local_point::LocalPointTarget,
   motion::{MotionTarget, StyleTarget},
   motion_value::{AnimationPlayback, MotionValueRuntimeHandle},
+  native_host::ObjectRef,
+  native_identity_lease::NativeIdentityLease,
   variant_map::{VariantKey, variant_label},
 };
 
@@ -48,6 +52,8 @@ pub struct AnimationScope {
 pub enum MotionSelector {
   /// One attached host ref.
   Element(ElementRef),
+  /// One attached world-object ref.
+  Object(ObjectRef),
   /// One exact stable presentation identity.
   Identified(battlement::ObjectId),
   /// Hosts carrying a stable motion name.
@@ -84,7 +90,14 @@ pub struct MotionPositionRef {
 #[derive(Clone)]
 enum MotionPositionSource {
   Element(ElementRef),
+  LocalPoint(LocalPointTarget),
   Identified(battlement::ObjectId),
+}
+
+struct PreparedSequence {
+  entries: Vec<MotionSequenceEntry>,
+  native_identities: Vec<Rc<NativeIdentityLease>>,
+  scope_selectors: Vec<battlement::MotionSelector>,
 }
 
 /// Placement for the most recently appended sequence step.
@@ -276,12 +289,19 @@ impl AnimationScope {
   }
 
   fn start_with_blocking(&self, sequence: AnimationSequence, blocking: bool) -> AnimationPlayback {
-    let playback = AnimationPlayback::from_handle(&self.handle);
+    let mut sequence = sequence.into_protocol();
+    sequence.native_identities.extend(
+      self
+        .handle
+        .retain_scope_targets(self.scope_id, &sequence.scope_selectors),
+    );
+    let playback =
+      AnimationPlayback::from_handle_with_retainers(&self.handle, sequence.native_identities);
     let (playback_id, generation) = playback.protocol_identity();
     let command = MotionScopeCommand::Start {
       playback_id,
       generation,
-      entries: sequence.into_protocol(),
+      entries: sequence.entries,
     };
     if blocking {
       self.queue_blocking(command);
@@ -333,6 +353,11 @@ impl MotionSelector {
     Self::Element(value)
   }
 
+  /// Selects one exact attached world object ref.
+  pub fn object(value: ObjectRef) -> Self {
+    Self::Object(value)
+  }
+
   /// Selects one host by its stable presentation identity.
   pub fn identified(value: battlement::ObjectId) -> Self {
     Self::Identified(value)
@@ -353,11 +378,40 @@ impl MotionSelector {
           .2
           .expect("motion selector element ref is not attached"),
       ),
+      Self::Object(value) => battlement::MotionSelector::Element(
+        value
+          .object_id()
+          .expect("motion selector object ref is not attached"),
+      ),
       Self::Identified(value) => battlement::MotionSelector::Element(value),
       Self::Name(value) => battlement::MotionSelector::Name(value),
       Self::ScopeRoot => battlement::MotionSelector::ScopeRoot,
       Self::Children => battlement::MotionSelector::Children,
       Self::Descendants => battlement::MotionSelector::Descendants,
+    }
+  }
+
+  fn into_protocol_retaining(
+    self,
+    native_identities: &mut Vec<Rc<NativeIdentityLease>>,
+  ) -> battlement::MotionSelector {
+    match self {
+      Self::Element(value) => {
+        let object_id = value
+          .geometry_identity()
+          .2
+          .expect("motion selector element ref is not attached");
+        native_identities.push(value.retain_native_identity(object_id));
+        battlement::MotionSelector::Element(object_id)
+      }
+      Self::Object(value) => {
+        let object_id = value
+          .object_id()
+          .expect("motion selector object ref is not attached");
+        native_identities.push(value.retain_native_identity(object_id));
+        battlement::MotionSelector::Element(object_id)
+      }
+      value => value.into_protocol(),
     }
   }
 }
@@ -440,17 +494,47 @@ impl MotionPositionRef {
     self
   }
 
-  fn into_protocol(self) -> battlement::MotionPositionReference {
-    battlement::MotionPositionReference {
-      object_id: match self.source {
-        MotionPositionSource::Element(value) => value
+  fn into_protocol(
+    self,
+    native_identities: &mut Vec<Rc<NativeIdentityLease>>,
+  ) -> battlement::MotionPositionReference {
+    let (object_id, offset) = match self.source {
+      MotionPositionSource::Element(value) => {
+        let object_id = value
           .geometry_identity()
           .2
-          .expect("Motion position ref is not attached"),
-        MotionPositionSource::Identified(value) => value,
-      },
+          .expect("Motion position ref is not attached");
+        native_identities.push(value.retain_native_identity(object_id));
+        (object_id, battlement::Vector3::ZERO)
+      }
+      MotionPositionSource::LocalPoint(value) => {
+        let resolved = value.resolve();
+        native_identities.push(resolved.lease());
+        (resolved.object_id(), resolved.offset())
+      }
+      MotionPositionSource::Identified(value) => (value, battlement::Vector3::ZERO),
+    };
+    battlement::MotionPositionReference {
+      object_id,
       anchor: self.anchor,
+      offset,
       resolution: self.resolution,
+    }
+  }
+}
+
+impl From<LocalPointTarget> for MotionPositionRef {
+  fn from(value: LocalPointTarget) -> Self {
+    let resolution = match value.tracking() {
+      crate::local_point::PointTracking::FollowLive => MotionReferenceResolution::Follow,
+      crate::local_point::PointTracking::CaptureAtStart => {
+        MotionReferenceResolution::CaptureAtStart
+      }
+    };
+    Self {
+      source: MotionPositionSource::LocalPoint(value),
+      anchor: None,
+      resolution,
     }
   }
 }
@@ -545,7 +629,7 @@ impl AnimationSequence {
   pub fn particle(
     self,
     address: impl Into<battlement::PrefabAddress>,
-    position: MotionPositionRef,
+    position: impl Into<MotionPositionRef>,
   ) -> Self {
     self.particle_for(address, position, Duration::from_secs(1))
   }
@@ -554,7 +638,7 @@ impl AnimationSequence {
   pub fn particle_for(
     mut self,
     address: impl Into<battlement::PrefabAddress>,
-    position: MotionPositionRef,
+    position: impl Into<MotionPositionRef>,
     lifetime: Duration,
   ) -> Self {
     let address = address.into();
@@ -566,7 +650,7 @@ impl AnimationSequence {
     let schedule = self.after_previous();
     self.entries.push(SequenceEntry::Particle {
       address,
-      position,
+      position: position.into(),
       lifetime,
       schedule,
     });
@@ -606,8 +690,10 @@ impl AnimationSequence {
     self
   }
 
-  fn into_protocol(self) -> Vec<MotionSequenceEntry> {
-    self
+  fn into_protocol(self) -> PreparedSequence {
+    let mut native_identities = Vec::new();
+    let mut scope_selectors = Vec::new();
+    let entries = self
       .entries
       .into_iter()
       .map(|value| match value {
@@ -619,11 +705,15 @@ impl AnimationSequence {
           conflict,
         } => {
           let target = *target;
+          let selector = selector.into_protocol_retaining(&mut native_identities);
+          if !matches!(selector, battlement::MotionSelector::Element(_)) {
+            scope_selectors.push(selector.clone());
+          }
           MotionSequenceEntry::Animate {
-            selector: selector.into_protocol(),
+            selector,
             position_transition: Box::new(target.sequence_position_transition()),
             target: target.descriptor(None, 0),
-            position: position.map(MotionPositionRef::into_protocol),
+            position: position.map(|value| value.into_protocol(&mut native_identities)),
             schedule,
             conflict,
           }
@@ -652,14 +742,19 @@ impl AnimationSequence {
         } => MotionSequenceEntry::Particle {
           particle: battlement::MotionParticleOccurrence {
             address: address.as_str().to_owned(),
-            position: position.into_protocol(),
+            position: position.into_protocol(&mut native_identities),
             lifetime_ms: u64::try_from(lifetime.as_millis())
               .expect("sequence particle lifetime is too long"),
           },
           schedule,
         },
       })
-      .collect()
+      .collect();
+    PreparedSequence {
+      entries,
+      native_identities,
+      scope_selectors,
+    }
   }
 
   fn after_previous(&self) -> MotionSequenceSchedule {

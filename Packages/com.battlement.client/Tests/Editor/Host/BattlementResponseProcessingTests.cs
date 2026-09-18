@@ -13,6 +13,58 @@ namespace Battlement.Tests
         private const int MaximumResponseBytes = 16 * 1024 * 1024;
 
         [Test]
+        public void ResponseRejectsNonfiniteMotionPositionOffsets()
+        {
+            SessionId session = new(Guid.NewGuid());
+            var command = new Command(
+                new CommandId(Guid.NewGuid()),
+                new CommandBody.Motion.Scope(
+                    new MotionScopeOperation(
+                        new ObjectId(Guid.NewGuid()),
+                        new MotionScopeCommand.Start(
+                            new ObjectId(Guid.NewGuid()),
+                            1,
+                            new MotionSequenceEntry[]
+                            {
+                                new MotionSequenceEntry.Particle(
+                                    new MotionParticleOccurrence(
+                                        "effects/probe",
+                                        new MotionPositionReference(
+                                            new ObjectId(Guid.NewGuid()),
+                                            null,
+                                            new Vector3(double.NaN, 0, 0),
+                                            MotionReferenceResolution.Follow
+                                        ),
+                                        100
+                                    ),
+                                    new MotionSequenceSchedule.Absolute(0)
+                                ),
+                            }
+                        )
+                    )
+                )
+            );
+            var batch = new Batch(
+                new BatchId(Guid.NewGuid()),
+                session,
+                new[] { new ParallelCommandGroup<Command>(new[] { command }) }
+            );
+            ReadOnlyMemory<byte> payload = BattlementFlatBufferResponseFixtures.Write(
+                new Response(
+                    session,
+                    new ResponseMessage<Command>[]
+                    {
+                        new ResponseMessage<Command>.BatchMessage(batch),
+                    }
+                )
+            );
+
+            Assert.Throws<InvalidDataException>(() =>
+                new BattlementFlatBufferResponse(payload, null)
+            );
+        }
+
+        [Test]
         public void DecodeRunsSynchronouslyInAdmissionOrderOnTheCallingThread()
         {
             var stream = new BattlementResponseStream();

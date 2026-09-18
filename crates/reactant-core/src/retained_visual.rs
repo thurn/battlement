@@ -147,6 +147,15 @@ fn prune(
             .iter()
             .any(|host| host.object_id == automatic.descriptor_id)
         });
+        exit.native.retain(|lease| {
+          lease.upgrade().is_some_and(|lease| {
+            exit
+              .resources
+              .hosts
+              .iter()
+              .any(|host| host.object_id == lease.object_id())
+          })
+        });
         exit
           .holds
           .retain(|(_, owner)| !owners.iter().any(|live| owner.same(live)));
