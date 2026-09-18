@@ -36,6 +36,7 @@ struct Entry {
   definition: MotionSequenceEntry,
   targets: Vec<ObjectId>,
   captured: HashMap<ObjectId, Vec<MotionPropertyValue>>,
+  captured_particle: Option<battlement::Vector3>,
   addresses: Vec<Address>,
   started: Option<u64>,
   completed: Option<u64>,
@@ -67,6 +68,15 @@ impl MotionWorld {
         validate_motion_sequence(entries).expect("invalid Motion sequence graph");
         let mut prepared = Vec::with_capacity(entries.len());
         for definition in entries {
+          if let MotionSequenceEntry::Particle { particle, .. } = definition {
+            let mut entry = Entry::new(definition.clone(), Vec::new());
+            self.validate_effect_position(&particle.position, world);
+            if particle.position.resolution == MotionReferenceResolution::CaptureAtStart {
+              entry.captured_particle = Some(self.effect_position(&particle.position, world));
+            }
+            prepared.push(entry);
+            continue;
+          }
           let MotionSequenceEntry::Animate {
             selector,
             target,
@@ -263,6 +273,34 @@ impl MotionWorld {
                   sequence.entries[index].completed = Some(elapsed);
                   changed = true;
                 }
+              }
+              MotionSequenceEntry::Sound { sound, .. } => {
+                self
+                  .audio_occurrences
+                  .push(crate::effects::AudioOccurrence {
+                    command_id: occurrence_id(sequence.playback_id, index),
+                    address: battlement::AudioClipAddress::from(sound.address),
+                    volume: sound.volume,
+                    pitch: sound.pitch,
+                    looping: sound.looping,
+                  });
+                sequence.entries[index].completed = Some(elapsed);
+                changed = true;
+              }
+              MotionSequenceEntry::Particle { particle, .. } => {
+                let position = sequence.entries[index]
+                  .captured_particle
+                  .unwrap_or_else(|| self.effect_position(&particle.position, world));
+                self
+                  .particle_occurrences
+                  .push(crate::effects::ParticleOccurrence {
+                    command_id: occurrence_id(sequence.playback_id, index),
+                    address: battlement::PrefabAddress::from(particle.address),
+                    location: battlement::ParticleSpawnLocation::WorldPosition(position),
+                    lifetime_ms: particle.lifetime_ms,
+                  });
+                sequence.entries[index].completed = Some(elapsed);
+                changed = true;
               }
             }
           }
@@ -537,6 +575,26 @@ impl MotionWorld {
       .collect()
   }
 
+  fn validate_effect_position(&self, reference: &MotionPositionReference, world: &FakeWorld) {
+    assert!(
+      world.object(reference.object_id).is_some(),
+      "Motion particle position reference is absent"
+    );
+    assert!(
+      reference.anchor.is_none(),
+      "fake Motion cannot resolve prepared world anchor metadata"
+    );
+  }
+
+  fn effect_position(
+    &self,
+    reference: &MotionPositionReference,
+    world: &FakeWorld,
+  ) -> battlement::Vector3 {
+    self.validate_effect_position(reference, world);
+    world.world_transform(reference.object_id).position
+  }
+
   fn select(
     &self,
     root: ObjectId,
@@ -570,6 +628,7 @@ impl Entry {
       definition,
       targets,
       captured: HashMap::new(),
+      captured_particle: None,
       addresses: Vec::new(),
       started: None,
       completed: None,
@@ -724,10 +783,23 @@ fn depends_on_completion(
 
 fn schedule(entry: &MotionSequenceEntry) -> &MotionSequenceSchedule {
   match entry {
-    MotionSequenceEntry::Animate { schedule, .. } | MotionSequenceEntry::Label { schedule, .. } => {
-      schedule
-    }
+    MotionSequenceEntry::Animate { schedule, .. }
+    | MotionSequenceEntry::Label { schedule, .. }
+    | MotionSequenceEntry::Sound { schedule, .. }
+    | MotionSequenceEntry::Particle { schedule, .. } => schedule,
   }
+}
+
+fn occurrence_id(playback: ObjectId, index: usize) -> battlement::CommandId {
+  let mut bytes = *playback.as_uuid().as_bytes();
+  bytes[0] ^= 0xe6;
+  let index = u32::try_from(index)
+    .expect("sequence has too many entries")
+    .to_be_bytes();
+  for offset in 0..4 {
+    bytes[12 + offset] ^= index[offset];
+  }
+  battlement::CommandId::from_bytes(bytes).expect("derived occurrence identity is nonzero")
 }
 
 fn infinite(entry: &MotionSequenceEntry) -> bool {

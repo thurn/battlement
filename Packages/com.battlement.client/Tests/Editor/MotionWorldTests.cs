@@ -839,6 +839,133 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void SequenceEffectsValidateAtomicallyAndStartOnceInDeclarationOrder()
+        {
+            ObjectId clock = Id("71b86de9-0408-4f43-9be7-e58f56cb7061");
+            ObjectId scope = Id("71b86de9-0408-4f43-9be7-e58f56cb7062");
+            ObjectId playback = Id("71b86de9-0408-4f43-9be7-e58f56cb7063");
+            var root = new VisualElement();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            var effects = new RecordingEffects();
+            world.BindEffects(effects);
+            world.Install(
+                root,
+                scope,
+                EmptyDescriptor(scope, clock) with
+                {
+                    ScopeId = scope,
+                    ScopeRoot = true,
+                }
+            );
+            MotionSequenceEntry[] entries =
+            {
+                new MotionSequenceEntry.Sound(
+                    new MotionSoundOccurrence("audio/one", 1, 1, false, 0),
+                    new MotionSequenceSchedule.Absolute(100)
+                ),
+                new MotionSequenceEntry.Sound(
+                    new MotionSoundOccurrence("audio/two", 0.5, 1.2, false, 10),
+                    new MotionSequenceSchedule.Absolute(100)
+                ),
+            };
+            world.Apply(
+                new MotionScopeOperation(scope, new MotionScopeCommand.Start(playback, 1, entries))
+            );
+            Assert.That(effects.RetainedPreparations, Is.EqualTo(2));
+            world.SetControlledClock(clock, 100);
+            world.PostLayout();
+            Assert.That(effects.RetainedPreparations, Is.Zero);
+            CollectionAssert.AreEqual(new[] { "audio/one", "audio/two" }, effects.Started);
+            CollectionAssert.AreEqual(
+                new[] { "audio/one", "audio/two" },
+                world.EffectOccurrences.Select(value => value.Address).ToArray()
+            );
+            world.PostLayout();
+            CollectionAssert.AreEqual(new[] { "audio/one", "audio/two" }, effects.Started);
+            Assert.That(world.EffectOccurrences.Count, Is.EqualTo(2));
+
+            effects.FailAddress = "audio/missing";
+            Assert.Throws<BattlementUiException>(() =>
+                world.Apply(
+                    new MotionScopeOperation(
+                        scope,
+                        new MotionScopeCommand.Start(
+                            Id("71b86de9-0408-4f43-9be7-e58f56cb7064"),
+                            1,
+                            new MotionSequenceEntry[]
+                            {
+                                new MotionSequenceEntry.Sound(
+                                    new MotionSoundOccurrence("audio/valid", 1, 1, false, 0),
+                                    new MotionSequenceSchedule.Absolute(0)
+                                ),
+                                new MotionSequenceEntry.Sound(
+                                    new MotionSoundOccurrence("audio/missing", 1, 1, false, 0),
+                                    new MotionSequenceSchedule.Absolute(0)
+                                ),
+                            }
+                        )
+                    )
+                )
+            );
+            CollectionAssert.DoesNotContain(effects.Started, "audio/valid");
+            Assert.That(effects.RetainedPreparations, Is.Zero);
+        }
+
+        [Test]
+        public void SequenceParticlesCaptureAtSubmissionOrFollowAtOccurrence()
+        {
+            ObjectId clock = Id("61b86de9-0408-4f43-9be7-e58f56cb7061");
+            ObjectId scope = Id("61b86de9-0408-4f43-9be7-e58f56cb7062");
+            ObjectId target = Id("61b86de9-0408-4f43-9be7-e58f56cb7063");
+            var root = new VisualElement();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            var effects = new RecordingEffects { Position = new UnityEngine.Vector3(1, 2, 3) };
+            world.BindEffects(effects);
+            world.Install(
+                root,
+                scope,
+                EmptyDescriptor(scope, clock) with
+                {
+                    ScopeId = scope,
+                    ScopeRoot = true,
+                }
+            );
+            world.Apply(
+                new MotionScopeOperation(
+                    scope,
+                    new MotionScopeCommand.Start(
+                        Id("61b86de9-0408-4f43-9be7-e58f56cb7064"),
+                        1,
+                        new MotionSequenceEntry[]
+                        {
+                            Particle(MotionReferenceResolution.CaptureAtStart),
+                            Particle(MotionReferenceResolution.Follow),
+                        }
+                    )
+                )
+            );
+
+            effects.Position = new UnityEngine.Vector3(4, 5, 6);
+            world.SetControlledClock(clock, 100);
+            world.PostLayout();
+
+            CollectionAssert.AreEqual(
+                new[] { new UnityEngine.Vector3(1, 2, 3), new UnityEngine.Vector3(4, 5, 6) },
+                effects.ParticlePositions
+            );
+
+            MotionSequenceEntry.Particle Particle(MotionReferenceResolution resolution) =>
+                new(
+                    new MotionParticleOccurrence(
+                        "particle/burst",
+                        new MotionPositionReference(target, null, resolution),
+                        250
+                    ),
+                    new MotionSequenceSchedule.Absolute(100)
+                );
+        }
+
+        [Test]
         public void SequenceOwnershipSurvivesRetargetAndReturnsWithoutJump()
         {
             ObjectId clock = Id("20f2eddf-ffda-4cc6-bbc2-01a2f6eca715");
@@ -1344,5 +1471,81 @@ namespace Battlement.Tests
             );
 
         private static ObjectId Id(string value) => new(Guid.Parse(value));
+
+        private sealed class RecordingEffects : IBattlementMotionEffects
+        {
+            public List<string> Started { get; } = new();
+            public List<UnityEngine.Vector3> ParticlePositions { get; } = new();
+            public string? FailAddress { get; set; }
+            public UnityEngine.Vector3 Position { get; set; }
+            public int RetainedPreparations { get; private set; }
+
+            public IBattlementPreparedMotionEffect Prepare(MotionSequenceEntry entry)
+            {
+                string address = entry switch
+                {
+                    MotionSequenceEntry.Sound value => value.Occurrence.Address,
+                    MotionSequenceEntry.Particle value => value.Occurrence.Address,
+                    _ => throw new InvalidOperationException(),
+                };
+                if (address == FailAddress)
+                    throw new BattlementUiException(
+                        CoreErrorCode.AssetNotPrepared,
+                        "effect asset is absent"
+                    );
+                RetainedPreparations++;
+                return new RecordingPreparedEffect(() => RetainedPreparations--);
+            }
+
+            public UnityEngine.Vector3 Resolve(MotionPositionReference reference) => Position;
+
+            public void Start(
+                ObjectId playbackId,
+                int entryIndex,
+                MotionSequenceEntry entry,
+                IBattlementPreparedMotionEffect prepared,
+                UnityEngine.Vector3? capturedPosition
+            )
+            {
+                ((RecordingPreparedEffect)prepared).Consume();
+                Started.Add(
+                    entry switch
+                    {
+                        MotionSequenceEntry.Sound value => value.Occurrence.Address,
+                        MotionSequenceEntry.Particle value => value.Occurrence.Address,
+                        _ => throw new InvalidOperationException(),
+                    }
+                );
+                if (entry is MotionSequenceEntry.Particle particle)
+                    ParticlePositions.Add(
+                        capturedPosition ?? Resolve(particle.Occurrence.Position)
+                    );
+            }
+
+            public void Advance() { }
+
+            public void Reset() { }
+
+            public void Dispose() { }
+
+            private sealed class RecordingPreparedEffect : IBattlementPreparedMotionEffect
+            {
+                private System.Action? release;
+
+                public RecordingPreparedEffect(System.Action release) => this.release = release;
+
+                public void Consume()
+                {
+                    Assert.That(release, Is.Not.Null);
+                    Dispose();
+                }
+
+                public void Dispose()
+                {
+                    release?.Invoke();
+                    release = null;
+                }
+            }
+        }
     }
 }

@@ -330,7 +330,7 @@ table MotionPositionReference {
   resolution:MotionReferenceResolution;
 }
 
-enum MotionSequenceEntryKind:ubyte { Animate, Label }
+enum MotionSequenceEntryKind:ubyte { Animate, Label, Sound, Particle }
 table MotionSequenceEntry {
   kind:MotionSequenceEntryKind;
   selector:MotionSelector;
@@ -340,6 +340,13 @@ table MotionSequenceEntry {
   schedule:MotionSequenceSchedule (required);
   conflict:MotionSequenceConflict;
   label:string;
+  effect_address:string;
+  effect_volume:double = 1.0;
+  effect_pitch:double = 1.0;
+  effect_loop:bool;
+  effect_fade_in_millis:ulong;
+  effect_position:MotionPositionReference;
+  effect_lifetime_millis:ulong;
 }
 
 enum MotionScopeCommandKind:ubyte { Start, Set, Stop }

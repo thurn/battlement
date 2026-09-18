@@ -51,6 +51,27 @@ namespace Battlement
                 ),
                 Wire.MotionSequenceEntryKind.Label when value.Label is not null =>
                     new MotionSequenceEntry.Label(value.Label, schedule),
+                Wire.MotionSequenceEntryKind.Sound when value.EffectAddress is not null =>
+                    new MotionSequenceEntry.Sound(
+                        new MotionSoundOccurrence(
+                            value.EffectAddress,
+                            value.EffectVolume,
+                            value.EffectPitch,
+                            value.EffectLoop,
+                            value.EffectFadeInMillis
+                        ),
+                        schedule
+                    ),
+                Wire.MotionSequenceEntryKind.Particle
+                    when value.EffectAddress is not null && value.EffectPosition.HasValue =>
+                    new MotionSequenceEntry.Particle(
+                        new MotionParticleOccurrence(
+                            value.EffectAddress,
+                            MotionPositionReference(value.EffectPosition.Value),
+                            value.EffectLifetimeMillis
+                        ),
+                        schedule
+                    ),
                 _ => throw new InvalidDataException(
                     "Motion sequence entry kind and payload do not match."
                 ),

@@ -435,6 +435,8 @@ public enum MotionSequenceEntryKind : byte
 {
   Animate = 0,
   Label = 1,
+  Sound = 2,
+  Particle = 3,
 };
 
 public enum MotionScopeCommandKind : byte
@@ -2676,6 +2678,19 @@ public struct MotionSequenceEntry : IFlatbufferObject
   public ArraySegment<byte>? GetLabelBytes() { return __p.__vector_as_arraysegment(18); }
 #endif
   public byte[] GetLabelArray() { return __p.__vector_as_array<byte>(18); }
+  public string EffectAddress { get { int o = __p.__offset(20); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetEffectAddressBytes() { return __p.__vector_as_span<byte>(20, 1); }
+#else
+  public ArraySegment<byte>? GetEffectAddressBytes() { return __p.__vector_as_arraysegment(20); }
+#endif
+  public byte[] GetEffectAddressArray() { return __p.__vector_as_array<byte>(20); }
+  public double EffectVolume { get { int o = __p.__offset(22); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
+  public double EffectPitch { get { int o = __p.__offset(24); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
+  public bool EffectLoop { get { int o = __p.__offset(26); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public ulong EffectFadeInMillis { get { int o = __p.__offset(28); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
+  public Battlement.FlatBuffers.Generated.MotionPositionReference? EffectPosition { get { int o = __p.__offset(30); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionPositionReference?)(new Battlement.FlatBuffers.Generated.MotionPositionReference()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public ulong EffectLifetimeMillis { get { int o = __p.__offset(32); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry> CreateMotionSequenceEntry(FlatBufferBuilder builder,
       Battlement.FlatBuffers.Generated.MotionSequenceEntryKind kind = Battlement.FlatBuffers.Generated.MotionSequenceEntryKind.Animate,
@@ -2685,20 +2700,34 @@ public struct MotionSequenceEntry : IFlatbufferObject
       Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> position_transitionOffset = default(Offset<Battlement.FlatBuffers.Generated.TransitionDefinition>),
       Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule> scheduleOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule>),
       Battlement.FlatBuffers.Generated.MotionSequenceConflict conflict = Battlement.FlatBuffers.Generated.MotionSequenceConflict.Reject,
-      StringOffset labelOffset = default(StringOffset)) {
-    builder.StartTable(8);
+      StringOffset labelOffset = default(StringOffset),
+      StringOffset effect_addressOffset = default(StringOffset),
+      double effect_volume = 1.0,
+      double effect_pitch = 1.0,
+      bool effect_loop = false,
+      ulong effect_fade_in_millis = 0,
+      Offset<Battlement.FlatBuffers.Generated.MotionPositionReference> effect_positionOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionPositionReference>),
+      ulong effect_lifetime_millis = 0) {
+    builder.StartTable(15);
+    MotionSequenceEntry.AddEffectLifetimeMillis(builder, effect_lifetime_millis);
+    MotionSequenceEntry.AddEffectFadeInMillis(builder, effect_fade_in_millis);
+    MotionSequenceEntry.AddEffectPitch(builder, effect_pitch);
+    MotionSequenceEntry.AddEffectVolume(builder, effect_volume);
+    MotionSequenceEntry.AddEffectPosition(builder, effect_positionOffset);
+    MotionSequenceEntry.AddEffectAddress(builder, effect_addressOffset);
     MotionSequenceEntry.AddLabel(builder, labelOffset);
     MotionSequenceEntry.AddSchedule(builder, scheduleOffset);
     MotionSequenceEntry.AddPositionTransition(builder, position_transitionOffset);
     MotionSequenceEntry.AddPosition(builder, positionOffset);
     MotionSequenceEntry.AddTarget(builder, targetOffset);
     MotionSequenceEntry.AddSelector(builder, selectorOffset);
+    MotionSequenceEntry.AddEffectLoop(builder, effect_loop);
     MotionSequenceEntry.AddConflict(builder, conflict);
     MotionSequenceEntry.AddKind(builder, kind);
     return MotionSequenceEntry.EndMotionSequenceEntry(builder);
   }
 
-  public static void StartMotionSequenceEntry(FlatBufferBuilder builder) { builder.StartTable(8); }
+  public static void StartMotionSequenceEntry(FlatBufferBuilder builder) { builder.StartTable(15); }
   public static void AddKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionSequenceEntryKind kind) { builder.AddByte(0, (byte)kind, 0); }
   public static void AddSelector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSelector> selectorOffset) { builder.AddOffset(1, selectorOffset.Value, 0); }
   public static void AddTarget(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor> targetOffset) { builder.AddOffset(2, targetOffset.Value, 0); }
@@ -2707,6 +2736,13 @@ public struct MotionSequenceEntry : IFlatbufferObject
   public static void AddSchedule(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule> scheduleOffset) { builder.AddOffset(5, scheduleOffset.Value, 0); }
   public static void AddConflict(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionSequenceConflict conflict) { builder.AddByte(6, (byte)conflict, 0); }
   public static void AddLabel(FlatBufferBuilder builder, StringOffset labelOffset) { builder.AddOffset(7, labelOffset.Value, 0); }
+  public static void AddEffectAddress(FlatBufferBuilder builder, StringOffset effectAddressOffset) { builder.AddOffset(8, effectAddressOffset.Value, 0); }
+  public static void AddEffectVolume(FlatBufferBuilder builder, double effectVolume) { builder.AddDouble(9, effectVolume, 1.0); }
+  public static void AddEffectPitch(FlatBufferBuilder builder, double effectPitch) { builder.AddDouble(10, effectPitch, 1.0); }
+  public static void AddEffectLoop(FlatBufferBuilder builder, bool effectLoop) { builder.AddBool(11, effectLoop, false); }
+  public static void AddEffectFadeInMillis(FlatBufferBuilder builder, ulong effectFadeInMillis) { builder.AddUlong(12, effectFadeInMillis, 0); }
+  public static void AddEffectPosition(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionPositionReference> effectPositionOffset) { builder.AddOffset(13, effectPositionOffset.Value, 0); }
+  public static void AddEffectLifetimeMillis(FlatBufferBuilder builder, ulong effectLifetimeMillis) { builder.AddUlong(14, effectLifetimeMillis, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry> EndMotionSequenceEntry(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 14);  // schedule
@@ -2728,6 +2764,13 @@ static public class MotionSequenceEntryVerify
       && verifier.VerifyTable(tablePos, 14 /*Schedule*/, Battlement.FlatBuffers.Generated.MotionSequenceScheduleVerify.Verify, true)
       && verifier.VerifyField(tablePos, 16 /*Conflict*/, 1 /*Battlement.FlatBuffers.Generated.MotionSequenceConflict*/, 1, false)
       && verifier.VerifyString(tablePos, 18 /*Label*/, false)
+      && verifier.VerifyString(tablePos, 20 /*EffectAddress*/, false)
+      && verifier.VerifyField(tablePos, 22 /*EffectVolume*/, 8 /*double*/, 8, false)
+      && verifier.VerifyField(tablePos, 24 /*EffectPitch*/, 8 /*double*/, 8, false)
+      && verifier.VerifyField(tablePos, 26 /*EffectLoop*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyField(tablePos, 28 /*EffectFadeInMillis*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyTable(tablePos, 30 /*EffectPosition*/, Battlement.FlatBuffers.Generated.MotionPositionReferenceVerify.Verify, false)
+      && verifier.VerifyField(tablePos, 32 /*EffectLifetimeMillis*/, 8 /*ulong*/, 8, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

@@ -113,6 +113,41 @@ enum SequenceEntry {
     name: String,
     schedule: MotionSequenceSchedule,
   },
+  Sound {
+    address: battlement::AudioClipAddress,
+    options: SequenceSoundOptions,
+    schedule: MotionSequenceSchedule,
+  },
+  Particle {
+    address: battlement::PrefabAddress,
+    position: MotionPositionRef,
+    lifetime: Duration,
+    schedule: MotionSequenceSchedule,
+  },
+}
+
+/// Captured playback parameters for one sequence sound occurrence.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SequenceSoundOptions {
+  /// Initial linear volume.
+  pub volume: f64,
+  /// Positive playback pitch.
+  pub pitch: f64,
+  /// Whether playback loops independently after it starts.
+  pub looping: bool,
+  /// Optional fade-in duration.
+  pub fade_in: Duration,
+}
+
+impl Default for SequenceSoundOptions {
+  fn default() -> Self {
+    Self {
+      volume: 1.0,
+      pitch: 1.0,
+      looping: false,
+      fade_in: Duration::ZERO,
+    }
+  }
 }
 
 struct ControlsSlot<Name: VariantKey>(AnimationControls<Name>);
@@ -473,19 +508,84 @@ impl AnimationSequence {
     self
   }
 
+  /// Appends one prepared audio occurrence after the current sequence end.
+  pub fn play_sound(self, address: impl Into<battlement::AudioClipAddress>) -> Self {
+    self.play_sound_with(address, SequenceSoundOptions::default())
+  }
+
+  /// Appends one prepared audio occurrence with captured playback parameters.
+  pub fn play_sound_with(
+    mut self,
+    address: impl Into<battlement::AudioClipAddress>,
+    options: SequenceSoundOptions,
+  ) -> Self {
+    let address = address.into();
+    assert!(
+      !address.as_str().is_empty(),
+      "sequence sound address is empty"
+    );
+    assert!(
+      options.volume.is_finite() && (0.0..=1.0).contains(&options.volume),
+      "sequence sound volume is invalid"
+    );
+    assert!(
+      options.pitch.is_finite() && options.pitch > 0.0 && options.pitch <= 3.0,
+      "sequence sound pitch is invalid"
+    );
+    let schedule = self.after_previous();
+    self.entries.push(SequenceEntry::Sound {
+      address,
+      options,
+      schedule,
+    });
+    self
+  }
+
+  /// Appends one prepared particle burst after the current sequence end.
+  pub fn particle(
+    self,
+    address: impl Into<battlement::PrefabAddress>,
+    position: MotionPositionRef,
+  ) -> Self {
+    self.particle_for(address, position, Duration::from_secs(1))
+  }
+
+  /// Appends one prepared particle burst with a captured lifetime.
+  pub fn particle_for(
+    mut self,
+    address: impl Into<battlement::PrefabAddress>,
+    position: MotionPositionRef,
+    lifetime: Duration,
+  ) -> Self {
+    let address = address.into();
+    assert!(
+      !address.as_str().is_empty(),
+      "sequence particle address is empty"
+    );
+    assert!(!lifetime.is_zero(), "sequence particle lifetime is zero");
+    let schedule = self.after_previous();
+    self.entries.push(SequenceEntry::Particle {
+      address,
+      position,
+      lifetime,
+      schedule,
+    });
+    self
+  }
+
   /// Repositions the most recently appended step.
   pub fn at(mut self, position: SequencePosition) -> Self {
     let index = self
       .entries
       .iter()
-      .rposition(|entry| matches!(entry, SequenceEntry::Animate { .. }))
-      .expect("sequence has no animation entry");
+      .rposition(|entry| !matches!(entry, SequenceEntry::Label { .. }))
+      .expect("sequence has no schedulable entry");
     let schedule = self.schedule(position, index);
-    let SequenceEntry::Animate {
-      schedule: current, ..
-    } = &mut self.entries[index]
-    else {
-      unreachable!()
+    let current = match &mut self.entries[index] {
+      SequenceEntry::Animate { schedule, .. }
+      | SequenceEntry::Sound { schedule, .. }
+      | SequenceEntry::Particle { schedule, .. } => schedule,
+      SequenceEntry::Label { .. } => unreachable!(),
     };
     *current = schedule;
     self
@@ -529,6 +629,35 @@ impl AnimationSequence {
           }
         }
         SequenceEntry::Label { name, schedule } => MotionSequenceEntry::Label { name, schedule },
+        SequenceEntry::Sound {
+          address,
+          options,
+          schedule,
+        } => MotionSequenceEntry::Sound {
+          sound: battlement::MotionSoundOccurrence {
+            address: address.as_str().to_owned(),
+            volume: options.volume,
+            pitch: options.pitch,
+            looping: options.looping,
+            fade_in_ms: u64::try_from(options.fade_in.as_millis())
+              .expect("sequence sound fade-in is too long"),
+          },
+          schedule,
+        },
+        SequenceEntry::Particle {
+          address,
+          position,
+          lifetime,
+          schedule,
+        } => MotionSequenceEntry::Particle {
+          particle: battlement::MotionParticleOccurrence {
+            address: address.as_str().to_owned(),
+            position: position.into_protocol(),
+            lifetime_ms: u64::try_from(lifetime.as_millis())
+              .expect("sequence particle lifetime is too long"),
+          },
+          schedule,
+        },
       })
       .collect()
   }

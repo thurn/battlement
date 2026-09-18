@@ -170,8 +170,17 @@ namespace Battlement.UI
         public MotionSequenceEntryState(
             MotionSequenceEntry definition,
             IReadOnlyList<Guid> targets,
-            IReadOnlyDictionary<Guid, IReadOnlyList<MotionPropertyValue>> captured
-        ) => (Definition, Targets, CapturedPositions) = (definition, targets, captured);
+            IReadOnlyDictionary<Guid, IReadOnlyList<MotionPropertyValue>> captured,
+            IBattlementPreparedMotionEffect? preparedEffect = null,
+            UnityEngine.Vector3? capturedEffectPosition = null
+        ) =>
+            (Definition, Targets, CapturedPositions, PreparedEffect, CapturedEffectPosition) = (
+                definition,
+                targets,
+                captured,
+                preparedEffect,
+                capturedEffectPosition
+            );
 
         public MotionSequenceEntry Definition { get; }
         public IReadOnlyList<Guid> Targets { get; }
@@ -179,6 +188,8 @@ namespace Battlement.UI
             Guid,
             IReadOnlyList<MotionPropertyValue>
         > CapturedPositions { get; }
+        public IBattlementPreparedMotionEffect? PreparedEffect { get; }
+        public UnityEngine.Vector3? CapturedEffectPosition { get; }
         public List<MotionPlaybackAddress> Addresses { get; } = new();
         public ulong? StartedAt { get; set; }
         public ulong? CompletedAt { get; set; }
@@ -188,6 +199,8 @@ namespace Battlement.UI
             {
                 MotionSequenceEntry.Animate value => value.Schedule,
                 MotionSequenceEntry.Label value => value.Schedule,
+                MotionSequenceEntry.Sound value => value.Schedule,
+                MotionSequenceEntry.Particle value => value.Schedule,
                 _ => throw new InvalidOperationException("Unknown Motion sequence entry."),
             };
 
@@ -203,6 +216,23 @@ namespace Battlement.UI
                 )
             );
     }
+
+    internal interface IBattlementMotionEffects : IDisposable
+    {
+        IBattlementPreparedMotionEffect Prepare(MotionSequenceEntry entry);
+        UnityEngine.Vector3 Resolve(MotionPositionReference reference);
+        void Start(
+            ObjectId playbackId,
+            int entryIndex,
+            MotionSequenceEntry entry,
+            IBattlementPreparedMotionEffect prepared,
+            UnityEngine.Vector3? capturedPosition
+        );
+        void Advance();
+        void Reset();
+    }
+
+    internal interface IBattlementPreparedMotionEffect : IDisposable { }
 
     internal static class MotionSequenceTime
     {

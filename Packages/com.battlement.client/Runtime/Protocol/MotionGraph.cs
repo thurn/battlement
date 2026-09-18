@@ -220,6 +220,37 @@ namespace Battlement
         MotionReferenceResolution Resolution
     );
 
+    /// <summary>Immutable audio parameters captured by a sequence.</summary>
+    public sealed record MotionSoundOccurrence(
+        string Address,
+        double Volume,
+        double Pitch,
+        bool Looping,
+        ulong FadeInMilliseconds
+    );
+
+    /// <summary>Immutable particle parameters captured by a sequence.</summary>
+    public sealed record MotionParticleOccurrence(
+        string Address,
+        MotionPositionReference Position,
+        ulong LifetimeMilliseconds
+    );
+
+    /// <summary>Kind of one locally executed sequence effect occurrence.</summary>
+    public enum MotionEffectOccurrenceKind
+    {
+        Sound,
+        Particle,
+    }
+
+    /// <summary>Bounded native diagnostic for one executed sequence effect entry.</summary>
+    public sealed record MotionEffectOccurrence(
+        ObjectId PlaybackId,
+        uint EntryIndex,
+        MotionEffectOccurrenceKind Kind,
+        string Address
+    );
+
     /// <summary>One immutable declaration-order entry in a scoped sequence graph.</summary>
     public abstract record MotionSequenceEntry
     {
@@ -234,6 +265,16 @@ namespace Battlement
 
         public sealed record Label(string Name, MotionSequenceSchedule Schedule)
             : MotionSequenceEntry;
+
+        public sealed record Sound(
+            MotionSoundOccurrence Occurrence,
+            MotionSequenceSchedule Schedule
+        ) : MotionSequenceEntry;
+
+        public sealed record Particle(
+            MotionParticleOccurrence Occurrence,
+            MotionSequenceSchedule Schedule
+        ) : MotionSequenceEntry;
     }
 
     /// <summary>Scoped animation operation.</summary>

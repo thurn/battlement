@@ -696,6 +696,13 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
   let mut position_transition = None;
   let mut conflict = wire::MotionSequenceConflict::Reject;
   let mut label = None;
+  let mut effect_address = None;
+  let mut effect_volume = 1.0;
+  let mut effect_pitch = 1.0;
+  let mut effect_loop = false;
+  let mut effect_fade_in_millis = 0;
+  let mut effect_position = None;
+  let mut effect_lifetime_millis = 0;
   let (kind, schedule) = match value {
     battlement::MotionSequenceEntry::Animate {
       selector: value_selector,
@@ -721,6 +728,20 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
       label = Some(builder.create_string(name));
       (wire::MotionSequenceEntryKind::Label, schedule)
     }
+    battlement::MotionSequenceEntry::Sound { sound, schedule } => {
+      effect_address = Some(builder.create_string(&sound.address));
+      effect_volume = sound.volume;
+      effect_pitch = sound.pitch;
+      effect_loop = sound.looping;
+      effect_fade_in_millis = sound.fade_in_ms;
+      (wire::MotionSequenceEntryKind::Sound, schedule)
+    }
+    battlement::MotionSequenceEntry::Particle { particle, schedule } => {
+      effect_address = Some(builder.create_string(&particle.address));
+      effect_position = Some(write_position_reference(builder, &particle.position));
+      effect_lifetime_millis = particle.lifetime_ms;
+      (wire::MotionSequenceEntryKind::Particle, schedule)
+    }
   };
   let schedule = write_sequence_schedule(builder, schedule);
   Ok(wire::MotionSequenceEntry::create(
@@ -734,6 +755,13 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
       schedule: Some(schedule),
       conflict,
       label,
+      effect_address,
+      effect_volume,
+      effect_pitch,
+      effect_loop,
+      effect_fade_in_millis,
+      effect_position,
+      effect_lifetime_millis,
     },
   ))
 }

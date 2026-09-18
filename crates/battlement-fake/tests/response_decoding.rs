@@ -81,6 +81,34 @@ fn decodes_every_motion_command_from_verified_response_bytes() {
               offset_micros: 5_000,
             },
           },
+          battlement::MotionSequenceEntry::Sound {
+            sound: battlement::MotionSoundOccurrence {
+              address: "audio/chime".to_owned(),
+              volume: 0.75,
+              pitch: 1.25,
+              looping: false,
+              fade_in_ms: 40,
+            },
+            schedule: battlement::MotionSequenceSchedule::Label {
+              name: "settled".to_owned(),
+              offset_micros: 0,
+            },
+          },
+          battlement::MotionSequenceEntry::Particle {
+            particle: battlement::MotionParticleOccurrence {
+              address: "effects/spark".to_owned(),
+              position: battlement::MotionPositionReference {
+                object_id: value_id,
+                anchor: Some("socket".to_owned()),
+                resolution: battlement::MotionReferenceResolution::CaptureAtStart,
+              },
+              lifetime_ms: 750,
+            },
+            schedule: battlement::MotionSequenceSchedule::RelativeStart {
+              entry: 2,
+              offset_micros: 0,
+            },
+          },
         ],
       },
     }),

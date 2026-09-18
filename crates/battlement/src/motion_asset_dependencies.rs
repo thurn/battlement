@@ -38,8 +38,15 @@ impl AssetDependencies {
       CommandBody::MotionScope(operation) => match &operation.command {
         MotionScopeCommand::Start { entries, .. } => {
           for entry in entries {
-            if let crate::MotionSequenceEntry::Animate { target, .. } = entry {
-              self.motion_target(target);
+            match entry {
+              crate::MotionSequenceEntry::Animate { target, .. } => self.motion_target(target),
+              crate::MotionSequenceEntry::Sound { sound, .. } => {
+                self.insert(PreparedAsset::audio_clip(sound.address.clone()))
+              }
+              crate::MotionSequenceEntry::Particle { particle, .. } => {
+                self.insert(PreparedAsset::particle_effect(particle.address.clone()))
+              }
+              crate::MotionSequenceEntry::Label { .. } => {}
             }
           }
         }

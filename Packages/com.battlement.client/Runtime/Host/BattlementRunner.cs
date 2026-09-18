@@ -90,6 +90,11 @@ namespace Battlement
             configuredRuntime?.UiEventDispatcher.Inspections
             ?? Array.Empty<BattlementUiEventInspection>();
 
+        /// <summary>Recent locally executed Motion sound and particle occurrences.</summary>
+        public IReadOnlyList<MotionEffectOccurrence> MotionEffectOccurrences =>
+            configuredRuntime?.UiDocuments.MotionEffectOccurrences
+            ?? Array.Empty<MotionEffectOccurrence>();
+
         internal System.Action? SnapshotApplicationProbe
         {
             set => configuredRuntime!.SnapshotReplacement.ApplicationProbe = value;

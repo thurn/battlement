@@ -219,6 +219,9 @@ namespace Battlement.UI
             );
         }
 
+        internal void BindMotionEffects(IBattlementMotionEffects value) =>
+            motionWorld.BindEffects(value);
+
         /// <summary>Creates an empty native UI-document GameObject.</summary>
         public static GameObject CreateGameObject(
             GameObjectKind.UiDocumentState description,
@@ -537,6 +540,9 @@ namespace Battlement.UI
         internal void ResetControlledPointer() => controlledPointerInput.Reset();
 
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
+
+        public IReadOnlyList<MotionEffectOccurrence> MotionEffectOccurrences =>
+            motionWorld.EffectOccurrences;
         internal BattlementMotionWorld MotionWorld => motionWorld;
         internal System.Action? RestoreNativeMotion { get; set; }
 

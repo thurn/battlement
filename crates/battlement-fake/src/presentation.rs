@@ -313,6 +313,7 @@ where
         self.presentation_ms * 1000,
         frame,
       );
+      self.record_motion_occurrences();
       if let Some(events) = self.motion.drain() {
         self.submit_motion(events);
       }

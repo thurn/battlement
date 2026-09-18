@@ -3389,15 +3389,17 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_MOTION_SEQUENCE_ENTRY_KIND: u8 = 1;
+      pub const ENUM_MAX_MOTION_SEQUENCE_ENTRY_KIND: u8 = 3;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_MOTION_SEQUENCE_ENTRY_KIND: [MotionSequenceEntryKind; 2] = [
+      pub const ENUM_VALUES_MOTION_SEQUENCE_ENTRY_KIND: [MotionSequenceEntryKind; 4] = [
         MotionSequenceEntryKind::Animate,
         MotionSequenceEntryKind::Label,
+        MotionSequenceEntryKind::Sound,
+        MotionSequenceEntryKind::Particle,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -3407,15 +3409,20 @@ pub mod battlement {
       impl MotionSequenceEntryKind {
         pub const Animate: Self = Self(0);
         pub const Label: Self = Self(1);
+        pub const Sound: Self = Self(2);
+        pub const Particle: Self = Self(3);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 1;
-        pub const ENUM_VALUES: &'static [Self] = &[Self::Animate, Self::Label];
+        pub const ENUM_MAX: u8 = 3;
+        pub const ENUM_VALUES: &'static [Self] =
+          &[Self::Animate, Self::Label, Self::Sound, Self::Particle];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
           match self {
             Self::Animate => Some("Animate"),
             Self::Label => Some("Label"),
+            Self::Sound => Some("Sound"),
+            Self::Particle => Some("Particle"),
             _ => None,
           }
         }
@@ -14653,6 +14660,13 @@ pub mod battlement {
         pub const VT_SCHEDULE: ::flatbuffers::VOffsetT = 14;
         pub const VT_CONFLICT: ::flatbuffers::VOffsetT = 16;
         pub const VT_LABEL: ::flatbuffers::VOffsetT = 18;
+        pub const VT_EFFECT_ADDRESS: ::flatbuffers::VOffsetT = 20;
+        pub const VT_EFFECT_VOLUME: ::flatbuffers::VOffsetT = 22;
+        pub const VT_EFFECT_PITCH: ::flatbuffers::VOffsetT = 24;
+        pub const VT_EFFECT_LOOP: ::flatbuffers::VOffsetT = 26;
+        pub const VT_EFFECT_FADE_IN_MILLIS: ::flatbuffers::VOffsetT = 28;
+        pub const VT_EFFECT_POSITION: ::flatbuffers::VOffsetT = 30;
+        pub const VT_EFFECT_LIFETIME_MILLIS: ::flatbuffers::VOffsetT = 32;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14669,6 +14683,16 @@ pub mod battlement {
           args: &'args MotionSequenceEntryArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<MotionSequenceEntry<'bldr>> {
           let mut builder = MotionSequenceEntryBuilder::new(_fbb);
+          builder.add_effect_lifetime_millis(args.effect_lifetime_millis);
+          builder.add_effect_fade_in_millis(args.effect_fade_in_millis);
+          builder.add_effect_pitch(args.effect_pitch);
+          builder.add_effect_volume(args.effect_volume);
+          if let Some(x) = args.effect_position {
+            builder.add_effect_position(x);
+          }
+          if let Some(x) = args.effect_address {
+            builder.add_effect_address(x);
+          }
           if let Some(x) = args.label {
             builder.add_label(x);
           }
@@ -14687,6 +14711,7 @@ pub mod battlement {
           if let Some(x) = args.selector {
             builder.add_selector(x);
           }
+          builder.add_effect_loop(args.effect_loop);
           builder.add_conflict(args.conflict);
           builder.add_kind(args.kind);
           builder.finish()
@@ -14804,6 +14829,92 @@ pub mod battlement {
               .get::<::flatbuffers::ForwardsUOffset<&str>>(MotionSequenceEntry::VT_LABEL, None)
           }
         }
+        #[inline]
+        pub fn effect_address(&self) -> Option<&'a str> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(
+              MotionSequenceEntry::VT_EFFECT_ADDRESS,
+              None,
+            )
+          }
+        }
+        #[inline]
+        pub fn effect_volume(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(MotionSequenceEntry::VT_EFFECT_VOLUME, Some(1.0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn effect_pitch(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(MotionSequenceEntry::VT_EFFECT_PITCH, Some(1.0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn effect_loop(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(MotionSequenceEntry::VT_EFFECT_LOOP, Some(false))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn effect_fade_in_millis(&self) -> u64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u64>(MotionSequenceEntry::VT_EFFECT_FADE_IN_MILLIS, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn effect_position(&self) -> Option<MotionPositionReference<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<MotionPositionReference>>(
+                MotionSequenceEntry::VT_EFFECT_POSITION,
+                None,
+              )
+          }
+        }
+        #[inline]
+        pub fn effect_lifetime_millis(&self) -> u64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u64>(MotionSequenceEntry::VT_EFFECT_LIFETIME_MILLIS, Some(0))
+              .unwrap()
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for MotionSequenceEntry<'_> {
@@ -14841,6 +14952,29 @@ pub mod battlement {
             )?
             .visit_field::<MotionSequenceConflict>("conflict", Self::VT_CONFLICT, false)?
             .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("label", Self::VT_LABEL, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>(
+              "effect_address",
+              Self::VT_EFFECT_ADDRESS,
+              false,
+            )?
+            .visit_field::<f64>("effect_volume", Self::VT_EFFECT_VOLUME, false)?
+            .visit_field::<f64>("effect_pitch", Self::VT_EFFECT_PITCH, false)?
+            .visit_field::<bool>("effect_loop", Self::VT_EFFECT_LOOP, false)?
+            .visit_field::<u64>(
+              "effect_fade_in_millis",
+              Self::VT_EFFECT_FADE_IN_MILLIS,
+              false,
+            )?
+            .visit_field::<::flatbuffers::ForwardsUOffset<MotionPositionReference>>(
+              "effect_position",
+              Self::VT_EFFECT_POSITION,
+              false,
+            )?
+            .visit_field::<u64>(
+              "effect_lifetime_millis",
+              Self::VT_EFFECT_LIFETIME_MILLIS,
+              false,
+            )?
             .finish();
           Ok(())
         }
@@ -14854,6 +14988,13 @@ pub mod battlement {
         pub schedule: Option<::flatbuffers::WIPOffset<MotionSequenceSchedule<'a>>>,
         pub conflict: MotionSequenceConflict,
         pub label: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub effect_address: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub effect_volume: f64,
+        pub effect_pitch: f64,
+        pub effect_loop: bool,
+        pub effect_fade_in_millis: u64,
+        pub effect_position: Option<::flatbuffers::WIPOffset<MotionPositionReference<'a>>>,
+        pub effect_lifetime_millis: u64,
       }
       impl<'a> Default for MotionSequenceEntryArgs<'a> {
         #[inline]
@@ -14867,6 +15008,13 @@ pub mod battlement {
             schedule: None, // required field
             conflict: MotionSequenceConflict::Reject,
             label: None,
+            effect_address: None,
+            effect_volume: 1.0,
+            effect_pitch: 1.0,
+            effect_loop: false,
+            effect_fade_in_millis: 0,
+            effect_position: None,
+            effect_lifetime_millis: 0,
           }
         }
       }
@@ -14953,6 +15101,59 @@ pub mod battlement {
             .push_slot_always::<::flatbuffers::WIPOffset<_>>(MotionSequenceEntry::VT_LABEL, label);
         }
         #[inline]
+        pub fn add_effect_address(&mut self, effect_address: ::flatbuffers::WIPOffset<&'b str>) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MotionSequenceEntry::VT_EFFECT_ADDRESS,
+            effect_address,
+          );
+        }
+        #[inline]
+        pub fn add_effect_volume(&mut self, effect_volume: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(MotionSequenceEntry::VT_EFFECT_VOLUME, effect_volume, 1.0);
+        }
+        #[inline]
+        pub fn add_effect_pitch(&mut self, effect_pitch: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(MotionSequenceEntry::VT_EFFECT_PITCH, effect_pitch, 1.0);
+        }
+        #[inline]
+        pub fn add_effect_loop(&mut self, effect_loop: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(MotionSequenceEntry::VT_EFFECT_LOOP, effect_loop, false);
+        }
+        #[inline]
+        pub fn add_effect_fade_in_millis(&mut self, effect_fade_in_millis: u64) {
+          self.fbb_.push_slot::<u64>(
+            MotionSequenceEntry::VT_EFFECT_FADE_IN_MILLIS,
+            effect_fade_in_millis,
+            0,
+          );
+        }
+        #[inline]
+        pub fn add_effect_position(
+          &mut self,
+          effect_position: ::flatbuffers::WIPOffset<MotionPositionReference<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<MotionPositionReference>>(
+              MotionSequenceEntry::VT_EFFECT_POSITION,
+              effect_position,
+            );
+        }
+        #[inline]
+        pub fn add_effect_lifetime_millis(&mut self, effect_lifetime_millis: u64) {
+          self.fbb_.push_slot::<u64>(
+            MotionSequenceEntry::VT_EFFECT_LIFETIME_MILLIS,
+            effect_lifetime_millis,
+            0,
+          );
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> MotionSequenceEntryBuilder<'a, 'b, A> {
@@ -14983,6 +15184,13 @@ pub mod battlement {
           ds.field("schedule", &self.schedule());
           ds.field("conflict", &self.conflict());
           ds.field("label", &self.label());
+          ds.field("effect_address", &self.effect_address());
+          ds.field("effect_volume", &self.effect_volume());
+          ds.field("effect_pitch", &self.effect_pitch());
+          ds.field("effect_loop", &self.effect_loop());
+          ds.field("effect_fade_in_millis", &self.effect_fade_in_millis());
+          ds.field("effect_position", &self.effect_position());
+          ds.field("effect_lifetime_millis", &self.effect_lifetime_millis());
           ds.finish()
         }
       }

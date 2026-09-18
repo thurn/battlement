@@ -11,6 +11,7 @@ use battlement::{
 use battlement_ui_fake::UiWorld;
 
 use crate::{
+  effects::{AudioOccurrence, ParticleOccurrence},
   motion_gestures::Gestures,
   motion_graph::Graph,
   motion_graph_bindings,
@@ -41,6 +42,8 @@ pub(crate) struct MotionWorld {
   events: Vec<MotionLifecycleEvent>,
   samples: HashMap<(ObjectId, battlement::MotionSlotId), MotionPresentationSample>,
   label_events: Vec<MotionSequenceLabelEvent>,
+  audio_occurrences: Vec<AudioOccurrence>,
+  particle_occurrences: Vec<ParticleOccurrence>,
 }
 
 struct Descriptor {
@@ -52,6 +55,14 @@ struct Descriptor {
 }
 
 impl MotionWorld {
+  pub(crate) fn drain_effect_occurrences(
+    &mut self,
+  ) -> (Vec<AudioOccurrence>, Vec<ParticleOccurrence>) {
+    (
+      std::mem::take(&mut self.audio_occurrences),
+      std::mem::take(&mut self.particle_occurrences),
+    )
+  }
   pub(crate) fn install(
     &mut self,
     host: ObjectId,

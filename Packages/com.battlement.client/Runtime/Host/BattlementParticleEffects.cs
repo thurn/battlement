@@ -96,6 +96,45 @@ namespace Battlement
                 new ParticleEffectAddress(command.Address)
             );
             IBattlementAssetLease lease = preparedAssets.Acquire(asset);
+            return Spawn(commandId, command, now, lifetime, position, lease);
+        }
+
+        internal IBattlementCommandOperation? Spawn(
+            CommandId commandId,
+            BattlementDirectParticleSpawn command,
+            TimeSpan now,
+            IBattlementAssetLease lease
+        )
+        {
+            TimeSpan lifetime = BattlementProtocolLimits.RequireDuration(
+                TimeSpan.FromMilliseconds(command.LifetimeMilliseconds),
+                "A particle effect lifetime",
+                allowZero: false
+            );
+            if (motionClock.IsInstant || motionClock.IsControlled)
+            {
+                lease.Dispose();
+                return null;
+            }
+            UnityEngine.Vector3 position = command.ObjectId is ObjectId objectId
+                ? world.RequireObject(objectId).transform.position
+                : new UnityEngine.Vector3(
+                    RequireFinite(command.X, "World position X"),
+                    RequireFinite(command.Y, "World position Y"),
+                    RequireFinite(command.Z, "World position Z")
+                );
+            return Spawn(commandId, command, now, lifetime, position, lease);
+        }
+
+        private IBattlementCommandOperation Spawn(
+            CommandId commandId,
+            BattlementDirectParticleSpawn command,
+            TimeSpan now,
+            TimeSpan lifetime,
+            UnityEngine.Vector3 position,
+            IBattlementAssetLease lease
+        )
+        {
             EffectInstance? instance = null;
             try
             {

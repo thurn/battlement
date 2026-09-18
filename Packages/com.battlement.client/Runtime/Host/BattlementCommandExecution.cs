@@ -58,6 +58,15 @@ namespace Battlement
             this.uiDocuments = uiDocuments;
             world.Motion.Bind(uiDocuments);
             world.Motion.Bind(audioSources);
+            uiDocuments.BindMotionEffects(
+                new BattlementMotionEffects(
+                    world,
+                    preparedAssets,
+                    audioSources,
+                    particleEffects,
+                    motionClock
+                )
+            );
             this.updateGeometry = updateGeometry;
             this.updateDirectGeometry = updateDirectGeometry;
             this.modules = modules;

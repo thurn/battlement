@@ -4,10 +4,15 @@ use std::{
   time::Duration,
 };
 
-use battlement::{FloatValue, ObjectId, ParentScene, Prop, StyleValue, object_id};
+use battlement::{
+  AudioClipAddress, FloatValue, ObjectId, ParentScene, ParticleSpawnLocation, PrefabAddress, Prop,
+  StyleValue, object_id,
+};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
-  animation_controls::{self, AnimationScope, AnimationSequence, MotionSelector, SequencePosition},
+  animation_controls::{
+    self, AnimationScope, AnimationSequence, MotionPositionRef, MotionSelector, SequencePosition,
+  },
   app::App,
   prelude::*,
   world,
@@ -64,7 +69,69 @@ fn fixture() -> (Display<App>, ObjectId, Probe) {
   let root = app.root_document().root_id;
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("motion/scene");
+  assets.add_audio_clip("motion/chime");
+  assets.add_particle_effect("motion/spark");
   (Display::connect(app, assets), root, probe)
+}
+
+#[test]
+fn sequence_effect_occurrences_preserve_order_deduplicate_delivery_and_capture_positions() {
+  let (mut display, _root, probe) = fixture();
+  let (_, scope) = probe.0.borrow().as_ref().unwrap().clone();
+  scope.start(
+    AnimationSequence::new()
+      .label_at(
+        "beat",
+        SequencePosition::Absolute(Duration::from_millis(501)),
+      )
+      .play_sound(AudioClipAddress::from("motion/chime"))
+      .at(SequencePosition::Label("beat".to_owned(), 0.0))
+      .play_sound(AudioClipAddress::from("motion/chime"))
+      .at(SequencePosition::Label("beat".to_owned(), 0.0))
+      .animate(
+        MotionSelector::identified(WORLD),
+        StyleTarget::new().local_position_x(10.0),
+        Transition::tween().duration_secs(1.0).ease(Easing::Linear),
+      )
+      .at(SequencePosition::Absolute(Duration::ZERO))
+      .particle_for(
+        PrefabAddress::from("motion/spark"),
+        MotionPositionRef::identified(WORLD).capture_at_start(),
+        Duration::from_millis(250),
+      )
+      .at(SequencePosition::Label("beat".to_owned(), 0.0))
+      .particle_for(
+        PrefabAddress::from("motion/spark"),
+        MotionPositionRef::identified(WORLD).follow(),
+        Duration::from_millis(250),
+      )
+      .at(SequencePosition::Label("beat".to_owned(), 0.0)),
+  );
+  display.poll();
+  display.poll();
+  assert!(display.audio_occurrences().is_empty());
+  display.advance_time(Duration::from_millis(500));
+  assert!(display.audio_occurrences().is_empty());
+  display.advance_time(Duration::from_millis(1));
+  assert_eq!(display.audio_occurrences().len(), 2);
+  assert_ne!(
+    display.audio_occurrences()[0].command_id,
+    display.audio_occurrences()[1].command_id
+  );
+  assert_eq!(display.particle_occurrences().len(), 2);
+  let ParticleSpawnLocation::WorldPosition(captured) = display.particle_occurrences()[0].location
+  else {
+    panic!("captured particle position is not concrete")
+  };
+  let ParticleSpawnLocation::WorldPosition(following) = display.particle_occurrences()[1].location
+  else {
+    panic!("following particle position is not concrete")
+  };
+  assert_eq!(captured.x, 0.0);
+  assert!((following.x - 5.0).abs() < 0.02);
+  display.poll();
+  assert_eq!(display.audio_occurrences().len(), 2);
+  assert_eq!(display.particle_occurrences().len(), 2);
 }
 
 fn presented(display: &Display<App>, root: ObjectId, value: f32) {

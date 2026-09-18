@@ -1411,6 +1411,49 @@ namespace Battlement
                                         "A motion sequence label entry is noncanonical."
                                     );
                                 break;
+                            case Wire.MotionSequenceEntryKind.Sound:
+                                if (
+                                    string.IsNullOrEmpty(entry.EffectAddress)
+                                    || !Finite(entry.EffectVolume)
+                                    || entry.EffectVolume is < 0 or > 1
+                                    || !Finite(entry.EffectPitch)
+                                    || entry.EffectPitch <= 0
+                                    || entry.EffectPitch > 3
+                                    || entry.Selector.HasValue
+                                    || entry.Target.HasValue
+                                    || entry.Position.HasValue
+                                    || entry.PositionTransition.HasValue
+                                    || entry.Label is not null
+                                    || entry.EffectPosition.HasValue
+                                    || entry.EffectLifetimeMillis != 0
+                                )
+                                    throw new InvalidDataException(
+                                        "A motion sequence sound entry is noncanonical."
+                                    );
+                                break;
+                            case Wire.MotionSequenceEntryKind.Particle:
+                                if (
+                                    string.IsNullOrEmpty(entry.EffectAddress)
+                                    || !entry.EffectPosition.HasValue
+                                    || entry.EffectLifetimeMillis == 0
+                                    || entry.Selector.HasValue
+                                    || entry.Target.HasValue
+                                    || entry.Position.HasValue
+                                    || entry.PositionTransition.HasValue
+                                    || entry.Label is not null
+                                    || entry.EffectVolume != 1
+                                    || entry.EffectPitch != 1
+                                    || entry.EffectLoop
+                                    || entry.EffectFadeInMillis != 0
+                                )
+                                    throw new InvalidDataException(
+                                        "A motion sequence particle entry is noncanonical."
+                                    );
+                                _ = ReadUuid(
+                                    entry.EffectPosition.Value.ObjectId,
+                                    "motion particle position reference"
+                                );
+                                break;
                             default:
                                 throw new InvalidDataException(
                                     "A motion sequence entry kind is unknown."

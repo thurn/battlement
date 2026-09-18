@@ -163,6 +163,7 @@ dependencies = [
  "battlement-native",
  "futures-channel",
  "reactant",
+ "ron",
  "serde",
  "serde_json",
  "trox",

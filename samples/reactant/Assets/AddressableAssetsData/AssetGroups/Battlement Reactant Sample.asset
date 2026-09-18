@@ -60,6 +60,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f518e675797504f59aa7b484c1cce6bf
+    m_Address: reactant/effect-burst
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ff4931305506b4c3bb893f0270084d80
     m_Address: reactant/mixed-visual
     m_ReadOnly: 0

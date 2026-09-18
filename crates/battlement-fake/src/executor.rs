@@ -130,6 +130,7 @@ where
         }
       }
     }
+    self.record_motion_occurrences();
     self.record_occurrence(&command);
     self.reconcile_ui_interactions(&command.body);
     self.record_executed(command, batch_id, group_index, command_index);
@@ -154,6 +155,12 @@ where
       }),
       _ => {}
     }
+  }
+
+  pub(crate) fn record_motion_occurrences(&mut self) {
+    let (audio, particles) = self.motion.drain_effect_occurrences();
+    self.audio_occurrences.extend(audio);
+    self.particle_occurrences.extend(particles);
   }
 
   fn record_executed(

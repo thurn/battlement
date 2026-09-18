@@ -25,6 +25,7 @@ namespace Battlement.UI
         private readonly List<MotionGestureEvent> gestureEvents = new();
         private readonly List<MotionGestureEvent> pendingGestureSamples = new();
         private readonly List<MotionSequenceLabelEvent> labelEvents = new();
+        private readonly List<MotionEffectOccurrence> effectOccurrences = new();
         private readonly Func<double> unscaledTime;
         private readonly Func<double> scaledTime;
         private readonly Func<ObjectId, MotionClockSample>? audioTime;
@@ -37,6 +38,7 @@ namespace Battlement.UI
         private readonly BattlementMotionPerformance performance = new();
         private readonly bool enablePlayerLoop;
         private readonly IBattlementUiAssetLookup? assets;
+        private IBattlementMotionEffects? effects;
         private ulong sequence;
         private bool disposed;
 
@@ -75,6 +77,8 @@ namespace Battlement.UI
 
         public BattlementMotionPerformanceSnapshot Performance => performance.Snapshot;
 
+        public IReadOnlyList<MotionEffectOccurrence> EffectOccurrences => effectOccurrences;
+
         internal int ActiveFiniteTimelineCount =>
             descriptors.Values.Sum(value => value.ActiveFiniteTimelineCount)
             + graph.ActiveFiniteTimelineCount;
@@ -100,6 +104,13 @@ namespace Battlement.UI
 
         public void RecordPerformanceTraffic(int payloadBytes) =>
             performance.RecordTraffic(payloadBytes);
+
+        internal void BindEffects(IBattlementMotionEffects value)
+        {
+            if (effects is not null)
+                throw new InvalidOperationException("Motion effects are already bound.");
+            effects = value;
+        }
 
         internal void SetPseudoState(ObjectId descriptorId, MotionPseudoState state, bool value) =>
             descriptors[descriptorId.Value].SetPseudoState(state, value);
@@ -244,6 +255,7 @@ namespace Battlement.UI
             descriptorByHost.Clear();
             controlledClocks.Clear();
             imperativePlaybacks.Clear();
+            DisposePreparedEffects(activeSequences.Values.SelectMany(value => value.Entries));
             activeSequences.Clear();
             activeControls.Clear();
             installingControls.Clear();
@@ -253,6 +265,8 @@ namespace Battlement.UI
             pendingSamples.Clear();
             pendingGestureSamples.Clear();
             labelEvents.Clear();
+            effectOccurrences.Clear();
+            effects?.Reset();
             sharedLayouts.Clear();
             performance.Reset();
             if (IsPlayerLoopRegistered)
@@ -400,10 +414,12 @@ namespace Battlement.UI
                     break;
                 case MotionPlaybackCommand.Stop:
                 case MotionPlaybackCommand.Cancel:
+                    DisposePreparedEffects(sequence.Entries);
                     activeSequences.Remove(playbackId.Value);
                     break;
                 case MotionPlaybackCommand.Complete:
                     sequence.Finish(now);
+                    DisposePreparedEffects(sequence.Entries);
                     activeSequences.Remove(playbackId.Value);
                     break;
                 default:
@@ -977,6 +993,7 @@ namespace Battlement.UI
                 );
             presentationChanged?.Invoke();
             ProgressSequences();
+            effects?.Advance();
             CompleteImperativePlaybacks();
             foreach (BattlementGestureState gesture in gestures.Values)
                 gesture.Sample();
@@ -992,6 +1009,8 @@ namespace Battlement.UI
             if (disposed)
                 return;
             Clear();
+            effects?.Dispose();
+            effects = null;
             if (IsPlayerLoopRegistered)
                 BattlementMotionPlayerLoop.Unregister(this);
             disposed = true;
@@ -1240,7 +1259,8 @@ namespace Battlement.UI
 
         private void FinishImperative(Guid id, MotionPlaybackOutcome outcome)
         {
-            activeSequences.Remove(id);
+            if (activeSequences.Remove(id, out BattlementMotionSequence sequence))
+                DisposePreparedEffects(sequence.Entries);
             if (!imperativePlaybacks.Finish(id, outcome))
                 return;
             ForgetActiveControl(id);
@@ -1377,45 +1397,89 @@ namespace Battlement.UI
         {
             ValidateSequenceGraph(definitions);
             var entries = new List<MotionSequenceEntryState>(definitions.Count);
-            for (int index = 0; index < definitions.Count; index++)
+            try
             {
-                MotionSequenceEntry definition = definitions[index];
-                if (definition is not MotionSequenceEntry.Animate animation)
+                for (int index = 0; index < definitions.Count; index++)
                 {
+                    MotionSequenceEntry definition = definitions[index];
+                    if (definition is MotionSequenceEntry.Sound or MotionSequenceEntry.Particle)
+                    {
+                        IBattlementMotionEffects service =
+                            effects ?? throw Invalid("Motion effects are unavailable.");
+                        IBattlementPreparedMotionEffect prepared = service.Prepare(definition);
+                        try
+                        {
+                            UnityEngine.Vector3? capturedPosition = null;
+                            if (definition is MotionSequenceEntry.Particle particle)
+                            {
+                                UnityEngine.Vector3 position = service.Resolve(
+                                    particle.Occurrence.Position
+                                );
+                                if (
+                                    particle.Occurrence.Position.Resolution
+                                    == MotionReferenceResolution.CaptureAtStart
+                                )
+                                    capturedPosition = position;
+                            }
+                            entries.Add(
+                                new MotionSequenceEntryState(
+                                    definition,
+                                    Array.Empty<Guid>(),
+                                    new Dictionary<Guid, IReadOnlyList<MotionPropertyValue>>(),
+                                    prepared,
+                                    capturedPosition
+                                )
+                            );
+                        }
+                        catch
+                        {
+                            prepared.Dispose();
+                            throw;
+                        }
+                        continue;
+                    }
+                    if (definition is not MotionSequenceEntry.Animate animation)
+                    {
+                        entries.Add(
+                            new MotionSequenceEntryState(
+                                definition,
+                                Array.Empty<Guid>(),
+                                new Dictionary<Guid, IReadOnlyList<MotionPropertyValue>>()
+                            )
+                        );
+                        continue;
+                    }
+                    DescriptorState[] selected = BattlementMotionControlUtilities
+                        .Select(descriptors.Values, root, animation.Selector)
+                        .ToArray();
+                    if (selected.Length == 0)
+                        throw Invalid("A Motion sequence target does not exist.");
+                    var captured = new Dictionary<Guid, IReadOnlyList<MotionPropertyValue>>();
+                    foreach (DescriptorState target in selected)
+                    {
+                        MotionTargetDescriptor resolved = ResolveSequenceTarget(
+                            target,
+                            animation,
+                            capture: true,
+                            captured
+                        );
+                        ValidateImperative(target, resolved, blocking);
+                    }
                     entries.Add(
                         new MotionSequenceEntryState(
                             definition,
-                            Array.Empty<Guid>(),
-                            new Dictionary<Guid, IReadOnlyList<MotionPropertyValue>>()
+                            selected.Select(value => value.Descriptor.DescriptorId.Value).ToArray(),
+                            captured
                         )
                     );
-                    continue;
                 }
-                DescriptorState[] selected = BattlementMotionControlUtilities
-                    .Select(descriptors.Values, root, animation.Selector)
-                    .ToArray();
-                if (selected.Length == 0)
-                    throw Invalid("A Motion sequence target does not exist.");
-                var captured = new Dictionary<Guid, IReadOnlyList<MotionPropertyValue>>();
-                foreach (DescriptorState target in selected)
-                {
-                    MotionTargetDescriptor resolved = ResolveSequenceTarget(
-                        target,
-                        animation,
-                        capture: true,
-                        captured
-                    );
-                    ValidateImperative(target, resolved, blocking);
-                }
-                entries.Add(
-                    new MotionSequenceEntryState(
-                        definition,
-                        selected.Select(value => value.Descriptor.DescriptorId.Value).ToArray(),
-                        captured
-                    )
-                );
+                ValidateSequenceConflicts(definitions, entries);
             }
-            ValidateSequenceConflicts(definitions, entries);
+            catch
+            {
+                DisposePreparedEffects(entries);
+                throw;
+            }
             var addresses = new List<MotionPlaybackAddress>();
             imperativePlaybacks.Register(playbackId, generation, addresses);
             var sequence = new BattlementMotionSequence(
@@ -1490,6 +1554,7 @@ namespace Battlement.UI
             if (interrupted is MotionPlaybackOutcome outcome)
             {
                 activeSequences.Remove(sequence.PlaybackId.Value);
+                DisposePreparedEffects(sequence.Entries);
                 FinishImperative(sequence.PlaybackId.Value, outcome);
                 ClearSequenceImperatives(sequence);
                 return;
@@ -1530,6 +1595,7 @@ namespace Battlement.UI
             if (finished)
             {
                 activeSequences.Remove(sequence.PlaybackId.Value);
+                DisposePreparedEffects(sequence.Entries);
                 FinishImperative(sequence.PlaybackId.Value, MotionPlaybackOutcome.Completed);
                 ClearSequenceImperatives(sequence);
             }
@@ -1592,6 +1658,36 @@ namespace Battlement.UI
             MotionSequenceEntryState entry
         )
         {
+            if (entry.Definition is MotionSequenceEntry.Sound or MotionSequenceEntry.Particle)
+            {
+                IBattlementPreparedMotionEffect prepared =
+                    entry.PreparedEffect ?? throw Invalid("A Motion effect was not prepared.");
+                (effects ?? throw Invalid("Motion effects are unavailable.")).Start(
+                    sequence.PlaybackId,
+                    index,
+                    entry.Definition,
+                    prepared,
+                    entry.CapturedEffectPosition
+                );
+                if (effectOccurrences.Count == 256)
+                    effectOccurrences.RemoveAt(0);
+                effectOccurrences.Add(
+                    new MotionEffectOccurrence(
+                        sequence.PlaybackId,
+                        checked((uint)index),
+                        entry.Definition is MotionSequenceEntry.Sound
+                            ? MotionEffectOccurrenceKind.Sound
+                            : MotionEffectOccurrenceKind.Particle,
+                        entry.Definition switch
+                        {
+                            MotionSequenceEntry.Sound value => value.Occurrence.Address,
+                            MotionSequenceEntry.Particle value => value.Occurrence.Address,
+                            _ => throw Invalid("Unknown Motion effect occurrence."),
+                        }
+                    )
+                );
+                return true;
+            }
             var animation = (MotionSequenceEntry.Animate)entry.Definition;
             foreach (Guid targetId in entry.Targets)
             {
@@ -1680,6 +1776,12 @@ namespace Battlement.UI
             descriptors.TryGetValue(address.DescriptorId.Value, out var descriptor)
             && descriptor.FindSlot(address.Slot)?.Definition.Generation == address.Generation;
 
+        private static void DisposePreparedEffects(IEnumerable<MotionSequenceEntryState> entries)
+        {
+            foreach (MotionSequenceEntryState entry in entries)
+                entry.PreparedEffect?.Dispose();
+        }
+
         private MotionPlaybackOutcome? SequenceTerminalOutcome(BattlementMotionSequence sequence)
         {
             foreach (MotionSequenceEntryState entry in sequence.Entries)
@@ -1761,6 +1863,8 @@ namespace Battlement.UI
             {
                 MotionSequenceEntry.Animate value => value.Schedule,
                 MotionSequenceEntry.Label value => value.Schedule,
+                MotionSequenceEntry.Sound value => value.Schedule,
+                MotionSequenceEntry.Particle value => value.Schedule,
                 _ => throw Invalid("Unknown Motion sequence entry."),
             };
 

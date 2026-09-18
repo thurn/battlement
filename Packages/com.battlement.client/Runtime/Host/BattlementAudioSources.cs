@@ -57,6 +57,41 @@ namespace Battlement
             }
             var asset = new PreparedAsset.AudioClip(new AudioClipAddress(command.Address));
             IBattlementAssetLease lease = preparedAssets.Acquire(asset);
+            return Play(commandId, command, now, lease, volume, pitch, fadeIn);
+        }
+
+        internal IBattlementCommandOperation? Play(
+            CommandId commandId,
+            BattlementDirectAudioPlay command,
+            TimeSpan now,
+            IBattlementAssetLease lease
+        )
+        {
+            float volume = RequireVolume(command.Volume);
+            float pitch = RequirePitch(command.Pitch);
+            TimeSpan fadeIn = RequireDuration(
+                TimeSpan.FromMilliseconds(command.FadeInMilliseconds),
+                "Audio fade-in"
+            );
+            if (motionClock.IsInstant)
+            {
+                suppressed.Add(commandId.Value);
+                lease.Dispose();
+                return null;
+            }
+            return Play(commandId, command, now, lease, volume, pitch, fadeIn);
+        }
+
+        private IBattlementCommandOperation Play(
+            CommandId commandId,
+            BattlementDirectAudioPlay command,
+            TimeSpan now,
+            IBattlementAssetLease lease,
+            float volume,
+            float pitch,
+            TimeSpan fadeIn
+        )
+        {
             AudioInstance? instance = null;
             try
             {

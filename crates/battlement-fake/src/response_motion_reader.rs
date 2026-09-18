@@ -187,6 +187,34 @@ fn sequence_entry(
         .to_owned(),
       schedule,
     }),
+    wire::MotionSequenceEntryKind::Sound => Ok(battlement::MotionSequenceEntry::Sound {
+      sound: battlement::MotionSoundOccurrence {
+        address: value
+          .effect_address()
+          .ok_or_else(|| "Motion sequence sound address is missing".to_owned())?
+          .to_owned(),
+        volume: value.effect_volume(),
+        pitch: value.effect_pitch(),
+        looping: value.effect_loop(),
+        fade_in_ms: value.effect_fade_in_millis(),
+      },
+      schedule,
+    }),
+    wire::MotionSequenceEntryKind::Particle => Ok(battlement::MotionSequenceEntry::Particle {
+      particle: battlement::MotionParticleOccurrence {
+        address: value
+          .effect_address()
+          .ok_or_else(|| "Motion sequence particle address is missing".to_owned())?
+          .to_owned(),
+        position: position_reference(
+          value
+            .effect_position()
+            .ok_or_else(|| "Motion sequence particle position is missing".to_owned())?,
+        )?,
+        lifetime_ms: value.effect_lifetime_millis(),
+      },
+      schedule,
+    }),
     _ => Err("Motion sequence entry kind is unknown".to_owned()),
   }
 }

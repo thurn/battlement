@@ -325,6 +325,32 @@ pub struct MotionPositionReference {
   pub resolution: MotionReferenceResolution,
 }
 
+/// Immutable audio parameters captured when a sequence is submitted.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MotionSoundOccurrence {
+  /// Prepared audio-clip address.
+  pub address: String,
+  /// Initial linear volume in the inclusive range zero through one.
+  pub volume: f64,
+  /// Positive playback pitch.
+  pub pitch: f64,
+  /// Whether playback loops independently after the occurrence.
+  pub looping: bool,
+  /// Optional fade-in duration in milliseconds.
+  pub fade_in_ms: u64,
+}
+
+/// Immutable particle-burst parameters captured when a sequence is submitted.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MotionParticleOccurrence {
+  /// Prepared particle-effect address.
+  pub address: String,
+  /// Typed world host or anchor used for placement.
+  pub position: MotionPositionReference,
+  /// Effect lifetime in milliseconds.
+  pub lifetime_ms: u64,
+}
+
 /// One immutable declaration-order entry in a scoped sequence graph.
 #[derive(Clone, Debug, PartialEq)]
 pub enum MotionSequenceEntry {
@@ -347,6 +373,20 @@ pub enum MotionSequenceEntry {
   Label {
     /// Stable authoring label.
     name: String,
+    /// Eligibility dependency.
+    schedule: MotionSequenceSchedule,
+  },
+  /// Starts one prepared audio occurrence when eligible.
+  Sound {
+    /// Captured audio parameters.
+    sound: MotionSoundOccurrence,
+    /// Eligibility dependency.
+    schedule: MotionSequenceSchedule,
+  },
+  /// Starts one prepared particle burst when eligible.
+  Particle {
+    /// Captured effect parameters and placement.
+    particle: MotionParticleOccurrence,
     /// Eligibility dependency.
     schedule: MotionSequenceSchedule,
   },
@@ -472,6 +512,30 @@ pub fn validate_motion_sequence(entries: &[MotionSequenceEntry]) -> Result<(), S
           return Err(format!("Motion sequence repeats label {name}"));
         }
       }
+      MotionSequenceEntry::Sound { sound, .. } => {
+        if sound.address.is_empty()
+          || !sound.volume.is_finite()
+          || !(0.0..=1.0).contains(&sound.volume)
+          || !sound.pitch.is_finite()
+          || sound.pitch <= 0.0
+          || sound.pitch > 3.0
+        {
+          return Err("Motion sequence sound is invalid".to_owned());
+        }
+      }
+      MotionSequenceEntry::Particle { particle, .. } => {
+        if particle.address.is_empty() || particle.lifetime_ms == 0 {
+          return Err("Motion sequence particle burst is invalid".to_owned());
+        }
+        if particle
+          .position
+          .anchor
+          .as_ref()
+          .is_some_and(String::is_empty)
+        {
+          return Err("Motion sequence particle anchor is empty".to_owned());
+        }
+      }
     }
   }
   let dependencies = entries
@@ -507,9 +571,10 @@ fn validate_selector(selector: &MotionSelector) -> Result<(), String> {
 
 fn schedule(entry: &MotionSequenceEntry) -> &MotionSequenceSchedule {
   match entry {
-    MotionSequenceEntry::Animate { schedule, .. } | MotionSequenceEntry::Label { schedule, .. } => {
-      schedule
-    }
+    MotionSequenceEntry::Animate { schedule, .. }
+    | MotionSequenceEntry::Label { schedule, .. }
+    | MotionSequenceEntry::Sound { schedule, .. }
+    | MotionSequenceEntry::Particle { schedule, .. } => schedule,
   }
 }
 
