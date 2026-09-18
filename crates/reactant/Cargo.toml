@@ -12,5 +12,6 @@ battlement = { path = "../battlement" }
 reactant-core.workspace = true
 reactant-rules.workspace = true
 reactant-ui.workspace = true
+taffy.workspace = true
 
 uuid.workspace = true

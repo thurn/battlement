@@ -56,6 +56,7 @@ pub use sample_constants::{
 mod navigation_proof;
 mod pointer_proof;
 mod world_hit_proof;
+mod world_layout_proof;
 mod world_material_proof;
 mod world_motion_proof;
 mod world_proof;
