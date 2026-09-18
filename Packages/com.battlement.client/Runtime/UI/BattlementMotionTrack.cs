@@ -8,6 +8,7 @@ namespace Battlement.UI
     {
         private MotionValue origin;
         private double incomingVelocity;
+        private ulong anchorElapsed;
 
         public TrackState(
             MotionPropertyTrack definition,
@@ -21,7 +22,7 @@ namespace Battlement.UI
             Velocity = incomingVelocity;
         }
 
-        public MotionPropertyTrack Definition { get; }
+        public MotionPropertyTrack Definition { get; private set; }
 
         public double Velocity { get; private set; }
 
@@ -45,6 +46,7 @@ namespace Battlement.UI
             Suppressed = previous.Suppressed;
             Done = previous.Done;
             Iteration = previous.Iteration;
+            anchorElapsed = previous.anchorElapsed;
         }
 
         public void Reset()
@@ -53,6 +55,7 @@ namespace Battlement.UI
             Done = false;
             Iteration = 0;
             Suppressed = false;
+            anchorElapsed = 0;
         }
 
         public void Retarget(IBattlementMotionTarget target)
@@ -60,6 +63,24 @@ namespace Battlement.UI
             origin = target.Read(Definition.Property);
             incomingVelocity = Velocity;
             Reset();
+        }
+
+        public void RetargetDestination(
+            IBattlementMotionTarget target,
+            MotionValue value,
+            ulong elapsedMicros
+        )
+        {
+            if (Equals(Definition.Values[^1], value))
+                return;
+            origin = target.Read(Definition.Property);
+            incomingVelocity = Velocity;
+            Definition = Definition with { Values = new[] { value } };
+            Velocity = incomingVelocity;
+            Done = false;
+            Iteration = 0;
+            Suppressed = false;
+            anchorElapsed = elapsedMicros;
         }
 
         public void Freeze()
@@ -82,6 +103,7 @@ namespace Battlement.UI
             bool write = true
         )
         {
+            elapsedMicros = elapsedMicros >= anchorElapsed ? elapsedMicros - anchorElapsed : 0;
             Suppressed = suppressed;
             bool reverse =
                 direction

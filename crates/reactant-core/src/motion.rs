@@ -908,6 +908,13 @@ impl MotionTarget {
       })
   }
 
+  pub(crate) fn sequence_position_transition(&self) -> TransitionDefinition {
+    self.transition.as_ref().map_or_else(
+      || physical_default(500.0, 25.0),
+      |transition| transition.for_property(MotionProperty::LocalPositionX),
+    )
+  }
+
   pub(crate) fn variant_orchestration(&self) -> VariantOrchestration {
     self
       .transition

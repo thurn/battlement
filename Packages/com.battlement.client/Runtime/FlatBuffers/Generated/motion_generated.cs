@@ -411,6 +411,32 @@ public enum MotionSelectorKind : byte
   Descendants = 4,
 };
 
+public enum MotionSequenceScheduleKind : byte
+{
+  Absolute = 0,
+  RelativeStart = 1,
+  AfterCompletion = 2,
+  Label = 3,
+};
+
+public enum MotionSequenceConflict : byte
+{
+  Reject = 0,
+  Replace = 1,
+};
+
+public enum MotionReferenceResolution : byte
+{
+  CaptureAtStart = 0,
+  Follow = 1,
+};
+
+public enum MotionSequenceEntryKind : byte
+{
+  Animate = 0,
+  Label = 1,
+};
+
 public enum MotionScopeCommandKind : byte
 {
   Start = 0,
@@ -1520,6 +1546,50 @@ static public class MotionPlaybackEventVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct MotionSequenceLabelEvent : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static MotionSequenceLabelEvent GetRootAsMotionSequenceLabelEvent(ByteBuffer _bb) { return GetRootAsMotionSequenceLabelEvent(_bb, new MotionSequenceLabelEvent()); }
+  public static MotionSequenceLabelEvent GetRootAsMotionSequenceLabelEvent(ByteBuffer _bb, MotionSequenceLabelEvent obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public MotionSequenceLabelEvent __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? PlaybackId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public uint Generation { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+  public string Label { get { int o = __p.__offset(8); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetLabelBytes() { return __p.__vector_as_span<byte>(8, 1); }
+#else
+  public ArraySegment<byte>? GetLabelBytes() { return __p.__vector_as_arraysegment(8); }
+#endif
+  public byte[] GetLabelArray() { return __p.__vector_as_array<byte>(8); }
+
+  public static void StartMotionSequenceLabelEvent(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void AddPlaybackId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> playbackIdOffset) { builder.AddStruct(0, playbackIdOffset.Value, 0); }
+  public static void AddGeneration(FlatBufferBuilder builder, uint generation) { builder.AddUint(1, generation, 0); }
+  public static void AddLabel(FlatBufferBuilder builder, StringOffset labelOffset) { builder.AddOffset(2, labelOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent> EndMotionSequenceLabelEvent(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // playback_id
+    builder.Required(o, 8);  // label
+    return new Offset<Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent>(o);
+  }
+}
+
+
+static public class MotionSequenceLabelEventVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*PlaybackId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyField(tablePos, 6 /*Generation*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyString(tablePos, 8 /*Label*/, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct MotionEventBatch : IFlatbufferObject
 {
   private Table __p;
@@ -1542,6 +1612,8 @@ public struct MotionEventBatch : IFlatbufferObject
   public int PlaybackEventsLength { get { int o = __p.__offset(14); return o != 0 ? __p.__vector_len(o) : 0; } }
   public Battlement.FlatBuffers.Generated.MotionGestureEvent? GestureEvents(int j) { int o = __p.__offset(16); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionGestureEvent?)(new Battlement.FlatBuffers.Generated.MotionGestureEvent()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int GestureEventsLength { get { int o = __p.__offset(16); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent? LabelEvents(int j) { int o = __p.__offset(18); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent?)(new Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int LabelEventsLength { get { int o = __p.__offset(18); return o != 0 ? __p.__vector_len(o) : 0; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.MotionEventBatch> CreateMotionEventBatch(FlatBufferBuilder builder,
       ulong first_sequence = 0,
@@ -1550,10 +1622,12 @@ public struct MotionEventBatch : IFlatbufferObject
       VectorOffset samplesOffset = default(VectorOffset),
       VectorOffset value_samplesOffset = default(VectorOffset),
       VectorOffset playback_eventsOffset = default(VectorOffset),
-      VectorOffset gesture_eventsOffset = default(VectorOffset)) {
-    builder.StartTable(7);
+      VectorOffset gesture_eventsOffset = default(VectorOffset),
+      VectorOffset label_eventsOffset = default(VectorOffset)) {
+    builder.StartTable(8);
     MotionEventBatch.AddLastSequence(builder, last_sequence);
     MotionEventBatch.AddFirstSequence(builder, first_sequence);
+    MotionEventBatch.AddLabelEvents(builder, label_eventsOffset);
     MotionEventBatch.AddGestureEvents(builder, gesture_eventsOffset);
     MotionEventBatch.AddPlaybackEvents(builder, playback_eventsOffset);
     MotionEventBatch.AddValueSamples(builder, value_samplesOffset);
@@ -1562,7 +1636,7 @@ public struct MotionEventBatch : IFlatbufferObject
     return MotionEventBatch.EndMotionEventBatch(builder);
   }
 
-  public static void StartMotionEventBatch(FlatBufferBuilder builder) { builder.StartTable(7); }
+  public static void StartMotionEventBatch(FlatBufferBuilder builder) { builder.StartTable(8); }
   public static void AddFirstSequence(FlatBufferBuilder builder, ulong firstSequence) { builder.AddUlong(0, firstSequence, 0); }
   public static void AddLastSequence(FlatBufferBuilder builder, ulong lastSequence) { builder.AddUlong(1, lastSequence, 0); }
   public static void AddEvents(FlatBufferBuilder builder, VectorOffset eventsOffset) { builder.AddOffset(2, eventsOffset.Value, 0); }
@@ -1595,6 +1669,12 @@ public struct MotionEventBatch : IFlatbufferObject
   public static VectorOffset CreateGestureEventsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Battlement.FlatBuffers.Generated.MotionGestureEvent>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateGestureEventsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Battlement.FlatBuffers.Generated.MotionGestureEvent>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartGestureEventsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static void AddLabelEvents(FlatBufferBuilder builder, VectorOffset labelEventsOffset) { builder.AddOffset(7, labelEventsOffset.Value, 0); }
+  public static VectorOffset CreateLabelEventsVector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateLabelEventsVectorBlock(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateLabelEventsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateLabelEventsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Battlement.FlatBuffers.Generated.MotionSequenceLabelEvent>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartLabelEventsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<Battlement.FlatBuffers.Generated.MotionEventBatch> EndMotionEventBatch(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 8);  // events
@@ -1602,6 +1682,7 @@ public struct MotionEventBatch : IFlatbufferObject
     builder.Required(o, 12);  // value_samples
     builder.Required(o, 14);  // playback_events
     builder.Required(o, 16);  // gesture_events
+    builder.Required(o, 18);  // label_events
     return new Offset<Battlement.FlatBuffers.Generated.MotionEventBatch>(o);
   }
 }
@@ -1619,6 +1700,7 @@ static public class MotionEventBatchVerify
       && verifier.VerifyVectorOfTables(tablePos, 12 /*ValueSamples*/, Battlement.FlatBuffers.Generated.MotionValueSampleVerify.Verify, true)
       && verifier.VerifyVectorOfTables(tablePos, 14 /*PlaybackEvents*/, Battlement.FlatBuffers.Generated.MotionPlaybackEventVerify.Verify, true)
       && verifier.VerifyVectorOfTables(tablePos, 16 /*GestureEvents*/, Battlement.FlatBuffers.Generated.MotionGestureEventVerify.Verify, true)
+      && verifier.VerifyVectorOfTables(tablePos, 18 /*LabelEvents*/, Battlement.FlatBuffers.Generated.MotionSequenceLabelEventVerify.Verify, true)
       && verifier.VerifyTableEnd(tablePos);
   }
 }
@@ -2464,52 +2546,188 @@ static public class MotionSelectorVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
-public struct MotionSequenceStep : IFlatbufferObject
+public struct MotionSequenceSchedule : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
   public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
-  public static MotionSequenceStep GetRootAsMotionSequenceStep(ByteBuffer _bb) { return GetRootAsMotionSequenceStep(_bb, new MotionSequenceStep()); }
-  public static MotionSequenceStep GetRootAsMotionSequenceStep(ByteBuffer _bb, MotionSequenceStep obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static MotionSequenceSchedule GetRootAsMotionSequenceSchedule(ByteBuffer _bb) { return GetRootAsMotionSequenceSchedule(_bb, new MotionSequenceSchedule()); }
+  public static MotionSequenceSchedule GetRootAsMotionSequenceSchedule(ByteBuffer _bb, MotionSequenceSchedule obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
-  public MotionSequenceStep __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+  public MotionSequenceSchedule __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public Battlement.FlatBuffers.Generated.MotionSelector? Selector { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSelector?)(new Battlement.FlatBuffers.Generated.MotionSelector()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
-  public Battlement.FlatBuffers.Generated.MotionTargetDescriptor? Target { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionTargetDescriptor?)(new Battlement.FlatBuffers.Generated.MotionTargetDescriptor()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
-  public ulong StartMicros { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
+  public Battlement.FlatBuffers.Generated.MotionSequenceScheduleKind Kind { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSequenceScheduleKind)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionSequenceScheduleKind.Absolute; } }
+  public uint Entry { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+  public long OffsetMicros { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetLong(o + __p.bb_pos) : (long)0; } }
+  public ulong AbsoluteMicros { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
+  public string Label { get { int o = __p.__offset(12); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetLabelBytes() { return __p.__vector_as_span<byte>(12, 1); }
+#else
+  public ArraySegment<byte>? GetLabelBytes() { return __p.__vector_as_arraysegment(12); }
+#endif
+  public byte[] GetLabelArray() { return __p.__vector_as_array<byte>(12); }
 
-  public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceStep> CreateMotionSequenceStep(FlatBufferBuilder builder,
-      Offset<Battlement.FlatBuffers.Generated.MotionSelector> selectorOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionSelector>),
-      Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor> targetOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor>),
-      ulong start_micros = 0) {
-    builder.StartTable(3);
-    MotionSequenceStep.AddStartMicros(builder, start_micros);
-    MotionSequenceStep.AddTarget(builder, targetOffset);
-    MotionSequenceStep.AddSelector(builder, selectorOffset);
-    return MotionSequenceStep.EndMotionSequenceStep(builder);
+  public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule> CreateMotionSequenceSchedule(FlatBufferBuilder builder,
+      Battlement.FlatBuffers.Generated.MotionSequenceScheduleKind kind = Battlement.FlatBuffers.Generated.MotionSequenceScheduleKind.Absolute,
+      uint entry = 0,
+      long offset_micros = 0,
+      ulong absolute_micros = 0,
+      StringOffset labelOffset = default(StringOffset)) {
+    builder.StartTable(5);
+    MotionSequenceSchedule.AddAbsoluteMicros(builder, absolute_micros);
+    MotionSequenceSchedule.AddOffsetMicros(builder, offset_micros);
+    MotionSequenceSchedule.AddLabel(builder, labelOffset);
+    MotionSequenceSchedule.AddEntry(builder, entry);
+    MotionSequenceSchedule.AddKind(builder, kind);
+    return MotionSequenceSchedule.EndMotionSequenceSchedule(builder);
   }
 
-  public static void StartMotionSequenceStep(FlatBufferBuilder builder) { builder.StartTable(3); }
-  public static void AddSelector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSelector> selectorOffset) { builder.AddOffset(0, selectorOffset.Value, 0); }
-  public static void AddTarget(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor> targetOffset) { builder.AddOffset(1, targetOffset.Value, 0); }
-  public static void AddStartMicros(FlatBufferBuilder builder, ulong startMicros) { builder.AddUlong(2, startMicros, 0); }
-  public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceStep> EndMotionSequenceStep(FlatBufferBuilder builder) {
+  public static void StartMotionSequenceSchedule(FlatBufferBuilder builder) { builder.StartTable(5); }
+  public static void AddKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionSequenceScheduleKind kind) { builder.AddByte(0, (byte)kind, 0); }
+  public static void AddEntry(FlatBufferBuilder builder, uint entry) { builder.AddUint(1, entry, 0); }
+  public static void AddOffsetMicros(FlatBufferBuilder builder, long offsetMicros) { builder.AddLong(2, offsetMicros, 0); }
+  public static void AddAbsoluteMicros(FlatBufferBuilder builder, ulong absoluteMicros) { builder.AddUlong(3, absoluteMicros, 0); }
+  public static void AddLabel(FlatBufferBuilder builder, StringOffset labelOffset) { builder.AddOffset(4, labelOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule> EndMotionSequenceSchedule(FlatBufferBuilder builder) {
     int o = builder.EndTable();
-    builder.Required(o, 4);  // selector
-    builder.Required(o, 6);  // target
-    return new Offset<Battlement.FlatBuffers.Generated.MotionSequenceStep>(o);
+    return new Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule>(o);
   }
 }
 
 
-static public class MotionSequenceStepVerify
+static public class MotionSequenceScheduleVerify
 {
   static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
   {
     return verifier.VerifyTableStart(tablePos)
-      && verifier.VerifyTable(tablePos, 4 /*Selector*/, Battlement.FlatBuffers.Generated.MotionSelectorVerify.Verify, true)
-      && verifier.VerifyTable(tablePos, 6 /*Target*/, Battlement.FlatBuffers.Generated.MotionTargetDescriptorVerify.Verify, true)
-      && verifier.VerifyField(tablePos, 8 /*StartMicros*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyField(tablePos, 4 /*Kind*/, 1 /*Battlement.FlatBuffers.Generated.MotionSequenceScheduleKind*/, 1, false)
+      && verifier.VerifyField(tablePos, 6 /*Entry*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyField(tablePos, 8 /*OffsetMicros*/, 8 /*long*/, 8, false)
+      && verifier.VerifyField(tablePos, 10 /*AbsoluteMicros*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyString(tablePos, 12 /*Label*/, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
+public struct MotionPositionReference : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static MotionPositionReference GetRootAsMotionPositionReference(ByteBuffer _bb) { return GetRootAsMotionPositionReference(_bb, new MotionPositionReference()); }
+  public static MotionPositionReference GetRootAsMotionPositionReference(ByteBuffer _bb, MotionPositionReference obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public MotionPositionReference __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? ObjectId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public string Anchor { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetAnchorBytes() { return __p.__vector_as_span<byte>(6, 1); }
+#else
+  public ArraySegment<byte>? GetAnchorBytes() { return __p.__vector_as_arraysegment(6); }
+#endif
+  public byte[] GetAnchorArray() { return __p.__vector_as_array<byte>(6); }
+  public Battlement.FlatBuffers.Generated.MotionReferenceResolution Resolution { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionReferenceResolution)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionReferenceResolution.CaptureAtStart; } }
+
+  public static void StartMotionPositionReference(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }
+  public static void AddAnchor(FlatBufferBuilder builder, StringOffset anchorOffset) { builder.AddOffset(1, anchorOffset.Value, 0); }
+  public static void AddResolution(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionReferenceResolution resolution) { builder.AddByte(2, (byte)resolution, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.MotionPositionReference> EndMotionPositionReference(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // object_id
+    return new Offset<Battlement.FlatBuffers.Generated.MotionPositionReference>(o);
+  }
+}
+
+
+static public class MotionPositionReferenceVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*ObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyString(tablePos, 6 /*Anchor*/, false)
+      && verifier.VerifyField(tablePos, 8 /*Resolution*/, 1 /*Battlement.FlatBuffers.Generated.MotionReferenceResolution*/, 1, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
+public struct MotionSequenceEntry : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static MotionSequenceEntry GetRootAsMotionSequenceEntry(ByteBuffer _bb) { return GetRootAsMotionSequenceEntry(_bb, new MotionSequenceEntry()); }
+  public static MotionSequenceEntry GetRootAsMotionSequenceEntry(ByteBuffer _bb, MotionSequenceEntry obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public MotionSequenceEntry __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.MotionSequenceEntryKind Kind { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSequenceEntryKind)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionSequenceEntryKind.Animate; } }
+  public Battlement.FlatBuffers.Generated.MotionSelector? Selector { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSelector?)(new Battlement.FlatBuffers.Generated.MotionSelector()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionTargetDescriptor? Target { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionTargetDescriptor?)(new Battlement.FlatBuffers.Generated.MotionTargetDescriptor()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionPositionReference? Position { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionPositionReference?)(new Battlement.FlatBuffers.Generated.MotionPositionReference()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.TransitionDefinition? PositionTransition { get { int o = __p.__offset(12); return o != 0 ? (Battlement.FlatBuffers.Generated.TransitionDefinition?)(new Battlement.FlatBuffers.Generated.TransitionDefinition()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionSequenceSchedule? Schedule { get { int o = __p.__offset(14); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSequenceSchedule?)(new Battlement.FlatBuffers.Generated.MotionSequenceSchedule()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.MotionSequenceConflict Conflict { get { int o = __p.__offset(16); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSequenceConflict)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionSequenceConflict.Reject; } }
+  public string Label { get { int o = __p.__offset(18); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetLabelBytes() { return __p.__vector_as_span<byte>(18, 1); }
+#else
+  public ArraySegment<byte>? GetLabelBytes() { return __p.__vector_as_arraysegment(18); }
+#endif
+  public byte[] GetLabelArray() { return __p.__vector_as_array<byte>(18); }
+
+  public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry> CreateMotionSequenceEntry(FlatBufferBuilder builder,
+      Battlement.FlatBuffers.Generated.MotionSequenceEntryKind kind = Battlement.FlatBuffers.Generated.MotionSequenceEntryKind.Animate,
+      Offset<Battlement.FlatBuffers.Generated.MotionSelector> selectorOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionSelector>),
+      Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor> targetOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor>),
+      Offset<Battlement.FlatBuffers.Generated.MotionPositionReference> positionOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionPositionReference>),
+      Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> position_transitionOffset = default(Offset<Battlement.FlatBuffers.Generated.TransitionDefinition>),
+      Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule> scheduleOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule>),
+      Battlement.FlatBuffers.Generated.MotionSequenceConflict conflict = Battlement.FlatBuffers.Generated.MotionSequenceConflict.Reject,
+      StringOffset labelOffset = default(StringOffset)) {
+    builder.StartTable(8);
+    MotionSequenceEntry.AddLabel(builder, labelOffset);
+    MotionSequenceEntry.AddSchedule(builder, scheduleOffset);
+    MotionSequenceEntry.AddPositionTransition(builder, position_transitionOffset);
+    MotionSequenceEntry.AddPosition(builder, positionOffset);
+    MotionSequenceEntry.AddTarget(builder, targetOffset);
+    MotionSequenceEntry.AddSelector(builder, selectorOffset);
+    MotionSequenceEntry.AddConflict(builder, conflict);
+    MotionSequenceEntry.AddKind(builder, kind);
+    return MotionSequenceEntry.EndMotionSequenceEntry(builder);
+  }
+
+  public static void StartMotionSequenceEntry(FlatBufferBuilder builder) { builder.StartTable(8); }
+  public static void AddKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionSequenceEntryKind kind) { builder.AddByte(0, (byte)kind, 0); }
+  public static void AddSelector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSelector> selectorOffset) { builder.AddOffset(1, selectorOffset.Value, 0); }
+  public static void AddTarget(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor> targetOffset) { builder.AddOffset(2, targetOffset.Value, 0); }
+  public static void AddPosition(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionPositionReference> positionOffset) { builder.AddOffset(3, positionOffset.Value, 0); }
+  public static void AddPositionTransition(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.TransitionDefinition> positionTransitionOffset) { builder.AddOffset(4, positionTransitionOffset.Value, 0); }
+  public static void AddSchedule(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSequenceSchedule> scheduleOffset) { builder.AddOffset(5, scheduleOffset.Value, 0); }
+  public static void AddConflict(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionSequenceConflict conflict) { builder.AddByte(6, (byte)conflict, 0); }
+  public static void AddLabel(FlatBufferBuilder builder, StringOffset labelOffset) { builder.AddOffset(7, labelOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry> EndMotionSequenceEntry(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 14);  // schedule
+    return new Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry>(o);
+  }
+}
+
+
+static public class MotionSequenceEntryVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Kind*/, 1 /*Battlement.FlatBuffers.Generated.MotionSequenceEntryKind*/, 1, false)
+      && verifier.VerifyTable(tablePos, 6 /*Selector*/, Battlement.FlatBuffers.Generated.MotionSelectorVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 8 /*Target*/, Battlement.FlatBuffers.Generated.MotionTargetDescriptorVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 10 /*Position*/, Battlement.FlatBuffers.Generated.MotionPositionReferenceVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 12 /*PositionTransition*/, Battlement.FlatBuffers.Generated.TransitionDefinitionVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 14 /*Schedule*/, Battlement.FlatBuffers.Generated.MotionSequenceScheduleVerify.Verify, true)
+      && verifier.VerifyField(tablePos, 16 /*Conflict*/, 1 /*Battlement.FlatBuffers.Generated.MotionSequenceConflict*/, 1, false)
+      && verifier.VerifyString(tablePos, 18 /*Label*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }
@@ -2527,8 +2745,8 @@ public struct MotionScopeOperation : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.MotionScopeCommandKind Command { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionScopeCommandKind)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.MotionScopeCommandKind.Start; } }
   public Battlement.FlatBuffers.Generated.Uuid? PlaybackId { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
   public uint Generation { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
-  public Battlement.FlatBuffers.Generated.MotionSequenceStep? Steps(int j) { int o = __p.__offset(12); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSequenceStep?)(new Battlement.FlatBuffers.Generated.MotionSequenceStep()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
-  public int StepsLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public Battlement.FlatBuffers.Generated.MotionSequenceEntry? Entries(int j) { int o = __p.__offset(12); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSequenceEntry?)(new Battlement.FlatBuffers.Generated.MotionSequenceEntry()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int EntriesLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
   public Battlement.FlatBuffers.Generated.MotionSelector? Selector { get { int o = __p.__offset(14); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionSelector?)(new Battlement.FlatBuffers.Generated.MotionSelector()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
   public Battlement.FlatBuffers.Generated.MotionTargetDescriptor? Target { get { int o = __p.__offset(16); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionTargetDescriptor?)(new Battlement.FlatBuffers.Generated.MotionTargetDescriptor()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
@@ -2537,12 +2755,12 @@ public struct MotionScopeOperation : IFlatbufferObject
   public static void AddCommand(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionScopeCommandKind command) { builder.AddByte(1, (byte)command, 0); }
   public static void AddPlaybackId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> playbackIdOffset) { builder.AddStruct(2, playbackIdOffset.Value, 0); }
   public static void AddGeneration(FlatBufferBuilder builder, uint generation) { builder.AddUint(3, generation, 0); }
-  public static void AddSteps(FlatBufferBuilder builder, VectorOffset stepsOffset) { builder.AddOffset(4, stepsOffset.Value, 0); }
-  public static VectorOffset CreateStepsVector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSequenceStep>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
-  public static VectorOffset CreateStepsVectorBlock(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSequenceStep>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
-  public static VectorOffset CreateStepsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Battlement.FlatBuffers.Generated.MotionSequenceStep>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
-  public static VectorOffset CreateStepsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Battlement.FlatBuffers.Generated.MotionSequenceStep>>(dataPtr, sizeInBytes); return builder.EndVector(); }
-  public static void StartStepsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static void AddEntries(FlatBufferBuilder builder, VectorOffset entriesOffset) { builder.AddOffset(4, entriesOffset.Value, 0); }
+  public static VectorOffset CreateEntriesVector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateEntriesVectorBlock(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateEntriesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateEntriesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartEntriesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddSelector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSelector> selectorOffset) { builder.AddOffset(5, selectorOffset.Value, 0); }
   public static void AddTarget(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor> targetOffset) { builder.AddOffset(6, targetOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.MotionScopeOperation> EndMotionScopeOperation(FlatBufferBuilder builder) {
@@ -2562,7 +2780,7 @@ static public class MotionScopeOperationVerify
       && verifier.VerifyField(tablePos, 6 /*Command*/, 1 /*Battlement.FlatBuffers.Generated.MotionScopeCommandKind*/, 1, false)
       && verifier.VerifyField(tablePos, 8 /*PlaybackId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, false)
       && verifier.VerifyField(tablePos, 10 /*Generation*/, 4 /*uint*/, 4, false)
-      && verifier.VerifyVectorOfTables(tablePos, 12 /*Steps*/, Battlement.FlatBuffers.Generated.MotionSequenceStepVerify.Verify, false)
+      && verifier.VerifyVectorOfTables(tablePos, 12 /*Entries*/, Battlement.FlatBuffers.Generated.MotionSequenceEntryVerify.Verify, false)
       && verifier.VerifyTable(tablePos, 14 /*Selector*/, Battlement.FlatBuffers.Generated.MotionSelectorVerify.Verify, false)
       && verifier.VerifyTable(tablePos, 16 /*Target*/, Battlement.FlatBuffers.Generated.MotionTargetDescriptorVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);

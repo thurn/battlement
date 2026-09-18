@@ -31,6 +31,9 @@ namespace Battlement
         private Offset<Wire.MotionGestureEvent>[] gestureOffsets = Array.Empty<
             Offset<Wire.MotionGestureEvent>
         >();
+        private Offset<Wire.MotionSequenceLabelEvent>[] labelOffsets = Array.Empty<
+            Offset<Wire.MotionSequenceLabelEvent>
+        >();
 
         internal BattlementMotionActionWriter(FlatBufferBuilder builder)
         {
@@ -46,18 +49,22 @@ namespace Battlement
                 batch.PlaybackEvents ?? Array.Empty<MotionPlaybackEvent>();
             IReadOnlyList<MotionGestureEvent> gestureEvents =
                 batch.GestureEvents ?? Array.Empty<MotionGestureEvent>();
+            IReadOnlyList<MotionSequenceLabelEvent> labelEvents =
+                batch.LabelEvents ?? Array.Empty<MotionSequenceLabelEvent>();
             ValidateSequence(batch);
             Limit(batch.Events.Count);
             Limit(batch.Samples.Count);
             Limit(valueSamples.Count);
             Limit(playbackEvents.Count);
             Limit(gestureEvents.Count);
+            Limit(labelEvents.Count);
 
             VectorOffset events = WriteEvents(batch.Events);
             VectorOffset samples = WriteSamples(batch.Samples);
             VectorOffset sampledValues = WriteValueSamples(valueSamples);
             VectorOffset playbacks = WritePlaybackEvents(playbackEvents);
             VectorOffset gestures = WriteGestureEvents(gestureEvents);
+            VectorOffset labels = WriteLabelEvents(labelEvents);
             Offset<Wire.MotionEventBatch> wireBatch = Wire.MotionEventBatch.CreateMotionEventBatch(
                 builder,
                 batch.FirstSequence,
@@ -66,7 +73,8 @@ namespace Battlement
                 samples,
                 sampledValues,
                 playbacks,
-                gestures
+                gestures,
+                labels
             );
             return Wire.MotionAction.CreateMotionAction(builder, wireBatch);
         }
@@ -230,6 +238,32 @@ namespace Battlement
             Wire.MotionEventBatch.StartGestureEventsVector(builder, records.Count);
             for (int index = records.Count - 1; index >= 0; index--)
                 builder.AddOffset(gestureOffsets[index].Value);
+            return builder.EndVector();
+        }
+
+        private VectorOffset WriteLabelEvents(IReadOnlyList<MotionSequenceLabelEvent> records)
+        {
+            Ensure(ref labelOffsets, records.Count);
+            for (int index = 0; index < records.Count; index++)
+            {
+                MotionSequenceLabelEvent value = records[index];
+                if (string.IsNullOrEmpty(value.Label))
+                    throw new InvalidDataException("A Motion sequence label is empty.");
+                StringOffset label = builder.CreateString(value.Label);
+                Wire.MotionSequenceLabelEvent.StartMotionSequenceLabelEvent(builder);
+                Wire.MotionSequenceLabelEvent.AddLabel(builder, label);
+                Wire.MotionSequenceLabelEvent.AddGeneration(builder, value.Generation);
+                Wire.MotionSequenceLabelEvent.AddPlaybackId(
+                    builder,
+                    BattlementFlatBufferWriter.WriteUuid(builder, value.PlaybackId.Value)
+                );
+                labelOffsets[index] = Wire.MotionSequenceLabelEvent.EndMotionSequenceLabelEvent(
+                    builder
+                );
+            }
+            Wire.MotionEventBatch.StartLabelEventsVector(builder, records.Count);
+            for (int index = records.Count - 1; index >= 0; index--)
+                builder.AddOffset(labelOffsets[index].Value);
             return builder.EndVector();
         }
 

@@ -1374,22 +1374,58 @@ namespace Battlement
                         throw new InvalidDataException(
                             "A motion scope start carries scalar fields."
                         );
-                    for (int index = 0; index < value.StepsLength; index++)
+                    for (int index = 0; index < value.EntriesLength; index++)
                     {
-                        Wire.MotionSequenceStep step = value.Steps(index)!.Value;
-                        ValidateDirectMotionSelector(step.Selector);
-                        if (!step.Target.HasValue)
-                            throw new InvalidDataException("A motion scope step target is absent.");
+                        Wire.MotionSequenceEntry entry = value.Entries(index)!.Value;
+                        if (!entry.Schedule.HasValue)
+                            throw new InvalidDataException(
+                                "A motion sequence entry schedule is absent."
+                            );
+                        switch (entry.Kind)
+                        {
+                            case Wire.MotionSequenceEntryKind.Animate:
+                                ValidateDirectMotionSelector(entry.Selector);
+                                if (
+                                    !entry.Target.HasValue
+                                    || !entry.PositionTransition.HasValue
+                                    || entry.Label is not null
+                                )
+                                    throw new InvalidDataException(
+                                        "A motion sequence animation entry is incomplete."
+                                    );
+                                if (entry.Position.HasValue)
+                                    _ = ReadUuid(
+                                        entry.Position.Value.ObjectId,
+                                        "motion position reference"
+                                    );
+                                break;
+                            case Wire.MotionSequenceEntryKind.Label:
+                                if (
+                                    string.IsNullOrEmpty(entry.Label)
+                                    || entry.Selector.HasValue
+                                    || entry.Target.HasValue
+                                    || entry.Position.HasValue
+                                    || entry.PositionTransition.HasValue
+                                )
+                                    throw new InvalidDataException(
+                                        "A motion sequence label entry is noncanonical."
+                                    );
+                                break;
+                            default:
+                                throw new InvalidDataException(
+                                    "A motion sequence entry kind is unknown."
+                                );
+                        }
                     }
                     break;
                 case Wire.MotionScopeCommandKind.Set:
                     ValidateDirectMotionSelector(value.Selector);
-                    if (!value.Target.HasValue || value.StepsLength != 0)
+                    if (!value.Target.HasValue || value.EntriesLength != 0)
                         throw new InvalidDataException("A motion scope set is incomplete.");
                     break;
                 case Wire.MotionScopeCommandKind.Stop:
                     ValidateDirectMotionSelector(value.Selector);
-                    if (value.Target.HasValue || value.StepsLength != 0)
+                    if (value.Target.HasValue || value.EntriesLength != 0)
                         throw new InvalidDataException("A motion scope stop is noncanonical.");
                     break;
                 default:

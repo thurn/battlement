@@ -186,12 +186,55 @@ namespace Battlement
         public sealed record Descendants : MotionSelector;
     }
 
-    /// <summary>One scheduled scoped animation step.</summary>
-    public sealed record MotionSequenceStep(
-        MotionSelector Selector,
-        MotionTargetDescriptor Target,
-        ulong StartMicros
+    /// <summary>How one sequence entry becomes eligible.</summary>
+    public abstract record MotionSequenceSchedule
+    {
+        public sealed record Absolute(ulong StartMicros) : MotionSequenceSchedule;
+
+        public sealed record RelativeStart(uint Entry, long OffsetMicros) : MotionSequenceSchedule;
+
+        public sealed record AfterCompletion(uint Entry, long OffsetMicros)
+            : MotionSequenceSchedule;
+
+        public sealed record Label(string Name, long OffsetMicros) : MotionSequenceSchedule;
+    }
+
+    /// <summary>Whether a property collision is rejected or explicitly replaced.</summary>
+    public enum MotionSequenceConflict
+    {
+        Reject,
+        Replace,
+    }
+
+    /// <summary>When a referenced position is sampled.</summary>
+    public enum MotionReferenceResolution
+    {
+        CaptureAtStart,
+        Follow,
+    }
+
+    /// <summary>One typed host or named world-anchor position.</summary>
+    public sealed record MotionPositionReference(
+        ObjectId ObjectId,
+        string? Anchor,
+        MotionReferenceResolution Resolution
     );
+
+    /// <summary>One immutable declaration-order entry in a scoped sequence graph.</summary>
+    public abstract record MotionSequenceEntry
+    {
+        public sealed record Animate(
+            MotionSelector Selector,
+            MotionTargetDescriptor Target,
+            MotionPositionReference? Position,
+            TransitionDefinition PositionTransition,
+            MotionSequenceSchedule Schedule,
+            MotionSequenceConflict Conflict
+        ) : MotionSequenceEntry;
+
+        public sealed record Label(string Name, MotionSequenceSchedule Schedule)
+            : MotionSequenceEntry;
+    }
 
     /// <summary>Scoped animation operation.</summary>
     public abstract record MotionScopeCommand
@@ -199,7 +242,7 @@ namespace Battlement
         public sealed record Start(
             ObjectId PlaybackId,
             uint Generation,
-            IReadOnlyList<MotionSequenceStep> Steps
+            IReadOnlyList<MotionSequenceEntry> Entries
         ) : MotionScopeCommand;
 
         public sealed record Set(MotionSelector Selector, MotionTargetDescriptor Target)

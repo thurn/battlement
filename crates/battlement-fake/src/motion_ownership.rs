@@ -4,9 +4,13 @@ use std::collections::HashSet;
 
 use battlement::{MotionGeneration, MotionProperty, MotionSlotId};
 
-use crate::motion_slot::Slot;
+use crate::{motion_playbacks::Address, motion_slot::Slot};
 
-pub(crate) fn retain_disjoint(slots: &mut Vec<Slot>, replacements: &[Slot]) {
+pub(crate) fn retain_disjoint(
+  descriptor: battlement::ObjectId,
+  slots: &mut Vec<Slot>,
+  replacements: &[Slot],
+) -> Vec<(Address, Address)> {
   let claimed = replacements
     .iter()
     .flat_map(|slot| {
@@ -35,6 +39,7 @@ pub(crate) fn retain_disjoint(slots: &mut Vec<Slot>, replacements: &[Slot]) {
     .map(|slot| slot.definition.slot)
     .chain(replacement_ids.iter().copied())
     .collect::<HashSet<_>>();
+  let mut remaps = Vec::new();
   slots.retain_mut(|slot| {
     if slot.definition.slot.0 < u64::MAX - 2048 {
       return true;
@@ -75,6 +80,11 @@ pub(crate) fn retain_disjoint(slots: &mut Vec<Slot>, replacements: &[Slot]) {
     slot
       .presentation
       .retain(|(property, _)| !claimed.contains(property));
+    let old = Address {
+      descriptor,
+      slot: slot.definition.slot,
+      generation: slot.definition.generation,
+    };
     slot.definition.generation = MotionGeneration(
       slot
         .definition
@@ -91,6 +101,15 @@ pub(crate) fn retain_disjoint(slots: &mut Vec<Slot>, replacements: &[Slot]) {
       occupied.insert(id);
       slot.definition.slot = id;
     }
+    remaps.push((
+      old,
+      Address {
+        descriptor,
+        slot: slot.definition.slot,
+        generation: slot.definition.generation,
+      },
+    ));
     true
   });
+  remaps
 }

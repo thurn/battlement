@@ -57,8 +57,8 @@ pub use crate::motion_css::{
 };
 pub use crate::{
   animation_controls::{
-    AnimationControls, AnimationScope, AnimationSequence, ControlTarget, MotionSelector,
-    SequencePosition, use_animation_controls, use_animation_scope,
+    AnimationControls, AnimationScope, AnimationSequence, ControlTarget, MotionPositionRef,
+    MotionSelector, SequencePosition, SequenceTarget, use_animation_controls, use_animation_scope,
   },
   announcement::{Announce, use_announce},
   app_context::{AppHandle, use_app, use_viewport_size},

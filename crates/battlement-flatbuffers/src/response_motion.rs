@@ -640,33 +640,22 @@ pub(crate) fn write_scope_operation<'a, A: Allocator + 'a>(
 ) -> Result<WIPOffset<wire::MotionScopeOperation<'a>>, ProtocolError> {
   let mut playback_id = None;
   let mut generation = 0;
-  let mut steps = None;
+  let mut entries = None;
   let mut selector = None;
   let mut target = None;
   let command = match &operation.command {
     battlement::MotionScopeCommand::Start {
       playback_id: id,
       generation: value_generation,
-      steps: values,
+      entries: values,
     } => {
       playback_id = Some(uuid(id.as_uuid()));
       generation = *value_generation;
       let values = values
         .iter()
-        .map(|value| {
-          let selector = write_selector(builder, &value.selector);
-          let target = write_target(builder, &value.target)?;
-          Ok(wire::MotionSequenceStep::create(
-            builder,
-            &wire::MotionSequenceStepArgs {
-              selector: Some(selector),
-              target: Some(target),
-              start_micros: value.start_micros,
-            },
-          ))
-        })
+        .map(|value| write_sequence_entry(builder, value))
         .collect::<Result<Vec<_>, ProtocolError>>()?;
-      steps = Some(builder.create_vector(&values));
+      entries = Some(builder.create_vector(&values));
       wire::MotionScopeCommandKind::Start
     }
     battlement::MotionScopeCommand::Set {
@@ -690,11 +679,137 @@ pub(crate) fn write_scope_operation<'a, A: Allocator + 'a>(
       command,
       playback_id: playback_id.as_ref(),
       generation,
-      steps,
+      entries,
       selector,
       target,
     },
   ))
+}
+
+fn write_sequence_entry<'a, A: Allocator + 'a>(
+  builder: &mut FlatBufferBuilder<'a, A>,
+  value: &battlement::MotionSequenceEntry,
+) -> Result<WIPOffset<wire::MotionSequenceEntry<'a>>, ProtocolError> {
+  let mut selector = None;
+  let mut target = None;
+  let mut position = None;
+  let mut position_transition = None;
+  let mut conflict = wire::MotionSequenceConflict::Reject;
+  let mut label = None;
+  let (kind, schedule) = match value {
+    battlement::MotionSequenceEntry::Animate {
+      selector: value_selector,
+      target: value_target,
+      position: value_position,
+      position_transition: value_transition,
+      schedule,
+      conflict: value_conflict,
+    } => {
+      selector = Some(write_selector(builder, value_selector));
+      target = Some(write_target(builder, value_target)?);
+      position = value_position
+        .as_ref()
+        .map(|value| write_position_reference(builder, value));
+      position_transition = Some(write_transition(builder, value_transition)?);
+      conflict = match value_conflict {
+        battlement::MotionSequenceConflict::Reject => wire::MotionSequenceConflict::Reject,
+        battlement::MotionSequenceConflict::Replace => wire::MotionSequenceConflict::Replace,
+      };
+      (wire::MotionSequenceEntryKind::Animate, schedule)
+    }
+    battlement::MotionSequenceEntry::Label { name, schedule } => {
+      label = Some(builder.create_string(name));
+      (wire::MotionSequenceEntryKind::Label, schedule)
+    }
+  };
+  let schedule = write_sequence_schedule(builder, schedule);
+  Ok(wire::MotionSequenceEntry::create(
+    builder,
+    &wire::MotionSequenceEntryArgs {
+      kind,
+      selector,
+      target,
+      position,
+      position_transition,
+      schedule: Some(schedule),
+      conflict,
+      label,
+    },
+  ))
+}
+
+fn write_sequence_schedule<'a, A: Allocator + 'a>(
+  builder: &mut FlatBufferBuilder<'a, A>,
+  value: &battlement::MotionSequenceSchedule,
+) -> WIPOffset<wire::MotionSequenceSchedule<'a>> {
+  let mut entry = 0;
+  let mut offset_micros = 0;
+  let mut absolute_micros = 0;
+  let mut label = None;
+  let kind = match value {
+    battlement::MotionSequenceSchedule::Absolute(value) => {
+      absolute_micros = *value;
+      wire::MotionSequenceScheduleKind::Absolute
+    }
+    battlement::MotionSequenceSchedule::RelativeStart {
+      entry: value_entry,
+      offset_micros: value_offset,
+    } => {
+      entry = *value_entry;
+      offset_micros = *value_offset;
+      wire::MotionSequenceScheduleKind::RelativeStart
+    }
+    battlement::MotionSequenceSchedule::AfterCompletion {
+      entry: value_entry,
+      offset_micros: value_offset,
+    } => {
+      entry = *value_entry;
+      offset_micros = *value_offset;
+      wire::MotionSequenceScheduleKind::AfterCompletion
+    }
+    battlement::MotionSequenceSchedule::Label {
+      name,
+      offset_micros: value_offset,
+    } => {
+      label = Some(builder.create_string(name));
+      offset_micros = *value_offset;
+      wire::MotionSequenceScheduleKind::Label
+    }
+  };
+  wire::MotionSequenceSchedule::create(
+    builder,
+    &wire::MotionSequenceScheduleArgs {
+      kind,
+      entry,
+      offset_micros,
+      absolute_micros,
+      label,
+    },
+  )
+}
+
+fn write_position_reference<'a, A: Allocator + 'a>(
+  builder: &mut FlatBufferBuilder<'a, A>,
+  value: &battlement::MotionPositionReference,
+) -> WIPOffset<wire::MotionPositionReference<'a>> {
+  let object_id = uuid(value.object_id.as_uuid());
+  let anchor = value
+    .anchor
+    .as_ref()
+    .map(|value| builder.create_string(value));
+  wire::MotionPositionReference::create(
+    builder,
+    &wire::MotionPositionReferenceArgs {
+      object_id: Some(&object_id),
+      anchor,
+      resolution: match value.resolution {
+        battlement::MotionReferenceResolution::CaptureAtStart => {
+          wire::MotionReferenceResolution::CaptureAtStart
+        }
+        battlement::MotionReferenceResolution::Follow => wire::MotionReferenceResolution::Follow,
+      },
+    },
+  )
 }
 
 pub(crate) fn write_drag_control_operation<'a, A: Allocator + 'a>(

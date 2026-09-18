@@ -6,7 +6,8 @@ use std::{
 };
 
 use battlement::{
-  Command, CommandBody, MotionPlaybackEvent, MotionPlaybackOutcome, MotionValueSample, ObjectId,
+  Command, CommandBody, MotionPlaybackEvent, MotionPlaybackOutcome, MotionSequenceLabelEvent,
+  MotionValueSample, ObjectId,
 };
 
 thread_local! {
@@ -29,11 +30,17 @@ struct PlaybackSubscription {
   id: ObjectId,
   generation: u32,
   invoke: Box<dyn Fn(MotionPlaybackOutcome) -> bool>,
+  label: Rc<dyn Fn(&str) -> bool>,
 }
 
 pub(crate) struct PlaybackInvocation {
   outcome: MotionPlaybackOutcome,
   invoke: Box<dyn Fn(MotionPlaybackOutcome) -> bool>,
+}
+
+pub(crate) struct LabelInvocation {
+  label: String,
+  invoke: Rc<dyn Fn(&str) -> bool>,
 }
 
 #[derive(Clone)]
@@ -125,6 +132,7 @@ impl MotionValueRuntime {
     id: ObjectId,
     generation: u32,
     invoke: impl Fn(MotionPlaybackOutcome) -> bool + 'static,
+    label: impl Fn(&str) -> bool + 'static,
   ) {
     assert!(
       !self
@@ -137,7 +145,27 @@ impl MotionValueRuntime {
       id,
       generation,
       invoke: Box::new(invoke),
+      label: Rc::new(label),
     });
+  }
+
+  pub(crate) fn take_label_events(
+    &mut self,
+    events: &[MotionSequenceLabelEvent],
+  ) -> Vec<LabelInvocation> {
+    let mut invocations = Vec::new();
+    for event in events {
+      let Some(index) = self.playbacks.iter().position(|subscription| {
+        subscription.id == event.playback_id && subscription.generation == event.generation
+      }) else {
+        continue;
+      };
+      invocations.push(LabelInvocation {
+        label: event.label.clone(),
+        invoke: Rc::clone(&self.playbacks[index].label),
+      });
+    }
+    invocations
   }
 
   pub(crate) fn take_playback_events(
@@ -167,6 +195,12 @@ impl MotionValueRuntime {
 impl PlaybackInvocation {
   pub(crate) fn invoke(self) -> bool {
     (self.invoke)(self.outcome)
+  }
+}
+
+impl LabelInvocation {
+  pub(crate) fn invoke(self) -> bool {
+    (self.invoke)(&self.label)
   }
 }
 

@@ -24,6 +24,73 @@ namespace Battlement
                 ),
             };
 
+        internal static MotionSequenceEntry MotionSequenceEntry(Wire.MotionSequenceEntry value)
+        {
+            MotionSequenceSchedule schedule = value.Schedule.HasValue
+                ? MotionSequenceSchedule(value.Schedule.Value)
+                : throw Missing("motion sequence schedule");
+            return value.Kind switch
+            {
+                Wire.MotionSequenceEntryKind.Animate
+                    when value.Selector.HasValue
+                        && value.Target.HasValue
+                        && value.PositionTransition.HasValue => new MotionSequenceEntry.Animate(
+                    MotionSelector(value.Selector.Value),
+                    MotionTarget(value.Target.Value),
+                    value.Position.HasValue ? MotionPositionReference(value.Position.Value) : null,
+                    Transition(value.PositionTransition.Value),
+                    schedule,
+                    value.Conflict switch
+                    {
+                        Wire.MotionSequenceConflict.Reject => MotionSequenceConflict.Reject,
+                        Wire.MotionSequenceConflict.Replace => MotionSequenceConflict.Replace,
+                        _ => throw new InvalidDataException(
+                            "Unknown motion sequence conflict behavior."
+                        ),
+                    }
+                ),
+                Wire.MotionSequenceEntryKind.Label when value.Label is not null =>
+                    new MotionSequenceEntry.Label(value.Label, schedule),
+                _ => throw new InvalidDataException(
+                    "Motion sequence entry kind and payload do not match."
+                ),
+            };
+        }
+
+        private static MotionSequenceSchedule MotionSequenceSchedule(
+            Wire.MotionSequenceSchedule value
+        ) =>
+            value.Kind switch
+            {
+                Wire.MotionSequenceScheduleKind.Absolute => new MotionSequenceSchedule.Absolute(
+                    value.AbsoluteMicros
+                ),
+                Wire.MotionSequenceScheduleKind.RelativeStart =>
+                    new MotionSequenceSchedule.RelativeStart(value.Entry, value.OffsetMicros),
+                Wire.MotionSequenceScheduleKind.AfterCompletion =>
+                    new MotionSequenceSchedule.AfterCompletion(value.Entry, value.OffsetMicros),
+                Wire.MotionSequenceScheduleKind.Label when value.Label is not null =>
+                    new MotionSequenceSchedule.Label(value.Label, value.OffsetMicros),
+                _ => throw new InvalidDataException("Unknown motion sequence schedule."),
+            };
+
+        private static MotionPositionReference MotionPositionReference(
+            Wire.MotionPositionReference value
+        ) =>
+            new(
+                ObjectId(value.ObjectId),
+                value.Anchor,
+                value.Resolution switch
+                {
+                    Wire.MotionReferenceResolution.CaptureAtStart =>
+                        MotionReferenceResolution.CaptureAtStart,
+                    Wire.MotionReferenceResolution.Follow => MotionReferenceResolution.Follow,
+                    _ => throw new InvalidDataException(
+                        "Unknown motion position-reference behavior."
+                    ),
+                }
+            );
+
         internal static MotionValue MotionValue(Wire.MotionValueOperation value) =>
             value.ValueType switch
             {

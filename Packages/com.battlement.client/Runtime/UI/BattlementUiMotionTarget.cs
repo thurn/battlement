@@ -1,6 +1,9 @@
 #nullable enable
 
+using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Battlement.UI
@@ -51,6 +54,35 @@ namespace Battlement.UI
 
         public bool IsParentOf(IBattlementMotionTarget target) =>
             target is BattlementUiMotionTarget ui && ReferenceEquals(ui.Element.parent, Element);
+
+        public IReadOnlyList<MotionPropertyValue> ResolvePosition(
+            IBattlementMotionTarget reference,
+            string? anchor
+        )
+        {
+            if (reference is not BattlementUiMotionTarget ui || anchor is not null)
+                throw new InvalidOperationException(
+                    "UI Motion positions require an unanchored UI reference."
+                );
+            if (Element.parent is null || ui.Element.panel != Element.panel)
+                throw new InvalidOperationException(
+                    "UI Motion positions require attached hosts in one panel."
+                );
+            Vector2 desired = Element.parent.WorldToLocal(ui.Element.worldBound.center);
+            Vector2 origin = Element.layout.center;
+            return new MotionPropertyValue[]
+            {
+                new(
+                    MotionProperty.X,
+                    new MotionValue.Length(new UiLength.Px(desired.x - origin.x))
+                ),
+                new(
+                    MotionProperty.Y,
+                    new MotionValue.Length(new UiLength.Px(desired.y - origin.y))
+                ),
+                new(MotionProperty.Z, new MotionValue.Length(new UiLength.Px(0))),
+            };
+        }
 
         public void Release() => BattlementMotionPropertyWriter.Release(Element);
     }

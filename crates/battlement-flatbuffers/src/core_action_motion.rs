@@ -22,6 +22,7 @@ pub(crate) fn write<'a>(
     batch.value_samples.len(),
     batch.playback_events.len(),
     batch.gesture_events.len(),
+    batch.label_events.len(),
   ] {
     if count > MAXIMUM_RECORDS {
       return Err(error("a Motion batch has too many records"));
@@ -172,11 +173,29 @@ pub(crate) fn write<'a>(
     })
     .collect::<Result<Vec<_>, ProtocolError>>()?;
 
+  let label_events = batch
+    .label_events
+    .iter()
+    .map(|event| {
+      let playback_id = common::Uuid(*event.playback_id.as_uuid().as_bytes());
+      let label = builder.create_string(&event.label);
+      wire::MotionSequenceLabelEvent::create(
+        builder,
+        &wire::MotionSequenceLabelEventArgs {
+          playback_id: Some(&playback_id),
+          generation: event.generation,
+          label: Some(label),
+        },
+      )
+    })
+    .collect::<Vec<_>>();
+
   let events = builder.create_vector(&events);
   let samples = builder.create_vector(&samples);
   let value_samples = builder.create_vector(&value_samples);
   let playback_events = builder.create_vector(&playback_events);
   let gesture_events = builder.create_vector(&gesture_events);
+  let label_events = builder.create_vector(&label_events);
   let batch = wire::MotionEventBatch::create(
     builder,
     &wire::MotionEventBatchArgs {
@@ -187,6 +206,7 @@ pub(crate) fn write<'a>(
       value_samples: Some(value_samples),
       playback_events: Some(playback_events),
       gesture_events: Some(gesture_events),
+      label_events: Some(label_events),
     },
   );
   Ok(client::MotionAction::create(

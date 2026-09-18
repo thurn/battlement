@@ -16,6 +16,7 @@ namespace Battlement.UI
         private readonly BattlementSharedLayoutRegistry sharedLayouts = new();
         private readonly Dictionary<Guid, ulong> controlledClocks = new();
         private readonly BattlementImperativePlaybacks imperativePlaybacks = new();
+        private readonly Dictionary<Guid, BattlementMotionSequence> activeSequences = new();
         private readonly Dictionary<Guid, ActiveControl> activeControls = new();
         private readonly HashSet<Guid> installingControls = new();
         private readonly BattlementMotionReconnectState reconnect = new();
@@ -23,6 +24,7 @@ namespace Battlement.UI
         private readonly List<(DescriptorState Descriptor, SlotState Slot)> pendingSamples = new();
         private readonly List<MotionGestureEvent> gestureEvents = new();
         private readonly List<MotionGestureEvent> pendingGestureSamples = new();
+        private readonly List<MotionSequenceLabelEvent> labelEvents = new();
         private readonly Func<double> unscaledTime;
         private readonly Func<double> scaledTime;
         private readonly Func<ObjectId, MotionClockSample>? audioTime;
@@ -215,6 +217,7 @@ namespace Battlement.UI
             descriptorByHost.Clear();
             controlledClocks.Clear();
             imperativePlaybacks.Clear();
+            activeSequences.Clear();
             activeControls.Clear();
             installingControls.Clear();
             reconnect.Clear();
@@ -222,6 +225,7 @@ namespace Battlement.UI
             events.Clear();
             pendingSamples.Clear();
             pendingGestureSamples.Clear();
+            labelEvents.Clear();
             sharedLayouts.Clear();
             performance.Reset();
             if (IsPlayerLoopRegistered)
@@ -287,6 +291,7 @@ namespace Battlement.UI
                 return;
             if (playback.Generation != operation.Generation)
                 throw Invalid("The imperative playback generation is stale.");
+            ApplySequencePlayback(operation.PlaybackId, operation.Generation, operation.Command);
             foreach (MotionPlaybackAddress address in playback.Addresses.ToArray())
                 Apply(address, operation.Command);
             if (
@@ -320,6 +325,7 @@ namespace Battlement.UI
                 return;
             if (playback.Generation != generation)
                 throw Invalid("The imperative playback generation is stale.");
+            ApplySequencePlayback(playbackId, generation, kind, number);
             foreach (MotionPlaybackAddress address in playback.Addresses.ToArray())
                 ApplyPlayback(
                     address.DescriptorId,
@@ -339,6 +345,64 @@ namespace Battlement.UI
             };
             if (outcome is MotionPlaybackOutcome terminal)
                 FinishImperative(playbackId.Value, terminal);
+        }
+
+        private void ApplySequencePlayback(
+            ObjectId playbackId,
+            uint generation,
+            MotionPlaybackCommand command
+        )
+        {
+            if (!activeSequences.TryGetValue(playbackId.Value, out var sequence))
+                return;
+            if (sequence.Generation != generation)
+                throw Invalid("The Motion sequence generation is stale.");
+            ulong now = ClockMicros(sequence.Clock);
+            switch (command)
+            {
+                case MotionPlaybackCommand.Play:
+                    sequence.Play(now);
+                    break;
+                case MotionPlaybackCommand.Pause:
+                    sequence.Pause(now);
+                    break;
+                case MotionPlaybackCommand.SetSpeed speed:
+                    if (!double.IsFinite(speed.Value) || speed.Value < 0)
+                        throw Invalid("Motion playback speed must be finite and nonnegative.");
+                    sequence.SetSpeed(now, speed.Value);
+                    break;
+                case MotionPlaybackCommand.Stop:
+                case MotionPlaybackCommand.Cancel:
+                    activeSequences.Remove(playbackId.Value);
+                    break;
+                case MotionPlaybackCommand.Complete:
+                    sequence.Finish(now);
+                    activeSequences.Remove(playbackId.Value);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void ApplySequencePlayback(
+            ObjectId playbackId,
+            uint generation,
+            MotionPlaybackOperationKind kind,
+            double number
+        )
+        {
+            MotionPlaybackCommand? command = kind switch
+            {
+                MotionPlaybackOperationKind.Play => new MotionPlaybackCommand.Play(),
+                MotionPlaybackOperationKind.Pause => new MotionPlaybackCommand.Pause(),
+                MotionPlaybackOperationKind.Stop => new MotionPlaybackCommand.Stop(),
+                MotionPlaybackOperationKind.Cancel => new MotionPlaybackCommand.Cancel(),
+                MotionPlaybackOperationKind.Complete => new MotionPlaybackCommand.Complete(),
+                MotionPlaybackOperationKind.SetSpeed => new MotionPlaybackCommand.SetSpeed(number),
+                _ => null,
+            };
+            if (command is not null)
+                ApplySequencePlayback(playbackId, generation, command);
         }
 
         public void Apply(MotionControlOperation operation)
@@ -472,53 +536,7 @@ namespace Battlement.UI
             switch (operation.Command)
             {
                 case MotionScopeCommand.Start start:
-                    var addresses = new List<MotionPlaybackAddress>();
-                    var selected =
-                        new Dictionary<
-                            Guid,
-                            (
-                                DescriptorState Descriptor,
-                                List<(MotionTargetDescriptor Target, ulong Offset)> Targets
-                            )
-                        >();
-                    for (int index = 0; index < start.Steps.Count; index++)
-                    {
-                        MotionSequenceStep step = start.Steps[index];
-                        foreach (
-                            DescriptorState target in BattlementMotionControlUtilities.Select(
-                                descriptors.Values,
-                                root,
-                                step.Selector
-                            )
-                        )
-                        {
-                            Guid id = target.Descriptor.DescriptorId.Value;
-                            if (!selected.TryGetValue(id, out var group))
-                            {
-                                group = (target, new List<(MotionTargetDescriptor, ulong)>());
-                                selected.Add(id, group);
-                            }
-                            group.Targets.Add(
-                                (
-                                    BattlementMotionControlUtilities.Delay(
-                                        step.Target,
-                                        step.StartMicros
-                                    ),
-                                    (ulong)index
-                                )
-                            );
-                        }
-                    }
-                    foreach (var group in selected.Values)
-                    foreach (var step in group.Targets)
-                        ValidateImperative(group.Descriptor, step.Target, false);
-                    foreach (var group in selected.Values)
-                        addresses.AddRange(
-                            InstallImperatives(group.Descriptor, group.Targets, start.Generation)
-                        );
-                    imperativePlaybacks.Register(start.PlaybackId, start.Generation, addresses);
-                    if (addresses.Count == 0)
-                        FinishImperative(start.PlaybackId.Value, MotionPlaybackOutcome.Completed);
+                    StartSequence(root, start.PlaybackId, start.Generation, start.Entries, false);
                     break;
                 case MotionScopeCommand.Set set:
                     foreach (
@@ -558,63 +576,16 @@ namespace Battlement.UI
             switch (operation.Kind)
             {
                 case MotionScopeOperationKind.Start:
-                    var addresses = new List<MotionPlaybackAddress>();
-                    var selected =
-                        new Dictionary<
-                            Guid,
-                            (
-                                DescriptorState Descriptor,
-                                List<(MotionTargetDescriptor Target, ulong Offset)> Targets
-                            )
-                        >();
-                    for (int index = 0; index < operation.StepCount; index++)
-                    {
-                        MotionSelector selector = operation.ReadStepSelector(index);
-                        MotionTargetDescriptor descriptor = operation.ReadStepTarget(index);
-                        ulong startMicros = operation.ReadStepStartMicros(index);
-                        foreach (
-                            DescriptorState target in BattlementMotionControlUtilities.Select(
-                                descriptors.Values,
-                                root,
-                                selector
-                            )
-                        )
-                        {
-                            Guid id = target.Descriptor.DescriptorId.Value;
-                            if (!selected.TryGetValue(id, out var group))
-                            {
-                                group = (target, new List<(MotionTargetDescriptor, ulong)>());
-                                selected.Add(id, group);
-                            }
-                            group.Targets.Add(
-                                (
-                                    BattlementMotionControlUtilities.Delay(descriptor, startMicros),
-                                    (ulong)index
-                                )
-                            );
-                        }
-                    }
-                    foreach (var group in selected.Values)
-                    foreach (var step in group.Targets)
-                        ValidateImperative(group.Descriptor, step.Target, blocking);
-                    foreach (var group in selected.Values)
-                        addresses.AddRange(
-                            InstallImperatives(
-                                group.Descriptor,
-                                group.Targets,
-                                operation.Generation
-                            )
-                        );
-                    imperativePlaybacks.Register(
+                    var entries = new MotionSequenceEntry[operation.EntryCount];
+                    for (int index = 0; index < entries.Length; index++)
+                        entries[index] = operation.ReadEntry(index);
+                    StartSequence(
+                        root,
                         operation.PlaybackId,
                         operation.Generation,
-                        addresses
+                        entries,
+                        blocking
                     );
-                    if (addresses.Count == 0)
-                        FinishImperative(
-                            operation.PlaybackId.Value,
-                            MotionPlaybackOutcome.Completed
-                        );
                     return RunningOperation(operation.PlaybackId);
                 case MotionScopeOperationKind.Set:
                     MotionSelector setSelector = operation.ReadSelector();
@@ -938,19 +909,23 @@ namespace Battlement.UI
                 && valueSamples.Count == 0
                 && terminalPlaybacks.Count == 0
                 && nativeGestures.Count == 0
+                && labelEvents.Count == 0
             )
                 return null;
             ulong first = boundaries.Count == 0 ? sequence : boundaries[0].Sequence;
             ulong last = boundaries.Count == 0 ? sequence : boundaries[^1].Sequence;
-            return new MotionEventBatch(
+            var drained = new MotionEventBatch(
                 first,
                 last,
                 boundaries,
                 samples,
                 valueSamples,
                 terminalPlaybacks,
-                nativeGestures
+                nativeGestures,
+                labelEvents.ToArray()
             );
+            labelEvents.Clear();
+            return drained;
         }
 
         public void PreLayout()
@@ -966,6 +941,7 @@ namespace Battlement.UI
         {
             foreach (DescriptorState descriptor in descriptors.Values)
                 descriptor.CaptureLayoutTarget();
+            ProgressSequences();
             Sample(layout: false);
             foreach (DescriptorState descriptor in descriptors.Values)
                 descriptor.SampleLayout(
@@ -973,6 +949,7 @@ namespace Battlement.UI
                     IsReduced(descriptor.Descriptor)
                 );
             presentationChanged?.Invoke();
+            ProgressSequences();
             CompleteImperativePlaybacks();
             foreach (BattlementGestureState gesture in gestures.Values)
                 gesture.Sample();
@@ -1170,13 +1147,17 @@ namespace Battlement.UI
 
         private void CompleteImperativePlaybacks()
         {
-            IReadOnlyList<Guid> completed = imperativePlaybacks.Complete(descriptors);
+            IReadOnlyList<Guid> completed = imperativePlaybacks.Complete(
+                descriptors,
+                activeSequences.Keys
+            );
             for (int index = 0; index < completed.Count; index++)
                 ForgetActiveControl(completed[index]);
         }
 
         private void FinishImperative(Guid id, MotionPlaybackOutcome outcome)
         {
+            activeSequences.Remove(id);
             if (!imperativePlaybacks.Finish(id, outcome))
                 return;
             ForgetActiveControl(id);
@@ -1303,6 +1284,434 @@ namespace Battlement.UI
                 throw Invalid("An infinite Motion playback must be nonblocking.");
         }
 
+        private void StartSequence(
+            DescriptorState root,
+            ObjectId playbackId,
+            uint generation,
+            IReadOnlyList<MotionSequenceEntry> definitions,
+            bool blocking
+        )
+        {
+            ValidateSequenceGraph(definitions);
+            var entries = new List<MotionSequenceEntryState>(definitions.Count);
+            for (int index = 0; index < definitions.Count; index++)
+            {
+                MotionSequenceEntry definition = definitions[index];
+                if (definition is not MotionSequenceEntry.Animate animation)
+                {
+                    entries.Add(
+                        new MotionSequenceEntryState(
+                            definition,
+                            Array.Empty<Guid>(),
+                            new Dictionary<Guid, IReadOnlyList<MotionPropertyValue>>()
+                        )
+                    );
+                    continue;
+                }
+                DescriptorState[] selected = BattlementMotionControlUtilities
+                    .Select(descriptors.Values, root, animation.Selector)
+                    .ToArray();
+                if (selected.Length == 0)
+                    throw Invalid("A Motion sequence target does not exist.");
+                var captured = new Dictionary<Guid, IReadOnlyList<MotionPropertyValue>>();
+                foreach (DescriptorState target in selected)
+                {
+                    MotionTargetDescriptor resolved = ResolveSequenceTarget(
+                        target,
+                        animation,
+                        capture: true,
+                        captured
+                    );
+                    ValidateImperative(target, resolved, blocking);
+                }
+                entries.Add(
+                    new MotionSequenceEntryState(
+                        definition,
+                        selected.Select(value => value.Descriptor.DescriptorId.Value).ToArray(),
+                        captured
+                    )
+                );
+            }
+            ValidateSequenceConflicts(definitions, entries);
+            var addresses = new List<MotionPlaybackAddress>();
+            imperativePlaybacks.Register(playbackId, generation, addresses);
+            var sequence = new BattlementMotionSequence(
+                playbackId,
+                generation,
+                root.Descriptor.Clock,
+                ClockMicros(root.Descriptor.Clock),
+                entries
+            );
+            activeSequences[playbackId.Value] = sequence;
+            ProgressSequence(sequence);
+        }
+
+        private MotionTargetDescriptor ResolveSequenceTarget(
+            DescriptorState target,
+            MotionSequenceEntry.Animate animation,
+            bool capture,
+            IDictionary<Guid, IReadOnlyList<MotionPropertyValue>> captured
+        )
+        {
+            if (animation.Position is not MotionPositionReference position)
+                return animation.Target;
+            IReadOnlyList<MotionPropertyValue> values;
+            if (
+                position.Resolution == MotionReferenceResolution.CaptureAtStart
+                && captured.TryGetValue(target.Descriptor.DescriptorId.Value, out var retained)
+            )
+                values = retained;
+            else
+            {
+                if (
+                    !descriptorByHost.TryGetValue(position.ObjectId.Value, out Guid referenceId)
+                    || !descriptors.TryGetValue(referenceId, out DescriptorState reference)
+                )
+                    throw Invalid("A Motion sequence position reference does not exist.");
+                try
+                {
+                    values = target.Properties.ResolvePosition(
+                        reference.Properties,
+                        position.Anchor
+                    );
+                }
+                catch (Exception failure)
+                {
+                    throw Invalid(failure.Message);
+                }
+                if (capture && position.Resolution == MotionReferenceResolution.CaptureAtStart)
+                    captured[target.Descriptor.DescriptorId.Value] = values;
+            }
+            MotionPropertyTrack[] tracks = animation
+                .Target.Tracks.Concat(
+                    values.Select(value => new MotionPropertyTrack(
+                        value.Property,
+                        new[] { value.Value },
+                        animation.PositionTransition
+                    ))
+                )
+                .ToArray();
+            return animation.Target with { Tracks = tracks };
+        }
+
+        private void ProgressSequences()
+        {
+            foreach (BattlementMotionSequence sequence in activeSequences.Values.ToArray())
+                ProgressSequence(sequence);
+        }
+
+        private void ProgressSequence(BattlementMotionSequence sequence)
+        {
+            ulong now = ClockMicros(sequence.Clock);
+            MotionPlaybackOutcome? interrupted = SequenceTerminalOutcome(sequence);
+            if (interrupted is MotionPlaybackOutcome outcome)
+            {
+                activeSequences.Remove(sequence.PlaybackId.Value);
+                FinishImperative(sequence.PlaybackId.Value, outcome);
+                return;
+            }
+            foreach (MotionSequenceEntryState entry in sequence.Entries)
+            {
+                if (
+                    entry.StartedAt is null
+                    || entry.CompletedAt is not null
+                    || entry.Definition is not MotionSequenceEntry.Animate animation
+                    || animation.Position?.Resolution != MotionReferenceResolution.Follow
+                )
+                    continue;
+                foreach (MotionPlaybackAddress address in entry.Addresses)
+                    if (
+                        descriptors.TryGetValue(address.DescriptorId.Value, out var descriptor)
+                        && descriptor.FindSlot(address.Slot) is SlotState slot
+                        && slot.Definition.Generation == address.Generation
+                    )
+                        slot.RetargetPosition(
+                            ResolveSequencePosition(descriptor, animation.Position),
+                            ClockMicros(slot.Clock)
+                        );
+            }
+            bool finished = sequence.Progress(
+                now,
+                (index, entry) => StartSequenceEntry(sequence, index, entry),
+                SequenceEntryTerminal,
+                label =>
+                    labelEvents.Add(
+                        new MotionSequenceLabelEvent(
+                            sequence.PlaybackId,
+                            sequence.Generation,
+                            label
+                        )
+                    )
+            );
+            if (finished)
+            {
+                activeSequences.Remove(sequence.PlaybackId.Value);
+                FinishImperative(sequence.PlaybackId.Value, MotionPlaybackOutcome.Completed);
+            }
+        }
+
+        private bool StartSequenceEntry(
+            BattlementMotionSequence sequence,
+            int index,
+            MotionSequenceEntryState entry
+        )
+        {
+            var animation = (MotionSequenceEntry.Animate)entry.Definition;
+            foreach (Guid targetId in entry.Targets)
+            {
+                if (!descriptors.TryGetValue(targetId, out DescriptorState descriptor))
+                    throw Invalid("A Motion sequence target was removed before it started.");
+                var captured =
+                    (IDictionary<Guid, IReadOnlyList<MotionPropertyValue>>)entry.CapturedPositions;
+                MotionTargetDescriptor target = ResolveSequenceTarget(
+                    descriptor,
+                    animation,
+                    capture: false,
+                    captured
+                );
+                MotionPlaybackAddress address = InstallSequenceImperative(
+                    descriptor,
+                    target,
+                    sequence.Generation,
+                    (ulong)index,
+                    out var remaps
+                );
+                RemapSequenceAddresses(sequence, remaps);
+                entry.Addresses.Add(address);
+                if (imperativePlaybacks.TryGet(sequence.PlaybackId.Value, out var playback))
+                {
+                    playback.Addresses.RemoveAll(existing => !AddressExists(existing));
+                    if (!playback.Addresses.Contains(address))
+                        playback.Addresses.Add(address);
+                }
+            }
+            return entry.Addresses.Count == 0;
+        }
+
+        private void RemapSequenceAddresses(
+            BattlementMotionSequence sequence,
+            IReadOnlyList<(MotionPlaybackAddress Old, MotionPlaybackAddress New)> remaps
+        )
+        {
+            foreach ((MotionPlaybackAddress old, MotionPlaybackAddress replacement) in remaps)
+            foreach (MotionSequenceEntryState entry in sequence.Entries)
+                for (int index = 0; index < entry.Addresses.Count; index++)
+                    if (entry.Addresses[index] == old)
+                        entry.Addresses[index] = replacement;
+            if (!imperativePlaybacks.TryGet(sequence.PlaybackId.Value, out var playback))
+                return;
+            foreach ((MotionPlaybackAddress old, MotionPlaybackAddress replacement) in remaps)
+                for (int index = 0; index < playback.Addresses.Count; index++)
+                    if (playback.Addresses[index] == old)
+                        playback.Addresses[index] = replacement;
+        }
+
+        private IReadOnlyList<MotionPropertyValue> ResolveSequencePosition(
+            DescriptorState target,
+            MotionPositionReference position
+        )
+        {
+            if (
+                !descriptorByHost.TryGetValue(position.ObjectId.Value, out Guid referenceId)
+                || !descriptors.TryGetValue(referenceId, out DescriptorState reference)
+            )
+                throw Invalid("A Motion sequence position reference does not exist.");
+            return target.Properties.ResolvePosition(reference.Properties, position.Anchor);
+        }
+
+        private bool SequenceEntryTerminal(MotionSequenceEntryState entry)
+        {
+            if (entry.Addresses.Count == 0)
+                return false;
+            foreach (MotionPlaybackAddress address in entry.Addresses)
+            {
+                if (!descriptors.TryGetValue(address.DescriptorId.Value, out var descriptor))
+                    throw Invalid("A Motion sequence target was removed while running.");
+                if (
+                    descriptor.FindSlot(address.Slot) is not SlotState slot
+                    || slot.Definition.Generation != address.Generation
+                )
+                    continue;
+                if (!slot.Terminal)
+                    return false;
+                if (slot.Outcome is not MotionPlaybackOutcome.Completed)
+                    return false;
+            }
+            return true;
+        }
+
+        private bool AddressExists(MotionPlaybackAddress address) =>
+            descriptors.TryGetValue(address.DescriptorId.Value, out var descriptor)
+            && descriptor.FindSlot(address.Slot)?.Definition.Generation == address.Generation;
+
+        private MotionPlaybackOutcome? SequenceTerminalOutcome(BattlementMotionSequence sequence)
+        {
+            foreach (MotionSequenceEntryState entry in sequence.Entries)
+            foreach (MotionPlaybackAddress address in entry.Addresses)
+                if (
+                    descriptors.TryGetValue(address.DescriptorId.Value, out var descriptor)
+                    && descriptor.FindSlot(address.Slot) is SlotState slot
+                    && slot.Definition.Generation == address.Generation
+                    && slot.Outcome
+                        is MotionPlaybackOutcome.Stopped
+                            or MotionPlaybackOutcome.Cancelled
+                            or MotionPlaybackOutcome.Failed
+                )
+                    return slot.Outcome;
+            return null;
+        }
+
+        private static void ValidateSequenceGraph(IReadOnlyList<MotionSequenceEntry> entries)
+        {
+            var labels = new Dictionary<string, int>();
+            for (int index = 0; index < entries.Count; index++)
+                if (entries[index] is MotionSequenceEntry.Label label)
+                {
+                    if (string.IsNullOrWhiteSpace(label.Name) || !labels.TryAdd(label.Name, index))
+                        throw Invalid("Motion sequence labels must be nonempty and unique.");
+                }
+            var states = new byte[entries.Count];
+            for (int index = 0; index < entries.Count; index++)
+                Visit(index);
+
+            void Visit(int index)
+            {
+                if (states[index] == 2)
+                    return;
+                if (states[index] == 1)
+                    throw Invalid("Motion sequence dependencies must be acyclic.");
+                states[index] = 1;
+                MotionSequenceSchedule schedule = EntrySchedule(entries[index]);
+                int? dependency = schedule switch
+                {
+                    MotionSequenceSchedule.RelativeStart relative => Checked(relative.Entry),
+                    MotionSequenceSchedule.AfterCompletion completion => Checked(completion.Entry),
+                    MotionSequenceSchedule.Label named => labels.TryGetValue(
+                        named.Name,
+                        out int label
+                    )
+                        ? label
+                        : throw Invalid("Motion sequence references a missing label."),
+                    _ => null,
+                };
+                if (
+                    schedule is MotionSequenceSchedule.AfterCompletion
+                    && dependency is int completed
+                    && entries[completed] is MotionSequenceEntry.Animate animation
+                    && (
+                        animation.Target.Tracks.Any(track =>
+                            track.Transition.Repeat is MotionRepeat.Forever
+                        )
+                        || (
+                            animation.Position is not null
+                            && animation.PositionTransition.Repeat is MotionRepeat.Forever
+                        )
+                    )
+                )
+                    throw Invalid("A Motion sequence cannot wait for an infinite entry.");
+                if (dependency is int value)
+                    Visit(value);
+                states[index] = 2;
+            }
+
+            int Checked(uint value) =>
+                value < entries.Count
+                    ? (int)value
+                    : throw Invalid("Motion sequence references a missing entry.");
+        }
+
+        private static MotionSequenceSchedule EntrySchedule(MotionSequenceEntry entry) =>
+            entry switch
+            {
+                MotionSequenceEntry.Animate value => value.Schedule,
+                MotionSequenceEntry.Label value => value.Schedule,
+                _ => throw Invalid("Unknown Motion sequence entry."),
+            };
+
+        private static void ValidateSequenceConflicts(
+            IReadOnlyList<MotionSequenceEntry> definitions,
+            IReadOnlyList<MotionSequenceEntryState> states
+        )
+        {
+            for (int later = 0; later < definitions.Count; later++)
+            {
+                if (definitions[later] is not MotionSequenceEntry.Animate next)
+                    continue;
+                for (int earlier = 0; earlier < later; earlier++)
+                {
+                    if (definitions[earlier] is not MotionSequenceEntry.Animate prior)
+                        continue;
+                    if (!states[later].Targets.Intersect(states[earlier].Targets).Any())
+                        continue;
+                    bool overlaps = SequenceClaims(next).Intersect(SequenceClaims(prior)).Any();
+                    if (
+                        overlaps
+                        && next.Conflict != MotionSequenceConflict.Replace
+                        && !DependsOnCompletion(definitions, later, earlier, new HashSet<int>())
+                    )
+                        throw Invalid(
+                            "Overlapping Motion sequence property writes require replacement."
+                        );
+                }
+            }
+        }
+
+        private static IEnumerable<(MotionProperty, MotionPropertyTarget)> SequenceClaims(
+            MotionSequenceEntry.Animate animation
+        )
+        {
+            foreach (MotionPropertyTrack track in animation.Target.Tracks)
+                yield return (track.Property, track.Target);
+            foreach (MotionPropertyValue value in animation.Target.TransitionEnd)
+                yield return (value.Property, new MotionPropertyTarget.Host());
+            if (animation.Position is null)
+                yield break;
+            foreach (
+                MotionProperty property in new[]
+                {
+                    MotionProperty.X,
+                    MotionProperty.Y,
+                    MotionProperty.Z,
+                    MotionProperty.LocalPositionX,
+                    MotionProperty.LocalPositionY,
+                    MotionProperty.LocalPositionZ,
+                }
+            )
+                yield return (property, new MotionPropertyTarget.Host());
+        }
+
+        private static bool DependsOnCompletion(
+            IReadOnlyList<MotionSequenceEntry> entries,
+            int current,
+            int expected,
+            HashSet<int> visited
+        )
+        {
+            if (!visited.Add(current))
+                return false;
+            MotionSequenceSchedule schedule = EntrySchedule(entries[current]);
+            if (schedule is MotionSequenceSchedule.AfterCompletion completion)
+                return completion.Entry == expected
+                    || DependsOnCompletion(entries, (int)completion.Entry, expected, visited);
+            if (schedule is MotionSequenceSchedule.RelativeStart relative)
+                return DependsOnCompletion(entries, (int)relative.Entry, expected, visited);
+            if (schedule is MotionSequenceSchedule.Label label)
+            {
+                int index = -1;
+                for (int candidate = 0; candidate < entries.Count; candidate++)
+                    if (
+                        entries[candidate] is MotionSequenceEntry.Label value
+                        && value.Name == label.Name
+                    )
+                    {
+                        index = candidate;
+                        break;
+                    }
+                return index >= 0 && DependsOnCompletion(entries, index, expected, visited);
+            }
+            return false;
+        }
+
         private bool IsReduced(MotionDescriptor descriptor) =>
             descriptor.ReducedMotion switch
             {
@@ -1381,10 +1790,25 @@ namespace Battlement.UI
             ulong offset
         ) => InstallImperatives(descriptor, new[] { (target, offset) }, generation)[0];
 
+        private MotionPlaybackAddress InstallSequenceImperative(
+            DescriptorState descriptor,
+            MotionTargetDescriptor target,
+            uint generation,
+            ulong offset,
+            out IReadOnlyList<(MotionPlaybackAddress Old, MotionPlaybackAddress New)> remaps
+        ) => InstallImperatives(descriptor, new[] { (target, offset) }, generation, out remaps)[0];
+
         private IReadOnlyList<MotionPlaybackAddress> InstallImperatives(
             DescriptorState descriptor,
             IReadOnlyList<(MotionTargetDescriptor Target, ulong Offset)> targets,
             uint generation
+        ) => InstallImperatives(descriptor, targets, generation, out _);
+
+        private IReadOnlyList<MotionPlaybackAddress> InstallImperatives(
+            DescriptorState descriptor,
+            IReadOnlyList<(MotionTargetDescriptor Target, ulong Offset)> targets,
+            uint generation,
+            out IReadOnlyList<(MotionPlaybackAddress Old, MotionPlaybackAddress New)> remaps
         )
         {
             var replacements = new List<MotionSlotDescriptor>();
@@ -1418,6 +1842,24 @@ namespace Battlement.UI
                 replacements,
                 out var retained
             );
+            remaps = retained
+                .Select(value =>
+                {
+                    MotionSlotDescriptor replacement = slots.First(slot => slot.Slot == value.Slot);
+                    return (
+                        new MotionPlaybackAddress(
+                            descriptor.Descriptor.DescriptorId,
+                            value.Previous.Definition.Slot,
+                            value.Previous.Definition.Generation
+                        ),
+                        new MotionPlaybackAddress(
+                            descriptor.Descriptor.DescriptorId,
+                            replacement.Slot,
+                            replacement.Generation
+                        )
+                    );
+                })
+                .ToArray();
             slots.AddRange(replacements);
             MotionDescriptor updated = descriptor.Descriptor with { Slots = slots };
             var prepared = new DescriptorState(

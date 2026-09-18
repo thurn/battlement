@@ -3100,6 +3100,381 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
+      pub const ENUM_MIN_MOTION_SEQUENCE_SCHEDULE_KIND: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_MOTION_SEQUENCE_SCHEDULE_KIND: u8 = 3;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_MOTION_SEQUENCE_SCHEDULE_KIND: [MotionSequenceScheduleKind; 4] = [
+        MotionSequenceScheduleKind::Absolute,
+        MotionSequenceScheduleKind::RelativeStart,
+        MotionSequenceScheduleKind::AfterCompletion,
+        MotionSequenceScheduleKind::Label,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct MotionSequenceScheduleKind(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl MotionSequenceScheduleKind {
+        pub const Absolute: Self = Self(0);
+        pub const RelativeStart: Self = Self(1);
+        pub const AfterCompletion: Self = Self(2);
+        pub const Label: Self = Self(3);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 3;
+        pub const ENUM_VALUES: &'static [Self] = &[
+          Self::Absolute,
+          Self::RelativeStart,
+          Self::AfterCompletion,
+          Self::Label,
+        ];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Absolute => Some("Absolute"),
+            Self::RelativeStart => Some("RelativeStart"),
+            Self::AfterCompletion => Some("AfterCompletion"),
+            Self::Label => Some("Label"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for MotionSequenceScheduleKind {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for MotionSequenceScheduleKind {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for MotionSequenceScheduleKind {
+        type Output = MotionSequenceScheduleKind;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for MotionSequenceScheduleKind {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for MotionSequenceScheduleKind {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for MotionSequenceScheduleKind {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_MOTION_SEQUENCE_CONFLICT: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_MOTION_SEQUENCE_CONFLICT: u8 = 1;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_MOTION_SEQUENCE_CONFLICT: [MotionSequenceConflict; 2] = [
+        MotionSequenceConflict::Reject,
+        MotionSequenceConflict::Replace,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct MotionSequenceConflict(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl MotionSequenceConflict {
+        pub const Reject: Self = Self(0);
+        pub const Replace: Self = Self(1);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 1;
+        pub const ENUM_VALUES: &'static [Self] = &[Self::Reject, Self::Replace];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Reject => Some("Reject"),
+            Self::Replace => Some("Replace"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for MotionSequenceConflict {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for MotionSequenceConflict {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for MotionSequenceConflict {
+        type Output = MotionSequenceConflict;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for MotionSequenceConflict {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for MotionSequenceConflict {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for MotionSequenceConflict {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_MOTION_REFERENCE_RESOLUTION: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_MOTION_REFERENCE_RESOLUTION: u8 = 1;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_MOTION_REFERENCE_RESOLUTION: [MotionReferenceResolution; 2] = [
+        MotionReferenceResolution::CaptureAtStart,
+        MotionReferenceResolution::Follow,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct MotionReferenceResolution(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl MotionReferenceResolution {
+        pub const CaptureAtStart: Self = Self(0);
+        pub const Follow: Self = Self(1);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 1;
+        pub const ENUM_VALUES: &'static [Self] = &[Self::CaptureAtStart, Self::Follow];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::CaptureAtStart => Some("CaptureAtStart"),
+            Self::Follow => Some("Follow"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for MotionReferenceResolution {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for MotionReferenceResolution {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for MotionReferenceResolution {
+        type Output = MotionReferenceResolution;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for MotionReferenceResolution {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for MotionReferenceResolution {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for MotionReferenceResolution {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_MOTION_SEQUENCE_ENTRY_KIND: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_MOTION_SEQUENCE_ENTRY_KIND: u8 = 1;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_MOTION_SEQUENCE_ENTRY_KIND: [MotionSequenceEntryKind; 2] = [
+        MotionSequenceEntryKind::Animate,
+        MotionSequenceEntryKind::Label,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct MotionSequenceEntryKind(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl MotionSequenceEntryKind {
+        pub const Animate: Self = Self(0);
+        pub const Label: Self = Self(1);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 1;
+        pub const ENUM_VALUES: &'static [Self] = &[Self::Animate, Self::Label];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Animate => Some("Animate"),
+            Self::Label => Some("Label"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for MotionSequenceEntryKind {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for MotionSequenceEntryKind {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for MotionSequenceEntryKind {
+        type Output = MotionSequenceEntryKind;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for MotionSequenceEntryKind {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for MotionSequenceEntryKind {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for MotionSequenceEntryKind {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
       pub const ENUM_MIN_MOTION_SCOPE_COMMAND_KIND: u8 = 0;
       #[deprecated(
         since = "2.0.0",
@@ -9110,6 +9485,177 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum MotionSequenceLabelEventOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MotionSequenceLabelEvent<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MotionSequenceLabelEvent<'a> {
+        type Inner = MotionSequenceLabelEvent<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MotionSequenceLabelEvent<'a> {
+        pub const VT_PLAYBACK_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_GENERATION: ::flatbuffers::VOffsetT = 6;
+        pub const VT_LABEL: ::flatbuffers::VOffsetT = 8;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MotionSequenceLabelEvent { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MotionSequenceLabelEventArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MotionSequenceLabelEvent<'bldr>> {
+          let mut builder = MotionSequenceLabelEventBuilder::new(_fbb);
+          if let Some(x) = args.label {
+            builder.add_label(x);
+          }
+          builder.add_generation(args.generation);
+          if let Some(x) = args.playback_id {
+            builder.add_playback_id(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn playback_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(MotionSequenceLabelEvent::VT_PLAYBACK_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn generation(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(MotionSequenceLabelEvent::VT_GENERATION, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn label(&self) -> &'a str {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(MotionSequenceLabelEvent::VT_LABEL, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MotionSequenceLabelEvent<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("playback_id", Self::VT_PLAYBACK_ID, true)?
+            .visit_field::<u32>("generation", Self::VT_GENERATION, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("label", Self::VT_LABEL, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MotionSequenceLabelEventArgs<'a> {
+        pub playback_id: Option<&'a Uuid>,
+        pub generation: u32,
+        pub label: Option<::flatbuffers::WIPOffset<&'a str>>,
+      }
+      impl<'a> Default for MotionSequenceLabelEventArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MotionSequenceLabelEventArgs {
+            playback_id: None, // required field
+            generation: 0,
+            label: None, // required field
+          }
+        }
+      }
+
+      pub struct MotionSequenceLabelEventBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MotionSequenceLabelEventBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_playback_id(&mut self, playback_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(MotionSequenceLabelEvent::VT_PLAYBACK_ID, playback_id);
+        }
+        #[inline]
+        pub fn add_generation(&mut self, generation: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(MotionSequenceLabelEvent::VT_GENERATION, generation, 0);
+        }
+        #[inline]
+        pub fn add_label(&mut self, label: ::flatbuffers::WIPOffset<&'b str>) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MotionSequenceLabelEvent::VT_LABEL,
+            label,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MotionSequenceLabelEventBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MotionSequenceLabelEventBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MotionSequenceLabelEvent<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, MotionSequenceLabelEvent::VT_PLAYBACK_ID, "playback_id");
+          self
+            .fbb_
+            .required(o, MotionSequenceLabelEvent::VT_LABEL, "label");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MotionSequenceLabelEvent<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MotionSequenceLabelEvent");
+          ds.field("playback_id", &self.playback_id());
+          ds.field("generation", &self.generation());
+          ds.field("label", &self.label());
+          ds.finish()
+        }
+      }
       pub enum MotionEventBatchOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -9135,6 +9681,7 @@ pub mod battlement {
         pub const VT_VALUE_SAMPLES: ::flatbuffers::VOffsetT = 12;
         pub const VT_PLAYBACK_EVENTS: ::flatbuffers::VOffsetT = 14;
         pub const VT_GESTURE_EVENTS: ::flatbuffers::VOffsetT = 16;
+        pub const VT_LABEL_EVENTS: ::flatbuffers::VOffsetT = 18;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9153,6 +9700,9 @@ pub mod battlement {
           let mut builder = MotionEventBatchBuilder::new(_fbb);
           builder.add_last_sequence(args.last_sequence);
           builder.add_first_sequence(args.first_sequence);
+          if let Some(x) = args.label_events {
+            builder.add_label_events(x);
+          }
           if let Some(x) = args.gesture_events {
             builder.add_gesture_events(x);
           }
@@ -9280,6 +9830,23 @@ pub mod battlement {
               .unwrap()
           }
         }
+        #[inline]
+        pub fn label_events(
+          &self,
+        ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceLabelEvent<'a>>>
+        {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<
+                ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceLabelEvent>>,
+              >>(MotionEventBatch::VT_LABEL_EVENTS, None)
+              .unwrap()
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for MotionEventBatch<'_> {
@@ -9306,6 +9873,9 @@ pub mod battlement {
             .visit_field::<::flatbuffers::ForwardsUOffset<
               ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MotionGestureEvent>>,
             >>("gesture_events", Self::VT_GESTURE_EVENTS, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<
+              ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MotionSequenceLabelEvent>>,
+            >>("label_events", Self::VT_LABEL_EVENTS, true)?
             .finish();
           Ok(())
         }
@@ -9338,6 +9908,11 @@ pub mod battlement {
             ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionGestureEvent<'a>>>,
           >,
         >,
+        pub label_events: Option<
+          ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceLabelEvent<'a>>>,
+          >,
+        >,
       }
       impl<'a> Default for MotionEventBatchArgs<'a> {
         #[inline]
@@ -9350,6 +9925,7 @@ pub mod battlement {
             value_samples: None,   // required field
             playback_events: None, // required field
             gesture_events: None,  // required field
+            label_events: None,    // required field
           }
         }
       }
@@ -9430,6 +10006,18 @@ pub mod battlement {
           );
         }
         #[inline]
+        pub fn add_label_events(
+          &mut self,
+          label_events: ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<MotionSequenceLabelEvent<'b>>>,
+          >,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MotionEventBatch::VT_LABEL_EVENTS,
+            label_events,
+          );
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> MotionEventBatchBuilder<'a, 'b, A> {
@@ -9455,6 +10043,9 @@ pub mod battlement {
           self
             .fbb_
             .required(o, MotionEventBatch::VT_GESTURE_EVENTS, "gesture_events");
+          self
+            .fbb_
+            .required(o, MotionEventBatch::VT_LABEL_EVENTS, "label_events");
           ::flatbuffers::WIPOffset::new(o.value())
         }
       }
@@ -9469,6 +10060,7 @@ pub mod battlement {
           ds.field("value_samples", &self.value_samples());
           ds.field("playback_events", &self.playback_events());
           ds.field("gesture_events", &self.gesture_events());
+          ds.field("label_events", &self.label_events());
           ds.finish()
         }
       }
@@ -13646,15 +14238,15 @@ pub mod battlement {
           ds.finish()
         }
       }
-      pub enum MotionSequenceStepOffset {}
+      pub enum MotionSequenceScheduleOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
-      pub struct MotionSequenceStep<'a> {
+      pub struct MotionSequenceSchedule<'a> {
         pub _tab: ::flatbuffers::Table<'a>,
       }
 
-      impl<'a> ::flatbuffers::Follow<'a> for MotionSequenceStep<'a> {
-        type Inner = MotionSequenceStep<'a>;
+      impl<'a> ::flatbuffers::Follow<'a> for MotionSequenceSchedule<'a> {
+        type Inner = MotionSequenceSchedule<'a>;
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
           Self {
@@ -13663,14 +14255,16 @@ pub mod battlement {
         }
       }
 
-      impl<'a> MotionSequenceStep<'a> {
-        pub const VT_SELECTOR: ::flatbuffers::VOffsetT = 4;
-        pub const VT_TARGET: ::flatbuffers::VOffsetT = 6;
-        pub const VT_START_MICROS: ::flatbuffers::VOffsetT = 8;
+      impl<'a> MotionSequenceSchedule<'a> {
+        pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+        pub const VT_ENTRY: ::flatbuffers::VOffsetT = 6;
+        pub const VT_OFFSET_MICROS: ::flatbuffers::VOffsetT = 8;
+        pub const VT_ABSOLUTE_MICROS: ::flatbuffers::VOffsetT = 10;
+        pub const VT_LABEL: ::flatbuffers::VOffsetT = 12;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-          MotionSequenceStep { _tab: table }
+          MotionSequenceSchedule { _tab: table }
         }
         #[allow(unused_mut)]
         pub fn create<
@@ -13680,21 +14274,441 @@ pub mod battlement {
           A: ::flatbuffers::Allocator + 'bldr,
         >(
           _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-          args: &'args MotionSequenceStepArgs<'args>,
-        ) -> ::flatbuffers::WIPOffset<MotionSequenceStep<'bldr>> {
-          let mut builder = MotionSequenceStepBuilder::new(_fbb);
-          builder.add_start_micros(args.start_micros);
+          args: &'args MotionSequenceScheduleArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MotionSequenceSchedule<'bldr>> {
+          let mut builder = MotionSequenceScheduleBuilder::new(_fbb);
+          builder.add_absolute_micros(args.absolute_micros);
+          builder.add_offset_micros(args.offset_micros);
+          if let Some(x) = args.label {
+            builder.add_label(x);
+          }
+          builder.add_entry(args.entry);
+          builder.add_kind(args.kind);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn kind(&self) -> MotionSequenceScheduleKind {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MotionSequenceScheduleKind>(
+                MotionSequenceSchedule::VT_KIND,
+                Some(MotionSequenceScheduleKind::Absolute),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn entry(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(MotionSequenceSchedule::VT_ENTRY, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn offset_micros(&self) -> i64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<i64>(MotionSequenceSchedule::VT_OFFSET_MICROS, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn absolute_micros(&self) -> u64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u64>(MotionSequenceSchedule::VT_ABSOLUTE_MICROS, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn label(&self) -> Option<&'a str> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(MotionSequenceSchedule::VT_LABEL, None)
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MotionSequenceSchedule<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<MotionSequenceScheduleKind>("kind", Self::VT_KIND, false)?
+            .visit_field::<u32>("entry", Self::VT_ENTRY, false)?
+            .visit_field::<i64>("offset_micros", Self::VT_OFFSET_MICROS, false)?
+            .visit_field::<u64>("absolute_micros", Self::VT_ABSOLUTE_MICROS, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("label", Self::VT_LABEL, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MotionSequenceScheduleArgs<'a> {
+        pub kind: MotionSequenceScheduleKind,
+        pub entry: u32,
+        pub offset_micros: i64,
+        pub absolute_micros: u64,
+        pub label: Option<::flatbuffers::WIPOffset<&'a str>>,
+      }
+      impl<'a> Default for MotionSequenceScheduleArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MotionSequenceScheduleArgs {
+            kind: MotionSequenceScheduleKind::Absolute,
+            entry: 0,
+            offset_micros: 0,
+            absolute_micros: 0,
+            label: None,
+          }
+        }
+      }
+
+      pub struct MotionSequenceScheduleBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MotionSequenceScheduleBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_kind(&mut self, kind: MotionSequenceScheduleKind) {
+          self.fbb_.push_slot::<MotionSequenceScheduleKind>(
+            MotionSequenceSchedule::VT_KIND,
+            kind,
+            MotionSequenceScheduleKind::Absolute,
+          );
+        }
+        #[inline]
+        pub fn add_entry(&mut self, entry: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(MotionSequenceSchedule::VT_ENTRY, entry, 0);
+        }
+        #[inline]
+        pub fn add_offset_micros(&mut self, offset_micros: i64) {
+          self
+            .fbb_
+            .push_slot::<i64>(MotionSequenceSchedule::VT_OFFSET_MICROS, offset_micros, 0);
+        }
+        #[inline]
+        pub fn add_absolute_micros(&mut self, absolute_micros: u64) {
+          self.fbb_.push_slot::<u64>(
+            MotionSequenceSchedule::VT_ABSOLUTE_MICROS,
+            absolute_micros,
+            0,
+          );
+        }
+        #[inline]
+        pub fn add_label(&mut self, label: ::flatbuffers::WIPOffset<&'b str>) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MotionSequenceSchedule::VT_LABEL,
+            label,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MotionSequenceScheduleBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MotionSequenceScheduleBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MotionSequenceSchedule<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MotionSequenceSchedule<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MotionSequenceSchedule");
+          ds.field("kind", &self.kind());
+          ds.field("entry", &self.entry());
+          ds.field("offset_micros", &self.offset_micros());
+          ds.field("absolute_micros", &self.absolute_micros());
+          ds.field("label", &self.label());
+          ds.finish()
+        }
+      }
+      pub enum MotionPositionReferenceOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MotionPositionReference<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MotionPositionReference<'a> {
+        type Inner = MotionPositionReference<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MotionPositionReference<'a> {
+        pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_ANCHOR: ::flatbuffers::VOffsetT = 6;
+        pub const VT_RESOLUTION: ::flatbuffers::VOffsetT = 8;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MotionPositionReference { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MotionPositionReferenceArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MotionPositionReference<'bldr>> {
+          let mut builder = MotionPositionReferenceBuilder::new(_fbb);
+          if let Some(x) = args.anchor {
+            builder.add_anchor(x);
+          }
+          if let Some(x) = args.object_id {
+            builder.add_object_id(x);
+          }
+          builder.add_resolution(args.resolution);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn object_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(MotionPositionReference::VT_OBJECT_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn anchor(&self) -> Option<&'a str> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(MotionPositionReference::VT_ANCHOR, None)
+          }
+        }
+        #[inline]
+        pub fn resolution(&self) -> MotionReferenceResolution {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MotionReferenceResolution>(
+                MotionPositionReference::VT_RESOLUTION,
+                Some(MotionReferenceResolution::CaptureAtStart),
+              )
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for MotionPositionReference<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("anchor", Self::VT_ANCHOR, false)?
+            .visit_field::<MotionReferenceResolution>("resolution", Self::VT_RESOLUTION, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct MotionPositionReferenceArgs<'a> {
+        pub object_id: Option<&'a Uuid>,
+        pub anchor: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub resolution: MotionReferenceResolution,
+      }
+      impl<'a> Default for MotionPositionReferenceArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          MotionPositionReferenceArgs {
+            object_id: None, // required field
+            anchor: None,
+            resolution: MotionReferenceResolution::CaptureAtStart,
+          }
+        }
+      }
+
+      pub struct MotionPositionReferenceBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MotionPositionReferenceBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_object_id(&mut self, object_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(MotionPositionReference::VT_OBJECT_ID, object_id);
+        }
+        #[inline]
+        pub fn add_anchor(&mut self, anchor: ::flatbuffers::WIPOffset<&'b str>) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MotionPositionReference::VT_ANCHOR,
+            anchor,
+          );
+        }
+        #[inline]
+        pub fn add_resolution(&mut self, resolution: MotionReferenceResolution) {
+          self.fbb_.push_slot::<MotionReferenceResolution>(
+            MotionPositionReference::VT_RESOLUTION,
+            resolution,
+            MotionReferenceResolution::CaptureAtStart,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> MotionPositionReferenceBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          MotionPositionReferenceBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MotionPositionReference<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, MotionPositionReference::VT_OBJECT_ID, "object_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for MotionPositionReference<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("MotionPositionReference");
+          ds.field("object_id", &self.object_id());
+          ds.field("anchor", &self.anchor());
+          ds.field("resolution", &self.resolution());
+          ds.finish()
+        }
+      }
+      pub enum MotionSequenceEntryOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct MotionSequenceEntry<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for MotionSequenceEntry<'a> {
+        type Inner = MotionSequenceEntry<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> MotionSequenceEntry<'a> {
+        pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+        pub const VT_SELECTOR: ::flatbuffers::VOffsetT = 6;
+        pub const VT_TARGET: ::flatbuffers::VOffsetT = 8;
+        pub const VT_POSITION: ::flatbuffers::VOffsetT = 10;
+        pub const VT_POSITION_TRANSITION: ::flatbuffers::VOffsetT = 12;
+        pub const VT_SCHEDULE: ::flatbuffers::VOffsetT = 14;
+        pub const VT_CONFLICT: ::flatbuffers::VOffsetT = 16;
+        pub const VT_LABEL: ::flatbuffers::VOffsetT = 18;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          MotionSequenceEntry { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args MotionSequenceEntryArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<MotionSequenceEntry<'bldr>> {
+          let mut builder = MotionSequenceEntryBuilder::new(_fbb);
+          if let Some(x) = args.label {
+            builder.add_label(x);
+          }
+          if let Some(x) = args.schedule {
+            builder.add_schedule(x);
+          }
+          if let Some(x) = args.position_transition {
+            builder.add_position_transition(x);
+          }
+          if let Some(x) = args.position {
+            builder.add_position(x);
+          }
           if let Some(x) = args.target {
             builder.add_target(x);
           }
           if let Some(x) = args.selector {
             builder.add_selector(x);
           }
+          builder.add_conflict(args.conflict);
+          builder.add_kind(args.kind);
           builder.finish()
         }
 
         #[inline]
-        pub fn selector(&self) -> MotionSelector<'a> {
+        pub fn kind(&self) -> MotionSequenceEntryKind {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MotionSequenceEntryKind>(
+                MotionSequenceEntry::VT_KIND,
+                Some(MotionSequenceEntryKind::Animate),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn selector(&self) -> Option<MotionSelector<'a>> {
           // Safety:
           // Created from valid Table for this object
           // which contains a valid value in this slot
@@ -13702,14 +14716,13 @@ pub mod battlement {
             self
               ._tab
               .get::<::flatbuffers::ForwardsUOffset<MotionSelector>>(
-                MotionSequenceStep::VT_SELECTOR,
+                MotionSequenceEntry::VT_SELECTOR,
                 None,
               )
-              .unwrap()
           }
         }
         #[inline]
-        pub fn target(&self) -> MotionTargetDescriptor<'a> {
+        pub fn target(&self) -> Option<MotionTargetDescriptor<'a>> {
           // Safety:
           // Created from valid Table for this object
           // which contains a valid value in this slot
@@ -13717,75 +14730,166 @@ pub mod battlement {
             self
               ._tab
               .get::<::flatbuffers::ForwardsUOffset<MotionTargetDescriptor>>(
-                MotionSequenceStep::VT_TARGET,
+                MotionSequenceEntry::VT_TARGET,
                 None,
               )
-              .unwrap()
           }
         }
         #[inline]
-        pub fn start_micros(&self) -> u64 {
+        pub fn position(&self) -> Option<MotionPositionReference<'a>> {
           // Safety:
           // Created from valid Table for this object
           // which contains a valid value in this slot
           unsafe {
             self
               ._tab
-              .get::<u64>(MotionSequenceStep::VT_START_MICROS, Some(0))
+              .get::<::flatbuffers::ForwardsUOffset<MotionPositionReference>>(
+                MotionSequenceEntry::VT_POSITION,
+                None,
+              )
+          }
+        }
+        #[inline]
+        pub fn position_transition(&self) -> Option<TransitionDefinition<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<TransitionDefinition>>(
+                MotionSequenceEntry::VT_POSITION_TRANSITION,
+                None,
+              )
+          }
+        }
+        #[inline]
+        pub fn schedule(&self) -> MotionSequenceSchedule<'a> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<MotionSequenceSchedule>>(
+                MotionSequenceEntry::VT_SCHEDULE,
+                None,
+              )
               .unwrap()
+          }
+        }
+        #[inline]
+        pub fn conflict(&self) -> MotionSequenceConflict {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<MotionSequenceConflict>(
+                MotionSequenceEntry::VT_CONFLICT,
+                Some(MotionSequenceConflict::Reject),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn label(&self) -> Option<&'a str> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(MotionSequenceEntry::VT_LABEL, None)
           }
         }
       }
 
-      impl ::flatbuffers::Verifiable for MotionSequenceStep<'_> {
+      impl ::flatbuffers::Verifiable for MotionSequenceEntry<'_> {
         #[inline]
         fn run_verifier(
           v: &mut ::flatbuffers::Verifier,
           pos: usize,
         ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
           v.visit_table(pos)?
+            .visit_field::<MotionSequenceEntryKind>("kind", Self::VT_KIND, false)?
             .visit_field::<::flatbuffers::ForwardsUOffset<MotionSelector>>(
               "selector",
               Self::VT_SELECTOR,
-              true,
+              false,
             )?
             .visit_field::<::flatbuffers::ForwardsUOffset<MotionTargetDescriptor>>(
               "target",
               Self::VT_TARGET,
+              false,
+            )?
+            .visit_field::<::flatbuffers::ForwardsUOffset<MotionPositionReference>>(
+              "position",
+              Self::VT_POSITION,
+              false,
+            )?
+            .visit_field::<::flatbuffers::ForwardsUOffset<TransitionDefinition>>(
+              "position_transition",
+              Self::VT_POSITION_TRANSITION,
+              false,
+            )?
+            .visit_field::<::flatbuffers::ForwardsUOffset<MotionSequenceSchedule>>(
+              "schedule",
+              Self::VT_SCHEDULE,
               true,
             )?
-            .visit_field::<u64>("start_micros", Self::VT_START_MICROS, false)?
+            .visit_field::<MotionSequenceConflict>("conflict", Self::VT_CONFLICT, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("label", Self::VT_LABEL, false)?
             .finish();
           Ok(())
         }
       }
-      pub struct MotionSequenceStepArgs<'a> {
+      pub struct MotionSequenceEntryArgs<'a> {
+        pub kind: MotionSequenceEntryKind,
         pub selector: Option<::flatbuffers::WIPOffset<MotionSelector<'a>>>,
         pub target: Option<::flatbuffers::WIPOffset<MotionTargetDescriptor<'a>>>,
-        pub start_micros: u64,
+        pub position: Option<::flatbuffers::WIPOffset<MotionPositionReference<'a>>>,
+        pub position_transition: Option<::flatbuffers::WIPOffset<TransitionDefinition<'a>>>,
+        pub schedule: Option<::flatbuffers::WIPOffset<MotionSequenceSchedule<'a>>>,
+        pub conflict: MotionSequenceConflict,
+        pub label: Option<::flatbuffers::WIPOffset<&'a str>>,
       }
-      impl<'a> Default for MotionSequenceStepArgs<'a> {
+      impl<'a> Default for MotionSequenceEntryArgs<'a> {
         #[inline]
         fn default() -> Self {
-          MotionSequenceStepArgs {
-            selector: None, // required field
-            target: None,   // required field
-            start_micros: 0,
+          MotionSequenceEntryArgs {
+            kind: MotionSequenceEntryKind::Animate,
+            selector: None,
+            target: None,
+            position: None,
+            position_transition: None,
+            schedule: None, // required field
+            conflict: MotionSequenceConflict::Reject,
+            label: None,
           }
         }
       }
 
-      pub struct MotionSequenceStepBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+      pub struct MotionSequenceEntryBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
         fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
       }
-      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MotionSequenceStepBuilder<'a, 'b, A> {
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MotionSequenceEntryBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_kind(&mut self, kind: MotionSequenceEntryKind) {
+          self.fbb_.push_slot::<MotionSequenceEntryKind>(
+            MotionSequenceEntry::VT_KIND,
+            kind,
+            MotionSequenceEntryKind::Animate,
+          );
+        }
         #[inline]
         pub fn add_selector(&mut self, selector: ::flatbuffers::WIPOffset<MotionSelector<'b>>) {
           self
             .fbb_
             .push_slot_always::<::flatbuffers::WIPOffset<MotionSelector>>(
-              MotionSequenceStep::VT_SELECTOR,
+              MotionSequenceEntry::VT_SELECTOR,
               selector,
             );
         }
@@ -13794,45 +14898,91 @@ pub mod battlement {
           self
             .fbb_
             .push_slot_always::<::flatbuffers::WIPOffset<MotionTargetDescriptor>>(
-              MotionSequenceStep::VT_TARGET,
+              MotionSequenceEntry::VT_TARGET,
               target,
             );
         }
         #[inline]
-        pub fn add_start_micros(&mut self, start_micros: u64) {
+        pub fn add_position(
+          &mut self,
+          position: ::flatbuffers::WIPOffset<MotionPositionReference<'b>>,
+        ) {
           self
             .fbb_
-            .push_slot::<u64>(MotionSequenceStep::VT_START_MICROS, start_micros, 0);
+            .push_slot_always::<::flatbuffers::WIPOffset<MotionPositionReference>>(
+              MotionSequenceEntry::VT_POSITION,
+              position,
+            );
+        }
+        #[inline]
+        pub fn add_position_transition(
+          &mut self,
+          position_transition: ::flatbuffers::WIPOffset<TransitionDefinition<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<TransitionDefinition>>(
+              MotionSequenceEntry::VT_POSITION_TRANSITION,
+              position_transition,
+            );
+        }
+        #[inline]
+        pub fn add_schedule(
+          &mut self,
+          schedule: ::flatbuffers::WIPOffset<MotionSequenceSchedule<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<MotionSequenceSchedule>>(
+              MotionSequenceEntry::VT_SCHEDULE,
+              schedule,
+            );
+        }
+        #[inline]
+        pub fn add_conflict(&mut self, conflict: MotionSequenceConflict) {
+          self.fbb_.push_slot::<MotionSequenceConflict>(
+            MotionSequenceEntry::VT_CONFLICT,
+            conflict,
+            MotionSequenceConflict::Reject,
+          );
+        }
+        #[inline]
+        pub fn add_label(&mut self, label: ::flatbuffers::WIPOffset<&'b str>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<_>>(MotionSequenceEntry::VT_LABEL, label);
         }
         #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-        ) -> MotionSequenceStepBuilder<'a, 'b, A> {
+        ) -> MotionSequenceEntryBuilder<'a, 'b, A> {
           let start = _fbb.start_table();
-          MotionSequenceStepBuilder {
+          MotionSequenceEntryBuilder {
             fbb_: _fbb,
             start_: start,
           }
         }
         #[inline]
-        pub fn finish(self) -> ::flatbuffers::WIPOffset<MotionSequenceStep<'a>> {
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<MotionSequenceEntry<'a>> {
           let o = self.fbb_.end_table(self.start_);
           self
             .fbb_
-            .required(o, MotionSequenceStep::VT_SELECTOR, "selector");
-          self
-            .fbb_
-            .required(o, MotionSequenceStep::VT_TARGET, "target");
+            .required(o, MotionSequenceEntry::VT_SCHEDULE, "schedule");
           ::flatbuffers::WIPOffset::new(o.value())
         }
       }
 
-      impl ::core::fmt::Debug for MotionSequenceStep<'_> {
+      impl ::core::fmt::Debug for MotionSequenceEntry<'_> {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-          let mut ds = f.debug_struct("MotionSequenceStep");
+          let mut ds = f.debug_struct("MotionSequenceEntry");
+          ds.field("kind", &self.kind());
           ds.field("selector", &self.selector());
           ds.field("target", &self.target());
-          ds.field("start_micros", &self.start_micros());
+          ds.field("position", &self.position());
+          ds.field("position_transition", &self.position_transition());
+          ds.field("schedule", &self.schedule());
+          ds.field("conflict", &self.conflict());
+          ds.field("label", &self.label());
           ds.finish()
         }
       }
@@ -13858,7 +15008,7 @@ pub mod battlement {
         pub const VT_COMMAND: ::flatbuffers::VOffsetT = 6;
         pub const VT_PLAYBACK_ID: ::flatbuffers::VOffsetT = 8;
         pub const VT_GENERATION: ::flatbuffers::VOffsetT = 10;
-        pub const VT_STEPS: ::flatbuffers::VOffsetT = 12;
+        pub const VT_ENTRIES: ::flatbuffers::VOffsetT = 12;
         pub const VT_SELECTOR: ::flatbuffers::VOffsetT = 14;
         pub const VT_TARGET: ::flatbuffers::VOffsetT = 16;
 
@@ -13883,8 +15033,8 @@ pub mod battlement {
           if let Some(x) = args.selector {
             builder.add_selector(x);
           }
-          if let Some(x) = args.steps {
-            builder.add_steps(x);
+          if let Some(x) = args.entries {
+            builder.add_entries(x);
           }
           builder.add_generation(args.generation);
           if let Some(x) = args.playback_id {
@@ -13948,17 +15098,18 @@ pub mod battlement {
           }
         }
         #[inline]
-        pub fn steps(
+        pub fn entries(
           &self,
-        ) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceStep<'a>>>>
-        {
+        ) -> Option<
+          ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceEntry<'a>>>,
+        > {
           // Safety:
           // Created from valid Table for this object
           // which contains a valid value in this slot
           unsafe {
             self._tab.get::<::flatbuffers::ForwardsUOffset<
-              ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceStep>>,
-            >>(MotionScopeOperation::VT_STEPS, None)
+              ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceEntry>>,
+            >>(MotionScopeOperation::VT_ENTRIES, None)
           }
         }
         #[inline]
@@ -14003,8 +15154,8 @@ pub mod battlement {
             .visit_field::<Uuid>("playback_id", Self::VT_PLAYBACK_ID, false)?
             .visit_field::<u32>("generation", Self::VT_GENERATION, false)?
             .visit_field::<::flatbuffers::ForwardsUOffset<
-              ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MotionSequenceStep>>,
-            >>("steps", Self::VT_STEPS, false)?
+              ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MotionSequenceEntry>>,
+            >>("entries", Self::VT_ENTRIES, false)?
             .visit_field::<::flatbuffers::ForwardsUOffset<MotionSelector>>(
               "selector",
               Self::VT_SELECTOR,
@@ -14024,9 +15175,9 @@ pub mod battlement {
         pub command: MotionScopeCommandKind,
         pub playback_id: Option<&'a Uuid>,
         pub generation: u32,
-        pub steps: Option<
+        pub entries: Option<
           ::flatbuffers::WIPOffset<
-            ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceStep<'a>>>,
+            ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MotionSequenceEntry<'a>>>,
           >,
         >,
         pub selector: Option<::flatbuffers::WIPOffset<MotionSelector<'a>>>,
@@ -14040,7 +15191,7 @@ pub mod battlement {
             command: MotionScopeCommandKind::Start,
             playback_id: None,
             generation: 0,
-            steps: None,
+            entries: None,
             selector: None,
             target: None,
           }
@@ -14079,15 +15230,16 @@ pub mod battlement {
             .push_slot::<u32>(MotionScopeOperation::VT_GENERATION, generation, 0);
         }
         #[inline]
-        pub fn add_steps(
+        pub fn add_entries(
           &mut self,
-          steps: ::flatbuffers::WIPOffset<
-            ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<MotionSequenceStep<'b>>>,
+          entries: ::flatbuffers::WIPOffset<
+            ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<MotionSequenceEntry<'b>>>,
           >,
         ) {
-          self
-            .fbb_
-            .push_slot_always::<::flatbuffers::WIPOffset<_>>(MotionScopeOperation::VT_STEPS, steps);
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            MotionScopeOperation::VT_ENTRIES,
+            entries,
+          );
         }
         #[inline]
         pub fn add_selector(&mut self, selector: ::flatbuffers::WIPOffset<MotionSelector<'b>>) {
@@ -14134,7 +15286,7 @@ pub mod battlement {
           ds.field("command", &self.command());
           ds.field("playback_id", &self.playback_id());
           ds.field("generation", &self.generation());
-          ds.field("steps", &self.steps());
+          ds.field("entries", &self.entries());
           ds.field("selector", &self.selector());
           ds.field("target", &self.target());
           ds.finish()

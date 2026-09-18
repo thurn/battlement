@@ -485,6 +485,13 @@ namespace Battlement
         MotionPlaybackOutcome Outcome
     );
 
+    /// <summary>One declaration-ordered label reached by an imperative sequence.</summary>
+    public sealed record MotionSequenceLabelEvent(
+        ObjectId PlaybackId,
+        uint Generation,
+        string Label
+    );
+
     /// <summary>Ordered lifecycle boundaries and coalesced samples.</summary>
     public sealed record MotionEventBatch(
         ulong FirstSequence,
@@ -493,7 +500,8 @@ namespace Battlement
         IReadOnlyList<MotionPresentationSample> Samples,
         IReadOnlyList<MotionValueSample>? ValueSamples = null,
         IReadOnlyList<MotionPlaybackEvent>? PlaybackEvents = null,
-        IReadOnlyList<MotionGestureEvent>? GestureEvents = null
+        IReadOnlyList<MotionGestureEvent>? GestureEvents = null,
+        IReadOnlyList<MotionSequenceLabelEvent>? LabelEvents = null
     );
 
     /// <summary>Compact timeline checkpoint retained for reconnect.</summary>
@@ -556,10 +564,8 @@ namespace Battlement
         MotionScopeOperationKind Kind { get; }
         ObjectId PlaybackId { get; }
         uint Generation { get; }
-        int StepCount { get; }
-        MotionSelector ReadStepSelector(int index);
-        MotionTargetDescriptor ReadStepTarget(int index);
-        ulong ReadStepStartMicros(int index);
+        int EntryCount { get; }
+        MotionSequenceEntry ReadEntry(int index);
         MotionSelector ReadSelector();
         MotionTargetDescriptor ReadTarget();
     }

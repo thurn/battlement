@@ -894,32 +894,17 @@ namespace Battlement
                 return value.Generation;
             }
         }
-        public int StepCount
+        public int EntryCount
         {
             get
             {
                 Check();
-                return value.StepsLength;
+                return value.EntriesLength;
             }
         }
 
-        public MotionSelector ReadStepSelector(int index)
-        {
-            Wire.MotionSequenceStep step = Step(index);
-            return BattlementFlatBufferRetainedCopy.MotionSelector(
-                step.Selector ?? throw new InvalidDataException("A motion step selector is absent.")
-            );
-        }
-
-        public MotionTargetDescriptor ReadStepTarget(int index)
-        {
-            Wire.MotionSequenceStep step = Step(index);
-            return BattlementFlatBufferRetainedCopy.MotionTarget(
-                step.Target ?? throw new InvalidDataException("A motion step target is absent.")
-            );
-        }
-
-        public ulong ReadStepStartMicros(int index) => Step(index).StartMicros;
+        public MotionSequenceEntry ReadEntry(int index) =>
+            BattlementFlatBufferRetainedCopy.MotionSequenceEntry(Entry(index));
 
         public MotionSelector ReadSelector()
         {
@@ -938,11 +923,11 @@ namespace Battlement
             );
         }
 
-        private Wire.MotionSequenceStep Step(int index)
+        private Wire.MotionSequenceEntry Entry(int index)
         {
             Check();
-            return value.Steps(index)
-                ?? throw new InvalidDataException("A motion scope step is absent.");
+            return value.Entries(index)
+                ?? throw new InvalidDataException("A motion scope entry is absent.");
         }
 
         private static ObjectId Object(Wire.Uuid? id, string name) =>

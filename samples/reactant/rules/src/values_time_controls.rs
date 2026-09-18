@@ -194,12 +194,13 @@ impl Component for ValuesTimeControls {
                   StyleTarget::new().opacity(1.0).x(28.0),
                   Transition::tween().duration_secs(0.24),
                 )
+                .label("first-settled")
                 .then(
                   MotionSelector::name("sequence-b"),
                   StyleTarget::new().opacity(0.45).x(-18.0),
                   Transition::spring().stiffness(170.0).damping(18.0),
                 )
-                .at(SequencePosition::WithPrevious(0.08)),
+                .at(SequencePosition::Label("first-settled".into(), 0.08)),
             );
             game
               .values_time_controls

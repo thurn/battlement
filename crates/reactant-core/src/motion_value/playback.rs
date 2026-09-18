@@ -186,16 +186,27 @@ impl AnimationPlayback {
       terminal: RefCell::new(None),
       reported: RefCell::new(None),
       callbacks: RefCell::new(Default::default()),
+      reached_labels: RefCell::new(Default::default()),
     });
     if let Some(runtime) = runtime.upgrade() {
       let playback = Rc::downgrade(&inner);
-      runtime
-        .borrow_mut()
-        .register_playback(inner.playback_id, inner.generation, move |outcome| {
+      runtime.borrow_mut().register_playback(
+        inner.playback_id,
+        inner.generation,
+        move |outcome| {
           playback
             .upgrade()
             .is_some_and(|playback| playback.finish(outcome.into()))
-        });
+        },
+        {
+          let playback = Rc::downgrade(&inner);
+          move |label| {
+            playback
+              .upgrade()
+              .is_some_and(|playback| playback.label(label))
+          }
+        },
+      );
     }
     Self { inner }
   }
@@ -290,6 +301,23 @@ impl AnimationPlayback {
     } else {
       self.inner.callbacks.borrow_mut().failed = Some(Box::new(callback));
     }
+  }
+
+  /// Registers a one-shot callback for one sequence label.
+  pub fn on_label(&self, label: impl Into<String>, callback: impl FnOnce() + 'static) {
+    let label = label.into();
+    if self.inner.reached_labels.borrow().contains(&label) {
+      callback();
+      return;
+    }
+    self
+      .inner
+      .callbacks
+      .borrow_mut()
+      .labels
+      .entry(label)
+      .or_default()
+      .push(Box::new(callback));
   }
 
   fn terminal(&self, outcome: PlaybackOutcome, command: MotionPlaybackCommand) {

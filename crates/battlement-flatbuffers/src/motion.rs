@@ -61,6 +61,12 @@ impl<'a> MotionEventBatchView<'a> {
     self.value.gesture_events().len()
   }
 
+  /// Returns the number of declaration-ordered sequence-label records.
+  #[must_use]
+  pub fn label_count(self) -> usize {
+    self.value.label_events().len()
+  }
+
   /// Iterates lifecycle records, allocating no batch collection.
   pub fn lifecycle_events(
     self,
@@ -94,6 +100,13 @@ impl<'a> MotionEventBatchView<'a> {
     self.value.gesture_events().iter().map(gesture_owned)
   }
 
+  /// Iterates reliable sequence-label records without a batch allocation.
+  pub fn label_events(
+    self,
+  ) -> impl ExactSizeIterator<Item = battlement::MotionSequenceLabelEvent> + 'a {
+    self.value.label_events().iter().map(label_owned)
+  }
+
   /// Copies the validated records into the retained Motion runtime model.
   ///
   /// Native engines should prefer the borrowed accessors. This conversion is
@@ -107,6 +120,7 @@ impl<'a> MotionEventBatchView<'a> {
       samples: self.presentation_samples().collect(),
       value_samples: self.value_samples().collect(),
       playback_events: self.playback_events().collect(),
+      label_events: self.label_events().collect(),
       gesture_events: self.gesture_events().collect(),
     }
   }
@@ -169,6 +183,14 @@ fn playback_owned(event: wire::MotionPlaybackEvent<'_>) -> battlement::MotionPla
       wire::MotionPlaybackOutcome::Failed => battlement::MotionPlaybackOutcome::Failed,
       _ => unreachable!("Motion view validates playback outcomes"),
     },
+  }
+}
+
+fn label_owned(event: wire::MotionSequenceLabelEvent<'_>) -> battlement::MotionSequenceLabelEvent {
+  battlement::MotionSequenceLabelEvent {
+    playback_id: object_id(event.playback_id()),
+    generation: event.generation(),
+    label: event.label().to_owned(),
   }
 }
 
@@ -538,6 +560,7 @@ fn validate_batch(value: wire::MotionEventBatch<'_>) -> Result<(), ProtocolError
     value.value_samples().len(),
     value.playback_events().len(),
     value.gesture_events().len(),
+    value.label_events().len(),
   ] {
     if count > MAXIMUM_RECORDS {
       return Err(error("Motion batch has too many records"));
@@ -596,6 +619,12 @@ fn validate_batch(value: wire::MotionEventBatch<'_>) -> Result<(), ProtocolError
   for event in value.playback_events() {
     if nil(event.playback_id()) || event.outcome().0 > wire::MotionPlaybackOutcome::Failed.0 {
       return Err(error("invalid Motion playback event"));
+    }
+  }
+
+  for event in value.label_events() {
+    if nil(event.playback_id()) || event.label().is_empty() {
+      return Err(error("invalid Motion sequence-label event"));
     }
   }
 

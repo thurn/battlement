@@ -36,9 +36,11 @@ impl AssetDependencies {
         _ => {}
       },
       CommandBody::MotionScope(operation) => match &operation.command {
-        MotionScopeCommand::Start { steps, .. } => {
-          for step in steps {
-            self.motion_target(&step.target);
+        MotionScopeCommand::Start { entries, .. } => {
+          for entry in entries {
+            if let crate::MotionSequenceEntry::Animate { target, .. } = entry {
+              self.motion_target(target);
+            }
           }
         }
         MotionScopeCommand::Set { target, .. } => self.motion_target(target),

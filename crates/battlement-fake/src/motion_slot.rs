@@ -86,6 +86,30 @@ impl Slot {
     }
   }
 
+  pub(crate) fn retarget_position(
+    &mut self,
+    values: &[battlement::MotionPropertyValue],
+    target: &mut Target,
+    world: &FakeWorld,
+    ui: &UiWorld,
+    now: u64,
+  ) {
+    let elapsed = self.elapsed(now);
+    for value in values {
+      if let Some(track) = self
+        .tracks
+        .iter_mut()
+        .find(|track| track.definition.property == value.property)
+      {
+        track.retarget_destination(
+          target.read(value.property, world, ui),
+          value.value.clone(),
+          elapsed,
+        );
+      }
+    }
+  }
+
   pub(crate) fn deadline(&self, now: u64) -> Option<u64> {
     if !self.active || self.outcome.is_some() {
       return None;

@@ -5,6 +5,7 @@ mod playback;
 use std::{
   any::{Any, TypeId},
   cell::RefCell,
+  collections::{HashMap, HashSet},
   fmt,
   marker::PhantomData,
   rc::{Rc, Weak},
@@ -201,6 +202,7 @@ struct PlaybackInner {
   terminal: RefCell<Option<PlaybackOutcome>>,
   reported: RefCell<Option<PlaybackOutcome>>,
   callbacks: RefCell<PlaybackCallbacks>,
+  reached_labels: RefCell<HashSet<String>>,
 }
 
 #[derive(Default)]
@@ -209,6 +211,7 @@ struct PlaybackCallbacks {
   stop: Option<Box<dyn FnOnce()>>,
   cancel: Option<Box<dyn FnOnce()>>,
   failed: Option<Box<dyn FnOnce()>>,
+  labels: HashMap<String, Vec<Box<dyn FnOnce()>>>,
 }
 
 impl PlaybackInner {
@@ -225,6 +228,17 @@ impl PlaybackInner {
       PlaybackOutcome::Failed => self.callbacks.borrow_mut().failed.take(),
     };
     if let Some(callback) = callback {
+      callback();
+    }
+    true
+  }
+
+  fn label(&self, label: &str) -> bool {
+    self.reached_labels.borrow_mut().insert(label.to_owned());
+    let Some(callbacks) = self.callbacks.borrow_mut().labels.remove(label) else {
+      return true;
+    };
+    for callback in callbacks {
       callback();
     }
     true

@@ -169,6 +169,12 @@ table MotionPlaybackEvent {
   outcome:MotionPlaybackOutcome;
 }
 
+table MotionSequenceLabelEvent {
+  playback_id:Uuid (required);
+  generation:uint;
+  label:string (required);
+}
+
 table MotionEventBatch {
   first_sequence:ulong;
   last_sequence:ulong;
@@ -177,6 +183,7 @@ table MotionEventBatch {
   value_samples:[MotionValueSample] (required);
   playback_events:[MotionPlaybackEvent] (required);
   gesture_events:[MotionGestureEvent] (required);
+  label_events:[MotionSequenceLabelEvent] (required);
 }
 
 table MotionValueEntry { value:MotionValue (required); }
@@ -306,10 +313,33 @@ table MotionSelector {
   name:string;
 }
 
-table MotionSequenceStep {
-  selector:MotionSelector (required);
-  target:MotionTargetDescriptor (required);
-  start_micros:ulong;
+enum MotionSequenceScheduleKind:ubyte { Absolute, RelativeStart, AfterCompletion, Label }
+table MotionSequenceSchedule {
+  kind:MotionSequenceScheduleKind;
+  entry:uint;
+  offset_micros:long;
+  absolute_micros:ulong;
+  label:string;
+}
+
+enum MotionSequenceConflict:ubyte { Reject, Replace }
+enum MotionReferenceResolution:ubyte { CaptureAtStart, Follow }
+table MotionPositionReference {
+  object_id:Uuid (required);
+  anchor:string;
+  resolution:MotionReferenceResolution;
+}
+
+enum MotionSequenceEntryKind:ubyte { Animate, Label }
+table MotionSequenceEntry {
+  kind:MotionSequenceEntryKind;
+  selector:MotionSelector;
+  target:MotionTargetDescriptor;
+  position:MotionPositionReference;
+  position_transition:TransitionDefinition;
+  schedule:MotionSequenceSchedule (required);
+  conflict:MotionSequenceConflict;
+  label:string;
 }
 
 enum MotionScopeCommandKind:ubyte { Start, Set, Stop }
@@ -318,7 +348,7 @@ table MotionScopeOperation {
   command:MotionScopeCommandKind;
   playback_id:Uuid;
   generation:uint;
-  steps:[MotionSequenceStep];
+  entries:[MotionSequenceEntry];
   selector:MotionSelector;
   target:MotionTargetDescriptor;
 }

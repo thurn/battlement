@@ -1076,6 +1076,7 @@ fn gesture_drag_scroll_and_viewport_props_lower_native_contract() {
         samples: Vec::new(),
         value_samples: Vec::new(),
         playback_events: Vec::new(),
+        label_events: Vec::new(),
         gesture_events: vec![MotionGestureEvent {
           descriptor_id: descriptor.descriptor_id,
           generation: MotionGeneration(descriptor.generation.0),
@@ -1120,6 +1121,7 @@ fn button_interaction_state_uses_native_focus_visible_without_rerendering() {
         samples: Vec::new(),
         value_samples: Vec::new(),
         playback_events: Vec::new(),
+        label_events: Vec::new(),
         gesture_events: vec![MotionGestureEvent {
           descriptor_id: descriptor.descriptor_id,
           generation: descriptor.generation,

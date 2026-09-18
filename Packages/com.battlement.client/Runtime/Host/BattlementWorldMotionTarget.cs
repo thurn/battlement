@@ -309,6 +309,31 @@ namespace Battlement
         public bool IsParentOf(IBattlementMotionTarget target) =>
             target is BattlementWorldMotionTarget world && world.transform.parent == transform;
 
+        public IReadOnlyList<MotionPropertyValue> ResolvePosition(
+            IBattlementMotionTarget reference,
+            string? anchor
+        )
+        {
+            if (reference is not BattlementWorldMotionTarget world)
+                throw Invalid("World Motion positions require a world reference.");
+            Transform point = anchor is null
+                ? world.transform
+                : BattlementWorldPointGeometry.FindAnchor(
+                    world.transform.gameObject,
+                    new AnchorName(anchor)
+                );
+            UnityVector3 value =
+                transform.parent == null
+                    ? point.position
+                    : transform.parent.InverseTransformPoint(point.position);
+            return new MotionPropertyValue[]
+            {
+                new(MotionProperty.LocalPositionX, new MotionValue.Scalar(value.x)),
+                new(MotionProperty.LocalPositionY, new MotionValue.Scalar(value.y)),
+                new(MotionProperty.LocalPositionZ, new MotionValue.Scalar(value.z)),
+            };
+        }
+
         public void Release()
         {
             ReleaseMaterial();

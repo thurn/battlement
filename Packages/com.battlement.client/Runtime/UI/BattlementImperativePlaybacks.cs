@@ -32,13 +32,18 @@ namespace Battlement.UI
         public bool TryGet(Guid playbackId, out ImperativePlayback playback) =>
             values.TryGetValue(playbackId, out playback!);
 
-        public IReadOnlyList<Guid> Complete(IReadOnlyDictionary<Guid, DescriptorState> descriptors)
+        public IReadOnlyList<Guid> Complete(
+            IReadOnlyDictionary<Guid, DescriptorState> descriptors,
+            IReadOnlyCollection<Guid>? deferred = null
+        )
         {
             if (values.Count == 0)
                 return Array.Empty<Guid>();
             var finished = new List<Guid>();
             foreach ((Guid id, ImperativePlayback playback) in values.ToArray())
             {
+                if (deferred?.Contains(id) == true)
+                    continue;
                 if (playback.Addresses.Count == 0)
                     continue;
                 bool complete = true;

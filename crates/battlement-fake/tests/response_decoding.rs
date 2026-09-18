@@ -58,9 +58,30 @@ fn decodes_every_motion_command_from_verified_response_bytes() {
     }),
     CommandBody::MotionScope(battlement::MotionScopeOperation {
       scope_id,
-      command: battlement::MotionScopeCommand::Set {
-        selector: battlement::MotionSelector::Descendants,
-        target,
+      command: battlement::MotionScopeCommand::Start {
+        playback_id,
+        generation: 6,
+        entries: vec![
+          battlement::MotionSequenceEntry::Animate {
+            selector: battlement::MotionSelector::Descendants,
+            target,
+            position: Some(battlement::MotionPositionReference {
+              object_id: value_id,
+              anchor: Some("socket".to_owned()),
+              resolution: battlement::MotionReferenceResolution::Follow,
+            }),
+            position_transition: Box::new(battlement::TransitionDefinition::spring()),
+            schedule: battlement::MotionSequenceSchedule::Absolute(20_000),
+            conflict: battlement::MotionSequenceConflict::Replace,
+          },
+          battlement::MotionSequenceEntry::Label {
+            name: "settled".to_owned(),
+            schedule: battlement::MotionSequenceSchedule::AfterCompletion {
+              entry: 0,
+              offset_micros: 5_000,
+            },
+          },
+        ],
       },
     }),
     CommandBody::MotionDragControl(battlement::MotionDragControlOperation {

@@ -1161,6 +1161,41 @@ mod tests {
     assert!(CoreClientMessageView::read(&motion_action_bytes(5, 4)).is_err());
   }
 
+  #[test]
+  fn round_trips_motion_sequence_label_events() {
+    let playback_id = battlement::ObjectId::new_v4();
+    let expected = battlement::MotionEventBatch {
+      first_sequence: battlement::MotionSequence(0),
+      last_sequence: battlement::MotionSequence(0),
+      events: Vec::new(),
+      samples: Vec::new(),
+      value_samples: Vec::new(),
+      playback_events: Vec::new(),
+      label_events: vec![battlement::MotionSequenceLabelEvent {
+        playback_id,
+        generation: 7,
+        label: "settled".to_owned(),
+      }],
+      gesture_events: Vec::new(),
+    };
+    let action = battlement::Action::new(
+      battlement::ActionId::new_v4(),
+      battlement::SessionId::new_v4(),
+      battlement::ActionBody::MotionEvents(expected.clone()),
+    );
+    let bytes = write_core_action(&action).expect("encode motion label event");
+
+    let CoreClientMessageView::Action(action) =
+      CoreClientMessageView::read(bytes.as_bytes()).expect("decode motion label event")
+    else {
+      panic!("expected action");
+    };
+    let CoreActionBodyView::MotionEvents(actual) = action.body() else {
+      panic!("expected Motion batch");
+    };
+    assert_eq!(actual.to_owned(), expected);
+  }
+
   fn motion_action_bytes(first_sequence: u64, last_sequence: u64) -> Vec<u8> {
     let mut builder = flatbuffers::FlatBufferBuilder::new();
     let events = builder.create_vector_from_iter(std::iter::empty::<
@@ -1178,6 +1213,9 @@ mod tests {
     let gesture_events = builder.create_vector_from_iter(std::iter::empty::<
       flatbuffers::WIPOffset<motion_wire::MotionGestureEvent<'_>>,
     >());
+    let label_events = builder.create_vector_from_iter(std::iter::empty::<
+      flatbuffers::WIPOffset<motion_wire::MotionSequenceLabelEvent<'_>>,
+    >());
     let batch = motion_wire::MotionEventBatch::create(
       &mut builder,
       &motion_wire::MotionEventBatchArgs {
@@ -1188,6 +1226,7 @@ mod tests {
         value_samples: Some(value_samples),
         playback_events: Some(playback_events),
         gesture_events: Some(gesture_events),
+        label_events: Some(label_events),
       },
     );
     let motion =

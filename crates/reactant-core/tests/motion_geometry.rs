@@ -63,6 +63,7 @@ fn a_native_motion_callback_can_rerender_a_geometry_consumer() {
         samples: Vec::new(),
         value_samples: Vec::new(),
         playback_events: Vec::new(),
+        label_events: Vec::new(),
         gesture_events: vec![MotionGestureEvent {
           descriptor_id: descriptor.descriptor_id,
           generation: descriptor.generation,

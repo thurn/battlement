@@ -15,6 +15,7 @@ pub(crate) struct Track {
   pub(crate) done: bool,
   pub(crate) iteration: u32,
   incoming: f64,
+  anchor_elapsed: u64,
 }
 
 impl Track {
@@ -26,6 +27,7 @@ impl Track {
       incoming: velocity,
       done: false,
       iteration: 0,
+      anchor_elapsed: 0,
     }
   }
 
@@ -33,6 +35,7 @@ impl Track {
     self.velocity = self.incoming;
     self.done = false;
     self.iteration = 0;
+    self.anchor_elapsed = 0;
   }
 
   pub(crate) fn retarget(&mut self, origin: MotionValue) {
@@ -40,6 +43,25 @@ impl Track {
     self.incoming = self.velocity;
     self.done = false;
     self.iteration = 0;
+    self.anchor_elapsed = 0;
+  }
+
+  pub(crate) fn retarget_destination(
+    &mut self,
+    origin: MotionValue,
+    destination: MotionValue,
+    elapsed: u64,
+  ) {
+    if self.target() == &destination {
+      return;
+    }
+    self.origin = origin;
+    self.incoming = self.velocity;
+    self.definition.values = vec![destination];
+    self.velocity = self.incoming;
+    self.done = false;
+    self.iteration = 0;
+    self.anchor_elapsed = elapsed;
   }
 
   pub(crate) fn duration(&self) -> Option<u64> {
@@ -57,6 +79,7 @@ impl Track {
   }
 
   pub(crate) fn sample(&mut self, elapsed: u64, direction: MotionPlaybackDirection) -> MotionValue {
+    let elapsed = elapsed.saturating_sub(self.anchor_elapsed);
     let reverse = matches!(
       direction,
       MotionPlaybackDirection::Reverse | MotionPlaybackDirection::AlternateReverse

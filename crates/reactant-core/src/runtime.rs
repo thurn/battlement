@@ -665,6 +665,13 @@ impl<G: 'static> Reactant<G> {
         .motion_values
         .borrow_mut()
         .apply_samples(&batch.value_samples);
+      let label_invocations = runtime
+        .motion_values
+        .borrow_mut()
+        .take_label_events(&batch.label_events);
+      for invocation in label_invocations {
+        changed |= invocation.invoke();
+      }
       let playback_invocations = runtime
         .motion_values
         .borrow_mut()
@@ -727,6 +734,14 @@ impl<G: 'static> Reactant<G> {
         .motion_values
         .borrow_mut()
         .apply_samples(&value_samples);
+      let label_events = batch.label_events().collect::<Vec<_>>();
+      let label_invocations = runtime
+        .motion_values
+        .borrow_mut()
+        .take_label_events(&label_events);
+      for invocation in label_invocations {
+        changed |= invocation.invoke();
+      }
       let playback_events = batch.playback_events().collect::<Vec<_>>();
       let playback_invocations = runtime
         .motion_values

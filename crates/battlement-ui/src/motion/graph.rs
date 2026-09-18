@@ -267,15 +267,89 @@ pub enum MotionSelector {
   Descendants,
 }
 
-/// One scheduled scoped animation step.
+/// How one sequence entry becomes eligible.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MotionSequenceSchedule {
+  /// Starts at a fixed sequence playhead time.
+  Absolute(u64),
+  /// Starts at a signed offset from another entry's start.
+  RelativeStart {
+    /// Referenced declaration-order entry.
+    entry: u32,
+    /// Signed offset from its actual start.
+    offset_micros: i64,
+  },
+  /// Starts at a signed offset from another entry's actual completion.
+  AfterCompletion {
+    /// Referenced declaration-order entry.
+    entry: u32,
+    /// Signed offset from its actual completion.
+    offset_micros: i64,
+  },
+  /// Starts at a signed offset from a named label event.
+  Label {
+    /// Referenced label name.
+    name: String,
+    /// Signed offset from the label occurrence.
+    offset_micros: i64,
+  },
+}
+
+/// Whether an accidental property collision is rejected or explicitly replaced.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum MotionSequenceConflict {
+  /// Reject a graph which can write the same property concurrently.
+  #[default]
+  Reject,
+  /// Interrupt the previous writer when this entry becomes eligible.
+  Replace,
+}
+
+/// When a referenced position is sampled.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MotionReferenceResolution {
+  /// Resolve once when the sequence starts.
+  CaptureAtStart,
+  /// Follow the referenced position while the entry is active.
+  Follow,
+}
+
+/// One typed host or named world-anchor position used by a sequence target.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotionPositionReference {
+  /// Referenced host identity.
+  pub object_id: ObjectId,
+  /// Optional named anchor inside a prepared world visual.
+  pub anchor: Option<String>,
+  /// Capture or live-follow behavior.
+  pub resolution: MotionReferenceResolution,
+}
+
+/// One immutable declaration-order entry in a scoped sequence graph.
 #[derive(Clone, Debug, PartialEq)]
-pub struct MotionSequenceStep {
-  /// Selector snapshotted when the step becomes eligible.
-  pub selector: MotionSelector,
-  /// Fully lowered target.
-  pub target: MotionTargetDescriptor,
-  /// Absolute start offset from sequence activation.
-  pub start_micros: u64,
+pub enum MotionSequenceEntry {
+  /// Starts a selector-target animation when its dependency becomes eligible.
+  Animate {
+    /// Selector snapshotted when this entry starts.
+    selector: MotionSelector,
+    /// Fully lowered property target.
+    target: MotionTargetDescriptor,
+    /// Optional typed position destination.
+    position: Option<MotionPositionReference>,
+    /// Timing used by generated position tracks.
+    position_transition: Box<TransitionDefinition>,
+    /// Eligibility dependency.
+    schedule: MotionSequenceSchedule,
+    /// Property conflict behavior.
+    conflict: MotionSequenceConflict,
+  },
+  /// Emits one correlated label event when its dependency becomes eligible.
+  Label {
+    /// Stable authoring label.
+    name: String,
+    /// Eligibility dependency.
+    schedule: MotionSequenceSchedule,
+  },
 }
 
 /// Scoped animation operation.
@@ -287,8 +361,8 @@ pub enum MotionScopeCommand {
     playback_id: ObjectId,
     /// Playback generation.
     generation: u32,
-    /// Ordered sequence steps.
-    steps: Vec<MotionSequenceStep>,
+    /// Immutable declaration-order dependency graph.
+    entries: Vec<MotionSequenceEntry>,
   },
   /// Applies one scoped target immediately.
   Set {
@@ -364,6 +438,134 @@ pub fn validate_motion_graph(
       return Err("motion-value subscriptions repeat an identity".to_owned());
     }
   }
+  Ok(())
+}
+
+/// Validates one immutable sequence graph before any host property changes.
+pub fn validate_motion_sequence(entries: &[MotionSequenceEntry]) -> Result<(), String> {
+  let mut labels = HashMap::new();
+  for (index, entry) in entries.iter().enumerate() {
+    match entry {
+      MotionSequenceEntry::Animate {
+        selector,
+        target,
+        position,
+        position_transition,
+        ..
+      } => {
+        validate_selector(selector)?;
+        target.validate()?;
+        position_transition.validate().map_err(str::to_owned)?;
+        if position
+          .as_ref()
+          .and_then(|value| value.anchor.as_ref())
+          .is_some_and(String::is_empty)
+        {
+          return Err("Motion sequence position anchor is empty".to_owned());
+        }
+      }
+      MotionSequenceEntry::Label { name, .. } => {
+        if name.is_empty() {
+          return Err("Motion sequence label is empty".to_owned());
+        }
+        if labels.insert(name.as_str(), index).is_some() {
+          return Err(format!("Motion sequence repeats label {name}"));
+        }
+      }
+    }
+  }
+  let dependencies = entries
+    .iter()
+    .map(|entry| dependency(entry, &labels, entries.len()))
+    .collect::<Result<Vec<_>, _>>()?;
+  for (index, dependency) in dependencies.iter().enumerate() {
+    if dependency.is_some_and(|value| value == index) {
+      return Err("Motion sequence contains a dependency cycle".to_owned());
+    }
+    if matches!(
+      schedule(&entries[index]),
+      MotionSequenceSchedule::AfterCompletion { .. }
+    ) && dependency.is_some_and(|value| infinite(&entries[value]))
+    {
+      return Err("Motion sequence requires completion from an infinite entry".to_owned());
+    }
+  }
+  let mut visiting = HashSet::new();
+  let mut visited = HashSet::new();
+  for index in 0..entries.len() {
+    visit_sequence(index, &dependencies, &mut visiting, &mut visited)?;
+  }
+  Ok(())
+}
+
+fn validate_selector(selector: &MotionSelector) -> Result<(), String> {
+  if matches!(selector, MotionSelector::Name(value) if value.is_empty()) {
+    return Err("Motion sequence selector name is empty".to_owned());
+  }
+  Ok(())
+}
+
+fn schedule(entry: &MotionSequenceEntry) -> &MotionSequenceSchedule {
+  match entry {
+    MotionSequenceEntry::Animate { schedule, .. } | MotionSequenceEntry::Label { schedule, .. } => {
+      schedule
+    }
+  }
+}
+
+fn dependency(
+  entry: &MotionSequenceEntry,
+  labels: &HashMap<&str, usize>,
+  count: usize,
+) -> Result<Option<usize>, String> {
+  let value = match schedule(entry) {
+    MotionSequenceSchedule::Absolute(_) => return Ok(None),
+    MotionSequenceSchedule::RelativeStart { entry, .. }
+    | MotionSequenceSchedule::AfterCompletion { entry, .. } => usize::try_from(*entry)
+      .ok()
+      .filter(|value| *value < count)
+      .ok_or_else(|| "Motion sequence references a missing entry".to_owned())?,
+    MotionSequenceSchedule::Label { name, .. } => *labels
+      .get(name.as_str())
+      .ok_or_else(|| format!("Motion sequence references missing label {name}"))?,
+  };
+  Ok(Some(value))
+}
+
+fn infinite(entry: &MotionSequenceEntry) -> bool {
+  let MotionSequenceEntry::Animate {
+    target,
+    position,
+    position_transition,
+    ..
+  } = entry
+  else {
+    return false;
+  };
+  target
+    .tracks
+    .iter()
+    .any(|track| track.transition.repeat == crate::MotionRepeat::Forever)
+    || (position.is_some() && position_transition.repeat == crate::MotionRepeat::Forever)
+}
+
+fn visit_sequence(
+  index: usize,
+  dependencies: &[Option<usize>],
+  visiting: &mut HashSet<usize>,
+  visited: &mut HashSet<usize>,
+) -> Result<(), String> {
+  if visited.contains(&index) {
+    return Ok(());
+  }
+  if !visiting.insert(index) {
+    return Err("Motion sequence contains a dependency cycle".to_owned());
+  }
+  if let Some(dependency) = dependencies[index] {
+    visit_sequence(dependency, dependencies, visiting, visited)?;
+  }
+  visiting.remove(&index);
+  visited.insert(index);
   Ok(())
 }
 
@@ -456,4 +658,88 @@ fn visit(
   visiting.remove(&value);
   visited.insert(value);
   Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{MotionReferenceResolution, MotionRepeat};
+
+  #[test]
+  fn sequence_validation_rejects_cycles_and_missing_labels() {
+    let cycle = vec![
+      label(
+        "a",
+        MotionSequenceSchedule::Label {
+          name: "b".into(),
+          offset_micros: 0,
+        },
+      ),
+      label(
+        "b",
+        MotionSequenceSchedule::Label {
+          name: "a".into(),
+          offset_micros: 0,
+        },
+      ),
+    ];
+    assert!(
+      validate_motion_sequence(&cycle)
+        .unwrap_err()
+        .contains("cycle")
+    );
+    assert!(
+      validate_motion_sequence(&[label(
+        "a",
+        MotionSequenceSchedule::Label {
+          name: "missing".into(),
+          offset_micros: 0,
+        },
+      )])
+      .unwrap_err()
+      .contains("missing label")
+    );
+  }
+
+  #[test]
+  fn sequence_validation_rejects_completion_dependency_on_infinite_position() {
+    let mut transition = TransitionDefinition::tween();
+    transition.repeat = MotionRepeat::Forever;
+    let entries = vec![
+      MotionSequenceEntry::Animate {
+        selector: MotionSelector::ScopeRoot,
+        target: MotionTargetDescriptor {
+          tracks: Vec::new(),
+          transition_end: Vec::new(),
+        },
+        position: Some(MotionPositionReference {
+          object_id: ObjectId::new_v4(),
+          anchor: None,
+          resolution: MotionReferenceResolution::Follow,
+        }),
+        position_transition: Box::new(transition),
+        schedule: MotionSequenceSchedule::Absolute(0),
+        conflict: MotionSequenceConflict::Reject,
+      },
+      label(
+        "never",
+        MotionSequenceSchedule::AfterCompletion {
+          entry: 0,
+          offset_micros: 0,
+        },
+      ),
+    ];
+    assert!(
+      validate_motion_sequence(&entries)
+        .unwrap_err()
+        .contains("infinite")
+    );
+  }
+
+  fn label(name: &str, schedule: MotionSequenceSchedule) -> MotionSequenceEntry {
+    MotionSequenceEntry::Label {
+      name: name.into(),
+      schedule,
+    }
+  }
 }

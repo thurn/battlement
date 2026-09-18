@@ -2,7 +2,7 @@
 
 use std::{
   cell::{Cell, RefCell},
-  collections::HashMap,
+  collections::{HashMap, HashSet},
   rc::Rc,
 };
 
@@ -10,7 +10,7 @@ use battlement::{
   MotionGeneration, MotionPlaybackEvent, MotionPlaybackOutcome, MotionSlotId, ObjectId,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) struct Address {
   pub(crate) descriptor: ObjectId,
   pub(crate) slot: MotionSlotId,
@@ -90,6 +90,24 @@ impl Playbacks {
     playback.addresses.push(address);
   }
 
+  pub(crate) fn retain_addresses(&mut self, id: ObjectId, values: &[Address]) {
+    if let Some(playback) = self.values.get_mut(&id) {
+      playback
+        .addresses
+        .retain(|address| values.contains(address));
+    }
+  }
+
+  pub(crate) fn remap(&mut self, remaps: &[(Address, Address)]) {
+    for playback in self.values.values_mut() {
+      for address in &mut playback.addresses {
+        if let Some((_, replacement)) = remaps.iter().find(|(old, _)| old == address) {
+          *address = *replacement;
+        }
+      }
+    }
+  }
+
   pub(crate) fn finish(&mut self, id: ObjectId, outcome: MotionPlaybackOutcome) {
     if let Some(playback) = self.values.remove(&id) {
       playback.running.outcome.set(Some(outcome));
@@ -153,10 +171,14 @@ impl Playbacks {
 
   pub(crate) fn sample(
     &mut self,
+    deferred: &HashSet<ObjectId>,
     mut outcome: impl FnMut(Address) -> Option<MotionPlaybackOutcome>,
   ) {
     let mut finished = Vec::new();
     for (id, playback) in &self.values {
+      if deferred.contains(id) {
+        continue;
+      }
       if playback.addresses.is_empty() {
         continue;
       }

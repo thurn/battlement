@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use battlement::{
   MotionClockSource, MotionControlledClockCommand, MotionControlledClockOperation,
   MotionDescriptor, MotionEventBatch, MotionEventKind, MotionLifecycleEvent, MotionPlaybackCommand,
-  MotionPlaybackOperation, MotionPresentationSample, MotionPropertyValue, MotionSequence, ObjectId,
-  Prop, UiNode, UiVisualElementProperties,
+  MotionPlaybackOperation, MotionPresentationSample, MotionPropertyValue, MotionSequence,
+  MotionSequenceLabelEvent, ObjectId, Prop, UiNode, UiVisualElementProperties,
 };
 use battlement_ui_fake::UiWorld;
 
@@ -35,10 +35,12 @@ pub(crate) struct MotionWorld {
   sequence: u64,
   gestures: Gestures,
   playbacks: Playbacks,
+  sequences: HashMap<ObjectId, scopes::Sequence>,
   graph: Graph,
   controls: HashMap<ObjectId, controls::ActiveControl>,
   events: Vec<MotionLifecycleEvent>,
   samples: HashMap<(ObjectId, battlement::MotionSlotId), MotionPresentationSample>,
+  label_events: Vec<MotionSequenceLabelEvent>,
 }
 
 struct Descriptor {
@@ -454,6 +456,7 @@ impl MotionWorld {
     for host in missing {
       self.remove(host);
     }
+    self.progress_sequences(world, ui, now);
     self.sample_playbacks(now);
     let graph_sampled = self
       .graph
@@ -560,6 +563,7 @@ impl MotionWorld {
       }
       self.remove(host);
     }
+    self.progress_sequences(world, ui, now);
     self.sample_playbacks(now);
     if graph_sampled {
       self.graph.capture(
@@ -618,7 +622,8 @@ impl MotionWorld {
 
   pub(crate) fn drain(&mut self) -> Option<MotionEventBatch> {
     let has_samples = !self.events.is_empty() || !self.samples.is_empty();
-    let has_graph = self.graph.has_events() || self.playbacks.has_events();
+    let has_graph =
+      self.graph.has_events() || self.playbacks.has_events() || !self.label_events.is_empty();
     if !has_samples && !has_graph {
       return None;
     }
@@ -639,6 +644,7 @@ impl MotionWorld {
         .into_iter()
         .chain(self.graph.drain_events())
         .collect(),
+      label_events: std::mem::take(&mut self.label_events),
       gesture_events: Vec::new(),
     })
   }

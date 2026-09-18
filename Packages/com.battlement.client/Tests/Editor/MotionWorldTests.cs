@@ -734,10 +734,13 @@ namespace Battlement.Tests
                         1,
                         new[]
                         {
-                            new MotionSequenceStep(
+                            new MotionSequenceEntry.Animate(
                                 new MotionSelector.Children(),
                                 Target(1, 1_000_000),
-                                0
+                                null,
+                                LinearTween(),
+                                new MotionSequenceSchedule.Absolute(0),
+                                MotionSequenceConflict.Reject
                             ),
                         }
                     )
@@ -753,6 +756,133 @@ namespace Battlement.Tests
             world.PostLayout();
             Assert.That(selected.style.opacity.value, Is.EqualTo(1).Within(0.00001));
             Assert.That(late.style.opacity.value, Is.EqualTo(0).Within(0.00001));
+        }
+
+        [Test]
+        public void SequenceLabelsUseActualCompletionAndPauseFutureScheduling()
+        {
+            ObjectId clock = Id("61b86de9-0408-4f43-9be7-e58f56cb7061");
+            ObjectId scope = Id("61b86de9-0408-4f43-9be7-e58f56cb7062");
+            ObjectId child = Id("61b86de9-0408-4f43-9be7-e58f56cb7063");
+            ObjectId playback = Id("61b86de9-0408-4f43-9be7-e58f56cb7064");
+            var root = new VisualElement();
+            var target = new VisualElement();
+            root.Add(target);
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                root,
+                scope,
+                EmptyDescriptor(scope, clock) with
+                {
+                    ScopeId = scope,
+                    ScopeRoot = true,
+                }
+            );
+            world.Install(target, child, EmptyDescriptor(child, clock));
+            world.Apply(
+                new MotionScopeOperation(
+                    scope,
+                    new MotionScopeCommand.Start(
+                        playback,
+                        1,
+                        new MotionSequenceEntry[]
+                        {
+                            Animate(Target(1, 400_000), new MotionSequenceSchedule.Absolute(0)),
+                            new MotionSequenceEntry.Label(
+                                "arrived",
+                                new MotionSequenceSchedule.AfterCompletion(0, 0)
+                            ),
+                            Animate(
+                                XTarget(20, 100_000),
+                                new MotionSequenceSchedule.Absolute(100_000)
+                            ),
+                            new MotionSequenceEntry.Label(
+                                "same-time-a",
+                                new MotionSequenceSchedule.Absolute(100_000)
+                            ),
+                            new MotionSequenceEntry.Label(
+                                "same-time-b",
+                                new MotionSequenceSchedule.Absolute(100_000)
+                            ),
+                        }
+                    )
+                )
+            );
+
+            world.SetControlledClock(clock, 100_000);
+            world.PostLayout();
+            CollectionAssert.AreEqual(
+                new[] { "same-time-a", "same-time-b" },
+                world.DrainEventBatch()!.LabelEvents!.Select(value => value.Label).ToArray()
+            );
+
+            world.SetControlledClock(clock, 200_000);
+            world.PostLayout();
+            world.Apply(
+                new MotionValuePlaybackOperation(playback, 1, new MotionPlaybackCommand.Pause())
+            );
+            world.SetControlledClock(clock, 700_000);
+            world.PostLayout();
+            Assert.That(world.DrainEventBatch(), Is.Null);
+
+            world.Apply(
+                new MotionValuePlaybackOperation(playback, 1, new MotionPlaybackCommand.Play())
+            );
+            world.SetControlledClock(clock, 900_000);
+            world.PostLayout();
+            MotionEventBatch completed = world.DrainEventBatch()!;
+            Assert.That(completed.LabelEvents!.Single().Label, Is.EqualTo("arrived"));
+            Assert.That(
+                completed.PlaybackEvents!.Single().Outcome,
+                Is.EqualTo(MotionPlaybackOutcome.Completed)
+            );
+        }
+
+        [Test]
+        public void InvalidSequenceLeavesPresentationAndPlaybackRegistryUntouched()
+        {
+            ObjectId clock = Id("f08b3f97-889f-4456-a973-c13551113f11");
+            ObjectId scope = Id("f08b3f97-889f-4456-a973-c13551113f12");
+            ObjectId child = Id("f08b3f97-889f-4456-a973-c13551113f13");
+            var root = new VisualElement();
+            var target = new VisualElement();
+            target.style.opacity = 0;
+            root.Add(target);
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                root,
+                scope,
+                EmptyDescriptor(scope, clock) with
+                {
+                    ScopeId = scope,
+                    ScopeRoot = true,
+                }
+            );
+            world.Install(target, child, EmptyDescriptor(child, clock));
+
+            Assert.Throws<BattlementUiException>(() =>
+                world.Apply(
+                    new MotionScopeOperation(
+                        scope,
+                        new MotionScopeCommand.Start(
+                            Id("f08b3f97-889f-4456-a973-c13551113f14"),
+                            1,
+                            new MotionSequenceEntry[]
+                            {
+                                Animate(
+                                    Target(0.5, 400_000),
+                                    new MotionSequenceSchedule.Absolute(0)
+                                ),
+                                Animate(Target(1, 400_000), new MotionSequenceSchedule.Absolute(0)),
+                            }
+                        )
+                    )
+                )
+            );
+            world.SetControlledClock(clock, 200_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.Zero);
+            Assert.That(world.DrainEventBatch(), Is.Null);
         }
 
         [Test]
@@ -1104,6 +1234,42 @@ namespace Battlement.Tests
                     ),
                 },
                 Array.Empty<MotionPropertyValue>()
+            );
+
+        private static MotionTargetDescriptor XTarget(double x, ulong duration) =>
+            new(
+                new[]
+                {
+                    new MotionPropertyTrack(
+                        MotionProperty.X,
+                        new MotionValue[] { new MotionValue.Length(new UiLength.Px((float)x)) },
+                        new TransitionDefinition(
+                            new TransitionGenerator.Tween(
+                                duration,
+                                new MotionEasing[] { new MotionEasing.Linear() },
+                                null
+                            ),
+                            0,
+                            new MotionRepeat.None(),
+                            0,
+                            MotionRepeatType.Loop
+                        )
+                    ),
+                },
+                Array.Empty<MotionPropertyValue>()
+            );
+
+        private static MotionSequenceEntry.Animate Animate(
+            MotionTargetDescriptor target,
+            MotionSequenceSchedule schedule
+        ) =>
+            new(
+                new MotionSelector.Children(),
+                target,
+                null,
+                LinearTween(),
+                schedule,
+                MotionSequenceConflict.Reject
             );
 
         private static ObjectId Id(string value) => new(Guid.Parse(value));

@@ -228,6 +228,13 @@ namespace Battlement.UI
             return null;
         }
 
+        public void RetargetPosition(IReadOnlyList<MotionPropertyValue> values, ulong clockMicros)
+        {
+            ulong elapsed = Elapsed(clockMicros);
+            foreach (MotionPropertyValue value in values)
+                FindTrack(value.Property)?.RetargetDestination(target, value.Value, elapsed);
+        }
+
         public void ApplyOrigin(IBattlementMotionTarget target)
         {
             foreach (TrackState track in tracks)

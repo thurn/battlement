@@ -997,6 +997,17 @@ pub struct MotionPlaybackEvent {
   pub outcome: MotionPlaybackOutcome,
 }
 
+/// One declaration-ordered label reached by an imperative sequence playback.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotionSequenceLabelEvent {
+  /// Stable playback identity shared with terminal events.
+  pub playback_id: ObjectId,
+  /// Playback generation.
+  pub generation: u32,
+  /// Authored label.
+  pub label: String,
+}
+
 /// Ordered lifecycle boundaries and partitioned replaceable samples.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MotionEventBatch {
@@ -1012,6 +1023,8 @@ pub struct MotionEventBatch {
   pub value_samples: Vec<crate::MotionValueSample>,
   /// Terminal events for stable imperative playback handles.
   pub playback_events: Vec<MotionPlaybackEvent>,
+  /// Reliable declaration-ordered sequence labels.
+  pub label_events: Vec<MotionSequenceLabelEvent>,
   /// Reliable gesture boundaries followed by latest coalesced movement samples.
   pub gesture_events: Vec<MotionGestureEvent>,
 }

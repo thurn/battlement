@@ -119,17 +119,11 @@ pub(crate) fn scope_operation(
           .ok_or_else(|| "Motion scope playback identity is missing".to_owned())?,
       )?,
       generation: value.generation(),
-      steps: value
-        .steps()
-        .ok_or_else(|| "Motion scope steps are missing".to_owned())?
+      entries: value
+        .entries()
+        .ok_or_else(|| "Motion scope entries are missing".to_owned())?
         .iter()
-        .map(|step| {
-          Ok(battlement::MotionSequenceStep {
-            selector: selector(step.selector())?,
-            target: target(step.target())?,
-            start_micros: step.start_micros(),
-          })
-        })
+        .map(sequence_entry)
         .collect::<Result<_, String>>()?,
     },
     wire::MotionScopeCommandKind::Set => battlement::MotionScopeCommand::Set {
@@ -154,6 +148,92 @@ pub(crate) fn scope_operation(
   Ok(battlement::MotionScopeOperation {
     scope_id: object_id(value.scope_id())?,
     command,
+  })
+}
+
+fn sequence_entry(
+  value: wire::MotionSequenceEntry<'_>,
+) -> Result<battlement::MotionSequenceEntry, String> {
+  let schedule = sequence_schedule(value.schedule())?;
+  match value.kind() {
+    wire::MotionSequenceEntryKind::Animate => Ok(battlement::MotionSequenceEntry::Animate {
+      selector: selector(
+        value
+          .selector()
+          .ok_or_else(|| "Motion sequence selector is missing".to_owned())?,
+      )?,
+      target: target(
+        value
+          .target()
+          .ok_or_else(|| "Motion sequence target is missing".to_owned())?,
+      )?,
+      position: value.position().map(position_reference).transpose()?,
+      position_transition: Box::new(transition(
+        value
+          .position_transition()
+          .ok_or_else(|| "Motion sequence position transition is missing".to_owned())?,
+      )?),
+      schedule,
+      conflict: match value.conflict() {
+        wire::MotionSequenceConflict::Reject => battlement::MotionSequenceConflict::Reject,
+        wire::MotionSequenceConflict::Replace => battlement::MotionSequenceConflict::Replace,
+        _ => return Err("Motion sequence conflict behavior is unknown".to_owned()),
+      },
+    }),
+    wire::MotionSequenceEntryKind::Label => Ok(battlement::MotionSequenceEntry::Label {
+      name: value
+        .label()
+        .ok_or_else(|| "Motion sequence label is missing".to_owned())?
+        .to_owned(),
+      schedule,
+    }),
+    _ => Err("Motion sequence entry kind is unknown".to_owned()),
+  }
+}
+
+fn sequence_schedule(
+  value: wire::MotionSequenceSchedule<'_>,
+) -> Result<battlement::MotionSequenceSchedule, String> {
+  Ok(match value.kind() {
+    wire::MotionSequenceScheduleKind::Absolute => {
+      battlement::MotionSequenceSchedule::Absolute(value.absolute_micros())
+    }
+    wire::MotionSequenceScheduleKind::RelativeStart => {
+      battlement::MotionSequenceSchedule::RelativeStart {
+        entry: value.entry(),
+        offset_micros: value.offset_micros(),
+      }
+    }
+    wire::MotionSequenceScheduleKind::AfterCompletion => {
+      battlement::MotionSequenceSchedule::AfterCompletion {
+        entry: value.entry(),
+        offset_micros: value.offset_micros(),
+      }
+    }
+    wire::MotionSequenceScheduleKind::Label => battlement::MotionSequenceSchedule::Label {
+      name: value
+        .label()
+        .ok_or_else(|| "Motion sequence schedule label is missing".to_owned())?
+        .to_owned(),
+      offset_micros: value.offset_micros(),
+    },
+    _ => return Err("Motion sequence schedule kind is unknown".to_owned()),
+  })
+}
+
+fn position_reference(
+  value: wire::MotionPositionReference<'_>,
+) -> Result<battlement::MotionPositionReference, String> {
+  Ok(battlement::MotionPositionReference {
+    object_id: object_id(value.object_id())?,
+    anchor: value.anchor().map(str::to_owned),
+    resolution: match value.resolution() {
+      wire::MotionReferenceResolution::CaptureAtStart => {
+        battlement::MotionReferenceResolution::CaptureAtStart
+      }
+      wire::MotionReferenceResolution::Follow => battlement::MotionReferenceResolution::Follow,
+      _ => return Err("Motion position reference behavior is unknown".to_owned()),
+    },
   })
 }
 

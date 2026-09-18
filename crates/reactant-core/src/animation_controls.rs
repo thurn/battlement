@@ -2,14 +2,14 @@
 
 use std::{
   any::{Any, TypeId},
-  collections::HashMap,
   marker::PhantomData,
   time::Duration,
 };
 
 use battlement::{
-  CommandBody, MotionControlCommand, MotionControlOperation, MotionScopeCommand,
-  MotionScopeOperation, MotionSequenceStep,
+  CommandBody, MotionControlCommand, MotionControlOperation, MotionReferenceResolution,
+  MotionScopeCommand, MotionScopeOperation, MotionSequenceConflict, MotionSequenceEntry,
+  MotionSequenceSchedule,
 };
 
 use crate::{
@@ -61,8 +61,22 @@ pub enum MotionSelector {
 /// Ordered selector-target steps on one native playhead.
 #[derive(Clone, Default)]
 pub struct AnimationSequence {
-  steps: Vec<SequenceStep>,
-  labels: HashMap<String, Duration>,
+  entries: Vec<SequenceEntry>,
+}
+
+/// A concrete property target with an optional typed position reference.
+#[derive(Clone)]
+pub struct SequenceTarget {
+  target: MotionTarget,
+  position: Option<MotionPositionRef>,
+}
+
+/// A typed host or named world-anchor position used by a sequence target.
+#[derive(Clone)]
+pub struct MotionPositionRef {
+  element: ElementRef,
+  anchor: Option<String>,
+  resolution: MotionReferenceResolution,
 }
 
 /// Placement for the most recently appended sequence step.
@@ -79,11 +93,18 @@ pub enum SequencePosition {
 }
 
 #[derive(Clone)]
-struct SequenceStep {
-  selector: MotionSelector,
-  target: MotionTarget,
-  start: Duration,
-  duration: Duration,
+enum SequenceEntry {
+  Animate {
+    selector: MotionSelector,
+    target: Box<MotionTarget>,
+    position: Option<MotionPositionRef>,
+    schedule: MotionSequenceSchedule,
+    conflict: MotionSequenceConflict,
+  },
+  Label {
+    name: String,
+    schedule: MotionSequenceSchedule,
+  },
 }
 
 struct ControlsSlot<Name: VariantKey>(AnimationControls<Name>);
@@ -208,7 +229,7 @@ impl AnimationScope {
     self.queue(MotionScopeCommand::Start {
       playback_id,
       generation,
-      steps: sequence.into_protocol(),
+      entries: sequence.into_protocol(),
     });
     playback
   }
@@ -269,6 +290,86 @@ impl MotionSelector {
   }
 }
 
+impl SequenceTarget {
+  /// Creates a sequence target from concrete style properties.
+  #[must_use]
+  pub fn new(target: impl Into<MotionTarget>) -> Self {
+    Self {
+      target: target.into(),
+      position: None,
+    }
+  }
+
+  /// Moves to one typed host or named world-anchor position.
+  #[must_use]
+  pub fn position(mut self, value: MotionPositionRef) -> Self {
+    self.position = Some(value);
+    self
+  }
+}
+
+impl From<StyleTarget> for SequenceTarget {
+  fn from(value: StyleTarget) -> Self {
+    Self::new(value)
+  }
+}
+
+impl From<MotionTarget> for SequenceTarget {
+  fn from(value: MotionTarget) -> Self {
+    Self::new(value)
+  }
+}
+
+impl MotionPositionRef {
+  /// References the attached host origin.
+  #[must_use]
+  pub fn element(value: ElementRef) -> Self {
+    Self {
+      element: value,
+      anchor: None,
+      resolution: MotionReferenceResolution::CaptureAtStart,
+    }
+  }
+
+  /// References one named anchor inside an attached prepared world visual.
+  #[must_use]
+  pub fn named_anchor(value: ElementRef, anchor: impl Into<String>) -> Self {
+    let anchor = anchor.into();
+    assert!(!anchor.is_empty(), "Motion position anchor is empty");
+    Self {
+      element: value,
+      anchor: Some(anchor),
+      resolution: MotionReferenceResolution::CaptureAtStart,
+    }
+  }
+
+  /// Resolves once when the sequence starts.
+  #[must_use]
+  pub fn capture_at_start(mut self) -> Self {
+    self.resolution = MotionReferenceResolution::CaptureAtStart;
+    self
+  }
+
+  /// Follows the referenced presentation position while the entry is active.
+  #[must_use]
+  pub fn follow(mut self) -> Self {
+    self.resolution = MotionReferenceResolution::Follow;
+    self
+  }
+
+  fn into_protocol(self) -> battlement::MotionPositionReference {
+    battlement::MotionPositionReference {
+      object_id: self
+        .element
+        .geometry_identity()
+        .2
+        .expect("Motion position ref is not attached"),
+      anchor: self.anchor,
+      resolution: self.resolution,
+    }
+  }
+}
+
 impl AnimationSequence {
   /// Creates an empty sequence.
   pub fn new() -> Self {
@@ -279,24 +380,17 @@ impl AnimationSequence {
   pub fn animate(
     mut self,
     selector: MotionSelector,
-    target: StyleTarget,
+    target: impl Into<SequenceTarget>,
     transition: crate::motion::Transition,
   ) -> Self {
-    let target = MotionTarget::new(target).transition(transition);
-    let start = self
-      .steps
-      .last()
-      .map_or(Duration::ZERO, |value| value.start + value.duration);
-    let duration = Duration::from_micros(
-      target
-        .total_duration_micros(None)
-        .expect("animation sequence steps must be finite"),
-    );
-    self.steps.push(SequenceStep {
+    let target = target.into();
+    let schedule = self.after_previous();
+    self.entries.push(SequenceEntry::Animate {
       selector,
-      target,
-      start,
-      duration,
+      target: Box::new(target.target.transition(transition)),
+      position: target.position,
+      schedule,
+      conflict: MotionSequenceConflict::Reject,
     });
     self
   }
@@ -305,7 +399,7 @@ impl AnimationSequence {
   pub fn then(
     self,
     selector: MotionSelector,
-    target: StyleTarget,
+    target: impl Into<SequenceTarget>,
     transition: crate::motion::Transition,
   ) -> Self {
     self.animate(selector, target, transition)
@@ -315,61 +409,117 @@ impl AnimationSequence {
   pub fn label(mut self, name: impl Into<String>) -> Self {
     let name = name.into();
     assert!(!name.trim().is_empty(), "animation sequence label is empty");
-    let end = self
-      .steps
-      .last()
-      .map_or(Duration::ZERO, |value| value.start + value.duration);
-    assert!(
-      self.labels.insert(name, end).is_none(),
-      "duplicate sequence label"
-    );
+    let schedule = self.after_previous();
+    self.entries.push(SequenceEntry::Label { name, schedule });
+    self
+  }
+
+  /// Adds a label at an explicit graph position.
+  pub fn label_at(mut self, name: impl Into<String>, position: SequencePosition) -> Self {
+    let name = name.into();
+    assert!(!name.trim().is_empty(), "animation sequence label is empty");
+    let schedule = self.schedule(position, self.entries.len());
+    self.entries.push(SequenceEntry::Label { name, schedule });
     self
   }
 
   /// Repositions the most recently appended step.
   pub fn at(mut self, position: SequencePosition) -> Self {
     let index = self
-      .steps
-      .len()
-      .checked_sub(1)
-      .expect("sequence has no step");
-    let previous = index
-      .checked_sub(1)
-      .map(|value| self.steps[value].start)
-      .unwrap_or(Duration::ZERO);
-    let previous_end = index
-      .checked_sub(1)
-      .map(|value| self.steps[value].start + self.steps[value].duration)
-      .unwrap_or(Duration::ZERO);
-    self.steps[index].start = match position {
-      SequencePosition::AfterPrevious => previous_end,
-      SequencePosition::WithPrevious(offset) => signed_offset(previous, offset),
-      SequencePosition::Absolute(value) => value,
-      SequencePosition::Label(name, offset) => signed_offset(
-        *self
-          .labels
-          .get(&name)
-          .expect("animation sequence label is missing"),
-        offset,
-      ),
+      .entries
+      .iter()
+      .rposition(|entry| matches!(entry, SequenceEntry::Animate { .. }))
+      .expect("sequence has no animation entry");
+    let schedule = self.schedule(position, index);
+    let SequenceEntry::Animate {
+      schedule: current, ..
+    } = &mut self.entries[index]
+    else {
+      unreachable!()
     };
+    *current = schedule;
     self
   }
 
-  fn into_protocol(self) -> Vec<MotionSequenceStep> {
+  /// Allows the most recent animation entry to interrupt a prior property writer.
+  pub fn replace(mut self) -> Self {
+    let entry = self
+      .entries
+      .iter_mut()
+      .rev()
+      .find(|entry| matches!(entry, SequenceEntry::Animate { .. }))
+      .expect("sequence has no animation entry");
+    let SequenceEntry::Animate { conflict, .. } = entry else {
+      unreachable!()
+    };
+    *conflict = MotionSequenceConflict::Replace;
     self
-      .steps
+  }
+
+  fn into_protocol(self) -> Vec<MotionSequenceEntry> {
+    self
+      .entries
       .into_iter()
-      .map(|value| MotionSequenceStep {
-        selector: value.selector.into_protocol(),
-        target: value.target.descriptor(None, 0),
-        start_micros: value
-          .start
-          .as_micros()
-          .try_into()
-          .expect("sequence time overflow"),
+      .map(|value| match value {
+        SequenceEntry::Animate {
+          selector,
+          target,
+          position,
+          schedule,
+          conflict,
+        } => {
+          let target = *target;
+          MotionSequenceEntry::Animate {
+            selector: selector.into_protocol(),
+            position_transition: Box::new(target.sequence_position_transition()),
+            target: target.descriptor(None, 0),
+            position: position.map(MotionPositionRef::into_protocol),
+            schedule,
+            conflict,
+          }
+        }
+        SequenceEntry::Label { name, schedule } => MotionSequenceEntry::Label { name, schedule },
       })
       .collect()
+  }
+
+  fn after_previous(&self) -> MotionSequenceSchedule {
+    self
+      .entries
+      .last()
+      .map_or(MotionSequenceSchedule::Absolute(0), |_| {
+        MotionSequenceSchedule::AfterCompletion {
+          entry: u32::try_from(self.entries.len() - 1).expect("sequence has too many entries"),
+          offset_micros: 0,
+        }
+      })
+  }
+
+  fn schedule(&self, position: SequencePosition, index: usize) -> MotionSequenceSchedule {
+    match position {
+      SequencePosition::AfterPrevious => {
+        index
+          .checked_sub(1)
+          .map_or(MotionSequenceSchedule::Absolute(0), |entry| {
+            MotionSequenceSchedule::AfterCompletion {
+              entry: u32::try_from(entry).expect("sequence has too many entries"),
+              offset_micros: 0,
+            }
+          })
+      }
+      SequencePosition::WithPrevious(offset) => index.checked_sub(1).map_or_else(
+        || MotionSequenceSchedule::Absolute(offset_micros(Duration::ZERO, offset)),
+        |entry| MotionSequenceSchedule::RelativeStart {
+          entry: u32::try_from(entry).expect("sequence has too many entries"),
+          offset_micros: signed_micros(offset),
+        },
+      ),
+      SequencePosition::Absolute(value) => MotionSequenceSchedule::Absolute(duration_micros(value)),
+      SequencePosition::Label(name, offset) => MotionSequenceSchedule::Label {
+        name,
+        offset_micros: signed_micros(offset),
+      },
+    }
   }
 }
 
@@ -425,7 +575,23 @@ impl HookSlot for ScopeSlot {
   }
 }
 
-fn signed_offset(value: Duration, seconds: f64) -> Duration {
+fn signed_micros(seconds: f64) -> i64 {
   assert!(seconds.is_finite(), "sequence offset must be finite");
-  Duration::from_secs_f64((value.as_secs_f64() + seconds).max(0.0))
+  let micros = seconds * 1_000_000.0;
+  assert!(
+    micros >= i64::MIN as f64 && micros <= i64::MAX as f64,
+    "sequence offset overflow"
+  );
+  micros.round_ties_even() as i64
+}
+
+fn duration_micros(value: Duration) -> u64 {
+  value
+    .as_micros()
+    .try_into()
+    .expect("sequence time overflow")
+}
+
+fn offset_micros(value: Duration, seconds: f64) -> u64 {
+  duration_micros(value).saturating_add_signed(signed_micros(seconds))
 }

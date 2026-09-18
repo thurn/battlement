@@ -74,6 +74,11 @@ fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineErr
       crate::Screen::ComposedEffects,
     )));
   }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("motion-sequence") {
+    return Ok(create_engine_with_screen(Some(
+      crate::Screen::ValuesTimeControls,
+    )));
+  }
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("shared-motion") {
     return Ok(crate::world_motion_proof::app());
   }

@@ -168,6 +168,12 @@ impl MotionWorld {
       "Motion playback generation is stale"
     );
     let addresses = playback.addresses.clone();
+    self.sequence_playback(
+      operation.playback_id,
+      operation.generation,
+      operation.command,
+      now,
+    );
     for address in addresses {
       self.playback(
         MotionPlaybackOperation {
@@ -234,6 +240,20 @@ impl MotionWorld {
     ui: &mut UiWorld,
     now: u64,
   ) -> Vec<Address> {
+    self
+      .install_imperatives_with_remaps(id, targets, generation, world, ui, now)
+      .0
+  }
+
+  pub(crate) fn install_imperatives_with_remaps(
+    &mut self,
+    id: ObjectId,
+    targets: Vec<(MotionTargetDescriptor, u64)>,
+    generation: u32,
+    world: &mut FakeWorld,
+    ui: &mut UiWorld,
+    now: u64,
+  ) -> (Vec<Address>, Vec<(Address, Address)>) {
     let clock = self.clock(self.entries[&id].definition.clock, now);
     let entry = self.entries.get_mut(&id).unwrap();
     let mut prepared = Vec::new();
@@ -287,7 +307,7 @@ impl MotionWorld {
         clock,
       ));
     }
-    motion_ownership::retain_disjoint(&mut entry.slots, &prepared);
+    let remaps = motion_ownership::retain_disjoint(id, &mut entry.slots, &prepared);
     let addresses = prepared
       .iter()
       .map(|slot| Address {
@@ -301,11 +321,13 @@ impl MotionWorld {
       .slots
       .sort_by_key(|slot| (slot.definition.layer, slot.definition.slot));
     entry.sampled = None;
-    addresses
+    self.playbacks.remap(&remaps);
+    (addresses, remaps)
   }
 
   pub(crate) fn sample_playbacks(&mut self, now: u64) {
     for (id, addresses) in self.playbacks.cancellations() {
+      self.sequences.remove(&id);
       for address in addresses {
         if let Some(entry) = self.entries.get_mut(&address.descriptor) {
           let clock = crate::motion::clock(&self.clocks, entry.definition.clock, now);
@@ -322,7 +344,8 @@ impl MotionWorld {
       }
       self.playbacks.finish(id, MotionPlaybackOutcome::Cancelled);
     }
-    self.playbacks.sample(|address| {
+    let deferred = self.sequences.keys().copied().collect();
+    self.playbacks.sample(&deferred, |address| {
       let Some(entry) = self.entries.get(&address.descriptor) else {
         return Some(MotionPlaybackOutcome::Cancelled);
       };

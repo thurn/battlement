@@ -836,8 +836,8 @@ fn validate_motion_control_target(value: &MotionControlTarget) -> Result<(), Val
 
 fn validate_motion_scope_command(value: &MotionScopeCommand) -> Result<(), ValidationError> {
   match value {
-    MotionScopeCommand::Start { steps, .. } => {
-      finite(steps.iter().all(|step| step.target.validate().is_ok()))
+    MotionScopeCommand::Start { entries, .. } => {
+      finite(crate::validate_motion_sequence(entries).is_ok())
     }
     MotionScopeCommand::Set { target, .. } => finite(target.validate().is_ok()),
     MotionScopeCommand::Stop(_) => Ok(()),
