@@ -14,7 +14,7 @@ use crate::{
   motion_gestures::Gestures,
   motion_graph::Graph,
   motion_graph_bindings,
-  motion_playbacks::Playbacks,
+  motion_playbacks::{Address, Playbacks, RunningMotion},
   motion_restore::LayerRestore,
   motion_slot::Slot,
   motion_target::{self, Target},
@@ -203,6 +203,31 @@ impl MotionWorld {
       slots.push(Slot::new(slot.clone(), tracks, clock));
     }
     slots.sort_by_key(|slot| (slot.definition.layer, slot.definition.slot));
+    let remaps = previous
+      .as_ref()
+      .into_iter()
+      .flat_map(|old| {
+        old.slots.iter().filter_map(|old_slot| {
+          slots
+            .iter()
+            .find(|slot| slot.definition.slot == old_slot.definition.slot)
+            .map(|slot| {
+              (
+                Address {
+                  descriptor: id,
+                  slot: old_slot.definition.slot,
+                  generation: old_slot.definition.generation,
+                },
+                Address {
+                  descriptor: id,
+                  slot: slot.definition.slot,
+                  generation: slot.definition.generation,
+                },
+              )
+            })
+        })
+      })
+      .collect::<Vec<_>>();
     for slot in &slots {
       let retained = retained_slots.contains(&(slot.definition.slot, slot.definition.generation));
       if slot.active && !retained && (!reconnect || previous.is_none()) {
@@ -258,6 +283,7 @@ impl MotionWorld {
     self
       .graph
       .rebuild(self.entries.values().map(|entry| &entry.definition));
+    self.playbacks.remap(&remaps);
     self.attach_control(id, world, ui, now);
   }
 
@@ -369,6 +395,43 @@ impl MotionWorld {
       Prop::Reset => self.remove(host),
       Prop::Set(value) => self.install(host, Some(value.clone()), world, ui, now),
     }
+  }
+
+  pub(crate) fn descriptor_operation(
+    &mut self,
+    host: ObjectId,
+    playback: ObjectId,
+  ) -> Option<RunningMotion> {
+    let descriptor = *self.hosts.get(&host)?;
+    let entry = self.entries.get(&descriptor)?;
+    let mut slots = entry
+      .slots
+      .iter()
+      .filter(|slot| slot.has_pending_finite_tracks())
+      .collect::<Vec<_>>();
+    let infinite = slots.is_empty();
+    if infinite {
+      slots = entry
+        .slots
+        .iter()
+        .filter(|slot| slot.has_pending_infinite_tracks())
+        .collect();
+    }
+    if slots.is_empty() {
+      return None;
+    }
+    let running = self.playbacks.register_silent(playback, 1, infinite);
+    for slot in slots {
+      self.playbacks.attach(
+        playback,
+        Address {
+          descriptor,
+          slot: slot.definition.slot,
+          generation: slot.definition.generation,
+        },
+      );
+    }
+    Some(running)
   }
 
   pub(crate) fn remove(&mut self, host: ObjectId) {

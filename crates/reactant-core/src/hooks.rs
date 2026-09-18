@@ -9,7 +9,9 @@ use std::{
 
 use crate::callback::{Callback as EventCallback, IntoCallback};
 use crate::context::ContextIdentity;
-use crate::effect::{EffectCleanup, EffectSetup, EffectSlot};
+use crate::effect::{
+  CommitEffectOperation, CommitEffectSlot, EffectCleanup, EffectSetup, EffectSlot,
+};
 use crate::external_store::{ExternalStore, StoreSlot};
 use crate::hook_storage::{
   ContextSlot, HookComponent, HookKind, HookOwner, HookSlot, MemoSlot, PresenceSlot, ReducerQueue,
@@ -444,6 +446,55 @@ where
   C: IntoEffectCleanup,
 {
   self::use_effect_hook(setup, (), true);
+}
+
+/// Queues one operation after the current tree and its refs commit.
+///
+/// This hook is reserved for facade APIs that must lower render-owned commands
+/// against newly attached refs. Ordinary component side effects use [`use_effect`].
+#[doc(hidden)]
+pub fn use_commit_effect<D>(operation: impl FnOnce() + 'static, dependencies: D)
+where
+  D: Dependencies,
+{
+  assert!(
+    context::hooks_allowed(),
+    "Reactant hooks require a component render context"
+  );
+  let current = CURRENT
+    .with(|slot| slot.borrow().clone())
+    .expect("Reactant hooks require a component render context");
+  let mut attempt = current.borrow_mut();
+  let index = attempt.cursor;
+  attempt.cursor += 1;
+  let operation: CommitEffectOperation = Box::new(operation);
+  let value_type = TypeId::of::<D>();
+  if index == attempt.component.slots.len() {
+    assert!(
+      attempt.component.expected_count.is_none(),
+      "Reactant hook count changed"
+    );
+    attempt.component.slots.push(Box::new(CommitEffectSlot::new(
+      dependencies,
+      operation,
+      value_type,
+    )));
+    return;
+  }
+  let slot = &mut attempt.component.slots[index];
+  assert!(
+    slot.kind() == HookKind::CommitEffect,
+    "Reactant hook kind changed"
+  );
+  assert!(
+    slot.value_type() == value_type,
+    "Reactant hook type changed"
+  );
+  slot
+    .as_any_mut()
+    .downcast_mut::<CommitEffectSlot<D>>()
+    .expect("validated commit-effect hook type")
+    .prepare(dependencies, operation);
 }
 
 /// Reads a snapshot and subscribes to its comparable external store.

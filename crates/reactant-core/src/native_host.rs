@@ -202,6 +202,7 @@ impl<A: HostAdapter> Sealed for NativeHost<A> {
     );
     *host.motion_mut() =
       render_facade::descriptor(&self.motion, &resolved, host.object_id, previous_motion);
+    host.set_world_motion_blocking(self.motion.blocking_command);
     assert!(
       host.motion_descriptor().is_none() || world_host,
       "Native Motion requires a world GameObject host"

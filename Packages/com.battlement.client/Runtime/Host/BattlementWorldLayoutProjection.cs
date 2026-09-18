@@ -129,6 +129,8 @@ namespace Battlement
 
         public ViewportRect VisibleBounds => completed ? destination : ProjectedBounds(progress);
 
+        public bool IsComplete => completed;
+
         public void CaptureDestination()
         {
             if (captured)

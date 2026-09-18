@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
   context,
-  effect::EffectOperation,
+  effect::{CommitEffectOperation, EffectOperation},
   geometry::GeometryTarget,
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::GeometryRuntime,
@@ -81,6 +81,7 @@ pub(crate) enum StateUpdate<T> {
 pub(crate) enum HookKind {
   AnimationControl,
   AnimationScope,
+  CommitEffect,
   Context,
   DragControl,
   ElementRef,
@@ -119,6 +120,10 @@ pub(crate) trait HookSlot {
   }
 
   fn take_effect_operation(&mut self) -> Option<EffectOperation> {
+    None
+  }
+
+  fn take_commit_effect_operation(&mut self) -> Option<CommitEffectOperation> {
     None
   }
 
@@ -230,6 +235,18 @@ impl HookComponent {
         .slots
         .iter_mut()
         .filter_map(|slot| slot.take_effect_operation()),
+    );
+  }
+
+  pub(crate) fn take_commit_effect_operations(
+    &mut self,
+    operations: &mut Vec<CommitEffectOperation>,
+  ) {
+    operations.extend(
+      self
+        .slots
+        .iter_mut()
+        .filter_map(|slot| slot.take_commit_effect_operation()),
     );
   }
 

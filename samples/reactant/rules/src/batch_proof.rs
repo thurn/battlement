@@ -5,7 +5,7 @@ use battlement::{
   PropertyCommand, Tween, TweenPositionPayload, Vector3, object_id,
 };
 use reactant::{
-  GameConsumer, GameHandle,
+  GameConsumer, GameHandle, animation_controls,
   app::App,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame},
@@ -22,11 +22,24 @@ struct Policy;
 struct Proof {
   game: GameHandle<QueueGame>,
   consumer: GameConsumer<QueueGame>,
+  automatic: bool,
 }
 struct Menu(Rc<Proof>);
-struct Board;
+struct Board {
+  automatic: bool,
+}
+struct StandardBoard;
+struct SnapshotAnimationBoard;
 
 pub(crate) fn app() -> App<Game> {
+  self::build(false)
+}
+
+pub(crate) fn automatic_app() -> App<Game> {
+  self::build(true)
+}
+
+fn build(automatic: bool) -> App<Game> {
   let mut app = App::with_model(CONTENT_SCENE, model::new());
   let game = app.start_game::<QueueGame>(0, |connection| ExecutionMode::Interactive {
     connection,
@@ -34,8 +47,12 @@ pub(crate) fn app() -> App<Game> {
   });
   let consumer = app.game_consumer::<QueueGame>();
   consumer.resume_automatic_submission();
-  let proof = Rc::new(Proof { game, consumer });
-  app
+  let proof = Rc::new(Proof {
+    game,
+    consumer,
+    automatic,
+  });
+  let mut app = app
     .ui(
       View::new()
         .style(
@@ -47,15 +64,16 @@ pub(crate) fn app() -> App<Game> {
         .child((
           Label::new(ls("Ordered game output")).style(Style::new().font_size(30.px())),
           Menu(proof),
-          GameRoot::new(Board),
+          GameRoot::new(Board { automatic }),
         )),
     )
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document
     })
-    .camera(|camera| camera.position(Vector3::new(0.0, 0.0, -10.0)))
-    .object(
+    .camera(|camera| camera.position(Vector3::new(0.0, 0.0, -10.0)));
+  if !automatic {
+    app = app.object(
       GameObject::new(
         GAME_CUBE,
         GameObjectKind::Cube {
@@ -64,22 +82,37 @@ pub(crate) fn app() -> App<Game> {
       )
       .parent_scene(ParentScene::Persistent)
       .position(Vector3::new(-3.0, -2.0, 0.0)),
+    );
+  }
+  app.object(
+    GameObject::new(
+      MENU_CUBE,
+      GameObjectKind::Cube {
+        materials: vec![MaterialAssignment::new(0, MOTION_MATERIAL)],
+      },
     )
-    .object(
-      GameObject::new(
-        MENU_CUBE,
-        GameObjectKind::Cube {
-          materials: vec![MaterialAssignment::new(0, MOTION_MATERIAL)],
-        },
-      )
-      .parent_scene(ParentScene::Persistent)
-      .position(Vector3::new(3.0, -2.0, 0.0)),
-    )
+    .parent_scene(ParentScene::Persistent)
+    .position(Vector3::new(3.0, -2.0, 0.0)),
+  )
 }
 
 impl Component for Menu {
   fn render(&self) -> impl Render {
     let status = reactant::use_game_status::<QueueGame>();
+    let accepted = self.0.game.accepted_state();
+    let automatic = self.0.automatic;
+    let automatic_start = self.0.clone();
+    reactant::hooks::use_effect(
+      move || {
+        if automatic && status == reactant::GameStatus::Ready && accepted == 0 {
+          assert_eq!(
+            automatic_start.game.dispatch(()),
+            reactant::DispatchResult::Started
+          );
+        }
+      },
+      (automatic, status, accepted),
+    );
     let (open, set_open) = reactant::hooks::use_state(false);
     let start = self.0.clone();
     let stop = self.0.clone();
@@ -115,6 +148,16 @@ impl Component for Menu {
 
 impl Component for Board {
   fn render(&self) -> impl Render {
+    if self.automatic {
+      Node::new(SnapshotAnimationBoard)
+    } else {
+      Node::new(StandardBoard)
+    }
+  }
+}
+
+impl Component for StandardBoard {
+  fn render(&self) -> impl Render {
     let stage = *reactant::use_game_state::<QueueGame>();
     let offset = use_motion_value(0.0_f32);
     let animate_offset = offset.clone();
@@ -128,15 +171,57 @@ impl Component for Board {
       },
       stage,
     );
-    Label::new(ls(match stage {
-      0 => "Initial hand",
-      1 => "Card played",
-      2 => "Card drawn",
-      _ => "Energy +1",
-    }))
-    .name("queue-stage")
-    .animate(StyleTarget::new().x_value(offset))
-    .style(Style::new().font_size(26.px()))
+    Label::new(ls(self::stage_label(stage)))
+      .name("queue-stage")
+      .animate(StyleTarget::new().x_value(offset))
+      .style(Style::new().font_size(26.px()))
+  }
+}
+
+impl Component for SnapshotAnimationBoard {
+  fn render(&self) -> impl Render {
+    let stage = *reactant::use_game_state::<QueueGame>();
+    let scope = animation_controls::use_animation_scope();
+    let event_scope = scope.clone();
+    reactant::use_animate::<QueueGame>(move |target| {
+      Some(SnapshotAnimation::sequence(
+        event_scope,
+        AnimationSequence::new().animate(
+          MotionSelector::name("game-piece"),
+          StyleTarget::new().local_position_x(*target as f32 - 2.0),
+          Transition::tween().duration_secs(1.0).ease(Easing::Linear),
+        ),
+      ))
+    });
+    (
+      Label::new(ls(self::stage_label(stage)))
+        .name("queue-stage")
+        .style(Style::new().font_size(26.px())),
+      reactant::world::SceneRoot::new(ParentScene::PrimaryScene).child(
+        reactant::world::Group::new()
+          .child(
+            reactant::world::Group::new()
+              .id(*GAME_CUBE.as_uuid())
+              .position(Vector3::new(-3.0, -2.0, 0.0))
+              .child(
+                reactant::world::Sprite::new()
+                  .texture("reactant/assets/texture")
+                  .size(1.2, 1.2),
+              )
+              .motion(MotionProps::new().motion_name("game-piece")),
+          )
+          .motion(MotionProps::new().animation_scope(scope)),
+      ),
+    )
+  }
+}
+
+fn stage_label(stage: u32) -> &'static str {
+  match stage {
+    0 => "Initial hand",
+    1 => "Card played",
+    2 => "Card drawn",
+    _ => "Energy +1",
   }
 }
 
@@ -161,7 +246,7 @@ impl ChoicePolicy<QueueGame> for Policy {
 impl RulesGame for QueueGame {
   type State = u32;
   type Action = ();
-  type StateAnimation = ();
+  type StateAnimation = u32;
   type Prompt<'a> = ();
   type Context = ExecutionMode<Self, Policy>;
   fn logical_clone(state: &u32) -> u32 {
@@ -173,7 +258,7 @@ impl RulesGame for QueueGame {
   fn execute(context: &mut Self::Context, state: &mut u32, _: ()) {
     for stage in 1..=3 {
       *state = stage;
-      context.present(state, || ());
+      context.present(state, || stage);
     }
   }
 }

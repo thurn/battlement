@@ -232,13 +232,27 @@ impl<Name: VariantKey> ControlTarget<Name> {
 impl AnimationScope {
   /// Starts one selector-snapshotted sequence.
   pub fn start(&self, sequence: AnimationSequence) -> AnimationPlayback {
+    self.start_with_blocking(sequence, false)
+  }
+
+  /// Starts one selector-snapshotted sequence that blocks later gameplay work.
+  pub fn start_blocking(&self, sequence: AnimationSequence) -> AnimationPlayback {
+    self.start_with_blocking(sequence, true)
+  }
+
+  fn start_with_blocking(&self, sequence: AnimationSequence, blocking: bool) -> AnimationPlayback {
     let playback = AnimationPlayback::from_handle(&self.handle);
     let (playback_id, generation) = playback.protocol_identity();
-    self.queue(MotionScopeCommand::Start {
+    let command = MotionScopeCommand::Start {
       playback_id,
       generation,
       entries: sequence.into_protocol(),
-    });
+    };
+    if blocking {
+      self.queue_blocking(command);
+    } else {
+      self.queue(command);
+    }
     playback
   }
 
@@ -263,6 +277,15 @@ impl AnimationScope {
     self
       .handle
       .queue(CommandBody::MotionScope(MotionScopeOperation {
+        scope_id: self.scope_id,
+        command,
+      }));
+  }
+
+  fn queue_blocking(&self, command: MotionScopeCommand) {
+    self
+      .handle
+      .queue_blocking(CommandBody::MotionScope(MotionScopeOperation {
         scope_id: self.scope_id,
         command,
       }));

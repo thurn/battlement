@@ -31,6 +31,30 @@ pub(crate) struct Slot {
 }
 
 impl Slot {
+  pub(crate) fn has_pending_finite_tracks(&self) -> bool {
+    self.active
+      && self.outcome.is_none()
+      && self
+        .tracks
+        .iter()
+        .chain(&self.completion_tracks)
+        .any(|track| {
+          !track.done && track.definition.transition.repeat != battlement::MotionRepeat::Forever
+        })
+  }
+
+  pub(crate) fn has_pending_infinite_tracks(&self) -> bool {
+    self.active
+      && self.outcome.is_none()
+      && self
+        .tracks
+        .iter()
+        .chain(&self.completion_tracks)
+        .any(|track| {
+          !track.done && track.definition.transition.repeat == battlement::MotionRepeat::Forever
+        })
+  }
+
   pub(crate) fn new(definition: MotionSlotDescriptor, tracks: Vec<Track>, now: u64) -> Self {
     Self {
       active: matches!(definition.layer, MotionLayer::Animate | MotionLayer::Exit),

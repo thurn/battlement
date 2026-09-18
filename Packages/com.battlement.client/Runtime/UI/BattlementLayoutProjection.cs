@@ -12,6 +12,7 @@ namespace Battlement.UI
         MotionLayoutDescriptor Descriptor { get; }
         BattlementLayoutDomain Domain { get; }
         ViewportRect VisibleBounds { get; }
+        bool IsComplete { get; }
         void CaptureDestination();
         void Sample(ulong clockMicros, bool reducedMotion = false);
         void Release();
@@ -110,6 +111,8 @@ namespace Battlement.UI
             target.panel is null
                 ? originViewport
                 : projectionSpace(target).ToViewport(target.worldBound);
+
+        public bool IsComplete => completed;
 
         public void CaptureDestination()
         {

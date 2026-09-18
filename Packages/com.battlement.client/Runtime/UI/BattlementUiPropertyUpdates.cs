@@ -68,10 +68,10 @@ namespace Battlement.UI
             this.repeatControls = repeatControls;
         }
 
-        internal void Apply(VisualElementUpdate.Properties update) =>
+        internal IBattlementCommandOperation? Apply(VisualElementUpdate.Properties update) =>
             Apply(update.ObjectId, update.Element);
 
-        internal void Apply(ObjectId objectId, UiElement value)
+        internal IBattlementCommandOperation? Apply(ObjectId objectId, UiElement value)
         {
             VisualElement target = require(objectId);
             bool genericRootUpdate =
@@ -139,7 +139,7 @@ namespace Battlement.UI
             sliderControls.ApplyUpdate(target, objectId, value);
             rangeControls.ApplyUpdate(target, objectId, value);
             preparedParts.Commit(objectId.Value);
-            preparedMotion?.Commit();
+            IBattlementCommandOperation? layoutOperation = preparedMotion?.Commit();
             if (value is UiElement.RepeatButton repeat)
                 repeatControls.ApplyUpdate(
                     (UnityEngine.UIElements.RepeatButton)target,
@@ -148,6 +148,7 @@ namespace Battlement.UI
                 );
             overlayCoordinator.RefreshAll();
             focusCoordinator.Refresh();
+            return layoutOperation;
         }
 
         private void ValidateOverlayUpdate(

@@ -25,8 +25,8 @@ mod world_visuals;
 
 pub use game_app::GameApp;
 pub use game_hooks::{
-  GameRoot, use_game_prompt, use_game_selector, use_game_selector_with, use_game_state,
-  use_game_status,
+  GameRoot, SnapshotAnimation, use_animate, use_game_prompt, use_game_selector,
+  use_game_selector_with, use_game_state, use_game_status,
 };
 pub use game_output::{GameConsumer, GameOutput};
 pub use game_session::{DispatchResult, GameHandle, GameStatus};

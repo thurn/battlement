@@ -60,6 +60,7 @@ pub struct MotionProps {
   pub(crate) motion_name: Option<String>,
   pub(crate) gestures: GestureProps,
   pub(crate) layout: crate::layout::LayoutProps,
+  pub(crate) blocking_command: bool,
 }
 
 /// A concrete or disabled mount origin.
@@ -962,6 +963,7 @@ impl MotionProps {
         root: false,
         projection: None,
       },
+      blocking_command: false,
     }
   }
 
@@ -976,6 +978,14 @@ impl MotionProps {
   #[must_use]
   pub fn animate(mut self, value: impl Into<MotionTarget>) -> Self {
     self.animate = Some(value.into());
+    self
+  }
+
+  /// Marks an engine-owned declarative movement as command-queue blocking.
+  #[doc(hidden)]
+  #[must_use]
+  pub fn blocking_command(mut self) -> Self {
+    self.blocking_command = true;
     self
   }
 
@@ -1075,6 +1085,7 @@ impl MotionProps {
     }
     self.layout.scroll |= value.layout.scroll;
     self.layout.root |= value.layout.root;
+    self.blocking_command |= value.blocking_command;
     self
   }
 }

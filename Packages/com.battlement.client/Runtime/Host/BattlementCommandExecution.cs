@@ -186,8 +186,9 @@ namespace Battlement
             if (command.DirectUiScalar is BattlementDirectUiScalar uiScalar)
                 return ExecuteUi(() => uiDocuments.UpdateScalar(uiScalar));
             if (command.DirectUiProperties is BattlementDirectUiProperties uiProperties)
-                return ExecuteUi(() =>
-                    uiDocuments.UpdateProperties(uiProperties.ObjectId, uiProperties.ReadElement())
+                return RequireFiniteBlockingMotion(
+                    uiDocuments.UpdateProperties(uiProperties.ObjectId, uiProperties.ReadElement()),
+                    command.IsBlocking
                 );
             if (command.DirectUiCreate is BattlementDirectUiCreate uiCreate)
                 return ExecuteUi(() =>
@@ -256,10 +257,15 @@ namespace Battlement
             }
             if (command.DirectWorldMotion is BattlementDirectWorldMotion worldMotion)
                 return LaunchDirect(() =>
-                {
-                    world.Motion.Install(worldMotion.ObjectId, worldMotion.Motion);
-                    return null;
-                });
+                    RequireFiniteBlockingMotion(
+                        world.Motion.Install(
+                            worldMotion.ObjectId,
+                            worldMotion.Motion,
+                            command.IsBlocking
+                        ),
+                        command.IsBlocking
+                    )
+                );
             if (command.DirectWorldPointer is BattlementDirectWorldPointer pointer)
             {
                 return LaunchDirect(() =>
@@ -682,6 +688,20 @@ namespace Battlement
         {
             execute();
             return null;
+        }
+
+        private static IBattlementCommandOperation? RequireFiniteBlockingMotion(
+            IBattlementCommandOperation? operation,
+            bool blocking
+        )
+        {
+            if (!blocking || operation?.IsInfinite != true)
+                return operation;
+            operation.Cancel();
+            throw new BattlementCommandException(
+                CoreErrorCode.InvalidProperty,
+                "An infinite Motion playback must be nonblocking."
+            );
         }
 
         private static IBattlementCommandOperation? ExecuteModule(System.Action execute)

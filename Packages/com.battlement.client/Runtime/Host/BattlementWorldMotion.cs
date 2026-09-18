@@ -69,7 +69,11 @@ namespace Battlement
                 Install(id, descriptor);
         }
 
-        public void Install(ObjectId id, MotionDescriptor? descriptor)
+        public IBattlementCommandOperation? Install(
+            ObjectId id,
+            MotionDescriptor? descriptor,
+            bool includeTimelines = false
+        )
         {
             BattlementWorldMotionTarget.Validate(id, descriptor);
             BattlementIdentity identity = world
@@ -79,7 +83,7 @@ namespace Battlement
             {
                 Remove(id);
                 identity.Motion = null;
-                return;
+                return null;
             }
             if (documents is null)
                 throw new InvalidOperationException(
@@ -100,10 +104,11 @@ namespace Battlement
                 id,
                 descriptor
             );
-            prepared?.Commit();
+            IBattlementCommandOperation? operation = prepared?.Commit(includeTimelines);
             targets[id.Value] = target;
             identity.Motion = descriptor;
             gestures.Restore(id);
+            return operation;
         }
 
         public void Remove(ObjectId id)

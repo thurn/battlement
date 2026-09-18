@@ -233,6 +233,12 @@ impl<G: Game> AttachedSession for GameSession<G> {
         .prompt
         .as_ref()
         .map(|prompt| prompt.clone() as Rc<dyn Any>),
+      animation_sequence: data.pending.as_ref().map(|pending| pending.sequence),
+      animation: data
+        .pending
+        .as_ref()
+        .and_then(|pending| pending.animation.clone())
+        .map(|animation| animation as Rc<dyn Any>),
     }
   }
 }

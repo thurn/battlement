@@ -1110,8 +1110,10 @@ namespace Battlement.UI
             label.text = text;
         }
 
-        internal void UpdateProperties(ObjectId objectId, UiElement element) =>
-            propertyUpdates.Apply(objectId, element);
+        internal IBattlementCommandOperation? UpdateProperties(
+            ObjectId objectId,
+            UiElement element
+        ) => propertyUpdates.Apply(objectId, element);
 
         internal void UpdateScalar(IBattlementUiScalarUpdateView update)
         {

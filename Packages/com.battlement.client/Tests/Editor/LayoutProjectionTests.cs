@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using Battlement.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -193,6 +194,44 @@ namespace Battlement.Tests
             Assert.That(destination, Is.EqualTo(new UnityEngine.Rect(16, 32, 160, 80)));
         }
 
+        [Test]
+        public void BlockingLayoutOperationFollowsRetargetedProjectionUntilArrival()
+        {
+            ObjectId host = Id("75300000-0000-4000-8000-000000000031");
+            ObjectId descriptorId = Id("75300000-0000-4000-8000-000000000032");
+            var target = new FakeLayoutTarget();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            MotionDescriptor initial = Descriptor(host, 1) with
+            {
+                DescriptorId = descriptorId,
+                Layout = Descriptor(host, 1).Layout! with
+                {
+                    Projection = new MotionProjectionDescriptor(
+                        new CameraTarget.Input(),
+                        new MotionProjectionPlane(
+                            new Battlement.Vector3(0, 0, 0),
+                            new Battlement.Vector3(1, 0, 0),
+                            new Battlement.Vector3(0, 1, 0)
+                        ),
+                        new Battlement.Rect(0, 0, 1, 1)
+                    ),
+                },
+            };
+            IBattlementCommandOperation running = world.Prepare(target, host, initial)!.Commit()!;
+
+            Assert.That(running.IsComplete(TimeSpan.Zero), Is.False);
+            IBattlementCommandOperation retargeted = world
+                .Prepare(target, host, initial with { Generation = 2 })!
+                .Commit()!;
+            Assert.That(target.Projections[0].IsComplete, Is.True);
+            Assert.That(running.IsComplete(TimeSpan.Zero), Is.False);
+
+            target.Projections[1].Complete();
+
+            Assert.That(running.IsComplete(TimeSpan.Zero), Is.True);
+            Assert.That(retargeted.IsComplete(TimeSpan.Zero), Is.True);
+        }
+
         private static MotionDescriptor Descriptor(ObjectId host, uint generation) =>
             new(
                 new ObjectId(Guid.NewGuid()),
@@ -246,6 +285,82 @@ namespace Battlement.Tests
                 UnityEngine.Object.DestroyImmediate(gameObject);
                 UnityEngine.Object.DestroyImmediate(settings);
             }
+        }
+
+        private sealed class FakeLayoutTarget
+            : IBattlementMotionTarget,
+                IBattlementLayoutProjectionTarget
+        {
+            public List<FakeLayoutProjection> Projections { get; } = new();
+
+            public BattlementLayoutDomain Domain => BattlementLayoutDomain.World;
+
+            public ViewportRect VisibleBounds(MotionLayoutDescriptor descriptor) =>
+                new(0, 0, 100, 100, new DisplayId(0));
+
+            public IBattlementLayoutProjection CreateProjection(
+                MotionLayoutDescriptor descriptor,
+                BattlementLayoutOrigin origin,
+                ulong anchorMicros
+            )
+            {
+                var projection = new FakeLayoutProjection(descriptor, origin.Bounds);
+                Projections.Add(projection);
+                return projection;
+            }
+
+            public bool Supports(MotionProperty property) => true;
+
+            public bool IsLayout(MotionProperty property) => false;
+
+            public bool IsSpatial(MotionProperty property) => false;
+
+            public MotionValue Read(MotionProperty property) => new MotionValue.Scalar(0);
+
+            public void Write(MotionProperty property, MotionValue value) { }
+
+            public void WriteScalar(MotionProperty property, double value) { }
+
+            public void WriteAdaptedScalar(MotionProperty property, double value) { }
+
+            public void SetContribution(MotionProperty property, MotionValue value) { }
+
+            public void RemoveContribution(MotionProperty property) { }
+
+            public bool Contains(IBattlementMotionTarget target) => ReferenceEquals(this, target);
+
+            public bool IsParentOf(IBattlementMotionTarget target) => false;
+
+            public IReadOnlyList<MotionPropertyValue> ResolvePosition(
+                IBattlementMotionTarget reference,
+                string? anchor
+            ) => Array.Empty<MotionPropertyValue>();
+
+            public void Release() { }
+        }
+
+        private sealed class FakeLayoutProjection : IBattlementLayoutProjection
+        {
+            public FakeLayoutProjection(MotionLayoutDescriptor descriptor, ViewportRect bounds) =>
+                (Descriptor, VisibleBounds) = (descriptor, bounds);
+
+            public MotionLayoutDescriptor Descriptor { get; }
+
+            public BattlementLayoutDomain Domain => BattlementLayoutDomain.World;
+
+            public ViewportRect VisibleBounds { get; }
+
+            public bool IsComplete { get; private set; }
+
+            public void CaptureDestination() { }
+
+            public void Sample(ulong clockMicros, bool reducedMotion = false) { }
+
+            public void Complete() => IsComplete = true;
+
+            public void Release() => IsComplete = true;
+
+            public void Abort() => IsComplete = true;
         }
     }
 }

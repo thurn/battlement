@@ -1093,6 +1093,62 @@ namespace Battlement.UI
             AttachActiveControl(prepared);
         }
 
+        internal IBattlementCommandOperation? DescriptorOperation(
+            ObjectId hostId,
+            bool includeTimelines
+        )
+        {
+            DescriptorState? initial = CurrentDescriptor(hostId);
+            if (initial is null)
+                return null;
+            bool layout = initial.LayoutProjection is not null;
+            var finite = new HashSet<ulong>(
+                includeTimelines ? initial.PendingFiniteSlotIds() : Array.Empty<ulong>()
+            );
+            var infinite = new HashSet<ulong>(
+                includeTimelines && !layout && finite.Count == 0
+                    ? initial.PendingInfiniteSlotIds()
+                    : Array.Empty<ulong>()
+            );
+            if (!layout && finite.Count == 0 && infinite.Count == 0)
+                return null;
+            return new RunningDescriptorMotion(
+                () =>
+                {
+                    DescriptorState? current = CurrentDescriptor(hostId);
+                    return current is null
+                        ? (true, false)
+                        : (
+                            (!layout || current.IsLayoutProjectionComplete)
+                                && !current.HasPendingFiniteSlot(finite)
+                                && !current.HasPendingInfiniteSlot(infinite),
+                            (layout && current.IsLayoutProjectionInfinite)
+                                || current.HasPendingInfiniteSlot(infinite)
+                        );
+                },
+                () =>
+                {
+                    DescriptorState? current = CurrentDescriptor(hostId);
+                    current?.CancelSlots(
+                        finite.Count == 0 ? infinite : finite,
+                        this,
+                        current is null ? 0 : ClockMicros(current.Descriptor.Clock)
+                    );
+                    if (layout)
+                        current?.LayoutProjection?.Release();
+                }
+            );
+        }
+
+        private DescriptorState? CurrentDescriptor(ObjectId hostId)
+        {
+            if (!descriptorByHost.TryGetValue(hostId.Value, out Guid descriptorId))
+                return null;
+            if (!descriptors.TryGetValue(descriptorId, out DescriptorState descriptor))
+                return null;
+            return descriptor;
+        }
+
         private void EmitGesture(MotionGestureEvent value, bool replaceable)
         {
             if (!replaceable)

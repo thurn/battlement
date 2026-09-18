@@ -86,6 +86,7 @@ pub struct HostNode {
   pub children: Vec<Self>,
   description: Box<dyn ErasedHostDescription>,
   world_motion: Prop<MotionDescriptor>,
+  world_motion_blocking: bool,
 }
 
 impl HostNode {
@@ -95,6 +96,7 @@ impl HostNode {
       children: Vec::new(),
       description: Box::new(AdaptedHost::<A> { description }),
       world_motion: Prop::Unset,
+      world_motion_blocking: false,
     }
   }
 
@@ -147,13 +149,15 @@ impl HostNode {
         .description
         .property_commands(self.object_id, &*desired.description, hierarchy_changed);
     if !self.is_ui() && self.world_motion != desired.world_motion {
-      commands.push(
-        Command::new_v4(CommandBody::MotionSetWorldDescriptor(WorldMotionPayload {
-          object_id: self.object_id,
-          motion: desired.motion_descriptor().cloned().map(Box::new),
-        }))
-        .nonblocking(),
-      );
+      let command = Command::new_v4(CommandBody::MotionSetWorldDescriptor(WorldMotionPayload {
+        object_id: self.object_id,
+        motion: desired.motion_descriptor().cloned().map(Box::new),
+      }));
+      commands.push(if desired.world_motion_blocking {
+        command
+      } else {
+        command.nonblocking()
+      });
     }
     commands
   }
@@ -216,6 +220,10 @@ impl HostNode {
     } else {
       &mut self.world_motion
     }
+  }
+
+  pub(crate) fn set_world_motion_blocking(&mut self, value: bool) {
+    self.world_motion_blocking = value;
   }
 
   pub(crate) fn scene_root(&self) -> bool {

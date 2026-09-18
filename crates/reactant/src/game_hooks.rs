@@ -1,9 +1,13 @@
 use std::{
   any::{Any, TypeId},
   rc::Rc,
+  time::Duration,
 };
 
+use battlement::{Command, CommandBody, WaitPayload};
 use reactant_core::{
+  animation_controls::{AnimationScope, AnimationSequence},
+  app_context::{AppHandle, use_app},
   app_runtime::ApplicationContext,
   component::Component,
   context::ContextProvider,
@@ -30,6 +34,22 @@ pub(crate) struct GameRenderContext {
   pub(crate) status: GameStatus,
   pub(crate) state: Rc<dyn Any>,
   pub(crate) prompt: Option<Rc<dyn Any>>,
+  pub(crate) animation_sequence: Option<u64>,
+  pub(crate) animation: Option<Rc<dyn Any>>,
+}
+
+/// One native operation authored from a queued semantic game event.
+pub struct SnapshotAnimation {
+  operation: SnapshotAnimationOperation,
+}
+
+enum SnapshotAnimationOperation {
+  Sequence {
+    scope: AnimationScope,
+    sequence: AnimationSequence,
+    blocking: bool,
+  },
+  Wait(Duration),
 }
 
 impl PartialEq for GameRenderContext {
@@ -116,6 +136,89 @@ pub fn use_game_prompt<G: Game>() -> Option<Rc<PresentedPrompt<G::Prompt<'static
 /// Subscribes to the attached session's readiness and recovery state.
 pub fn use_game_status<G: Game>() -> GameStatus {
   self::context::<G>().status
+}
+
+/// Authors at most one native operation from the current snapshot's typed event.
+///
+/// The operation is submitted with the consuming render and starts only once,
+/// even when display-local state rerenders while that output remains pending.
+pub fn use_animate<G: Game>(author: impl FnOnce(&G::StateAnimation) -> Option<SnapshotAnimation>) {
+  let context = self::context::<G>();
+  let app = use_app();
+  let animation = context.animation.map(|animation| {
+    animation
+      .downcast::<G::StateAnimation>()
+      .unwrap_or_else(|_| panic!("game animation type mismatch"))
+  });
+  let plan = animation.as_deref().and_then(author);
+  hooks::use_commit_effect(
+    move || {
+      if let Some(plan) = plan {
+        plan.submit(&app);
+      }
+    },
+    (context.id, context.animation_sequence),
+  );
+}
+
+impl SnapshotAnimation {
+  /// Creates a gameplay sequence that blocks later queued gameplay work.
+  #[must_use]
+  pub fn sequence(scope: AnimationScope, sequence: AnimationSequence) -> Self {
+    Self {
+      operation: SnapshotAnimationOperation::Sequence {
+        scope,
+        sequence,
+        blocking: true,
+      },
+    }
+  }
+
+  /// Lets later queued work advance while this sequence continues locally.
+  #[must_use]
+  pub fn nonblocking(mut self) -> Self {
+    let SnapshotAnimationOperation::Sequence { blocking, .. } = &mut self.operation else {
+      panic!("a fixed wait cannot be nonblocking")
+    };
+    *blocking = false;
+    self
+  }
+
+  /// Creates a blocking fixed-duration pacing operation.
+  #[must_use]
+  pub fn wait(duration: Duration) -> Self {
+    assert!(
+      !duration.is_zero(),
+      "snapshot animation wait must be positive"
+    );
+    Self {
+      operation: SnapshotAnimationOperation::Wait(duration),
+    }
+  }
+
+  fn submit(self, app: &AppHandle) {
+    match self.operation {
+      SnapshotAnimationOperation::Sequence {
+        scope,
+        sequence,
+        blocking,
+      } => {
+        if blocking {
+          scope.start_blocking(sequence);
+        } else {
+          scope.start(sequence);
+        }
+      }
+      SnapshotAnimationOperation::Wait(duration) => {
+        let micros = duration.as_micros();
+        let millis = micros.div_ceil(1_000);
+        let duration_ms = u64::try_from(millis).expect("snapshot animation wait is too long");
+        app.send(Command::new_v4(CommandBody::TimeWait(WaitPayload {
+          duration_ms,
+        })));
+      }
+    }
+  }
 }
 
 fn context<G: Game>() -> GameRenderContext {

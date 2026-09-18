@@ -3,8 +3,8 @@
 pub use crate::{
   game_app::GameApp,
   game_hooks::{
-    GameRoot, use_game_prompt, use_game_selector, use_game_selector_with, use_game_state,
-    use_game_status,
+    GameRoot, SnapshotAnimation, use_animate, use_game_prompt, use_game_selector,
+    use_game_selector_with, use_game_state, use_game_status,
   },
   game_session::{DispatchResult, GameHandle, GameStatus},
 };

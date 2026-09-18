@@ -15,7 +15,7 @@ thread_local! {
 }
 
 pub(crate) struct MotionValueRuntime {
-  commands: Vec<(Option<u64>, CommandBody)>,
+  commands: Vec<(Option<u64>, Command)>,
   consumed_owners: HashMap<ObjectId, u64>,
   subscriptions: Vec<Subscription>,
   playbacks: Vec<PlaybackSubscription>,
@@ -72,13 +72,20 @@ impl MotionValueRuntime {
   pub(crate) fn command_groups(&self, length: usize) -> Vec<Vec<Command>> {
     self.commands[..length]
       .iter()
-      .map(|(_, body)| vec![Command::new_v4(body.clone()).nonblocking()])
+      .map(|(_, command)| vec![command.clone()])
+      .collect()
+  }
+
+  pub(crate) fn commands_after(&self, offset: usize) -> Vec<Command> {
+    self.commands[offset..]
+      .iter()
+      .map(|(_, command)| command.clone())
       .collect()
   }
 
   pub(crate) fn consume_commands(&mut self, length: usize) {
-    for (scope, body) in self.commands.drain(..length) {
-      if let (Some(scope), Some(target)) = (scope, crate::work_scope::target(&body)) {
+    for (scope, command) in self.commands.drain(..length) {
+      if let (Some(scope), Some(target)) = (scope, crate::work_scope::target(&command.body)) {
         self.consumed_owners.insert(target, scope);
       }
     }
@@ -238,6 +245,29 @@ pub(crate) fn queue(
   scope: Option<u64>,
   body: CommandBody,
 ) {
+  queue_command(
+    runtime_id,
+    runtime,
+    scope,
+    Command::new_v4(body).nonblocking(),
+  );
+}
+
+pub(crate) fn queue_blocking(
+  runtime_id: u64,
+  runtime: &Weak<RefCell<MotionValueRuntime>>,
+  scope: Option<u64>,
+  body: CommandBody,
+) {
+  queue_command(runtime_id, runtime, scope, Command::new_v4(body));
+}
+
+fn queue_command(
+  runtime_id: u64,
+  runtime: &Weak<RefCell<MotionValueRuntime>>,
+  scope: Option<u64>,
+  command: Command,
+) {
   assert!(
     !crate::context::rendering(),
     "motion-value commands are forbidden during render"
@@ -251,6 +281,6 @@ pub(crate) fn queue(
     }
   });
   if let Some(runtime) = runtime.upgrade() {
-    runtime.borrow_mut().commands.push((scope, body));
+    runtime.borrow_mut().commands.push((scope, command));
   }
 }

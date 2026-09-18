@@ -12,7 +12,7 @@ use battlement::{
 };
 
 use crate::{
-  effect::EffectOperation,
+  effect::{CommitEffectOperation, EffectOperation},
   element_ref::AttachmentSet,
   error_boundary::ErrorReport,
   event_dispatch::EventNode,
@@ -725,6 +725,18 @@ impl RenderTree {
       position.children.take_effect_operations(operations);
       if let Some(component) = &mut position.component {
         component.take_effect_operations(operations);
+      }
+    }
+  }
+
+  pub(crate) fn take_commit_effect_operations(
+    &mut self,
+    operations: &mut Vec<CommitEffectOperation>,
+  ) {
+    for position in &mut self.positions {
+      position.children.take_commit_effect_operations(operations);
+      if let Some(component) = &mut position.component {
+        component.take_commit_effect_operations(operations);
       }
     }
   }

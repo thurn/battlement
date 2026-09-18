@@ -22,7 +22,7 @@ use crate::{
   announcement,
   commit::DeliveryReceipt,
   context,
-  effect::EffectOperation,
+  effect::{CommitEffectOperation, EffectOperation},
   element_ref::{self, AttachmentSet, ElementRefRuntime},
   error_boundary::ErrorReport,
   event_dispatch,
@@ -1131,7 +1131,7 @@ impl<G: 'static> Reactant<G> {
     if let Some(resources) = &mut resources {
       self.apply_resources_transaction(resources);
     }
-    self.commit_rendered(
+    let snapshot_motion = self.commit_rendered(
       &mut rendered,
       attachments,
       geometry,
@@ -1142,6 +1142,16 @@ impl<G: 'static> Reactant<G> {
       },
       local_transactions.as_deref_mut(),
     );
+    if !snapshot_motion.is_empty() {
+      if let Some(group) = groups
+        .iter_mut()
+        .rfind(|group| group.iter().any(|command| command.blocking))
+      {
+        group.extend(snapshot_motion);
+      } else {
+        groups.push(snapshot_motion);
+      }
+    }
     for (index, unchanged) in unchanged_roots.into_iter().enumerate() {
       if unchanged {
         retained_ui[index] = Rc::clone(&self.retained_ui[index]);
@@ -1419,26 +1429,31 @@ impl<G: 'static> Reactant<G> {
     geometry_revision: u64,
     frozen_commands: FrozenCommandCounts,
     local_transactions: Option<&mut [LocalRenderTransaction]>,
-  ) {
+  ) -> Vec<Command> {
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
-      self.install_rendered(committed, attachments, false, local_transactions);
+      let commit_effects = self.install_rendered(committed, attachments, false, local_transactions);
       let mut runtime = self.geometry.borrow_mut();
       runtime.commit(geometry);
       runtime.acknowledge_render(geometry_revision);
       drop(runtime);
+      self.run_commit_effects(commit_effects);
       self
         .element_refs
         .borrow_mut()
         .consume_actions(frozen_commands.actions);
-      self
-        .motion_values
-        .borrow_mut()
-        .consume_commands(frozen_commands.motion);
+      let mut motion_values = self.motion_values.borrow_mut();
+      let snapshot_motion = motion_values.commands_after(frozen_commands.motion);
+      let queued_motion = motion_values.queued_commands();
+      motion_values.consume_commands(queued_motion);
       self.state = RuntimeState::Active;
+      snapshot_motion
     }));
-    if let Err(payload) = completed {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
+    match completed {
+      Ok(commands) => commands,
+      Err(payload) => {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
     }
   }
 
@@ -1504,7 +1519,7 @@ impl<G: 'static> Reactant<G> {
     attachments: AttachmentSet,
     reconnect: bool,
     local_transactions: Option<&mut [LocalRenderTransaction]>,
-  ) {
+  ) -> Vec<CommitEffectOperation> {
     if self.track_work_scopes {
       self.work_owners = mem::take(&mut self.current_work_owners);
       for tree in committed.iter() {
@@ -1530,8 +1545,10 @@ impl<G: 'static> Reactant<G> {
           .unmount_geometry_effects(&next, &mut geometry_effects);
       }
     }
+    let mut commit_effects = Vec::new();
     for rendered in committed.iter_mut() {
       rendered.take_effect_operations(&mut effects);
+      rendered.take_commit_effect_operations(&mut commit_effects);
       rendered.commit_hooks();
     }
     let mut reports = Vec::new();
@@ -1545,6 +1562,7 @@ impl<G: 'static> Reactant<G> {
     self.pending_effects.extend(effects);
     self.pending_geometry_effects.extend(geometry_effects);
     self.pending_error_reports.extend(reports);
+    commit_effects
   }
 
   fn has_pending_hooks(&self) -> bool {
@@ -1628,6 +1646,14 @@ impl<G: 'static> Reactant<G> {
     });
   }
 
+  fn run_commit_effects(&mut self, effects: Vec<CommitEffectOperation>) {
+    lifecycle::run_or_poison(&mut self.state, || {
+      for effect in effects {
+        effect();
+      }
+    });
+  }
+
   fn run_geometry_effects(&mut self, game: &mut G, effects: Vec<GeometryEffectOperation>) {
     lifecycle::run_or_poison(&mut self.state, || {
       for effect in effects {
@@ -1690,7 +1716,13 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
         &attachments,
         self.semantic_commit_sequence + 1,
       );
-      self.install_rendered(committed, attachments, true, None);
+      let commit_effects = self.install_rendered(committed, attachments, true, None);
+      self.run_commit_effects(commit_effects);
+      let mut motion_values = self.motion_values.borrow_mut();
+      let queued_motion = motion_values.queued_commands();
+      let snapshot_motion = motion_values.commands_after(0);
+      motion_values.consume_commands(queued_motion);
+      drop(motion_values);
       self.retained_ui = retained_ui;
       self.committed_portals = None;
       self
@@ -1710,6 +1742,9 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
             announcements: Vec::new(),
           },
         ))]);
+      }
+      if !snapshot_motion.is_empty() {
+        groups.push(snapshot_motion);
       }
       let _discarded_announcements = announcement::take();
       self.geometry.borrow_mut().commit(geometry);

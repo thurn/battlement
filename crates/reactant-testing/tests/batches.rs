@@ -3,7 +3,7 @@ mod failure_recorder;
 
 use std::time::Duration;
 
-use battlement::{Command, CommandBody, ObjectId, WaitPayload};
+use battlement::{Command, ObjectId};
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use battlement_fake::assets::FakeAssetCatalog;
 use failure_recorder::FailureRecorder;
@@ -34,7 +34,7 @@ impl ChoicePolicy<QueueGame> for Policy {
 impl Game for QueueGame {
   type State = usize;
   type Action = usize;
-  type StateAnimation = ();
+  type StateAnimation = Duration;
   type Prompt<'a> = ();
   type Context = Context;
   fn logical_clone(state: &usize) -> usize {
@@ -46,18 +46,18 @@ impl Game for QueueGame {
   fn execute(context: &mut Context, state: &mut usize, count: usize) {
     if count == usize::MAX - 2 {
       *state = 1;
-      context.0.present(state, || ());
+      context.0.present(state, || Duration::from_millis(200));
       *state = usize::MAX - 1;
       return;
     }
     if count >= usize::MAX - 1 {
       *state = count;
-      context.0.present(state, || ());
+      context.0.present(state, || Duration::from_millis(200));
       return;
     }
     for _ in 0..count {
       *state += 1;
-      context.0.present(state, || ());
+      context.0.present(state, || Duration::from_millis(200));
     }
   }
 }
@@ -73,6 +73,7 @@ struct QueueView;
 impl Component for QueueView {
   fn render(&self) -> impl Render {
     let state = *reactant::use_game_state::<QueueGame>();
+    reactant::use_animate::<QueueGame>(|duration| Some(SnapshotAnimation::wait(*duration)));
     let app = reactant::app_context::use_app();
     reactant::hooks::use_effect(
       move || {
@@ -83,11 +84,6 @@ impl Component for QueueView {
               value: Some("failed host".to_owned()),
             },
           )));
-        }
-        if state > 0 {
-          app.send(Command::new_v4(CommandBody::TimeWait(WaitPayload {
-            duration_ms: 200,
-          })));
         }
       },
       state,

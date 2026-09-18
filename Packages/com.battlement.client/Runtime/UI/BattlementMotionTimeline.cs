@@ -220,6 +220,44 @@ namespace Battlement.UI
 
         public IBattlementLayoutProjection? LayoutProjection => layoutProjection;
 
+        internal bool IsLayoutProjectionComplete => layoutProjection?.IsComplete != false;
+
+        internal bool IsLayoutProjectionInfinite =>
+            layoutProjection?.Descriptor.Transition.Repeat is MotionRepeat.Forever;
+
+        internal ulong[] PendingFiniteSlotIds() =>
+            slots
+                .Where(slot => slot.HasPendingFiniteTracks)
+                .Select(slot => slot.Definition.Slot)
+                .ToArray();
+
+        internal ulong[] PendingInfiniteSlotIds() =>
+            slots
+                .Where(slot => slot.HasPendingInfiniteTracks)
+                .Select(slot => slot.Definition.Slot)
+                .ToArray();
+
+        internal bool HasPendingFiniteSlot(HashSet<ulong> tracked) =>
+            slots.Any(slot =>
+                tracked.Contains(slot.Definition.Slot) && slot.HasPendingFiniteTracks
+            );
+
+        internal bool HasPendingInfiniteSlot(HashSet<ulong> tracked) =>
+            slots.Any(slot =>
+                tracked.Contains(slot.Definition.Slot) && slot.HasPendingInfiniteTracks
+            );
+
+        internal void CancelSlots(
+            HashSet<ulong> tracked,
+            BattlementMotionWorld world,
+            ulong clockMicros
+        )
+        {
+            foreach (SlotState slot in slots)
+                if (tracked.Contains(slot.Definition.Slot))
+                    Cancel(slot, world, slot.Elapsed(clockMicros));
+        }
+
         public int ActiveTimelineCount
         {
             get

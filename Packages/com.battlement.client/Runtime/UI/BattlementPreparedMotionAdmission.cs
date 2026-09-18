@@ -18,12 +18,15 @@ namespace Battlement.UI
             DescriptorState? prepared
         ) => (this.world, this.hostId, this.prepared) = (world, hostId, prepared);
 
-        public void Commit()
+        public IBattlementCommandOperation? Commit(bool includeTimelines = false)
         {
             if (committed || disposed)
                 throw new InvalidOperationException("Motion admission was already committed.");
             world.Commit(hostId, prepared);
             committed = true;
+            return prepared is null
+                ? null
+                : world.DescriptorOperation(new ObjectId(hostId), includeTimelines);
         }
 
         public void Dispose()

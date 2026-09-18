@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use battlement::{
   AnimatorState, Command, CommandBody, GameObjectKind, IconSource, ImageSource, MaterialAssignment,
-  PreparedAsset, Prop, PropertyCommand, Style, StyleValue, UiElement, UiNode,
+  ObjectId, PreparedAsset, Prop, PropertyCommand, Style, StyleValue, UiElement, UiNode,
   UiVisualElementProperties, Validate,
 };
 
@@ -110,7 +110,24 @@ where
           .motion
           .value_playback(*value, self.presentation_ms * 1000);
       } else {
+        let descriptor_host = match &command.body {
+          CommandBody::MotionSetWorldDescriptor(value) => Some(value.object_id),
+          _ => None,
+        };
         self.execute_body(&command.body, command.command_id);
+        if let Some(host) = descriptor_host
+          && let Some(motion) = self.motion.descriptor_operation(
+            host,
+            ObjectId::from_uuid(command.command_id.into_uuid()).expect("command IDs are non-nil"),
+          )
+        {
+          self.schedule_operation(ScheduledOperation::from_motion(
+            &command,
+            batch_id,
+            self.presentation_ms,
+            motion,
+          ));
+        }
       }
     }
     self.record_occurrence(&command);

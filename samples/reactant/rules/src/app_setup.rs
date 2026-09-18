@@ -138,6 +138,9 @@ fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineErr
   if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("rules-batches") {
     return Ok(crate::batch_proof::app());
   }
+  if env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() == Ok("rules-batches-auto") {
+    return Ok(crate::batch_proof::automatic_app());
+  }
   Ok(create_engine())
 }
 

@@ -68,24 +68,20 @@ namespace Battlement.UI
         public bool Active { get; private set; }
 
         internal bool IsFiniteActive =>
-            Active
-            && !Terminal
-            && !Paused
-            && Clock is not MotionClockSource.Controlled
-            && (TimingTracks.Any(track => !track.Done && !track.IsInfinite) || SeekPending);
+            HasPendingFiniteTracks && !Paused && Clock is not MotionClockSource.Controlled;
 
-        internal bool IsInfiniteActive =>
-            Active
-            && !Terminal
-            && !Paused
-            && TimingTracks.Any(track => !track.Done && track.IsInfinite);
+        internal bool IsInfiniteActive => HasPendingInfiniteTracks && !Paused;
 
         internal bool IsHeldActive =>
+            HasPendingFiniteTracks && (Paused || Clock is MotionClockSource.Controlled);
+
+        internal bool HasPendingFiniteTracks =>
             Active
             && !Terminal
-            && !Paused
-            && Clock is MotionClockSource.Controlled
-            && TimingTracks.Any(track => !track.Done && !track.IsInfinite);
+            && (TimingTracks.Any(track => !track.Done && !track.IsInfinite) || SeekPending);
+
+        internal bool HasPendingInfiniteTracks =>
+            Active && !Terminal && TimingTracks.Any(track => !track.Done && track.IsInfinite);
 
         internal string ReadinessDiagnostic() =>
             $"layer={Definition.Layer},clock={Clock.GetType().Name},"

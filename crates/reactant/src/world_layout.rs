@@ -767,7 +767,11 @@ impl<A: LayoutAlgorithm> Component for WorldLayout<A> {
           Some(target) => {
             let group = group.transform(child.destination.base(target));
             if child.destination.moving(layout_id, target) {
-              group.with_motion(MotionProps::new().animate(placement_target(target.transform)))
+              group.with_motion(
+                MotionProps::new()
+                  .animate(placement_target(target.transform))
+                  .blocking_command(),
+              )
             } else {
               group.with_motion(MotionProps::new().animate(StyleTarget::new()))
             }

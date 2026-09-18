@@ -45,6 +45,7 @@ pub(crate) struct Playback {
   pub(crate) generation: u32,
   pub(crate) addresses: Vec<Address>,
   pub(crate) running: RunningMotion,
+  emit_event: bool,
 }
 
 #[derive(Default)]
@@ -60,6 +61,25 @@ impl Playbacks {
     generation: u32,
     infinite: bool,
   ) -> RunningMotion {
+    self.register_with_events(id, generation, infinite, true)
+  }
+
+  pub(crate) fn register_silent(
+    &mut self,
+    id: ObjectId,
+    generation: u32,
+    infinite: bool,
+  ) -> RunningMotion {
+    self.register_with_events(id, generation, infinite, false)
+  }
+
+  fn register_with_events(
+    &mut self,
+    id: ObjectId,
+    generation: u32,
+    infinite: bool,
+    emit_event: bool,
+  ) -> RunningMotion {
     self.finish(id, MotionPlaybackOutcome::Cancelled);
     let running = RunningMotion {
       outcome: Rc::new(Cell::new(None)),
@@ -73,6 +93,7 @@ impl Playbacks {
         generation,
         addresses: Vec::new(),
         running: running.clone(),
+        emit_event,
       },
     );
     running
@@ -111,11 +132,13 @@ impl Playbacks {
   pub(crate) fn finish(&mut self, id: ObjectId, outcome: MotionPlaybackOutcome) {
     if let Some(playback) = self.values.remove(&id) {
       playback.running.outcome.set(Some(outcome));
-      self.events.push(MotionPlaybackEvent {
-        playback_id: id,
-        generation: playback.generation,
-        outcome,
-      });
+      if playback.emit_event {
+        self.events.push(MotionPlaybackEvent {
+          playback_id: id,
+          generation: playback.generation,
+          outcome,
+        });
+      }
     }
   }
 

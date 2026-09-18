@@ -52,4 +52,29 @@ namespace Battlement.UI
                 cancel();
         }
     }
+
+    /// <summary>Tracks current declarative Motion work for a host across retargeting.</summary>
+    internal sealed class RunningDescriptorMotion : IBattlementCommandOperation
+    {
+        private readonly Func<(bool Complete, bool Infinite)> status;
+        private readonly System.Action cancel;
+        private bool cancelled;
+
+        public RunningDescriptorMotion(
+            Func<(bool Complete, bool Infinite)> status,
+            System.Action cancel
+        ) => (this.status, this.cancel) = (status, cancel);
+
+        public bool IsInfinite => !cancelled && status().Infinite;
+
+        public bool IsComplete(TimeSpan now) => cancelled || status().Complete;
+
+        public void Cancel()
+        {
+            if (cancelled)
+                return;
+            cancelled = true;
+            cancel();
+        }
+    }
 }

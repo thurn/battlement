@@ -110,6 +110,7 @@ pub(crate) fn target(command: &CommandBody) -> Option<ObjectId> {
     CommandBody::MotionControl(value) => Some(value.control_id),
     CommandBody::MotionScope(value) => Some(value.scope_id),
     CommandBody::MotionDragControl(value) => Some(value.control_id),
+    CommandBody::MotionSetWorldDescriptor(value) => Some(value.object_id),
     _ => None,
   }
 }

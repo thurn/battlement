@@ -365,6 +365,10 @@ impl MotionValueRuntimeHandle {
   pub(crate) fn queue(&self, body: CommandBody) {
     motion_value_runtime::queue(self.runtime_id, &self.runtime, self.scope, body);
   }
+
+  pub(crate) fn queue_blocking(&self, body: CommandBody) {
+    motion_value_runtime::queue_blocking(self.runtime_id, &self.runtime, self.scope, body);
+  }
 }
 
 impl ErasedMotionValue {
