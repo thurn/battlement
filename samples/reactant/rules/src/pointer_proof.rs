@@ -1,7 +1,6 @@
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 use battlement::{ObjectId, ParentScene, PickingMode, Position, Prop, Vector3, object_id};
 use reactant::{
-  app::App,
   hooks,
   overlay::{Overlay, OverlayHost},
   portal::PortalTarget,
@@ -16,8 +15,8 @@ struct PointerProof {
   target: PortalTarget,
 }
 
-pub(crate) fn app() -> App<Game> {
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+pub(crate) fn app() -> crate::ReactantEngine {
+  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
   let target = app.create_portal_target();
   app = app
     .ui(PointerProof { target })

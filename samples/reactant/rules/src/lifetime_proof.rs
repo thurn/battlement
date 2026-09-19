@@ -4,7 +4,7 @@ use battlement::{ObjectId, object_id};
 use reactant::{app::App, element_ref, hooks, prelude::*};
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::{CONTENT_SCENE, ROOT_ID};
 
 const CARD: ObjectId = object_id!("25300000-0000-4000-8000-000000000111");
 
@@ -23,8 +23,8 @@ struct Card {
   probe: Probe,
 }
 
-pub(crate) fn app() -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app() -> App {
+  App::new(CONTENT_SCENE)
     .ui(Screen(Probe::default()))
     .document(|mut document| {
       document.root_id = ROOT_ID;
@@ -60,21 +60,21 @@ impl Component for Screen {
           2,
         ),
         Button::new(ls(if shown { "Hide card" } else { "Show card" }))
-          .on_press(move |_: &mut Game| set_shown.set(!shown)),
-        Button::new(ls("Destroy card")).on_press(move |_: &mut Game| set_open.set(false)),
-        Button::new(ls("Hold and destroy")).on_press(move |_: &mut Game| {
+          .on_press(move || set_shown.set(!shown)),
+        Button::new(ls("Destroy card")).on_press(move || set_open.set(false)),
+        Button::new(ls("Hold and destroy")).on_press(move || {
           if held_open {
             let held = hold.presence.borrow().as_ref().unwrap().retain_visual();
             hold.retained.borrow_mut().extend([held.clone(), held]);
             set_held_open.set(false);
           }
         }),
-        Button::new(ls("Release one use")).on_press(move |_: &mut Game| {
+        Button::new(ls("Release one use")).on_press(move || {
           if release.retained.borrow_mut().pop().is_some() {
             set_releases.update(|n| n + 1);
           }
         }),
-        Button::new(ls("Deliver stale callback")).on_press(move |_: &mut Game| {
+        Button::new(ls("Deliver stale callback")).on_press(move || {
           if let Some(setter) = &*stale.setter.borrow() {
             setter.set(999);
           }
@@ -149,7 +149,7 @@ impl Component for Card {
         } else {
           "Increment card"
         }))
-        .on_press(move |_: &mut Game| set_count.update(|n| n + 1)),
+        .on_press(move || set_count.update(|n| n + 1)),
       ));
     let card = if self.manual {
       card

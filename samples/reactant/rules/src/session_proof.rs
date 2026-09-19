@@ -2,13 +2,12 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc, time::Duration};
 
 use reactant::{
   GameConsumer, GameHandle, GameOutput,
-  app::App,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame, PromptData},
 };
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 struct Counter;
 struct Policy;
@@ -24,8 +23,8 @@ struct Proof {
 }
 struct Screen(Rc<Proof>);
 
-pub(crate) fn app() -> App<Game> {
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+pub(crate) fn app() -> crate::ReactantEngine {
+  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
   let game = app.start_game::<Counter>(0, |connection| ExecutionMode::Interactive {
     connection,
     policy: Policy,
@@ -64,7 +63,7 @@ impl Component for Menu {
   fn render(&self) -> impl Render {
     let (open, set_open) = reactant::hooks::use_state(false);
     View::new().child((
-      Button::new(ls("Settings")).on_press(move |_: &mut Game| set_open.set(!open)),
+      Button::new(ls("Settings")).on_press(move || set_open.set(!open)),
       Label::new(ls(if open {
         "Settings open"
       } else {
@@ -95,7 +94,7 @@ impl Component for Screen {
           .font_size(24.px())
           .color(Color::rgb(1.0, 1.0, 1.0)),
       ),
-      Button::new(ls("Submit output")).on_press(move |_: &mut Game| {
+      Button::new(ls("Submit output")).on_press(move || {
         let output = submit
           .held
           .borrow_mut()
@@ -103,7 +102,7 @@ impl Component for Screen {
           .unwrap_or_else(|| submit.next());
         output.submitted();
       }),
-      Button::new(ls("Choose number")).on_press(move |_: &mut Game| {
+      Button::new(ls("Choose number")).on_press(move || {
         if dispatch.game.dispatch(()) == reactant::DispatchResult::Started {
           dispatch.next().submitted();
         }
@@ -111,14 +110,14 @@ impl Component for Screen {
       prompt.map(|prompt| {
         Button::new(ls("Answer five"))
           .key(prompt.handle.clone())
-          .on_press(move |_: &mut Game| {
+          .on_press(move || {
             let Prompt::Number(number) = &prompt.prompt;
             prompt.handle.submit(number.as_ref(), 5);
             *answer.held.borrow_mut() = Some(answer.next());
           })
       }),
       Button::new(ls("Fail gameplay host"))
-        .on_press(move |_: &mut Game| fail.consumer.fail("Native fixture host failure")),
+        .on_press(move || fail.consumer.fail("Native fixture host failure")),
       (status == reactant::GameStatus::Failed).then(|| {
         Label::new(ls("Recovery available: accepted state retained")).name("session-recovery")
       }),

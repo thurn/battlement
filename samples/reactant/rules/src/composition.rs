@@ -29,6 +29,7 @@ pub(crate) struct Specimen {
 
 impl Component for Composition {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     reactant::host::View::new()
       .name("composition-canvas")
       .style(design_system::canvas(self.compact))
@@ -45,6 +46,7 @@ impl Component for Composition {
         .style(design_system::title()),
       )
       .child(controls::interactive_button(
+        &dispatch,
         if self.reversed { "RESTORE" } else { "REORDER" },
         "composition-action",
         design_system::primary_action(controls::control_state(

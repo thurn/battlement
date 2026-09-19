@@ -3,7 +3,7 @@ use trox::{ls, tx};
 use crate::{Control, Game, Interaction, design_system};
 use battlement::{
   Align, FlexDirection, FlexWrap, ImageScaleMode, LengthUnits, ScrollViewMode, ScrollerVisibility,
-  Style, TextAnchor, TextureAddress, WhiteSpace,
+  Style, TextAnchor, WhiteSpace,
 };
 use reactant::prelude::*;
 
@@ -307,6 +307,7 @@ pub(crate) struct Assets {
 
 impl Component for Assets {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     reactant::host::ScrollView::new()
       .name("assets-canvas")
       .mode(ScrollViewMode::Vertical)
@@ -331,37 +332,13 @@ impl Component for Assets {
           .child(self::branding_card(self.compact))
           .child(self::frames_card(self.compact))
           .child(self::controls_card(
+            &dispatch,
             self.compact,
             self.resized,
             self.interaction,
           )),
       )
   }
-}
-
-pub(crate) fn addresses() -> Vec<TextureAddress> {
-  [
-    ARCADE_SCREEN_FRAME.texture_address(),
-    SETTINGS_PANEL_FRAME.texture_address(),
-    ACTION_BUTTON_FRAME.texture_address(),
-    SMALL_CONTROL_FRAME.texture_address(),
-    SETTINGS_TAB_ACTIVE.texture_address(),
-    SETTINGS_TAB_INACTIVE.texture_address(),
-    GAME_LOGO.texture_address(),
-    ACTION_LABEL_PLAY.texture_address(),
-    ACTION_LABEL_SETTINGS.texture_address(),
-    ACTION_LABEL_ABOUT.texture_address(),
-    ACTION_LABEL_QUIT.texture_address(),
-    ACTION_LABEL_RETURN.texture_address(),
-    CHECKBOX_UNCHECKED.texture_address(),
-    CHECKBOX_CHECK.texture_address(),
-    VOLUME_SLIDER_TRACK.texture_address(),
-    VOLUME_SLIDER_FILL.texture_address(),
-    VOLUME_SLIDER_TICKS.texture_address(),
-    VOLUME_SLIDER_HANDLE.texture_address(),
-  ]
-  .into_iter()
-  .collect()
 }
 
 fn branding_card(compact: bool) -> impl Render {
@@ -439,11 +416,17 @@ fn frames_card(compact: bool) -> impl Render {
     )
 }
 
-fn controls_card(compact: bool, resized: bool, interaction: Interaction) -> impl Render {
+fn controls_card(
+  dispatch: &crate::model::GameDispatch,
+  compact: bool,
+  resized: bool,
+  interaction: Interaction,
+) -> impl Render {
   reactant::host::View::new()
     .style(self::card(if compact { 400.0 } else { 650.0 }))
     .child(self::card_title("FRAMES + CONTROL PARTS"))
     .child(crate::interactive_button(
+      dispatch,
       if resized {
         "RESTORE ACTION FRAME"
       } else {

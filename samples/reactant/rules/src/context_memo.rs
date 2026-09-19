@@ -29,6 +29,7 @@ struct ThemeCard {
 
 impl Component for ContextMemo {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     let override_action = use_callback(
       |game: &mut Game| game.context_overridden = !game.context_overridden,
       (),
@@ -75,6 +76,7 @@ impl Component for ContextMemo {
                 .style(design_system::experiment_title()),
               )
               .child(crate::interactive_button(
+                &dispatch,
                 if self.overridden {
                   "RESTORE DEFAULT"
                 } else {
@@ -106,6 +108,7 @@ impl Component for ContextMemo {
             .style(design_system::experiment_title()),
           )
           .child(crate::interactive_button(
+            &dispatch,
             if self.unrelated == 0 {
               "CHANGE VALUE"
             } else {

@@ -3,11 +3,11 @@ use std::time::Duration;
 use battlement::{
   AudioClipAddress, ObjectId, ParentScene, PrefabAddress, Prop, Vector3, object_id,
 };
-use reactant::{animation_controls, app::App, hooks, prelude::*, world};
+use reactant::{animation_controls, hooks, prelude::*, world};
 use serde::Deserialize;
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 const TARGET: ObjectId = object_id!("26260000-0000-4000-8000-000000000001");
 const PROJECTILE: ObjectId = object_id!("26260000-0000-4000-8000-000000000002");
@@ -20,8 +20,8 @@ struct EffectConfig {
 
 struct EffectOccurrenceProof;
 
-pub(crate) fn app() -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app() -> crate::ReactantEngine {
+  reactant::app::App::new(crate::CONTENT_SCENE)
     .ui(EffectOccurrenceProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;

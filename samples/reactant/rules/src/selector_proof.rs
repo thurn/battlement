@@ -1,10 +1,10 @@
 use std::{cell::Cell, rc::Rc};
 
 use battlement::{ObjectId, object_id};
-use reactant::{app::App, component, hooks, prelude::*};
+use reactant::{component, hooks, prelude::*};
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 const CARD: ObjectId = object_id!("25300000-0000-4000-8000-000000000091");
 
@@ -28,8 +28,8 @@ struct PropsReader;
 #[derive(PartialEq)]
 struct Settings(DisplayStore<Values>);
 
-pub(crate) fn app(props: bool) -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app(props: bool) -> crate::ReactantEngine {
+  reactant::app::App::new(crate::CONTENT_SCENE)
     .ui(Screen {
       left: DisplayStore::new(Values {
         score: 1,

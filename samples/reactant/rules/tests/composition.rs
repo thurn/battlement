@@ -21,7 +21,7 @@ use battlement_native::{
 };
 use battlement_rules::{
   CONTENT_SCENE, MOTION_AUDIO_CLIP, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, ReactantEngine,
-  Screen, create_engine, generated_asset_addresses,
+  create_engine, generated_asset_addresses,
 };
 
 const EVENTS_WORD_BUDGET: usize = 20;

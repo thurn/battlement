@@ -1,6 +1,6 @@
 use trox::{ls, tx};
 
-use crate::{Game, design_system, layout_gallery_styles as styles};
+use crate::{Game, design_system, layout_gallery_styles as styles, model};
 use battlement::{
   Align, Color, GridAutoFlow, GridItem, GridTrack, PickingMode, ScrollViewMode, StackItem, Sticky,
 };
@@ -43,6 +43,7 @@ struct StatefulSetting {
 
 impl Component for LayoutGallery {
   fn render(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     let menu_anchor = use_element_ref();
     let modal_trigger = use_element_ref();
     let modal_initial = use_element_ref();
@@ -52,10 +53,12 @@ impl Component for LayoutGallery {
       true,
       true,
     )
-    .on_scroll(|game: &mut Game, direction| match direction {
-      AccessibilityScrollDirection::Forward => game.layout_gallery.trace.push("SCROLL FORWARD"),
-      AccessibilityScrollDirection::Backward => game.layout_gallery.trace.push("SCROLL BACKWARD"),
-    })
+    .on_scroll(
+      dispatch.event(|game: &mut Game, direction| match direction {
+        AccessibilityScrollDirection::Forward => game.layout_gallery.trace.push("SCROLL FORWARD"),
+        AccessibilityScrollDirection::Backward => game.layout_gallery.trace.push("SCROLL BACKWARD"),
+      }),
+    )
     .host_name("layout-gallery-canvas")
     .configure_host(|host| {
       host
@@ -89,7 +92,9 @@ impl Component for LayoutGallery {
         .child(
           Button::new(tx("INERT TARGET", "Layout gallery section heading."))
             .host_name("layout-gallery-inert-target")
-            .on_press(|game: &mut Game| game.layout_gallery.trace.push("INERT")),
+            .on_press(dispatch.action(|game: &mut Game| {
+              game.layout_gallery.trace.push("INERT");
+            })),
         ),
     )
     .child(self.settings())
@@ -121,6 +126,7 @@ impl Component for LayoutGallery {
 
 impl LayoutGallery {
   fn controls(&self, modal_trigger: ElementRef) -> Flex {
+    let dispatch = model::use_game_dispatch();
     let app = use_app();
     let announce = use_announce();
     Flex::new()
@@ -133,48 +139,51 @@ impl LayoutGallery {
         Button::new(tx("RESPONSIVE TRACKS", "Layout gallery section heading."))
           .host_name("layout-gallery-tracks")
           .configure_host(|host| host.focus_props(FocusProps::new().auto_focus(true)))
-          .on_press(|game: &mut Game| {
+          .on_press(dispatch.action(|game: &mut Game| {
             game.layout_gallery.alternate_tracks = !game.layout_gallery.alternate_tracks;
-          }),
+          })),
       )
       .child(
         Button::new(tx("LARGE TEXT", "Layout gallery section heading."))
           .host_name("layout-gallery-text")
-          .on_press(|game: &mut Game| {
+          .on_press(dispatch.action(|game: &mut Game| {
             game.layout_gallery.large_text = !game.layout_gallery.large_text;
-          }),
+          })),
       )
       .child(
         Button::new(tx("TOGGLE INERT", "Layout gallery section heading."))
           .host_name("layout-gallery-inert-toggle")
-          .on_press(|game: &mut Game| {
+          .on_press(dispatch.action(|game: &mut Game| {
             game.layout_gallery.inert_content = !game.layout_gallery.inert_content;
-          }),
+          })),
       )
       .child(
         Button::new(tx("OPEN MODAL", "Layout gallery section heading."))
           .host_name("layout-gallery-modal")
           .element_ref(modal_trigger)
-          .on_press(|game: &mut Game| game.layout_gallery.modal_open = true),
+          .on_press(dispatch.action(|game: &mut Game| {
+            game.layout_gallery.modal_open = true;
+          })),
       )
       .child(
         Button::new(tx("RECONNECT", "Layout gallery section heading."))
           .host_name("layout-gallery-reconnect")
-          .on_press(move |game: &mut Game| {
+          .on_press(dispatch.action(move |game: &mut Game| {
             game.layout_gallery.reconnects += 1;
             app.refresh_snapshot();
-          }),
+          })),
       )
       .child(
         Button::new(tx("RESET", "Layout gallery section heading."))
           .host_name("layout-gallery-reset")
-          .on_press(move |game: &mut Game| {
+          .on_press(dispatch.action(move |game: &mut Game| {
             game.layout_gallery = LayoutGalleryState::default();
             announce.send(tx("Settings reset", "Layout gallery status announcement."));
-          }),
+          })),
       )
   }
   fn tabs(&self) -> View {
+    let dispatch = model::use_game_dispatch();
     let tabs = ["GENERAL", "AUDIO", "ACCESS"];
     View::new()
       .style(styles::section())
@@ -187,9 +196,9 @@ impl LayoutGallery {
           tx("Settings sections", "Layout gallery interface label."),
           self.state.active_tab as u32,
         )
-        .on_select(|game: &mut Game, index| {
+        .on_select(dispatch.event(|game: &mut Game, index| {
           game.layout_gallery.active_tab = index as usize;
-        })
+        }))
         .host_name("layout-gallery-tabs")
         .child(
           tabs
@@ -212,6 +221,7 @@ impl LayoutGallery {
       )
   }
   fn accessible_settings(&self) -> View {
+    let dispatch = model::use_game_dispatch();
     let announce = use_announce();
     View::new().name("layout-gallery-components").child(
       Group::new(Some(tx(
@@ -244,9 +254,9 @@ impl LayoutGallery {
           self.state.captions_enabled,
         )
         .host_name("layout-gallery-checkbox")
-        .on_change(|game: &mut Game, checked| {
+        .on_change(dispatch.event(|game: &mut Game, checked| {
           game.layout_gallery.captions_enabled = checked;
-        }),
+        })),
       )
       .child(
         Switch::new(
@@ -258,9 +268,9 @@ impl LayoutGallery {
           self.state.spatial_audio,
         )
         .host_name("layout-gallery-switch")
-        .on_change(|game: &mut Game, checked| {
+        .on_change(dispatch.event(|game: &mut Game, checked| {
           game.layout_gallery.spatial_audio = checked;
-        }),
+        })),
       )
       .child(
         RadioGroup::new(tx("Audio quality", "Layout gallery interface label."))
@@ -270,7 +280,9 @@ impl LayoutGallery {
               self.state.radio_selection == 0,
             )
             .host_name("layout-gallery-radio-standard")
-            .on_select(|game: &mut Game| game.layout_gallery.radio_selection = 0),
+            .on_select(dispatch.action(|game: &mut Game| {
+              game.layout_gallery.radio_selection = 0;
+            })),
           )
           .child(
             Radio::new(
@@ -278,7 +290,9 @@ impl LayoutGallery {
               self.state.radio_selection == 1,
             )
             .host_name("layout-gallery-radio-studio")
-            .on_select(|game: &mut Game| game.layout_gallery.radio_selection = 1),
+            .on_select(dispatch.action(|game: &mut Game| {
+              game.layout_gallery.radio_selection = 1;
+            })),
           ),
       )
       .child(
@@ -291,7 +305,9 @@ impl LayoutGallery {
         )
         .host_name("layout-gallery-slider")
         .value_text(ls(format!("{} percent", self.state.volume)))
-        .on_change(|game: &mut Game, value| game.layout_gallery.volume = value as u32),
+        .on_change(dispatch.event(|game: &mut Game, value| {
+          game.layout_gallery.volume = value as u32;
+        })),
       )
       .child(
         Progress::determinate(
@@ -311,9 +327,9 @@ impl LayoutGallery {
           self.state.disclosure_open,
         )
         .host_name("layout-gallery-disclosure")
-        .on_press(|game: &mut Game| {
+        .on_press(dispatch.action(|game: &mut Game| {
           game.layout_gallery.disclosure_open = !game.layout_gallery.disclosure_open;
-        }),
+        })),
       )
       .child(self.state.disclosure_open.then(|| {
         Text::new(tx(
@@ -325,10 +341,10 @@ impl LayoutGallery {
       .child(
         Button::new(tx("SAVE SETTINGS", "Layout gallery section heading."))
           .host_name("layout-gallery-announce")
-          .on_press(move |game: &mut Game| {
+          .on_press(dispatch.action(move |game: &mut Game| {
             game.layout_gallery.trace.push("SAVED");
             announce.send(tx("Settings saved", "Layout gallery status announcement."));
-          }),
+          })),
       ),
     )
   }
@@ -439,6 +455,7 @@ impl LayoutGallery {
       )
   }
   fn dropdown(&self, anchor: ElementRef) -> View {
+    let dispatch = model::use_game_dispatch();
     let popover = self.state.menu_open.then(|| {
       Overlay::popover(self.overlay.clone(), anchor.clone())
         .host_name("layout-gallery-menu")
@@ -452,10 +469,10 @@ impl LayoutGallery {
           Button::new(tx("APPLY AND CLOSE", "Layout gallery section heading."))
             .host_name("layout-gallery-menu-action")
             .style(styles::popover_action())
-            .on_press(|game: &mut Game| {
+            .on_press(dispatch.action(|game: &mut Game| {
               game.layout_gallery.trace.push("TARGET");
               game.layout_gallery.menu_open = false;
-            }),
+            })),
         )
     });
     View::new()
@@ -476,20 +493,23 @@ impl LayoutGallery {
             })
             .host_name("layout-gallery-menu-trigger")
             .element_ref(anchor)
-            .on_press(|game: &mut Game| {
+            .on_press(dispatch.action(|game: &mut Game| {
               game.layout_gallery.trace.push("ANCHOR");
               game.layout_gallery.menu_open = !game.layout_gallery.menu_open;
-            }),
+            })),
           )
           .child(popover)
-          .on_click_capture(|game: &mut Game| {
+          .on_click_capture(dispatch.action(|game: &mut Game| {
             game.layout_gallery.trace.clear();
             game.layout_gallery.trace.push("CAPTURE");
-          })
-          .on_click(|game: &mut Game| game.layout_gallery.trace.push("BUBBLE")),
+          }))
+          .on_click(dispatch.action(|game: &mut Game| {
+            game.layout_gallery.trace.push("BUBBLE");
+          })),
       )
   }
   fn layers(&self) -> View {
+    let dispatch = model::use_game_dispatch();
     let changed = control_behavior::static_text_props(tx(
       "Layer order changed",
       "Layout gallery status message.",
@@ -542,9 +562,9 @@ impl LayoutGallery {
                   .contributes_to_size(false),
               )
               .layout(Layout::Position)
-              .on_press(|game: &mut Game| {
+              .on_press(dispatch.action(|game: &mut Game| {
                 game.layout_gallery.layers_reversed = !game.layout_gallery.layers_reversed;
-              }),
+              })),
           ),
       )
       .child(
@@ -561,15 +581,16 @@ impl LayoutGallery {
       )
   }
   fn modal(&self, trigger: ElementRef, initial: ElementRef) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     self.state.modal_open.then(|| {
       Overlay::modal(
         self.overlay.clone(),
         tx("Viewport modal", "Layout gallery interface label."),
       )
       .host_name("layout-gallery-modal-scope")
-      .on_dismiss(|game: &mut Game| {
+      .on_dismiss(dispatch.action(|game: &mut Game| {
         game.layout_gallery.modal_open = false;
-      })
+      }))
       .initial_focus(initial.clone())
       .restore_focus(trigger)
       .style(styles::modal_overlay())
@@ -592,9 +613,9 @@ impl LayoutGallery {
                 .host_name("layout-gallery-modal-close")
                 .element_ref(initial)
                 .while_focus_visible(StyleTarget::new().scale(1.06))
-                .on_press(|game: &mut Game| {
+                .on_press(dispatch.action(|game: &mut Game| {
                   game.layout_gallery.modal_open = false;
-                }),
+                })),
             ),
         ),
       )
@@ -617,7 +638,7 @@ impl Component for StatefulSetting {
         ))
         .grid_item(GridItem::new().row(self.row).column(2))
         .style(styles::setting_value())
-        .on_press(move |_game: &mut Game| set_revision.update(|value| value + 1)),
+        .on_press(move || set_revision.update(|value| value + 1)),
     ))
   }
 }

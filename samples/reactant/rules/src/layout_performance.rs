@@ -1,6 +1,6 @@
 use trox::{ls, tx};
 
-use crate::Game;
+use crate::{Game, model};
 use battlement::{
   Color, FlexDirection, GridTrack, LengthUnits, ScrollViewMode, StackItem, Sticky, Style,
 };
@@ -28,6 +28,7 @@ pub(crate) struct LayoutPerformance {
 
 impl Component for LayoutPerformance {
   fn render(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     let anchors = (0..ANCHORED_OVERLAYS)
       .map(|_| use_element_ref())
       .collect::<Vec<_>>();
@@ -57,9 +58,9 @@ impl Component for LayoutPerformance {
         .child(
           Button::new(ls(format!("DIRTY PHASE {}", self.state.phase)))
             .host_name("layout-performance-dirty")
-            .on_press(|game: &mut Game| {
+            .on_press(dispatch.action(|game: &mut Game| {
               game.layout_performance.phase = game.layout_performance.phase.wrapping_add(1);
-            }),
+            })),
         )
         .child(
           Grid::new()

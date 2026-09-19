@@ -16,6 +16,7 @@ mod effect_exit_retention_proof;
 mod effect_occurrence_proof;
 mod effects_stores;
 mod events_portals;
+mod fixture_catalog;
 mod gameplay_pause_proof;
 mod gestures_drag;
 mod identity_proof;
@@ -49,7 +50,7 @@ mod variants_orchestration;
 
 pub use app_setup::{ReactantEngine, create_engine, generated_asset_addresses};
 pub(crate) use controls::{control_state, interactive_button};
-pub use model::Game;
+pub(crate) use model::Game;
 pub(crate) use model::{Control, Interaction};
 pub(crate) use sample_constants::MISSING_GEOMETRY_TARGET_ID;
 pub use sample_constants::{

@@ -410,10 +410,11 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> impl Render {
+  let dispatch = crate::model::use_game_dispatch();
   Button::new(ls(text))
     .host_name(name)
     .style(action_style())
-    .on_press(callback)
+    .on_press(dispatch.action(callback))
 }
 
 fn scenario_name(scenario: PerformanceScenario) -> &'static str {

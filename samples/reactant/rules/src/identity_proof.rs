@@ -3,7 +3,6 @@ use battlement::{
   object_id,
 };
 use reactant::{
-  app::App,
   callback::Callback,
   hooks,
   portal::{self, PortalTarget},
@@ -11,7 +10,7 @@ use reactant::{
 };
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 const CARD_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000081");
 const FACE_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000082");
@@ -25,31 +24,32 @@ struct Card {
   portal: Option<PortalTarget>,
 }
 
-pub(crate) fn app() -> App<Game> {
+struct IdentityRoot {
+  location: DisplayStore<u8>,
+  portal: PortalTarget,
+}
+
+struct DestinationRoot {
+  location: DisplayStore<u8>,
+  portal: PortalTarget,
+}
+
+pub(crate) fn app() -> crate::ReactantEngine {
   app_with_projection(CameraProjection::Orthographic)
 }
 
-pub(crate) fn perspective_app() -> App<Game> {
+pub(crate) fn perspective_app() -> crate::ReactantEngine {
   app_with_projection(CameraProjection::Perspective)
 }
 
-fn app_with_projection(camera_projection: CameraProjection) -> App<Game> {
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+fn app_with_projection(camera_projection: CameraProjection) -> crate::ReactantEngine {
+  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
   let portal = app.create_portal_target();
-  let destination = portal.clone();
+  let location = DisplayStore::new(0_u8);
   app
-    .root(move |game| {
-      View::new().style(self::panel()).child((
-        Heading::new(ls("One identity across roots"), 1),
-        Label::new(ls(
-          "Increment the card or click its world visual, then move it.",
-        )),
-        Button::new(ls("Move card")).on_press(|game: &mut Game| {
-          game.identity_location = (game.identity_location + 1) % 3;
-        }),
-        (game.identity_location == 0).then(|| self::card("Source", None)),
-        (game.identity_location == 2).then(|| self::card("Portal", Some(portal.clone()))),
-      ))
+    .ui(IdentityRoot {
+      location: location.clone(),
+      portal: portal.clone(),
     })
     .document(|mut document| {
       document.root_id = ROOT_ID;
@@ -57,12 +57,9 @@ fn app_with_projection(camera_projection: CameraProjection) -> App<Game> {
     })
     .additional_root(
       UiDocument::new(SECOND_ROOT).style(Style::new().left(470.px()).width(410.px())),
-      move |game| {
-        View::new().style(self::panel()).child((
-          Heading::new(ls("Destination root"), 1),
-          (game.identity_location == 1).then(|| self::card("Destination", None)),
-          View::new().portal_target(destination.clone()),
-        ))
+      move |_| DestinationRoot {
+        location: location.clone(),
+        portal: portal.clone(),
       },
     )
     .camera(|camera| {
@@ -76,6 +73,33 @@ fn app_with_projection(camera_projection: CameraProjection) -> App<Game> {
       .parent_scene(ParentScene::Persistent)
       .position(Vector3::new(0.0, 0.0, -10.0))
     })
+}
+
+impl Component for IdentityRoot {
+  fn render(&self) -> impl Render {
+    let location = use_external_store(self.location.clone());
+    let next = self.location.clone();
+    View::new().style(self::panel()).child((
+      Heading::new(ls("One identity across roots"), 1),
+      Label::new(ls(
+        "Increment the card or click its world visual, then move it.",
+      )),
+      Button::new(ls("Move card")).on_press(move || next.update(|value| *value = (*value + 1) % 3)),
+      (location == 0).then(|| self::card("Source", None)),
+      (location == 2).then(|| self::card("Portal", Some(self.portal.clone()))),
+    ))
+  }
+}
+
+impl Component for DestinationRoot {
+  fn render(&self) -> impl Render {
+    let location = use_external_store(self.location.clone());
+    View::new().style(self::panel()).child((
+      Heading::new(ls("Destination root"), 1),
+      (location == 1).then(|| self::card("Destination", None)),
+      View::new().portal_target(self.portal.clone()),
+    ))
+  }
 }
 
 fn card(location: &'static str, portal: Option<PortalTarget>) -> impl Render {

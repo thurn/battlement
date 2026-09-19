@@ -1,6 +1,6 @@
 use trox::{ls, tx};
 
-use crate::{Game, design_system};
+use crate::{Game, design_system, model};
 use battlement::{
   Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionGestureEvent, MotionGestureEventKind,
   MotionPointerDevice, ScrollViewMode, ScrollerVisibility, Style,
@@ -70,6 +70,7 @@ pub(crate) struct GesturesDrag {
 
 impl Component for GesturesDrag {
   fn render(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     let drag_x = use_motion_value(0.0_f32);
     let drag_y = use_motion_value(0.0_f32);
     let scroll_x = use_motion_value(0.0_f32);
@@ -87,15 +88,15 @@ impl Component for GesturesDrag {
     );
     let controls = use_drag_controls();
     let drag_gallery = drag_gallery(
-      constrained_drag(drag_x, drag_y),
-      momentum_drag(),
-      external_drag(controls.clone(), controls),
+      constrained_drag(&dispatch, drag_x, drag_y),
+      momentum_drag(&dispatch),
+      external_drag(&dispatch, controls.clone(), controls),
       drag_energy,
     );
     let value_gallery = value_gallery(
       scroll_specimen(scroll_x, scroll_y),
       scroll_meter(scroll_progress),
-      in_view_specimen(in_view),
+      in_view_specimen(&dispatch, in_view),
     );
 
     ScrollView::new()
@@ -137,7 +138,11 @@ impl Component for GesturesDrag {
   }
 }
 
-fn constrained_drag(drag_x: MotionValue<f32>, drag_y: MotionValue<f32>) -> Node {
+fn constrained_drag(
+  dispatch: &model::GameDispatch,
+  drag_x: MotionValue<f32>,
+  drag_y: MotionValue<f32>,
+) -> Node {
   let target = Node::new(
     View::new()
       .name("constrained-drag-target")
@@ -155,18 +160,18 @@ fn constrained_drag(drag_x: MotionValue<f32>, drag_y: MotionValue<f32>) -> Node 
       .while_hover(StyleTarget::new().scale(1.05))
       .while_tap(StyleTarget::new().scale(0.94))
       .while_drag(StyleTarget::new().scale(1.08))
-      .on_hover_start(record)
-      .on_hover_end(record)
-      .on_tap_start(record)
-      .on_tap(record)
-      .on_tap_cancel(record)
-      .on_focus_start(record)
-      .on_focus_end(record)
-      .on_drag_start(record)
-      .on_drag_direction_lock(record)
-      .on_drag_end(record)
-      .on_drag_cancel(record)
-      .on_drag_momentum_complete(record)
+      .on_hover_start(recorded(dispatch))
+      .on_hover_end(recorded(dispatch))
+      .on_tap_start(recorded(dispatch))
+      .on_tap(recorded(dispatch))
+      .on_tap_cancel(recorded(dispatch))
+      .on_focus_start(recorded(dispatch))
+      .on_focus_end(recorded(dispatch))
+      .on_drag_start(recorded(dispatch))
+      .on_drag_direction_lock(recorded(dispatch))
+      .on_drag_end(recorded(dispatch))
+      .on_drag_cancel(recorded(dispatch))
+      .on_drag_momentum_complete(recorded(dispatch))
       .child(Label::new(tx("DRAG", "Gestures and drag section heading.")).style(knob_label())),
   );
   Node::new(
@@ -184,7 +189,7 @@ fn constrained_drag(drag_x: MotionValue<f32>, drag_y: MotionValue<f32>) -> Node 
   )
 }
 
-fn momentum_drag() -> Node {
+fn momentum_drag(dispatch: &model::GameDispatch) -> Node {
   let target = Node::new(
     View::new()
       .style(knob())
@@ -193,9 +198,9 @@ fn momentum_drag() -> Node {
       .drag_momentum(true)
       .drag_snap_to_origin(DragAxis::X)
       .while_drag(StyleTarget::new().scale(1.1))
-      .on_drag_start(record)
-      .on_drag_end(record)
-      .on_drag_momentum_complete(record)
+      .on_drag_start(recorded(dispatch))
+      .on_drag_end(recorded(dispatch))
+      .on_drag_momentum_complete(recorded(dispatch))
       .child(Label::new(tx("MOMENTUM", "Gestures and drag section heading.")).style(knob_label())),
   );
   Node::new(
@@ -213,7 +218,11 @@ fn momentum_drag() -> Node {
   )
 }
 
-fn external_drag(external_controls: DragControls, controls: DragControls) -> Node {
+fn external_drag(
+  dispatch: &model::GameDispatch,
+  external_controls: DragControls,
+  controls: DragControls,
+) -> Node {
   let target = Node::new(
     View::new()
       .name("external-drag-target")
@@ -223,9 +232,9 @@ fn external_drag(external_controls: DragControls, controls: DragControls) -> Nod
       .drag_controls(controls)
       .drag_constraints(DragConstraints::bounds(-110.0, 110.0, -40.0, 40.0))
       .while_drag(StyleTarget::new().scale(1.08))
-      .on_drag_start(record)
-      .on_drag_end(record)
-      .on_drag_cancel(record)
+      .on_drag_start(recorded(dispatch))
+      .on_drag_end(recorded(dispatch))
+      .on_drag_cancel(recorded(dispatch))
       .child(Label::new(tx("TARGET", "Gestures and drag section heading.")).style(knob_label())),
   );
   Node::new(
@@ -233,12 +242,12 @@ fn external_drag(external_controls: DragControls, controls: DragControls) -> Nod
       .name("external-drag-control")
       .style(field())
       .pan(true)
-      .on_pan_session_start(move |_game: &mut Game, event| {
+      .on_pan_session_start(move |_: &mut (), event| {
         external_controls.start(event, DragStartOptions::default().snap_to_cursor(true));
       })
-      .on_pan_start(record)
-      .on_pan_end(record)
-      .on_pan_cancel(record)
+      .on_pan_start(recorded(dispatch))
+      .on_pan_end(recorded(dispatch))
+      .on_pan_cancel(recorded(dispatch))
       .child(
         Label::new(tx("EXTERNAL HANDLE", "Gestures and drag section heading.")).style(caption()),
       )
@@ -301,7 +310,7 @@ fn scroll_meter(progress: MotionValue<f32>) -> Node {
   )
 }
 
-fn in_view_specimen(in_view: MotionValue<f32>) -> Node {
+fn in_view_specimen(dispatch: &model::GameDispatch, in_view: MotionValue<f32>) -> Node {
   Node::new(
     View::new()
       .name("gesture-in-view-specimen")
@@ -309,8 +318,8 @@ fn in_view_specimen(in_view: MotionValue<f32>) -> Node {
       .in_view_motion_value(in_view.clone())
       .while_in_view(StyleTarget::new().scale(1.08).opacity(1.0))
       .animate(StyleTarget::new().scale_value(in_view).opacity(0.45))
-      .on_viewport_enter(record)
-      .on_viewport_leave(record)
+      .on_viewport_enter(recorded(dispatch))
+      .on_viewport_leave(recorded(dispatch))
       .child(
         Label::new(tx("IN-VIEW VALUE", "Gestures and drag section heading.")).style(caption()),
       ),
@@ -329,6 +338,10 @@ fn value_gallery(scroll: Node, meter: Node, in_view: Node) -> Node {
 
 fn record(game: &mut Game, event: &MotionGestureEvent) {
   game.gestures_drag.record(event);
+}
+
+fn recorded(dispatch: &model::GameDispatch) -> impl Fn(&mut (), &MotionGestureEvent) + use<> {
+  dispatch.borrowed_event(record)
 }
 
 fn device_indicators(active: MotionPointerDevice) -> View {

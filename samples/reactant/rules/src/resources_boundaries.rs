@@ -41,6 +41,7 @@ struct BoundaryFailure;
 
 impl Component for ResourcesBoundaries {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     let compact = self.compact;
     let preview = self.preview_resource.clone();
     reactant::host::View::new()
@@ -78,6 +79,7 @@ impl Component for ResourcesBoundaries {
                   .style(design_system::boundary_status(false, self.compact)),
                 )
                 .child(super::interactive_button(
+                  &dispatch,
                   "RESOLVE RESOURCE",
                   "resource-resolve",
                   design_system::boundary_action(
@@ -120,6 +122,7 @@ impl Component for ResourcesBoundaries {
 
 impl Component for ResourcePreview {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     let compact = self.compact;
     let interaction = self.interaction;
     let control = use_resource_control(&self.resource.resource);
@@ -135,6 +138,7 @@ impl Component for ResourcePreview {
           .style(design_system::boundary_status(false, compact)),
         )
         .child(super::interactive_button(
+          &dispatch,
           "REFETCH RESOURCE",
           "resource-refetch",
           design_system::boundary_action(
@@ -151,6 +155,7 @@ impl Component for ResourcePreview {
 
 impl Component for BoundaryPrimary {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     if self.failed {
       return Err(BoundaryFailure);
     }
@@ -166,6 +171,7 @@ impl Component for BoundaryPrimary {
           .style(design_system::boundary_status(false, self.compact)),
         )
         .child(super::interactive_button(
+          &dispatch,
           "TRIGGER ERROR",
           "boundary-action",
           design_system::boundary_action(
@@ -182,6 +188,7 @@ impl Component for BoundaryPrimary {
 
 impl Component for BoundaryFallback {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     reactant::host::View::new()
       .name("boundary-fallback")
       .style(design_system::boundary_card(true, self.compact))
@@ -198,6 +205,7 @@ impl Component for BoundaryFallback {
           .style(design_system::boundary_detail()),
       )
       .child(super::interactive_button(
+        &dispatch,
         "RESET BOUNDARY",
         "boundary-reset",
         design_system::boundary_action(

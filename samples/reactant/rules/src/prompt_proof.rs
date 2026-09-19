@@ -6,13 +6,12 @@ use battlement::{
 };
 use reactant::{
   GameConsumer, GameHandle,
-  app::App,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame, PromptData},
 };
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, MOTION_MATERIAL, ROOT_ID, model};
+use crate::{MOTION_MATERIAL, ROOT_ID};
 
 const PROMPT_CUBE: ObjectId = object_id!("25300000-0000-4000-8000-000000000093");
 
@@ -30,8 +29,8 @@ struct Proof {
 struct Menu(Rc<Proof>);
 struct Board(Rc<Proof>);
 
-pub(crate) fn app() -> App<Game> {
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+pub(crate) fn app() -> crate::ReactantEngine {
+  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
   let game = app.start_game::<Decisions>(0, |connection| ExecutionMode::Interactive {
     connection,
     policy: Policy,
@@ -84,12 +83,12 @@ impl Component for Menu {
         "Rules {status:?} / accepted {}",
         self.0.game.accepted_state()
       ))),
-      Button::new(ls("Begin prompts")).on_press(move |_: &mut Game| {
+      Button::new(ls("Begin prompts")).on_press(move || {
         if start.game.dispatch(()) == reactant::DispatchResult::Started {
           assert!(start.consumer.wait_for_output(Duration::from_secs(5)));
         }
       }),
-      Button::new(ls("Answer from app")).on_press(move |_: &mut Game| {
+      Button::new(ls("Answer from app")).on_press(move || {
         if let Some(prompt) = &prompt {
           let published = answer.consumer.publication_observation().published;
           let Prompt::Confirm(value) = &prompt.prompt;
@@ -101,8 +100,8 @@ impl Component for Menu {
           );
         }
       }),
-      Button::new(ls("Settings")).on_press(move |_: &mut Game| set_open.set(!open)),
-      Button::new(ls("Stop prompts")).on_press(move |_: &mut Game| stop.game.stop()),
+      Button::new(ls("Settings")).on_press(move || set_open.set(!open)),
+      Button::new(ls("Stop prompts")).on_press(move || stop.game.stop()),
       Label::new(ls(if open {
         "Settings open"
       } else {
@@ -146,7 +145,7 @@ impl Component for Board {
       prompt.map(|prompt| {
         Button::new(ls("Choose one"))
           .key(prompt.handle.clone())
-          .on_press(move |_: &mut Game| {
+          .on_press(move || {
             let published = proof.consumer.publication_observation().published;
             let Prompt::Confirm(value) = &prompt.prompt;
             prompt.handle.submit(value.as_ref(), 1);

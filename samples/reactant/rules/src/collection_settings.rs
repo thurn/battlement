@@ -1,6 +1,6 @@
 use trox::{ls, tx};
 
-use crate::{Game, layout_gallery_styles as styles};
+use crate::{Game, layout_gallery_styles as styles, model};
 use battlement::{Command, FlexDirection};
 use reactant::{application, prelude::*};
 
@@ -12,6 +12,7 @@ pub(crate) struct CollectionSettings {
 
 impl Component for CollectionSettings {
   fn render(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     let application_state = application::use_application_state();
     let status = if application_state.is_active() {
       "APPLICATION ACTIVE"
@@ -37,9 +38,9 @@ impl Component for CollectionSettings {
             .map(|(index, name)| {
               Button::new(ls(name))
                 .current_page(self.page == index)
-                .on_press(move |game: &mut Game| {
+                .on_press(dispatch.action(move |game: &mut Game| {
                   game.layout_gallery.collection_page = index;
-                })
+                }))
             })
             .collect::<Vec<_>>(),
         )),
@@ -59,9 +60,9 @@ impl Component for CollectionSettings {
                 .map(|(index, name)| {
                   ListBoxOption::new(ls(name), self.choice == index)
                     .disabled(index == 2)
-                    .on_press(move |game: &mut Game| {
-                        game.layout_gallery.collection_choice = index;
-                      })
+                    .on_press(dispatch.action(move |game: &mut Game| {
+                      game.layout_gallery.collection_choice = index;
+                    }))
                 })
                 .collect::<Vec<_>>(),
             )),
@@ -108,7 +109,9 @@ impl Component for CollectionSettings {
             "Documentation link",
             "Collection settings interface label.",
           ))
-          .on_press(|game: &mut Game| game.layout_gallery.trace.push("LINK ACTIVATED")),
+          .on_press(dispatch.action(|game: &mut Game| {
+            game.layout_gallery.trace.push("LINK ACTIVATED");
+          })),
         )),
     ))
   }

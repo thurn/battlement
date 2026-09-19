@@ -1,6 +1,5 @@
 use battlement::{CameraProjection, CameraState, GameObject, ParentScene, Vector3};
 use reactant::{
-  app::App,
   callback::Callback,
   hooks,
   portal::{self, PortalTarget},
@@ -8,7 +7,7 @@ use reactant::{
 };
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 #[derive(Clone, Default, PartialEq)]
 struct SharedCount(u32);
@@ -17,8 +16,8 @@ struct MixedCounter(PortalTarget);
 struct Visual(Callback<()>);
 struct Details(Callback<()>);
 
-pub(crate) fn app() -> App<Game> {
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+pub(crate) fn app() -> crate::ReactantEngine {
+  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
   let target = app.create_portal_target();
   app
     .ui((

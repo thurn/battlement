@@ -151,6 +151,7 @@ fn controls(audio: AudioPlayback) -> View {
 }
 
 fn dropdown(state: &ComposedEffectsState) -> View {
+  let dispatch = crate::model::use_game_dispatch();
   let options = ["GENERAL", "AUDIO", "CONTROLS"];
   specimen(
     "composed-dropdown-specimen",
@@ -167,9 +168,9 @@ fn dropdown(state: &ComposedEffectsState) -> View {
       )
       .active_style(StyleTarget::new().scale(0.97))
       .style_transition(StyleTransition::new().all(Transition::tween().duration_secs(0.12)))
-      .on_press(|game: &mut Game| {
+      .on_press(dispatch.action(|game: &mut Game| {
         game.composed_effects.dropdown_open = !game.composed_effects.dropdown_open;
-      }),
+      })),
   )
   .child(AnimatePresence::new().child(state.dropdown_open.then(|| {
     Node::new(
@@ -195,10 +196,10 @@ fn dropdown(state: &ComposedEffectsState) -> View {
                     .duration_secs(0.18)
                     .delay_secs(index as f64 * 0.055),
                 )
-                .on_press(move |game: &mut Game| {
+                .on_press(dispatch.action(move |game: &mut Game| {
                   game.composed_effects.selected = index;
                   game.composed_effects.burst = game.composed_effects.burst.wrapping_add(1);
-                })
+                }))
             })
             .collect::<Vec<_>>(),
         )
@@ -320,6 +321,7 @@ fn routes(state: &ComposedEffectsState) -> View {
 }
 
 fn interactions(state: &ComposedEffectsState) -> View {
+  let dispatch = crate::model::use_game_dispatch();
   let particles = (0..5).map(|index| {
     Decoration::new()
       .key((state.burst, index))
@@ -371,19 +373,19 @@ fn interactions(state: &ComposedEffectsState) -> View {
       ),
     )
     .after_all(particles)
-    .on_press(|game: &mut Game| {
+    .on_press(dispatch.action(|game: &mut Game| {
       game.composed_effects.checked = !game.composed_effects.checked;
       game.composed_effects.burst = game.composed_effects.burst.wrapping_add(1);
-    }),
+    })),
   )
   .child(
     Button::new(ls(format!("SLIDER  {}%", state.slider * 25)))
       .host_name("composed-slider")
       .style(slider())
-      .on_press(|game: &mut Game| {
+      .on_press(dispatch.action(|game: &mut Game| {
         game.composed_effects.slider = (game.composed_effects.slider + 1) % 5;
         game.composed_effects.burst = game.composed_effects.burst.wrapping_add(1);
-      }),
+      })),
   )
 }
 
@@ -446,10 +448,11 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> impl Render {
+  let dispatch = crate::model::use_game_dispatch();
   Button::new(ls(text))
     .host_name(name)
     .style(action_style())
-    .on_press(callback)
+    .on_press(dispatch.action(callback))
 }
 
 fn reduced_name(value: ReducedMotion) -> &'static str {

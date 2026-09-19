@@ -1,10 +1,10 @@
 use std::time::Duration;
 
 use battlement::{MaterialInstance, MaterialParameter, ParentScene, Vector3};
-use reactant::{animation_controls, app::App, hooks, native_host, prelude::*, world};
+use reactant::{animation_controls, hooks, native_host, prelude::*, world};
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 const CLIP: MaterialParameter<f64> = MaterialParameter::new("_Clip");
 const MATERIAL: &str = "reactant/world/card-material";
@@ -18,8 +18,8 @@ struct Card {
   set_status: StateSetter<u8>,
 }
 
-pub(crate) fn app() -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app() -> crate::ReactantEngine {
+  reactant::app::App::new(crate::CONTENT_SCENE)
     .ui(EffectExitRetentionProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;

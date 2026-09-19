@@ -1,7 +1,7 @@
 use trox::{ls, tx};
 
 use crate::controls;
-use crate::{Control, Game, Interaction, Screen, design_system, sample_navigation};
+use crate::{Control, Interaction, Screen, design_system, model, sample_navigation};
 use reactant::prelude::*;
 
 #[builder]
@@ -15,6 +15,7 @@ pub(crate) struct Navigation {
 
 impl Component for Navigation {
   fn render(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     if self.phone {
       return Node::new(
         reactant::host::View::new()
@@ -25,6 +26,7 @@ impl Component for Navigation {
               .style(design_system::phone_brand()),
           )
           .child(controls::interactive_button(
+            &dispatch,
             "<",
             "previous-navigation",
             design_system::phone_navigation_action(controls::control_state(
@@ -40,6 +42,7 @@ impl Component for Navigation {
               .style(design_system::phone_navigation_label()),
           )
           .child(controls::interactive_button(
+            &dispatch,
             ">",
             "next-navigation",
             design_system::phone_navigation_action(controls::control_state(
@@ -72,7 +75,7 @@ impl Component for Navigation {
             _ => "targets-timelines-navigation",
           })
           .style(design_system::brand(self.compact))
-          .on_click(|game: &mut Game| {
+          .on_click(dispatch.action(|game| {
             game.screen = match game.screen {
               Screen::TargetsTimelines => Screen::ValuesTimeControls,
               Screen::ValuesTimeControls => Screen::GesturesDrag,
@@ -84,13 +87,14 @@ impl Component for Navigation {
               Screen::MotionPerformance => Screen::TargetsTimelines,
               _ => Screen::TargetsTimelines,
             };
-          }),
+          })),
         )
         .child(
           reactant::host::View::new()
             .name("navigation-items")
             .style(design_system::navigation_items(self.compact))
             .child(controls::interactive_button(
+              &dispatch,
               if self.compact {
                 "01  Build"
               } else {
@@ -106,6 +110,7 @@ impl Component for Navigation {
               |game| game.screen = Screen::Composition,
             ))
             .child(controls::interactive_button(
+              &dispatch,
               if self.compact {
                 "02  Events"
               } else {
@@ -121,6 +126,7 @@ impl Component for Navigation {
               |game| game.screen = Screen::EventsPortals,
             ))
             .child(controls::interactive_button(
+              &dispatch,
               if self.compact {
                 "03  State"
               } else {
@@ -136,6 +142,7 @@ impl Component for Navigation {
               |game| game.screen = Screen::StateIdentity,
             ))
             .child(controls::interactive_button(
+              &dispatch,
               if self.compact {
                 "04  Context"
               } else {
@@ -151,6 +158,7 @@ impl Component for Navigation {
               |game| game.screen = Screen::ContextMemo,
             ))
             .child(controls::interactive_button(
+              &dispatch,
               if self.compact {
                 "05  Effects"
               } else {
@@ -166,6 +174,7 @@ impl Component for Navigation {
               |game| game.screen = Screen::EffectsStores,
             ))
             .child(controls::interactive_button(
+              &dispatch,
               "06  RESOURCES",
               "resources-navigation",
               design_system::navigation_item(
@@ -177,6 +186,7 @@ impl Component for Navigation {
               |game| game.screen = Screen::ResourcesBoundaries,
             ))
             .child(controls::interactive_button(
+              &dispatch,
               if self.compact {
                 "07  Refs"
               } else {
@@ -192,6 +202,7 @@ impl Component for Navigation {
               |game| game.screen = Screen::RefsGeometry,
             ))
             .child(controls::interactive_button(
+              &dispatch,
               "08  ASSETS",
               "assets-navigation",
               design_system::navigation_item(

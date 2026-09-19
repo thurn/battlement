@@ -1,7 +1,7 @@
 use trox::{ls, tx};
 
 use crate::{
-  Control, GEOMETRY_TARGET_ID, Game, Interaction, MISSING_GEOMETRY_TARGET_ID, design_system,
+  Control, GEOMETRY_TARGET_ID, Game, Interaction, MISSING_GEOMETRY_TARGET_ID, design_system, model,
 };
 use battlement::{CameraTarget, DisplayId, ScrollViewMode, ScrollerVisibility, ViewportRect};
 use reactant::prelude::*;
@@ -16,6 +16,7 @@ pub(crate) struct RefsGeometry {
 
 impl Component for RefsGeometry {
   fn render(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     let field_ref = use_element_ref();
     let action_ref = field_ref.clone();
     let action_button_ref = use_element_ref();
@@ -33,8 +34,13 @@ impl Component for RefsGeometry {
       WorldRef::rendered_bounds(world_object, CameraTarget::Input),
     );
     let geometry = use_geometry(targets.clone());
+    let effect_dispatch = dispatch.clone();
     use_geometry_effect(
-      |game: &mut Game, _| game.geometry_effect_runs += 1,
+      move |_: &mut (), _| {
+        effect_dispatch.update(|game| {
+          game.geometry_effect_runs += 1;
+        });
+      },
       targets,
       active,
     );
@@ -96,6 +102,7 @@ impl Component for RefsGeometry {
                   )
                   .child(
                     super::interactive_button(
+                      &dispatch,
                       if active {
                         "RESTORE TARGET"
                       } else {

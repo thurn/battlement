@@ -4,15 +4,13 @@ use battlement::{
   Command, CommandBody, ParentScene, PropertyCommand, Tween, TweenPositionPayload, Vector3,
 };
 use reactant::{
-  GameConsumer, GameHandle,
-  app::App,
-  hooks, native_host,
+  GameConsumer, GameHandle, hooks, native_host,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame},
 };
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 struct Queue;
 struct Policy;
@@ -23,8 +21,8 @@ struct Proof {
 struct Menu(Rc<Proof>);
 struct Board;
 
-pub(crate) fn app() -> App<Game> {
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+pub(crate) fn app() -> crate::ReactantEngine {
+  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
   let game = app.start_game::<Queue>(0, |connection| ExecutionMode::Interactive {
     connection,
     policy: Policy,
@@ -65,7 +63,7 @@ impl Component for Menu {
         )),
         2,
       ),
-      Button::new(ls("Move then destroy")).on_press(move |_: &mut Game| {
+      Button::new(ls("Move then destroy")).on_press(move || {
         if start.game.dispatch(()) == reactant::DispatchResult::Started {
           assert!(
             start

@@ -1,14 +1,25 @@
 use crate::{
   Control, Game, Interaction, Screen, animation_validation, assets, composed_effects, context_memo,
   design_system, effects_stores, events_portals, gestures_drag, layout_gallery, layout_performance,
-  layout_reorder, motion_performance, physical_motion, presence_lifecycle, refs_geometry,
-  resources_boundaries, state_identity, styles_decorations, values_time_controls,
-  variants_orchestration,
+  layout_reorder,
+  model::{GameDispatch, LaboratoryStore},
+  motion_performance, physical_motion, presence_lifecycle, refs_geometry, resources_boundaries,
+  state_identity, styles_decorations, values_time_controls, variants_orchestration,
 };
 use crate::{
   composition::Composition, controls, navigation::Navigation, preview_resource::Preview,
 };
 use reactant::prelude::*;
+
+#[builder]
+pub(crate) struct Laboratory {
+  #[builder(required)]
+  initial: Game,
+  #[builder(required)]
+  event_overlay: PortalTarget,
+  #[builder(required)]
+  preview_resource: Preview,
+}
 
 #[builder]
 pub(crate) struct Shell {
@@ -82,6 +93,20 @@ pub(crate) fn view(game: &Game, event_overlay: PortalTarget, preview_resource: P
     })
     .store_phase(game.store_phase)
     .interaction(game.interaction)
+}
+
+impl Component for Laboratory {
+  fn render(&self) -> impl Render {
+    let store = use_memo(|| LaboratoryStore::new(self.initial.clone()), ());
+    let (_, set_revision) = use_state(0_u64);
+    let dispatch = GameDispatch::new(store, set_revision);
+    let game = dispatch.snapshot();
+    ContextProvider::new().context(dispatch).child(view(
+      &game,
+      self.event_overlay.clone(),
+      self.preview_resource.clone(),
+    ))
+  }
 }
 
 impl Component for Shell {

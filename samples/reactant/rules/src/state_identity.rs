@@ -1,6 +1,6 @@
 use trox::{ls, tx};
 
-use crate::{Game, design_system};
+use crate::design_system;
 use reactant::{hooks, prelude::*};
 
 #[builder]
@@ -75,34 +75,34 @@ impl Component for StateIdentity {
           .style(design_system::primary_action(control))
           .on_pointer_enter({
             let setter = set_control.clone();
-            move |_game: &mut Game| setter.set(design_system::ControlState::Hovered)
+            move || setter.set(design_system::ControlState::Hovered)
           })
           .on_pointer_leave({
             let setter = set_control.clone();
-            move |_game: &mut Game| setter.set(design_system::ControlState::Resting)
+            move || setter.set(design_system::ControlState::Resting)
           })
           .on_pointer_down({
             let setter = set_control.clone();
-            move |_game: &mut Game| setter.set(design_system::ControlState::Pressed)
+            move || setter.set(design_system::ControlState::Pressed)
           })
           .on_pointer_up({
             let setter = set_control.clone();
-            move |_game: &mut Game| setter.set(design_system::ControlState::Hovered)
+            move || setter.set(design_system::ControlState::Hovered)
           })
           .on_pointer_cancel({
             let setter = set_control.clone();
-            move |_game: &mut Game| setter.set(design_system::ControlState::Resting)
+            move || setter.set(design_system::ControlState::Resting)
           })
           .on_pointer_capture_out({
             let setter = set_control.clone();
-            move |_game: &mut Game| setter.set(design_system::ControlState::Resting)
+            move || setter.set(design_system::ControlState::Resting)
           })
           .on_focus({
             let setter = set_control.clone();
-            move |_game: &mut Game| setter.set(design_system::ControlState::Focused)
+            move || setter.set(design_system::ControlState::Focused)
           })
-          .on_blur(move |_game: &mut Game| set_control.set(design_system::ControlState::Resting))
-          .on_click(move |_game: &mut Game| {
+          .on_blur(move || set_control.set(design_system::ControlState::Resting))
+          .on_click(move || {
             click_control.set(design_system::ControlState::Resting);
             match (value, reversed) {
               (0, _) => {

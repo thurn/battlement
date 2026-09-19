@@ -4,13 +4,12 @@ use battlement::{ObjectId, ParentScene, Vector3, object_id};
 use reactant::{
   GameConsumer, GameHandle,
   animation_controls::{AnimationSequence, MotionSelector},
-  app::App,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame},
 };
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 const CARD: ObjectId = object_id!("25300000-0000-4000-8000-000000000093");
 
@@ -30,8 +29,8 @@ enum Animation {
   Hold,
 }
 
-pub(crate) fn app() -> App<Game> {
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+pub(crate) fn app() -> crate::ReactantEngine {
+  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
   let game = app.start_game::<PausableGame>(0, |connection| {
     Context(ExecutionMode::Interactive {
       connection,
@@ -75,7 +74,7 @@ impl Component for Menu {
     let (open, set_open) = reactant::hooks::use_state(false);
     let begin = self.0.clone();
     View::new().child((
-      Button::new(ls("Begin paused game")).on_press(move |_: &mut Game| {
+      Button::new(ls("Begin paused game")).on_press(move || {
         if begin.game.dispatch(()) == reactant::DispatchResult::Started {
           assert!(
             begin
@@ -85,7 +84,7 @@ impl Component for Menu {
           );
         }
       }),
-      Button::new(ls("Settings")).on_press(move |_: &mut Game| set_open.set(!open)),
+      Button::new(ls("Settings")).on_press(move || set_open.set(!open)),
       Heading::new(
         ls(if open {
           "Settings open"
@@ -121,8 +120,8 @@ impl Component for Board {
     (
       View::new().child((
         Heading::new(ls(format!("Gameplay stage: {stage}")), 2),
-        Button::new(ls("Pause gameplay")).on_press(move |_: &mut Game| pause.pause()),
-        Button::new(ls("Resume gameplay")).on_press(move |_: &mut Game| presentation.resume()),
+        Button::new(ls("Pause gameplay")).on_press(move || pause.pause()),
+        Button::new(ls("Resume gameplay")).on_press(move || presentation.resume()),
       )),
       reactant::world::SceneRoot::new(ParentScene::PrimaryScene).child(
         reactant::world::Group::new()

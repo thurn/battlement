@@ -1,13 +1,13 @@
 use battlement::{LightType, MaterialAssignment, ParentScene, Quaternion, Vector3};
-use reactant::{app::App, hooks, prelude::*, world};
+use reactant::{hooks, prelude::*, world};
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 struct WorldProof;
 
-pub(crate) fn app() -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app() -> crate::ReactantEngine {
+  reactant::app::App::new(crate::CONTENT_SCENE)
     .ui(WorldProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;

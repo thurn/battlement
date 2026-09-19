@@ -6,13 +6,12 @@ use battlement::{
 };
 use reactant::{
   GameConsumer, GameHandle, animation_controls,
-  app::App,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame},
 };
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, MOTION_MATERIAL, ROOT_ID, model};
+use crate::{MOTION_MATERIAL, ROOT_ID};
 
 const GAME_CUBE: ObjectId = object_id!("25300000-0000-4000-8000-000000000091");
 const MENU_CUBE: ObjectId = object_id!("25300000-0000-4000-8000-000000000092");
@@ -32,20 +31,20 @@ struct InspectorBoard;
 struct StandardBoard;
 struct SnapshotAnimationBoard;
 
-pub(crate) fn app() -> App<Game> {
+pub(crate) fn app() -> crate::ReactantEngine {
   self::build(false, false)
 }
 
-pub(crate) fn automatic_app() -> App<Game> {
+pub(crate) fn automatic_app() -> crate::ReactantEngine {
   self::build(true, false)
 }
 
-pub(crate) fn inspector_app() -> App<Game> {
+pub(crate) fn inspector_app() -> crate::ReactantEngine {
   self::build(false, true)
 }
 
-fn build(automatic: bool, inspector: bool) -> App<Game> {
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+fn build(automatic: bool, inspector: bool) -> crate::ReactantEngine {
+  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
   let game = app.start_game::<QueueGame>(0, |connection| ExecutionMode::Interactive {
     connection,
     policy: Policy,
@@ -129,7 +128,7 @@ impl Component for Menu {
         self.0.game.accepted_state()
       )))
       .name("queue-acceptance"),
-      Button::new(ls("Begin ordered game")).on_press(move |_: &mut Game| {
+      Button::new(ls("Begin ordered game")).on_press(move || {
         if start.game.dispatch(()) == reactant::DispatchResult::Started {
           assert!(
             start
@@ -140,8 +139,8 @@ impl Component for Menu {
           app.send(self::movement(MENU_CUBE, -3.0, 4000).nonblocking());
         }
       }),
-      Button::new(ls("Stop queued game")).on_press(move |_: &mut Game| stop.game.stop()),
-      Button::new(ls("Settings")).on_press(move |_: &mut Game| set_open.set(!open)),
+      Button::new(ls("Stop queued game")).on_press(move || stop.game.stop()),
+      Button::new(ls("Settings")).on_press(move || set_open.set(!open)),
       Label::new(ls(if open {
         "Settings open"
       } else {

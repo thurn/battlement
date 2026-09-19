@@ -1,7 +1,7 @@
 use trox::{ls, tx};
 
-use crate::{Game, design_system};
-use battlement::{Color, FlexDirection, FlexWrap, ScrollViewMode, Style};
+use crate::{Game, design_system, model};
+use battlement::{Color, FlexDirection, FlexWrap, MotionGestureEvent, ScrollViewMode, Style};
 use reactant::prelude::*;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -31,6 +31,7 @@ pub(crate) struct LayoutReorder {
 
 impl Component for LayoutReorder {
   fn render(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     let mut order = vec!["ALPHA", "BRAVO", "CHARLIE"];
     if self.state.reversed {
       order.reverse();
@@ -58,30 +59,30 @@ impl Component for LayoutReorder {
           .style(toolbar())
           .child(
             Button::new(tx("TOGGLE GEOMETRY", "Layout reordering section heading.")).on_press(
-              |game: &mut Game| {
+              dispatch.action(|game: &mut Game| {
                 game.layout_reorder.expanded = !game.layout_reorder.expanded;
-              },
+              }),
             ),
           )
           .child(
             Button::new(tx("SHARED HANDOFF", "Layout reordering section heading.")).on_press(
-              |game: &mut Game| {
+              dispatch.action(|game: &mut Game| {
                 game.layout_reorder.alternate = !game.layout_reorder.alternate;
-              },
+              }),
             ),
           )
           .child(
             Button::new(tx("REORDER", "Layout reordering section heading.")).on_press(
-              |game: &mut Game| {
+              dispatch.action(|game: &mut Game| {
                 game.layout_reorder.reversed = !game.layout_reorder.reversed;
-              },
+              }),
             ),
           )
           .child(
             Button::new(tx("POP ITEM", "Layout reordering section heading.")).on_press(
-              |game: &mut Game| {
+              dispatch.action(|game: &mut Game| {
                 game.layout_reorder.show_pop = !game.layout_reorder.show_pop;
-              },
+              }),
             ),
           ),
       )
@@ -204,6 +205,7 @@ fn scroll_root() -> Node {
 }
 
 fn reorder_list(values: Vec<&'static str>) -> Node {
+  let dispatch = model::use_game_dispatch();
   Node::new(specimen(
     "DRAG REORDER",
     View::new().style(list()).child(
@@ -215,11 +217,13 @@ fn reorder_list(values: Vec<&'static str>) -> Node {
             .name(format!("reorder-{value}").to_ascii_lowercase())
             .style(item())
             .reorder_item(ReorderAxis::Y)
-            .on_drag_end(|game: &mut Game, event| {
-              if event.offset.y.abs() > 18.0 {
-                game.layout_reorder.reversed = !game.layout_reorder.reversed;
-              }
-            })
+            .on_drag_end(
+              dispatch.borrowed_event(|game: &mut Game, event: &MotionGestureEvent| {
+                if event.offset.y.abs() > 18.0 {
+                  game.layout_reorder.reversed = !game.layout_reorder.reversed;
+                }
+              }),
+            )
             .child(Label::new(ls(value)))
         })
         .collect::<Vec<_>>(),

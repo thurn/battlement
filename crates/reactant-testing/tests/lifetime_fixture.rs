@@ -6,16 +6,10 @@ use reactant_testing::Display;
 #[path = "../../../samples/reactant/rules/src/lifetime_proof.rs"]
 mod lifetime_proof;
 
-type Game = u32;
 const CONTENT_SCENE: &str = "lifetime/fixture";
 const ROOT_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000004");
-mod model {
-  pub fn new() -> u32 {
-    0
-  }
-}
 
-fn semantic(display: &Display<App<Game>>, label: &str) -> ObjectId {
+fn semantic(display: &Display<App>, label: &str) -> ObjectId {
   display
     .accessibility()
     .nodes
@@ -24,7 +18,7 @@ fn semantic(display: &Display<App<Game>>, label: &str) -> ObjectId {
     .unwrap_or_else(|| panic!("missing semantic {label}"))
     .object_id
 }
-fn click(display: &mut Display<App<Game>>, label: &str) {
+fn click(display: &mut Display<App>, label: &str) {
   let id = self::semantic(display, label);
   display.deliver_ui_event(battlement::UiEvent {
     target_id: id,

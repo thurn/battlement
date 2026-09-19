@@ -3,8 +3,10 @@ use crate::{
   layout_performance, layout_reorder, motion_performance, physical_motion, presence_lifecycle,
   styles_decorations, values_time_controls, variants_orchestration,
 };
-use std::env;
+use reactant::{callback::Callback as EventCallback, prelude::*};
+use std::{cell::RefCell, env, rc::Rc};
 /// State owned by the Reactant demonstration screens.
+#[derive(Clone, PartialEq)]
 pub struct Game {
   pub(crate) screen: Screen,
   pub(crate) reversed: bool,
@@ -61,18 +63,11 @@ pub(crate) enum Control {
   NextNavigation,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 pub(crate) struct Interaction {
   pub(crate) hovered: Option<Control>,
   pub(crate) pressed: Option<Control>,
   pub(crate) focused: Option<Control>,
-}
-
-impl Game {
-  /// Returns the currently selected demonstration screen.
-  pub fn screen(&self) -> Screen {
-    self.screen
-  }
 }
 
 pub(crate) fn new() -> Game {
@@ -122,4 +117,110 @@ pub(crate) fn new() -> Game {
     store_phase: effects_stores::StorePhase::Primary,
     interaction: Interaction::default(),
   }
+}
+
+/// Component-local observable state shared by the laboratory demonstrations.
+#[derive(Clone)]
+pub(crate) struct LaboratoryStore(Rc<RefCell<Game>>);
+
+impl LaboratoryStore {
+  pub(crate) fn new(game: Game) -> Self {
+    Self(Rc::new(RefCell::new(game)))
+  }
+
+  pub(crate) fn snapshot(&self) -> Game {
+    self.0.borrow().clone()
+  }
+
+  fn update(&self, update: impl FnOnce(&mut Game)) {
+    update(&mut self.0.borrow_mut());
+  }
+}
+
+impl PartialEq for LaboratoryStore {
+  fn eq(&self, other: &Self) -> bool {
+    Rc::ptr_eq(&self.0, &other.0)
+  }
+}
+
+/// State facade shared with the laboratory's demonstration components.
+#[derive(Clone, PartialEq)]
+pub(crate) struct GameDispatch {
+  store: LaboratoryStore,
+  revision: StateSetter<u64>,
+}
+
+impl GameDispatch {
+  pub(crate) fn new(store: LaboratoryStore, revision: StateSetter<u64>) -> Self {
+    Self { store, revision }
+  }
+
+  pub(crate) fn snapshot(&self) -> Game {
+    self.store.snapshot()
+  }
+
+  pub(crate) fn update(&self, update: impl FnOnce(&mut Game)) {
+    self.store.update(update);
+    self.revision.update(|revision| revision.wrapping_add(1));
+  }
+}
+
+impl GameDispatch {
+  /// Creates an application-independent callback that updates laboratory state.
+  pub(crate) fn event<A: Clone + 'static>(
+    &self,
+    update: impl Fn(&mut Game, A) + 'static,
+  ) -> EventCallback<A> {
+    let dispatch = self.clone();
+    let update = Rc::new(update);
+    EventCallback::new(move |value: A| {
+      update(&mut dispatch.store.0.borrow_mut(), value.clone());
+      dispatch
+        .revision
+        .update(|revision| revision.wrapping_add(1));
+    })
+  }
+
+  /// Creates a callback that borrows its native event while updating display state.
+  pub(crate) fn borrowed_event<A: Clone + 'static, U>(
+    &self,
+    update: U,
+  ) -> impl Fn(&mut (), &A) + use<A, U>
+  where
+    U: Fn(&mut Game, &A) + 'static,
+  {
+    let dispatch = self.clone();
+    let update = Rc::new(update);
+    move |_, value| {
+      update(&mut dispatch.store.0.borrow_mut(), value);
+      dispatch
+        .revision
+        .update(|revision| revision.wrapping_add(1));
+    }
+  }
+
+  /// Creates a payload-free callback that updates laboratory state.
+  pub(crate) fn action(&self, update: impl Fn(&mut Game) + 'static) -> EventCallback<()> {
+    self.event(move |game, ()| update(game))
+  }
+
+  /// Creates a model-free application callback that updates laboratory state.
+  pub(crate) fn app_action<U>(&self, update: U) -> impl Fn(&mut ()) + use<U>
+  where
+    U: Fn(&mut Game) + 'static,
+  {
+    let dispatch = self.clone();
+    let update = Rc::new(update);
+    move |_| {
+      update(&mut dispatch.store.0.borrow_mut());
+      dispatch
+        .revision
+        .update(|revision| revision.wrapping_add(1));
+    }
+  }
+}
+
+/// Returns the laboratory state dispatcher for a demonstration component.
+pub(crate) fn use_game_dispatch() -> GameDispatch {
+  use_required_context::<GameDispatch>()
 }

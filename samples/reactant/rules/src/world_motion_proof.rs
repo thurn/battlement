@@ -1,8 +1,8 @@
 use battlement::{ObjectId, ParentScene, PickingMode, Prop, Vector3, object_id};
-use reactant::{animation_controls, app::App, hooks, prelude::*, world};
+use reactant::{animation_controls, hooks, prelude::*, world};
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 const CARD: ObjectId = object_id!("38210000-0000-4000-8000-000000000001");
 
@@ -16,8 +16,8 @@ enum Pose {
 const HIT: ObjectId = object_id!("38210000-0000-4000-8000-000000000002");
 struct MotionProof;
 
-pub(crate) fn app() -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app() -> crate::ReactantEngine {
+  reactant::app::App::new(crate::CONTENT_SCENE)
     .ui(MotionProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;

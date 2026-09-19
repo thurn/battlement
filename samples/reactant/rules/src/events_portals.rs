@@ -1,6 +1,6 @@
 use trox::{ls, tx};
 
-use crate::{Control, Game, Interaction, control_state, design_system, interactive_button};
+use crate::{Control, Interaction, control_state, design_system, interactive_button, model};
 use battlement::{LengthUnits, PickingMode, ScrollViewMode, ScrollerVisibility};
 use reactant::prelude::*;
 
@@ -16,6 +16,7 @@ pub(crate) struct EventsPortals {
 
 impl Component for EventsPortals {
   fn render(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     reactant::host::ScrollView::new()
       .name("events-canvas")
       .mode(ScrollViewMode::Vertical)
@@ -89,11 +90,11 @@ impl Component for EventsPortals {
                         ),
                     ),
                   )
-                  .on_click_capture(|game: &mut Game| {
+                  .on_click_capture(dispatch.action(|game| {
                     game.event_trace.clear();
                     game.event_trace.push("CAPTURE");
-                  })
-                  .on_click(|game: &mut Game| game.event_trace.push("BUBBLE")),
+                  }))
+                  .on_click(dispatch.action(|game| game.event_trace.push("BUBBLE"))),
               )
               .child(
                 reactant::host::Label::new(ls(if self.compact { "v" } else { ">" }))
@@ -106,7 +107,9 @@ impl Component for EventsPortals {
 
 impl EventsPortals {
   fn action(&self) -> impl Render {
+    let dispatch = model::use_game_dispatch();
     interactive_button(
+      &dispatch,
       if self.active { "RESTORE" } else { "RUN EVENT" },
       "events-action",
       design_system::event_action(

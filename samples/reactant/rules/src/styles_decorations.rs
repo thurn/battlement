@@ -152,7 +152,7 @@ fn pseudo_specimen() -> View {
           Transition::tween().duration_secs(0.14),
         ),
     )
-    .on_press(|_game: &mut Game| {}),
+    .on_press(|| {}),
   )
 }
 
@@ -248,7 +248,7 @@ fn burst_specimen(generation: u32, elapsed: f64) -> View {
     .host_name("styles-burst-target")
     .style(probe())
     .after_all(particles)
-    .on_press(|_game: &mut Game| {}),
+    .on_press(|| {}),
   )
 }
 
@@ -388,10 +388,11 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> impl Render {
+  let dispatch = crate::model::use_game_dispatch();
   Button::new(ls(text))
     .host_name(name)
     .style(action_style())
-    .on_press(callback)
+    .on_press(dispatch.action(callback))
 }
 
 fn motion_color(r: f32, g: f32, b: f32) -> Color {

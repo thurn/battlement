@@ -1,9 +1,9 @@
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 use battlement::{
   AudioClipAddress, MaterialInstance, MaterialParameter, MaterialVector, ParentScene, Vector3,
   object_id,
 };
-use reactant::{app::App, hooks, prelude::*, world};
+use reactant::{hooks, prelude::*, world};
 use trox::ls;
 
 const AUDIO_PLAYBACK_ID: battlement::ObjectId = object_id!("38220000-0000-4000-8000-000000000001");
@@ -14,8 +14,8 @@ const WARP: MaterialParameter<MaterialVector> = MaterialParameter::new("_Warp");
 const MATERIAL: &str = "reactant/world/card-material";
 
 struct MaterialProof;
-pub(crate) fn app() -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app() -> crate::ReactantEngine {
+  reactant::app::App::new(crate::CONTENT_SCENE)
     .ui(MaterialProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;
@@ -120,13 +120,12 @@ impl Component for MaterialProof {
           Button::new(ls("Clear left overrides")).on_press(clear.update_callback(|v| !v)),
           Button::new(ls("Play parameter audio")).on_press({
             let app = app.clone();
-            move |_: &mut Game| {
+            move || {
               app.send(audio.play_command(AUDIO_CLIP, AudioPlaybackOptions::new().looping(true)));
               set_audio_ready.set(true);
             }
           }),
-          Button::new(ls("Animate parameters"))
-            .on_press(move |_: &mut Game| set_parameter_motion.set(true)),
+          Button::new(ls("Animate parameters")).on_press(move || set_parameter_motion.set(true)),
           Heading::new(ls(parameter_status), 2),
         )),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((

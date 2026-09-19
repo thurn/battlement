@@ -1,13 +1,13 @@
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 use battlement::{ObjectId, ParentScene, Quaternion, Vector3, object_id};
-use reactant::{app::App, hooks, native_host, prelude::*, world};
+use reactant::{hooks, native_host, prelude::*, world};
 use trox::ls;
 
 const CARD: ObjectId = object_id!("38110000-0000-4000-8000-000000000001");
 const HIT: ObjectId = object_id!("38110000-0000-4000-8000-000000000002");
 struct HitProof;
-pub(crate) fn app() -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app() -> crate::ReactantEngine {
+  reactant::app::App::new(crate::CONTENT_SCENE)
     .ui(HitProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;

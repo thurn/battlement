@@ -100,6 +100,7 @@ impl SampleStore {
 
 impl Component for EffectsStores {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     let (connected, set_connected) = use_state(false);
     let enabled = self.enabled;
     use_effect(
@@ -167,6 +168,7 @@ impl Component for EffectsStores {
                     .style(design_system::effect_status()),
                   )
                   .child(crate::interactive_button(
+                    &dispatch,
                     if self.enabled { "RESTORE" } else { "CONNECT" },
                     "effects-action",
                     design_system::effect_action(self.effect_interaction, !self.enabled),
@@ -193,6 +195,7 @@ impl Component for EffectsStores {
                       .style(design_system::effect_status()),
                   )
                   .child(crate::interactive_button(
+                    &dispatch,
                     self.store_phase.action(),
                     "store-action",
                     design_system::effect_action(

@@ -3,7 +3,6 @@ use super::*;
 #[test]
 fn sample_opens_on_an_accessible_composition_screen() {
   let engine = create_engine();
-  assert_eq!(engine.model().screen(), Screen::Composition);
   let mut client = FakeClient::connect(engine, catalog());
   let ui = client.ui();
   let navigation = find_named(&ui, ROOT_ID, "navigation");

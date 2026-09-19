@@ -1,8 +1,8 @@
 use battlement::{ObjectId, ParentScene, PickingMode, Prop, Vector3, object_id};
-use reactant::{app::App, prelude::*, world};
+use reactant::{prelude::*, world};
 use trox::ls;
 
-use crate::{CONTENT_SCENE, Game, ROOT_ID, model};
+use crate::ROOT_ID;
 
 const FAN_A: ObjectId = object_id!("383a0000-0000-4000-8000-000000000001");
 const FAN_B: ObjectId = object_id!("383a0000-0000-4000-8000-000000000002");
@@ -19,8 +19,8 @@ struct WorldLayoutProof {
   request: world::LayoutMeasurement,
 }
 
-pub(crate) fn app() -> App<Game> {
-  App::with_model(CONTENT_SCENE, model::new())
+pub(crate) fn app() -> crate::ReactantEngine {
+  reactant::app::App::new(crate::CONTENT_SCENE)
     .ui(WorldLayoutProof {
       measured: world::LayoutDestination::new(*GRID_A.as_uuid()),
       request: world::LayoutMeasurement::identified(*REST_REQUEST.as_uuid()),

@@ -159,6 +159,7 @@ impl PresenceLifecycleState {
 
 impl Component for PresenceLifecycle {
   fn render(&self) -> impl Render {
+    let dispatch = crate::model::use_game_dispatch();
     let (record, set_record) = use_state(MountRecord::default());
     let mode_name = match self.state.mode {
       PresenceMode::Sync => "SYNC",
@@ -209,13 +210,13 @@ impl Component for PresenceLifecycle {
             .initial(false)
             .mode(self.state.mode)
             .custom(self.state.route as i32)
-            .on_exit_complete(|game: &mut Game| {
+            .on_exit_complete(dispatch.app_action(|game: &mut Game| {
               game.presence_lifecycle.exit_waves += 1;
               game
                 .presence_lifecycle
                 .events
                 .push("presence exit complete".to_owned());
-            })
+            }))
             .child(self.state.open.then(|| {
               Node::new(
                 RetainedPanel::new()
@@ -309,7 +310,7 @@ impl Component for RetainedPanel {
         Button::new(tx("COUNTER +1", "Presence lifecycle section heading."))
           .host_name("presence-counter")
           .style(action_style())
-          .on_press(move |_game: &mut Game| increment.update(|value| value + 1)),
+          .on_press(move || increment.update(|value| value + 1)),
       )
       .child(
         View::new()
@@ -360,10 +361,11 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> impl Render {
+  let dispatch = crate::model::use_game_dispatch();
   Button::new(ls(text))
     .host_name(name)
     .style(action_style())
-    .on_press(callback)
+    .on_press(dispatch.action(callback))
 }
 
 fn content() -> Style {
