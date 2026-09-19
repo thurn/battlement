@@ -21,6 +21,41 @@ use reactant::GameStatus;
 use reactant_testing::Display;
 
 #[test]
+fn default_factory_exports_the_complete_reactant_app() {
+  let mut display = Display::connect(
+    battlement_rules::create_engine().expect("chess engine should initialize"),
+    catalog(),
+  );
+  initial_ready(&mut display);
+  assert!(!display.with_engine(|app| app.accepted_state()).started());
+  assert_eq!(
+    display.with_engine(|app| app.visual_state()),
+    VisualState::Title
+  );
+  let _play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
+}
+
+#[test]
+fn positioned_compatibility_factory_preserves_the_title_screen_contract() {
+  let fen = "8/8/8/8/8/5kq1/8/7K b - - 0 1";
+  let mut display = Display::connect(
+    battlement_rules::create_engine_with_position(fen, Duration::ZERO)
+      .expect("valid chess test position"),
+    catalog(),
+  );
+  initial_ready(&mut display);
+  assert!(!display.with_engine(|app| app.accepted_state()).started());
+  assert_eq!(
+    display.with_engine(|app| app.accepted_state()).board(),
+    &fen.parse::<Board>().expect("valid chess test position")
+  );
+  let play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
+  display.click_ui(play);
+  ready(&mut display);
+  assert!(display.with_engine(|app| app.accepted_state()).started());
+}
+
+#[test]
 fn opening_uses_accessible_play_and_shared_spawn_checkpoints() {
   let mut display = title();
   assert!(display.global_keys().contains(&PhysicalKey::Enter));
@@ -70,10 +105,14 @@ fn pause_menu_accessible_reset_confirms_without_replaying_spawn_beats() {
 
   display.key_down(PhysicalKey::Escape);
   display.key_up(PhysicalKey::Escape);
-  display.poll();
+  for _ in 0..4 {
+    display.poll();
+  }
   let reset = display.find_ui(REACTANT_CHESS_ROOT_ID, "new-game");
   display.click_ui(reset);
-  display.poll();
+  for _ in 0..4 {
+    display.poll();
+  }
   let reset = display.find_ui(REACTANT_CHESS_ROOT_ID, "new-game");
   display.click_ui(reset);
   ready(&mut display);
@@ -124,6 +163,52 @@ fn music_uses_the_app_clock_and_crossfades_in_playlist_order() {
   assert!(display.commands().iter().any(|entry| {
     matches!(&entry.command.body, CommandBody::AudioStop(stop) if stop.fade_out_ms == 5_000)
   }));
+
+  display.settle();
+  display.key_down(PhysicalKey::Escape);
+  display.key_up(PhysicalKey::Escape);
+  for _ in 0..4 {
+    display.poll();
+  }
+  let reset = display.find_ui(REACTANT_CHESS_ROOT_ID, "new-game");
+  display.click_ui(reset);
+  for _ in 0..4 {
+    display.poll();
+  }
+  let confirm = display.find_ui(REACTANT_CHESS_ROOT_ID, "new-game");
+  display.click_ui(confirm);
+  ready(&mut display);
+
+  clock.advance(Duration::from_secs(119));
+  display.poll();
+  assert_eq!(played_music(&display).len(), 2);
+  clock.advance(Duration::from_secs(1));
+  for _ in 0..8 {
+    display.poll();
+  }
+  assert_eq!(
+    played_music(&display).last(),
+    Some(&(MUSIC_TRACKS[2].as_str(), 5_000))
+  );
+
+  display.with_engine(|app| app.restart());
+  ready(&mut display);
+  assert_eq!(
+    played_music(&display).last(),
+    Some(&(MUSIC_TRACKS[0].as_str(), 5_000))
+  );
+  let after_restart = played_music(&display).len();
+  clock.advance(Duration::from_secs(119));
+  display.poll();
+  assert_eq!(played_music(&display).len(), after_restart);
+  clock.advance(Duration::from_secs(1));
+  for _ in 0..8 {
+    display.poll();
+  }
+  assert_eq!(
+    played_music(&display).last(),
+    Some(&(MUSIC_TRACKS[1].as_str(), 5_000))
+  );
 }
 
 #[test]
@@ -170,7 +255,7 @@ fn keyboard_controller_click_and_fake_drag_share_the_app_owned_input_path() {
 }
 
 #[test]
-fn physical_click_capture_keeps_the_selected_white_source() {
+fn fake_pointer_click_keeps_the_selected_white_source() {
   let mut display = position("4k3/8/8/4p3/3B4/8/8/4K3 w - - 0 1", Duration::ZERO);
   let bishop = piece(&mut display, Square::D4);
   display.activate(bishop);
@@ -192,18 +277,36 @@ fn physical_click_capture_keeps_the_selected_white_source() {
 }
 
 #[test]
+fn computer_checkmate_reaches_the_terminal_state_through_polling() {
+  let mut display = position("8/8/8/8/8/5kq1/8/7K b - - 0 1", Duration::ZERO);
+  ready(&mut display);
+  let accepted = display.with_engine(|app| app.accepted_state());
+  assert_eq!(accepted.board().status(), cozy_chess::GameStatus::Won);
+  assert_eq!(accepted.visual_state(), VisualState::ComputerWin);
+}
+
+#[test]
 fn capture_and_castle_register_move_owned_sound_timing() {
   let mut capture = position("4k3/8/8/4p3/3B4/8/8/4K3 w - - 0 1", Duration::ZERO);
+  let bishop = piece(&mut capture, Square::D4);
   move_by_activation(&mut capture, Square::D4, Square::E5);
   ready(&mut capture);
   assert!(!capture.audio_occurrences().iter().any(|occurrence| {
     [sfx::ATTACK_A, sfx::ATTACK_B, sfx::ATTACK_C, sfx::ATTACK_D].contains(&occurrence.address)
   }));
   capture.advance_time(Duration::from_millis(299));
+  assert_ne!(
+    capture.object(bishop).unwrap().local_transform().position,
+    square(Square::E5)
+  );
   assert!(!capture.audio_occurrences().iter().any(|occurrence| {
     [sfx::ATTACK_A, sfx::ATTACK_B, sfx::ATTACK_C, sfx::ATTACK_D].contains(&occurrence.address)
   }));
   capture.advance_time(Duration::from_millis(1));
+  assert_eq!(
+    capture.object(bishop).unwrap().local_transform().position,
+    square(Square::E5)
+  );
   assert!(capture.audio_occurrences().iter().any(|occurrence| {
     [sfx::ATTACK_A, sfx::ATTACK_B, sfx::ATTACK_C, sfx::ATTACK_D].contains(&occurrence.address)
   }));
@@ -230,6 +333,57 @@ fn capture_and_castle_register_move_owned_sound_timing() {
       .iter()
       .any(|occurrence| occurrence.address == sfx::POWERUP_A)
   );
+}
+
+#[test]
+fn en_passant_and_promotion_update_the_visible_piece_tree() {
+  let mut en_passant = position("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1", Duration::ZERO);
+  let pawn = piece(&mut en_passant, Square::E5);
+  let victim = piece(&mut en_passant, Square::D5);
+  move_by_activation(&mut en_passant, Square::E5, Square::D6);
+  wait_for_visual(&mut en_passant, VisualState::EnPassant);
+  en_passant.advance_time(Duration::from_millis(300));
+  assert!(en_passant.object(victim).is_none());
+  assert_eq!(
+    en_passant.object(pawn).unwrap().local_transform().position,
+    square(Square::D6)
+  );
+  let accepted = en_passant.with_engine(|app| app.accepted_state());
+  assert!(accepted.piece(Square::D5).is_none());
+  assert_eq!(accepted.visual_state(), VisualState::EnPassant);
+  assert!(matches!(
+    en_passant.particle_occurrences()[0].location,
+    battlement::ParticleSpawnLocation::WorldPosition(position) if position == square(Square::D5)
+  ));
+
+  let mut promotion = position("1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1", Duration::ZERO);
+  let identity = promotion
+    .with_engine(|app| app.accepted_state())
+    .piece(Square::A7)
+    .unwrap()
+    .id;
+  let pawn = piece(&mut promotion, Square::A7);
+  let victim = piece(&mut promotion, Square::B8);
+  move_by_activation(&mut promotion, Square::A7, Square::B8);
+  wait_for_visual(&mut promotion, VisualState::Promotion);
+  promotion.advance_time(Duration::from_millis(300));
+  assert!(promotion.object(victim).is_none());
+  assert!(promotion.object(pawn).is_some());
+  let accepted = promotion.with_engine(|app| app.accepted_state());
+  assert_eq!(accepted.piece(Square::B8).unwrap().id, identity);
+  assert_eq!(
+    accepted.piece(Square::B8).unwrap().kind,
+    cozy_chess::Piece::Queen
+  );
+  assert!(promotion.objects().any(|object| {
+    object.parent_id() == Some(pawn)
+      && matches!(
+        object.kind(),
+        battlement::GameObjectKind::Prefab { address, .. }
+          if address == &assets::white::QUEEN
+      )
+  }));
+  assert_eq!(accepted.visual_state(), VisualState::Promotion);
 }
 
 #[test]
@@ -426,6 +580,21 @@ fn ready(display: &mut Display<ReactantChessApp>) {
     let _ = display.with_engine(|app| app.wait_for_output(Duration::from_millis(100)));
   }
   panic!("Reactant chess output did not reach ready");
+}
+
+fn wait_for_visual(display: &mut Display<ReactantChessApp>, expected: VisualState) {
+  for _ in 0..128 {
+    display.poll();
+    if display
+      .with_engine(|app| app.accepted_state())
+      .visual_state()
+      == expected
+    {
+      return;
+    }
+    let _ = display.with_engine(|app| app.wait_for_output(Duration::from_millis(100)));
+  }
+  panic!("Reactant chess did not reach {expected:?}");
 }
 
 fn move_by_activation(display: &mut Display<ReactantChessApp>, from: Square, to: Square) {

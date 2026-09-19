@@ -2,9 +2,7 @@
 
 use std::time::Duration;
 
-use battlement::{
-  Command, CommandBody, ControllerVibrationPayload, DebugUiPayload, ObjectId, object_id,
-};
+use battlement::{Command, CommandBody, ControllerVibrationPayload, DebugUiPayload};
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use reactant::{
   hooks,
@@ -16,8 +14,6 @@ use crate::{
   reactant_input::{AppControl, LocalEffect},
 };
 
-const MUSIC_PRIMARY: ObjectId = object_id!("43000000-0000-4000-8500-000000000001");
-const MUSIC_SECONDARY: ObjectId = object_id!("43000000-0000-4000-8500-000000000002");
 const MUSIC_CROSSFADE: Duration = Duration::from_secs(5);
 
 pub(crate) struct EffectsView {
@@ -38,59 +34,37 @@ impl Component for EffectsView {
   fn render(&self) -> impl Render {
     let local = hooks::use_external_store(self.control.store());
     let app = reactant::app_context::use_app();
-    let previous_music = hooks::use_ref(None::<(u64, usize)>);
-    let primary = AudioPlayback::new(MUSIC_PRIMARY);
-    let secondary = AudioPlayback::new(MUSIC_SECONDARY);
+    let previous_music = hooks::use_ref(None::<(u64, usize, AudioPlayback)>);
     hooks::use_effect(
       {
         let app = app.clone();
         let previous_music = previous_music.clone();
         move || {
           let prior = previous_music.get();
+          let prior_state = prior.map(|(generation, track, _)| (generation, track));
           if local.music_generation == 0 {
-            if let Some((generation, _)) = prior {
-              let active = if generation % 2 == 1 {
-                primary
-              } else {
-                secondary
-              };
+            if let Some((_, _, active)) = prior {
               app.send(active.stop(Duration::ZERO));
               previous_music.replace(None);
             }
-          } else if prior != Some((local.music_generation, local.music_track)) {
-            let next = if local.music_generation % 2 == 1 {
-              primary
-            } else {
-              secondary
-            };
-            let old = if local.music_generation % 2 == 1 {
-              secondary
-            } else {
-              primary
-            };
-            app.send(
-              next.play_command(
-                MUSIC_TRACKS[local.music_track].clone(),
-                AudioPlaybackOptions::new()
-                  .volume(local.volume)
-                  .looping(true)
-                  .fade_in(if prior.is_some() {
-                    MUSIC_CROSSFADE
-                  } else {
-                    Duration::ZERO
-                  }),
-              ),
+          } else if prior_state != Some((local.music_generation, local.music_track)) {
+            let (next, command) = AudioPlayback::play(
+              MUSIC_TRACKS[local.music_track].clone(),
+              AudioPlaybackOptions::new()
+                .volume(local.volume)
+                .looping(true)
+                .fade_in(if prior.is_some() {
+                  MUSIC_CROSSFADE
+                } else {
+                  Duration::ZERO
+                }),
             );
-            if prior.is_some() {
+            app.send(command);
+            if let Some((_, _, old)) = prior {
               app.send(old.stop(MUSIC_CROSSFADE));
             }
-            previous_music.replace(Some((local.music_generation, local.music_track)));
-          } else if let Some((generation, _)) = prior {
-            let active = if generation % 2 == 1 {
-              primary
-            } else {
-              secondary
-            };
+            previous_music.replace(Some((local.music_generation, local.music_track, next)));
+          } else if let Some((_, _, active)) = prior {
             app.send(active.set_volume(local.volume));
           }
         }

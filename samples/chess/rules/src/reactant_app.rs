@@ -1,4 +1,4 @@
-//! App-owned lifecycle and persistence for the complete Reactant chess path.
+//! App-owned lifecycle and persistence for the chess sample.
 
 use std::{
   path::PathBuf,
@@ -24,7 +24,7 @@ use crate::{
 
 const MUSIC_TRACK_DURATION: Duration = Duration::from_secs(120);
 
-/// Complete alternate chess engine retained beside the legacy default until task 32b.
+/// Complete Reactant chess engine exported by the sample.
 pub struct ReactantChessApp {
   app: App<ChessModel>,
   starting_board: Board,
@@ -43,7 +43,7 @@ pub struct ReactantChessApp {
 }
 
 impl ReactantChessApp {
-  /// Creates the complete alternate app with production AI settings.
+  /// Creates the app with production AI settings.
   pub fn new() -> Self {
     Self::with_state(
       ChessState::title(Board::default()),
@@ -54,9 +54,20 @@ impl ReactantChessApp {
     )
   }
 
-  /// Creates a deterministic alternate app for public behavior checks.
+  /// Creates a deterministic app for public behavior checks.
   pub fn with_think_time(think_time: Duration) -> Self {
     Self::with_think_time_and_clock(think_time, Instant::now)
+  }
+
+  /// Creates an app with production AI timing and deterministic presentation randomness.
+  pub fn with_seed(seed: u64) -> Self {
+    Self::with_state(
+      ChessState::title(Board::default()),
+      Board::default(),
+      crate::AI_THINK_TIME,
+      Some(seed),
+      Instant::now,
+    )
   }
 
   /// Creates a deterministic app with a caller-owned monotonic clock.
@@ -87,10 +98,21 @@ impl ReactantChessApp {
     ))
   }
 
-  pub(crate) fn named_review(name: &str) -> Result<Option<Self>, String> {
-    let Some(name) = name.strip_prefix("app ") else {
-      return Ok(None);
-    };
+  /// Creates a title-screen app whose next game starts from a supplied position.
+  pub fn with_starting_position(fen: &str, think_time: Duration) -> Result<Self, String> {
+    let board = fen
+      .parse::<Board>()
+      .map_err(|error| format!("invalid chess position: {error}"))?;
+    Ok(Self::with_state(
+      ChessState::title(board.clone()),
+      board,
+      think_time,
+      None,
+      Instant::now,
+    ))
+  }
+
+  pub(crate) fn named_review(name: &str) -> Result<Self, String> {
     let (starting_board, visual_state) = if name == "paused" {
       (Board::default(), crate::visual_state::VisualState::Paused)
     } else {
@@ -112,7 +134,7 @@ impl ReactantChessApp {
     );
     app.load_persistence = false;
     app.review_state = Some(visual_state);
-    Ok(Some(app))
+    Ok(app)
   }
 
   fn with_state(
@@ -173,6 +195,12 @@ impl ReactantChessApp {
   /// Returns the last accepted chess state.
   pub fn accepted_state(&self) -> ChessState {
     self.app.model().game().accepted_state()
+  }
+
+  /// Returns the current user-visible state classification.
+  pub fn visual_state(&self) -> crate::visual_state::VisualState {
+    let state = self.accepted_state();
+    self.app.model().control.visual_state(&state)
   }
 
   /// Resolves a stable Reactant piece identity to its current native host.
@@ -255,6 +283,7 @@ impl ReactantChessApp {
     let Some(request) = self.app.model().control.take_replacement() else {
       return;
     };
+    let restart_music = request.mode == StartMode::Restart;
     self
       .app
       .model()
@@ -287,7 +316,10 @@ impl ReactantChessApp {
     self.persisted_revision = 0;
     self.persistence_error = None;
     self.pending_start = Some(request.mode);
-    self.music_due = None;
+    if restart_music {
+      self.app.model().control.restart_music();
+      self.music_due = Some((self.now)() + MUSIC_TRACK_DURATION);
+    }
   }
 
   fn persist(&mut self, state: &ChessState) {

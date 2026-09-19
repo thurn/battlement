@@ -6,16 +6,16 @@ canonical_profile = "macos"
 state = "screen.title"
 scenario = "title"
 checkpoint = "title"
-owner = "gameplay::initial_world_displays_play_without_creating_pieces"
+owner = "reactant_app::opening_uses_accessible_play_and_shared_spawn_checkpoints"
 
 [[mappings]]
 state = "terminal.computer-win"
 scenario = "computer win"
 checkpoint = "computer-win"
-owner = "gameplay::ai_plays_an_available_checkmate_through_polling"
+owner = "reactant_app::computer_checkmate_reaches_the_terminal_state_through_polling"
 
 [[mappings]]
 state = "board.resumed"
 scenario = "resumed board"
 checkpoint = "resumed-board"
-owner = "gameplay::saved_position_opens_on_the_next_launch"
+owner = "reactant_app::accepted_state_drives_save_reload_and_survives_save_failure"

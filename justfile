@@ -8,9 +8,9 @@ default *args:
 rt *args:
     cargo run --quiet -p rt -- "$@"
 
-# Build and run the direct chess sample; append flags such as `--web`.
+# Build and run the Reactant chess sample; append flags such as `--web`.
 chess *args:
-    cargo run --quiet -p rt -- run --skip-assets --project samples/chess --application "Battlement Chess.app" --manifest-path rules/Cargo.toml --scene Assets/Scenes/Main.unity "$@"
+    cargo run --quiet -p rt -- run --project samples/chess "$@"
 
 # Build and run the Reactant chess UI sample; append flags such as `--web`.
 chess-ui *args:
@@ -34,7 +34,7 @@ ui *args:
 
 # Open the chess Unity project for authoring; append flags such as `--release`.
 author *args:
-    cargo run --quiet -p rt -- author --skip-assets --project samples/chess --application "Battlement Chess.app" --manifest-path rules/Cargo.toml --scene Assets/Scenes/Main.unity "$@"
+    cargo run --quiet -p rt -- author --project samples/chess "$@"
 
 # Open the tic-tac-toe Ditto gallery; append gallery flags or use `rt` for another Ditto command.
 ditto *args:

@@ -63,9 +63,9 @@ These are starting points, not instructions to load whole directories.
 | Reactant asset declarations and generation pipeline | [asset_generator.rs](../../crates/reactant-core/src/asset_generator.rs), [source_scan.rs](../../crates/battlement-reactant-assets/src/source_scan.rs), [command entry](../../crates/rt/src/assets.rs) |
 | Repository sample command mapping | [justfile](../../justfile) |
 | Repository validation | [ci.py](../../scripts/ci.py), [durable jobs](../../scripts/ci_job.py), [dependency selection](../../scripts/ci_selection.py), [browser risks](../../web/contracts.toml), [CI skill](../../.agents/skills/battlement-ci/SKILL.md) |
-| Existing game tests | [tic-tac-toe](../../samples/tictactoe/rules/tests/gameplay.rs), [chess](../../samples/chess/rules/tests/gameplay.rs) |
+| Existing game tests | [tic-tac-toe](../../samples/tictactoe/rules/tests/gameplay.rs), [chess](../../samples/chess/rules/tests/reactant_app.rs) |
 | Chess AI and saves | [ai.rs](../../samples/chess/rules/src/ai.rs), [persistence.rs](../../samples/chess/rules/src/persistence.rs) |
-| Chess Reactant app flow | [app lifecycle](../../samples/chess/rules/src/reactant_app.rs), [rules worker](../../samples/chess/rules/src/reactant_game.rs), [world and checkpoints](../../samples/chess/rules/src/reactant_view.rs), [public scenarios](../../samples/chess/rules/tests/reactant_app.rs) |
+| Chess Reactant app flow | [app lifecycle](../../samples/chess/rules/src/reactant_app.rs), [rules worker](../../samples/chess/rules/src/reactant_game.rs), [logical position](../../samples/chess/rules/src/position.rs), [world and checkpoints](../../samples/chess/rules/src/reactant_view.rs), [piece Motion](../../samples/chess/rules/src/motion.rs), [public scenarios](../../samples/chess/rules/tests/reactant_app.rs) |
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |
 
 Reusable project mechanics are Battlement-owned. `rt` resolves Reactant project

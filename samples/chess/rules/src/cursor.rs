@@ -1,7 +1,5 @@
 use battlement::{ControllerDirection, ObjectId, PhysicalKey, object_id};
-use cozy_chess::{Color, Square};
-
-use crate::ChessEngine;
+use cozy_chess::Square;
 
 pub(crate) const EFFECT_ID: ObjectId = object_id!("349022dd-0f5f-4d47-bfc8-7caf62419455");
 
@@ -27,19 +25,4 @@ pub fn moved_in_direction(square: Square, direction: ControllerDirection) -> Squ
     ControllerDirection::Down => (0, -1),
   };
   square.try_offset(offset.0, offset.1).unwrap_or(square)
-}
-
-impl ChessEngine {
-  pub(crate) fn controller_cycle_squares(&self) -> Vec<Square> {
-    if let Some(selected) = self.selected {
-      return crate::legal_destinations(&self.board, selected);
-    }
-    Square::ALL
-      .into_iter()
-      .filter(|&square| {
-        self.board.color_on(square) == Some(Color::White)
-          && !crate::legal_destinations(&self.board, square).is_empty()
-      })
-      .collect()
-  }
 }

@@ -1,4 +1,4 @@
-//! Complete chess rules state and worker actions for the Reactant alternate app.
+//! Complete chess rules state and worker actions.
 
 use std::time::Duration;
 
@@ -9,7 +9,7 @@ use reactant::rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game};
 
 use crate::{
   ai, audio,
-  reactant_fixture::{FixtureAnimation, FixtureMove, FixturePiece, FixtureState},
+  position::{ChessMove, ChessPiece, ChessPosition, Movement},
   visual_state::VisualState,
 };
 
@@ -41,7 +41,7 @@ pub enum ChessAction {
   /// Starts the app-owned board state.
   Start(StartMode),
   /// Commits one legal visible-square player move.
-  Move(FixtureMove),
+  Move(ChessMove),
   /// Searches and commits one computer reply from an accepted player move.
   AiMove,
 }
@@ -60,8 +60,8 @@ pub enum ChessAnimation {
   },
   /// One player or computer movement and its composed sounds.
   Movement {
-    /// Existing movement description shared with the task-31 fixture.
-    movement: FixtureAnimation,
+    /// Movement description consumed by the shared Motion owner.
+    movement: Movement,
     /// Move, capture, castle, or promotion sound selected in Rust.
     sound: AudioClipAddress,
     /// Check or terminal sound scheduled after arrival.
@@ -69,10 +69,10 @@ pub enum ChessAnimation {
   },
 }
 
-/// Immutable logical chess snapshot rendered by the alternate app.
+/// Immutable logical chess snapshot rendered by the app.
 #[derive(Clone)]
 pub struct ChessState {
-  position: FixtureState,
+  position: ChessPosition,
   starting_board: Board,
   started: bool,
   spawning: bool,
@@ -99,7 +99,7 @@ impl ChessState {
 
   pub(crate) fn title_generation(starting_board: Board, generation: u32) -> Self {
     Self {
-      position: FixtureState::from_board(starting_board.clone(), generation),
+      position: ChessPosition::from_board(starting_board.clone(), generation),
       starting_board,
       started: false,
       spawning: false,
@@ -114,7 +114,7 @@ impl ChessState {
   /// Creates a restored playable state without replaying transient effects.
   pub fn resumed(board: Board) -> Self {
     Self {
-      position: FixtureState::from_board(board.clone(), 0),
+      position: ChessPosition::from_board(board.clone(), 0),
       starting_board: Board::default(),
       started: true,
       spawning: false,
@@ -128,7 +128,7 @@ impl ChessState {
 
   pub(crate) fn review(board: Board, visual_state: VisualState) -> Self {
     Self {
-      position: FixtureState::from_board(board.clone(), 0),
+      position: ChessPosition::from_board(board.clone(), 0),
       starting_board: board,
       started: true,
       spawning: false,
@@ -146,7 +146,7 @@ impl ChessState {
   }
 
   /// Returns one visible piece identity.
-  pub fn piece(&self, square: Square) -> Option<FixturePiece> {
+  pub fn piece(&self, square: Square) -> Option<ChessPiece> {
     self.position.piece(square)
   }
 
@@ -180,7 +180,7 @@ impl ChessState {
     self.persistence
   }
 
-  pub(crate) fn legal_move(&self, action: FixtureMove) -> Option<Move> {
+  pub(crate) fn legal_move(&self, action: ChessMove) -> Option<Move> {
     self
       .started
       .then(|| self.position.legal_move(action))
@@ -248,16 +248,16 @@ impl ChessContext {
       .position
       .piece(movement.from)
       .expect("legal mover has a presentation identity");
-    let description = state.position.animation(movement);
+    let description = state.position.movement(movement);
     let mut board_after = state.position.board.clone();
     board_after.play_unchecked(movement);
     let sound = match &description {
-      FixtureAnimation::Castle { .. } => crate::CASTLE_SOUND,
-      FixtureAnimation::Promotion { .. } => crate::PROMOTION_SOUND,
-      FixtureAnimation::Capture { .. } => {
+      Movement::Castle { .. } => crate::CASTLE_SOUND,
+      Movement::Promotion { .. } => crate::PROMOTION_SOUND,
+      Movement::Capture { .. } => {
         crate::CAPTURE_SOUNDS[self.rng.usize(..crate::CAPTURE_SOUNDS.len())].clone()
       }
-      FixtureAnimation::Move { .. } | FixtureAnimation::Knight { .. } => {
+      Movement::Move { .. } | Movement::Knight { .. } => {
         crate::DROP_SOUNDS[self.rng.usize(..crate::DROP_SOUNDS.len())].clone()
       }
     };
@@ -336,7 +336,7 @@ impl Game for ChessGame {
           .generation
           .checked_add(1)
           .expect("piece generation overflow");
-        state.position = FixtureState::from_board(state.starting_board.clone(), state.generation);
+        state.position = ChessPosition::from_board(state.starting_board.clone(), state.generation);
         state.started = true;
         state.spawning = mode != StartMode::Refresh;
         state.origin_saved = false;

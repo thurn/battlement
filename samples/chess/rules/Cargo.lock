@@ -83,7 +83,6 @@ version = "0.1.0"
 dependencies = [
  "battlement",
  "battlement-cloud",
- "battlement-cloud-fake",
  "battlement-fake",
  "battlement-native",
  "cozy-chess",

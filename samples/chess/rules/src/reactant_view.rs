@@ -26,13 +26,10 @@ use trox::ls;
 
 use crate::{
   PIECE_SPAWN_EFFECT_LIFETIME_MS, PIECE_SPAWN_SEQUENCE_DURATION_MS,
-  reactant_fixture::{FixtureAnimation, FixturePiece},
+  position::{ChessPiece, Movement},
   reactant_game::{ChessAnimation, ChessContext, ChessGame, ChessPolicy, ChessState},
   reactant_input::{AppControl, ChessModel},
 };
-
-const MOVE_DURATION: Duration = Duration::from_millis(300);
-const KNIGHT_DURATION: Duration = Duration::from_millis(320);
 
 struct BoardView {
   game: GameHandle<ChessGame>,
@@ -41,7 +38,7 @@ struct BoardView {
 }
 
 struct PieceView {
-  piece: FixturePiece,
+  piece: ChessPiece,
   square: Square,
   reference: reactant::prelude::ObjectRef,
   control: AppControl,
@@ -115,13 +112,7 @@ impl Component for BoardView {
       ))
     });
 
-    let visual_state = if local.pause_open {
-      crate::visual_state::VisualState::Paused
-    } else if local.selected.is_some() {
-      crate::visual_state::VisualState::Selected
-    } else {
-      state.visual_state()
-    };
+    let visual_state = self.control.visual_state(&state);
     let pieces = state.started().then(|| {
       Square::ALL
         .into_iter()
@@ -156,7 +147,8 @@ impl Component for BoardView {
             .left(12.0)
             .top(44.0)
             .width(180.0)
-            .height(40.0),
+            .height(40.0)
+            .opacity(0.0),
         )
         .disabled(status != RulesStatus::Ready)
         .on_press(move || control.start(&game))
@@ -188,7 +180,8 @@ impl Component for BoardView {
           .left(12.0)
           .top(44.0)
           .width(180.0)
-          .height(40.0),
+          .height(40.0)
+          .opacity(0.0),
       )
       .on_press(move || control.request_new_game(false))
     });
@@ -266,11 +259,15 @@ impl Component for BoardView {
         .style(
           Style::new()
             .position(Position::Absolute)
-            .left(12.0)
-            .top(12.0)
-            .height(24.0),
+            .left(24.0)
+            .top(18.0)
+            .padding((9.0, 15.0))
+            .font_size(18.0)
+            .color(battlement::Color::rgba(0.96, 0.97, 0.91, 1.0))
+            .background_color(battlement::Color::rgba(0.03, 0.04, 0.035, 0.88))
+            .border_radius(6.0),
         )
-        .key(visual_state.object_id()),
+        .id(*visual_state.object_id().as_uuid()),
       title,
       reset,
       world::SceneRoot::new(ParentScene::PrimaryScene).child(
@@ -400,22 +397,10 @@ fn sequence(
     } => {
       let capture_or_promotion = matches!(
         movement,
-        FixtureAnimation::Capture { .. } | FixtureAnimation::Promotion { .. }
+        Movement::Capture { .. } | Movement::Promotion { .. }
       );
-      let knight = matches!(
-        movement,
-        FixtureAnimation::Knight { .. }
-          | FixtureAnimation::Capture {
-            knight_corner: Some(_),
-            ..
-          }
-      );
-      let arrival = if knight {
-        KNIGHT_DURATION
-      } else {
-        MOVE_DURATION
-      };
-      let mut sequence = crate::reactant_fixture::sequence(movement, references);
+      let arrival = crate::motion::arrival_duration(movement);
+      let mut sequence = crate::motion::sequence(movement, references);
       sequence = sequence
         .play_sound(sound.clone())
         .at(SequencePosition::Absolute(if capture_or_promotion {

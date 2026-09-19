@@ -1,8 +1,8 @@
 # Battlement Chess sample
 
-This standalone Unity project is a complete player-versus-computer chess game implemented in
-Rust. Battlement loads the authored board scene and KayKit piece models through Unity Addressables;
-the sample contains no game-specific C#.
+This standalone Unity project is a complete player-versus-computer chess game implemented as a
+Reactant app in Rust. Battlement loads the authored board scene and KayKit piece models through
+Unity Addressables; the sample contains no game-specific C#.
 
 Play white with the mouse by clicking a piece and then its destination square, or by dragging a
 piece there. For keyboard-only play, press Enter or Space on the opening screen, move the glowing
@@ -61,12 +61,10 @@ Unity AudioClips for desktop and web builds.
 From the repository root:
 
 ```sh
-cargo battlement author --project samples/chess
-cargo battlement sample build chess
-cargo battlement sample run chess
-cargo battlement sample run chess --web # threaded Rayon build
-cargo battlement sample build chess --release
-cargo battlement sample run chess --release
+just author
+just chess
+just chess --web # threaded Rayon build
+just chess --release
 ```
 
 `author` opens the project in Unity and enters Play mode. Use **Battlement > Play Game** to replay

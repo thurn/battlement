@@ -1,10 +1,7 @@
 use std::{fs, io::ErrorKind, path::Path};
 
-use battlement_native::EngineError;
 use cozy_chess::Board;
 use serde::{Deserialize, Serialize};
-
-use crate::ChessEngine;
 
 const SAVE_FILE: &str = "chess-game.json";
 
@@ -39,21 +36,5 @@ pub(crate) fn clear(directory: &Path) -> Result<(), String> {
     Ok(()) => Ok(()),
     Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
     Err(error) => Err(format!("could not clear persisted chess game: {error}")),
-  }
-}
-
-impl ChessEngine {
-  pub(crate) fn clear_persisted_board(&self) -> Result<(), EngineError> {
-    let Some(path) = &self.persistent_data_path else {
-      return Ok(());
-    };
-    self::clear(path).map_err(EngineError::new)
-  }
-
-  pub(crate) fn persist_board(&self) -> Result<(), EngineError> {
-    let Some(path) = &self.persistent_data_path else {
-      return Ok(());
-    };
-    self::save(path, &self.board).map_err(EngineError::new)
   }
 }

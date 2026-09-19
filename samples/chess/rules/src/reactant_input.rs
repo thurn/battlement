@@ -19,7 +19,7 @@ use reactant::{
 
 use crate::{
   MUSIC_TRACKS,
-  reactant_fixture::FixtureMove,
+  position::ChessMove,
   reactant_game::{ChessAction, ChessGame, ChessState, StartMode},
 };
 
@@ -141,6 +141,17 @@ impl AppControl {
     }
   }
 
+  pub(crate) fn visual_state(&self, state: &ChessState) -> crate::visual_state::VisualState {
+    let local = self.snapshot();
+    if local.pause_open {
+      crate::visual_state::VisualState::Paused
+    } else if local.selected.is_some() {
+      crate::visual_state::VisualState::Selected
+    } else {
+      state.visual_state()
+    }
+  }
+
   pub(crate) fn select(&self, state: &ChessState, square: Square) {
     if state.board().side_to_move() != Color::White
       || state.board().status() != GameStatus::Ongoing
@@ -176,7 +187,7 @@ impl AppControl {
       self.0.local.update(|value| value.cursor = target);
       return;
     };
-    let action = FixtureMove { from, to: target };
+    let action = ChessMove { from, to: target };
     if state.legal_move(action).is_none() {
       self.0.local.update(|value| {
         value.cursor = target;
@@ -292,6 +303,16 @@ impl AppControl {
         local.music_generation = 1;
         local.music_track = 0;
       }
+    });
+  }
+
+  pub(crate) fn restart_music(&self) {
+    self.0.local.update(|local| {
+      local.music_track = 0;
+      local.music_generation = local
+        .music_generation
+        .checked_add(1)
+        .expect("music generation overflow");
     });
   }
 

@@ -1,2 +1,4 @@
+[project]
 application = "Battlement Chess.app"
 scene = "Assets/Scenes/Main.unity"
+manifest-path = "rules/Cargo.toml"

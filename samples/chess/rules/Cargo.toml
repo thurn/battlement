@@ -22,7 +22,6 @@ tracing = "0.1.41"
 trox = "0.2.1"
 
 [dev-dependencies]
-battlement-cloud-fake = { path = "../../../crates/battlement-cloud-fake" }
 battlement-fake = { path = "../../../crates/battlement-fake" }
 reactant-testing = { path = "../../../crates/reactant-testing", default-features = false }
 

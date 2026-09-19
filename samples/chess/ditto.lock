@@ -5,28 +5,28 @@ namespace = "battlement/chess"
 profile = "macos"
 scenario = "computer win"
 checkpoint = "computer-win"
-sha256 = "787d1732418f44fcf319784279e4bf4dbf89fe4778e8852b09cbb49262001a2e"
+sha256 = "9de0ff71960392c0a13c5b8f506dafd329e148594312f2691c9a02adc5947347"
 width = 1280
 height = 720
-size_bytes = 541273
-source = "d7171fe9cced8ab57b39178713bd02c886713d9a7b7dcb81ce3e8bfa9fab09b8"
-
-[[baselines]]
-profile = "macos"
-scenario = "title"
-checkpoint = "title"
-sha256 = "c36d51e0245ae245671064600f7bc3e0350fb9af59dc5f0b1bcdf5f3fa23bd44"
-width = 1280
-height = 720
-size_bytes = 508551
-source = "64311473cadce3650e3f1b7e12b00c1286584527a4dcc58863f9b5aa5302e540"
+size_bytes = 541258
+source = "26527c7322d315670fb108611c2651b8ee685e1aca93a87ca19a3fc4def7cec8"
 
 [[baselines]]
 profile = "macos"
 scenario = "resumed board"
 checkpoint = "resumed-board"
-sha256 = "b6a56a305872d85679dcc3b849fc33458d3c477213814175526b30069bac5f82"
+sha256 = "5832577d035309f4061e0e42957f9a60d5127b1d4e9092fd68047c53e6cacff5"
 width = 1280
 height = 720
-size_bytes = 536855
-source = "74f37429bddcd93933962291daf21c17ccfca691988d077664bb9da2163770df"
+size_bytes = 536891
+source = "26527c7322d315670fb108611c2651b8ee685e1aca93a87ca19a3fc4def7cec8"
+
+[[baselines]]
+profile = "macos"
+scenario = "title"
+checkpoint = "title"
+sha256 = "99e7b7ef563b5df625b0a1e4a978ba3208a3e757ccae7a1a21bf277fd2e098e2"
+width = 1280
+height = 720
+size_bytes = 508553
+source = "26527c7322d315670fb108611c2651b8ee685e1aca93a87ca19a3fc4def7cec8"
