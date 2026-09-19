@@ -197,7 +197,7 @@ table MotionPropertyTarget {
 }
 
 enum StepPosition:ubyte { Start, End }
-enum MotionEasingKind:ubyte { Linear, EaseIn, EaseOut, EaseInOut, CubicBezier, Steps }
+enum MotionEasingKind:ubyte { Linear, EaseIn, EaseOut, EaseInOut, CubicBezier, Steps, InOutSine }
 table MotionEasingDefinition {
   kind:MotionEasingKind;
   cubic_bezier:[float];

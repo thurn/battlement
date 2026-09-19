@@ -566,6 +566,7 @@ impl Easing {
       Self::EaseIn => MotionEasing::EaseIn,
       Self::EaseOut => MotionEasing::EaseOut,
       Self::EaseInOut => MotionEasing::EaseInOut,
+      Self::InOutSine => MotionEasing::InOutSine,
       Self::CubicBezier(value) => MotionEasing::CubicBezier(value),
       Self::Steps { count, position } => MotionEasing::Steps { count, position },
     }

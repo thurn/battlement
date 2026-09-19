@@ -12,11 +12,19 @@ use crate::world_object::WorldObject;
 pub type Sprite = WorldObject<ImageState>;
 /// A prepared mesh in its authored coordinates, with explicit local placement.
 pub type Mesh = WorldObject<MeshProperties>;
+/// A standard Unity plane with prepared material assignments.
+pub type Plane = WorldObject<PlaneProperties>;
 
 /// Prepared geometry and material slots for a world mesh.
 #[derive(Clone, Default)]
 pub struct MeshProperties {
   address: Option<MeshAddress>,
+  materials: Vec<MaterialAssignment>,
+}
+
+/// Prepared material slots for a standard plane.
+#[derive(Clone, Default)]
+pub struct PlaneProperties {
   materials: Vec<MaterialAssignment>,
 }
 
@@ -108,6 +116,27 @@ impl Mesh {
 }
 
 impl Default for Mesh {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+impl Plane {
+  /// Creates a standard plane without material overrides.
+  pub fn new() -> Self {
+    Self::with_properties(PlaneProperties::default(), |plane| GameObjectKind::Plane {
+      materials: plane.materials.clone(),
+    })
+  }
+
+  /// Assigns prepared materials by renderer slot.
+  pub fn materials(mut self, materials: impl IntoIterator<Item = MaterialAssignment>) -> Self {
+    self.properties.materials = materials.into_iter().collect();
+    self
+  }
+}
+
+impl Default for Plane {
   fn default() -> Self {
     Self::new()
   }

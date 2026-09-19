@@ -22,6 +22,8 @@ namespace Battlement
 
         public sealed record EaseInOut : MotionEasing;
 
+        public sealed record InOutSine : MotionEasing;
+
         public sealed record CubicBezier(IReadOnlyList<double> Value) : MotionEasing;
 
         public sealed record Steps(uint Count, MotionStepPosition Position) : MotionEasing;

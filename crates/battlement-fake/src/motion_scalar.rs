@@ -128,6 +128,7 @@ pub(crate) fn ease(easing: MotionEasing, progress: f64) -> f64 {
     MotionEasing::EaseIn => cubic([0.42, 0.0, 1.0, 1.0], p),
     MotionEasing::EaseOut => cubic([0.0, 0.0, 0.58, 1.0], p),
     MotionEasing::EaseInOut => cubic([0.42, 0.0, 0.58, 1.0], p),
+    MotionEasing::InOutSine => -((std::f64::consts::PI * p).cos() - 1.0) / 2.0,
     MotionEasing::CubicBezier(points) => cubic(points.map(f64::from), p),
     MotionEasing::Steps {
       count,

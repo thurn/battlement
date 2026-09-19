@@ -8,6 +8,7 @@ mod diagnostics;
 mod input;
 mod native;
 mod persistence;
+pub mod reactant_fixture;
 pub mod visual_state;
 
 use std::{
@@ -122,6 +123,11 @@ pub struct ChessEngine {
   deterministic_runtime: bool,
 }
 
+enum NativeChessEngine {
+  Legacy(Box<ChessEngine>),
+  Reactant(Box<reactant_fixture::ReactantChessFixture>),
+}
+
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
   let deterministic_runtime = std::env::var("BATTLEMENT_DITTO_ACTIVE").as_deref() == Ok("1");
@@ -146,6 +152,51 @@ pub fn create_engine() -> Result<ChessEngine, EngineError> {
     "Chess rules engine created"
   );
   Ok(engine)
+}
+
+fn create_native_engine() -> Result<NativeChessEngine, EngineError> {
+  if let Ok(name) = std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE")
+    && let Some(fixture) =
+      reactant_fixture::ReactantChessFixture::named_review(&name).map_err(EngineError::new)?
+  {
+    return Ok(NativeChessEngine::Reactant(Box::new(fixture)));
+  }
+  create_engine().map(Box::new).map(NativeChessEngine::Legacy)
+}
+
+impl Engine for NativeChessEngine {
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    match self {
+      Self::Legacy(engine) => engine.connect(message),
+      Self::Reactant(engine) => engine.connect(message),
+    }
+  }
+
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    match self {
+      Self::Legacy(engine) => engine.submit(bytes),
+      Self::Reactant(engine) => engine.submit(bytes),
+    }
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    match self {
+      Self::Legacy(engine) => engine.submit_ui_event(action),
+      Self::Reactant(engine) => engine.submit_ui_event(action),
+    }
+  }
+
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
+    match self {
+      Self::Legacy(engine) => engine.poll(),
+      Self::Reactant(engine) => engine.poll(),
+    }
+  }
 }
 
 /// Creates a chess engine driven by a caller-supplied clock.
@@ -606,7 +657,7 @@ fn address(color: Color, piece: Piece) -> PrefabAddress {
 }
 
 battlement_native::export_deterministic_engine!(
-  create_engine,
+  create_native_engine,
   clock = virtualized,
   randomness = seeded,
   external_state = isolated,

@@ -650,6 +650,7 @@ fn easing(value: wire::MotionEasingDefinition<'_>) -> Result<battlement::MotionE
     wire::MotionEasingKind::EaseIn => battlement::MotionEasing::EaseIn,
     wire::MotionEasingKind::EaseOut => battlement::MotionEasing::EaseOut,
     wire::MotionEasingKind::EaseInOut => battlement::MotionEasing::EaseInOut,
+    wire::MotionEasingKind::InOutSine => battlement::MotionEasing::InOutSine,
     wire::MotionEasingKind::CubicBezier => battlement::MotionEasing::CubicBezier(
       value
         .cubic_bezier()

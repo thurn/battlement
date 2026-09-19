@@ -29,7 +29,7 @@ pub use crate::world_layout::{
 pub use crate::world_object::WorldObject;
 pub use crate::world_text::Text;
 pub use crate::world_view::{Camera, Light};
-pub use crate::world_visuals::{Mesh, Sprite};
+pub use crate::world_visuals::{Mesh, Plane, Sprite};
 pub use reactant_core::local_point::{
   LocalPoint, LocalPointTarget, PointTracking, ResolvedLocalPoint,
 };

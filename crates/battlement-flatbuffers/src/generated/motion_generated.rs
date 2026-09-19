@@ -1883,19 +1883,20 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_MOTION_EASING_KIND: u8 = 5;
+      pub const ENUM_MAX_MOTION_EASING_KIND: u8 = 6;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_MOTION_EASING_KIND: [MotionEasingKind; 6] = [
+      pub const ENUM_VALUES_MOTION_EASING_KIND: [MotionEasingKind; 7] = [
         MotionEasingKind::Linear,
         MotionEasingKind::EaseIn,
         MotionEasingKind::EaseOut,
         MotionEasingKind::EaseInOut,
         MotionEasingKind::CubicBezier,
         MotionEasingKind::Steps,
+        MotionEasingKind::InOutSine,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1909,9 +1910,10 @@ pub mod battlement {
         pub const EaseInOut: Self = Self(3);
         pub const CubicBezier: Self = Self(4);
         pub const Steps: Self = Self(5);
+        pub const InOutSine: Self = Self(6);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 5;
+        pub const ENUM_MAX: u8 = 6;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::Linear,
           Self::EaseIn,
@@ -1919,6 +1921,7 @@ pub mod battlement {
           Self::EaseInOut,
           Self::CubicBezier,
           Self::Steps,
+          Self::InOutSine,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -1929,6 +1932,7 @@ pub mod battlement {
             Self::EaseInOut => Some("EaseInOut"),
             Self::CubicBezier => Some("CubicBezier"),
             Self::Steps => Some("Steps"),
+            Self::InOutSine => Some("InOutSine"),
             _ => None,
           }
         }

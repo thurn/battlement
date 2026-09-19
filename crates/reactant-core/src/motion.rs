@@ -91,6 +91,8 @@ pub enum Easing {
   EaseOut,
   /// Motion's symmetric curve.
   EaseInOut,
+  /// Sinusoidal symmetric acceleration.
+  InOutSine,
   /// A cubic Bézier curve.
   CubicBezier([f32; 4]),
   /// A finite stepped curve.

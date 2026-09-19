@@ -76,6 +76,7 @@ namespace Battlement.UI
                 MotionEasing.EaseIn => CubicBezier(0.42, 0, 1, 1, progress),
                 MotionEasing.EaseOut => CubicBezier(0, 0, 0.58, 1, progress),
                 MotionEasing.EaseInOut => CubicBezier(0.42, 0, 0.58, 1, progress),
+                MotionEasing.InOutSine => -((Math.Cos(Math.PI * progress) - 1) / 2),
                 MotionEasing.CubicBezier value => CubicBezier(
                     value.Value[0],
                     value.Value[1],

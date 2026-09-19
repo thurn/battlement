@@ -318,6 +318,7 @@ public enum MotionEasingKind : byte
   EaseInOut = 3,
   CubicBezier = 4,
   Steps = 5,
+  InOutSine = 6,
 };
 
 public enum MotionRepeatKind : byte

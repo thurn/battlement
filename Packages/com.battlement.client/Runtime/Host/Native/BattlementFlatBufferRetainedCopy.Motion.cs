@@ -507,6 +507,7 @@ namespace Battlement
                     Wire.MotionEasingKind.EaseIn => new MotionEasing.EaseIn(),
                     Wire.MotionEasingKind.EaseOut => new MotionEasing.EaseOut(),
                     Wire.MotionEasingKind.EaseInOut => new MotionEasing.EaseInOut(),
+                    Wire.MotionEasingKind.InOutSine => new MotionEasing.InOutSine(),
                     Wire.MotionEasingKind.CubicBezier => new MotionEasing.CubicBezier(
                         FloatValues(easing)
                     ),

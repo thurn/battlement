@@ -20,6 +20,8 @@ pub enum MotionEasing {
   EaseOut,
   /// Motion's standard symmetric acceleration curve.
   EaseInOut,
+  /// Sinusoidal symmetric acceleration matching the native tween path.
+  InOutSine,
   /// A cubic Bézier with x control points constrained to `0..=1`.
   CubicBezier([f32; 4]),
   /// A finite number of discrete easing steps.

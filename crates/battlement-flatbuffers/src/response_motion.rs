@@ -964,6 +964,12 @@ fn write_easing<'a, A: Allocator + 'a>(
       0,
       wire::StepPosition::Start,
     ),
+    MotionEasing::InOutSine => (
+      wire::MotionEasingKind::InOutSine,
+      None,
+      0,
+      wire::StepPosition::Start,
+    ),
     MotionEasing::CubicBezier(values) => (
       wire::MotionEasingKind::CubicBezier,
       Some(builder.create_vector(&values)),
