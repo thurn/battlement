@@ -65,6 +65,7 @@ These are starting points, not instructions to load whole directories.
 | Repository validation | [ci.py](../../scripts/ci.py), [durable jobs](../../scripts/ci_job.py), [dependency selection](../../scripts/ci_selection.py), [browser risks](../../web/contracts.toml), [CI skill](../../.agents/skills/battlement-ci/SKILL.md) |
 | Existing game tests | [tic-tac-toe](../../samples/tictactoe/rules/tests/gameplay.rs), [chess](../../samples/chess/rules/tests/gameplay.rs) |
 | Chess AI and saves | [ai.rs](../../samples/chess/rules/src/ai.rs), [persistence.rs](../../samples/chess/rules/src/persistence.rs) |
+| Chess Reactant app flow | [app lifecycle](../../samples/chess/rules/src/reactant_app.rs), [rules worker](../../samples/chess/rules/src/reactant_game.rs), [world and checkpoints](../../samples/chess/rules/src/reactant_view.rs), [public scenarios](../../samples/chess/rules/tests/reactant_app.rs) |
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |
 
 Reusable project mechanics are Battlement-owned. `rt` resolves Reactant project

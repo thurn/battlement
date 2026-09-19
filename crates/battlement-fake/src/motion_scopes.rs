@@ -131,7 +131,10 @@ impl MotionWorld {
             continue;
           };
           let targets = self.select(root, selector, world, ui);
-          assert!(!targets.is_empty(), "Motion sequence target is absent");
+          assert!(
+            !targets.is_empty(),
+            "Motion sequence target is absent: {selector:?}"
+          );
           let mut entry = Entry::new(definition.clone(), targets);
           for id in &entry.targets {
             let resolved_position = position
@@ -477,14 +480,19 @@ impl MotionWorld {
   fn sequence_entry_terminal(&self, entry: &Entry) -> bool {
     !entry.addresses.is_empty()
       && entry.addresses.iter().all(|address| {
-        let descriptor = &self.entries[&address.descriptor];
-        descriptor
-          .slots
-          .iter()
-          .find(|slot| {
-            slot.definition.slot == address.slot && slot.definition.generation == address.generation
+        self
+          .entries
+          .get(&address.descriptor)
+          .is_none_or(|descriptor| {
+            descriptor
+              .slots
+              .iter()
+              .find(|slot| {
+                slot.definition.slot == address.slot
+                  && slot.definition.generation == address.generation
+              })
+              .is_none_or(|slot| slot.outcome == Some(MotionPlaybackOutcome::Completed))
           })
-          .is_none_or(|slot| slot.outcome == Some(MotionPlaybackOutcome::Completed))
       })
   }
 

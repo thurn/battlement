@@ -98,7 +98,8 @@ impl<G: 'static> App<G> {
       .expect("core view validates nonzero action UUIDs");
     self.healthy = false;
     let _action = action_context::enter(Some(action_id));
-    let commit = match action.body() {
+    let body = action.body();
+    let commit = match body {
       CoreActionBodyView::Activate(activation) => self.activate_world(activation.object_id()),
       CoreActionBodyView::PointerClick(pointer) => self.activate_world(pointer.object_id()),
       CoreActionBodyView::ReducedMotionPreferenceChanged(preference) => {
@@ -124,8 +125,12 @@ impl<G: 'static> App<G> {
         self.runtime.motion_events_view(&mut self.model, batch)
       }
       _ => {
-        self.healthy = true;
-        return Ok(DeliveryResponse::empty(session));
+        let Some(handler) = self.core_action.clone() else {
+          self.healthy = true;
+          return Ok(DeliveryResponse::empty(session));
+        };
+        handler(&mut self.model, body);
+        self.runtime.refresh(&mut self.model)
       }
     }
     .expect("application observation failed to render");
@@ -276,13 +281,15 @@ impl<G: 'static> App<G> {
     let mut objects = vec![self.camera.clone()];
     objects.extend(self.objects.clone());
     objects.extend(self.roots.iter().map(|root| root.object()));
-    let snapshot = Snapshot::new(
+    let mut snapshot = Snapshot::new(
       self.session.expect("connected session"),
       Vec::new(),
       vec![self.scene.clone()],
       objects,
       self.camera.object_id,
     );
+    snapshot.global_keys.clone_from(&self.global_keys);
+    snapshot.controller_input.clone_from(&self.controller_input);
     let (mut snapshot, commit) = self
       .runtime
       .begin_session(&mut self.model)

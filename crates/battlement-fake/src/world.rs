@@ -164,6 +164,12 @@ impl FakeObject {
     &self.pointer_events
   }
 
+  /// Returns logical world-pointer arbitration settings when configured.
+  #[must_use]
+  pub fn world_pointer_settings(&self) -> Option<battlement::WorldPointerSettings> {
+    self.world_pointer
+  }
+
   /// Explicit ordering relative to the nearest ancestor sorting group.
   pub fn render_order(&self) -> Option<RenderOrder> {
     self.render_order

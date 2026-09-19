@@ -34,7 +34,7 @@ pub fn save(directory: &Path, board: &Board) -> Result<(), String> {
   .map_err(|error| format!("could not persist chess game: {error}"))
 }
 
-fn clear(directory: &Path) -> Result<(), String> {
+pub(crate) fn clear(directory: &Path) -> Result<(), String> {
   match fs::remove_file(directory.join(SAVE_FILE)) {
     Ok(()) => Ok(()),
     Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),

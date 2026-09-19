@@ -95,7 +95,7 @@ impl VisualState {
     STATE_IDS[self as usize]
   }
 
-  const fn label(self) -> &'static str {
+  pub(crate) const fn label(self) -> &'static str {
     match self {
       Self::Title => "CHESS · START A NEW GAME",
       Self::Initial => "YOUR TURN · CHOOSE A PIECE",

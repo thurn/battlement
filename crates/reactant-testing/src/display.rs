@@ -113,6 +113,44 @@ where
   pub fn activate_focused(&mut self) {
     self.client.activate_focused();
   }
+
+  /// Sends one enabled physical-key transition through the public engine action path.
+  pub fn key_down(&mut self, key: battlement::PhysicalKey) {
+    self.client.key_down(key);
+  }
+
+  /// Releases one enabled physical key through the public engine action path.
+  pub fn key_up(&mut self, key: battlement::PhysicalKey) {
+    self.client.key_up(key);
+  }
+
+  /// Sends one configured controller-button press through the public engine action path.
+  pub fn controller_button_down(
+    &mut self,
+    controller_id: i32,
+    button: battlement::ControllerButton,
+  ) {
+    self.client.controller_button_down(controller_id, button);
+  }
+
+  /// Releases one configured controller button through the public engine action path.
+  pub fn controller_button_up(&mut self, controller_id: i32, button: battlement::ControllerButton) {
+    self.client.controller_button_up(controller_id, button);
+  }
+
+  /// Sends one configured discrete controller-navigation action.
+  pub fn controller_navigate(
+    &mut self,
+    controller_id: i32,
+    direction: battlement::ControllerDirection,
+  ) {
+    self.client.controller_navigate(
+      controller_id,
+      direction,
+      battlement::ControllerNavigationSource::Dpad,
+      false,
+    );
+  }
   /// Cancels through the focused logical route, including a modal's dismiss behavior.
   pub fn cancel_navigation(&mut self) {
     self.client.cancel_navigation();
@@ -243,6 +281,18 @@ where
   #[must_use]
   pub fn audio(&self, command_id: CommandId) -> Option<&FakeAudio> {
     self.client.world().audio(command_id)
+  }
+
+  /// Returns enabled session-wide physical keys from the accepted snapshot.
+  #[must_use]
+  pub fn global_keys(&self) -> &[battlement::PhysicalKey] {
+    self.client.world().global_keys()
+  }
+
+  /// Returns controller input settings from the accepted snapshot.
+  #[must_use]
+  pub fn controller_input(&self) -> Option<&battlement::ControllerInputSettings> {
+    self.client.world().controller_input()
   }
 
   /// Observes a presented local point without advancing time, work, or frames.

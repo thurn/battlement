@@ -8,8 +8,15 @@ mod diagnostics;
 mod input;
 mod native;
 mod persistence;
+mod reactant_app;
+mod reactant_effects;
 pub mod reactant_fixture;
+mod reactant_game;
+mod reactant_input;
+mod reactant_view;
 pub mod visual_state;
+
+pub use reactant_app::ReactantChessApp;
 
 use std::{
   array,
@@ -91,6 +98,8 @@ pub const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = CRITICAL_FIRST_BEAT_OFFSET_MS
   + PIECE_SPAWN_EFFECT_LIFETIME_MS;
 /// Stable identity of the Play button.
 pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
+/// Root of the alternate Reactant chess document for public display scenarios.
+pub const REACTANT_CHESS_ROOT_ID: ObjectId = visual_state::ROOT_ID;
 /// Stable identity of the new-game refresh button.
 pub const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 /// Native chess rules engine with a parallel computer opponent.
@@ -126,6 +135,7 @@ pub struct ChessEngine {
 enum NativeChessEngine {
   Legacy(Box<ChessEngine>),
   Reactant(Box<reactant_fixture::ReactantChessFixture>),
+  ReactantApp(Box<ReactantChessApp>),
 }
 
 /// Creates the engine used by the native sample.
@@ -161,6 +171,11 @@ fn create_native_engine() -> Result<NativeChessEngine, EngineError> {
   {
     return Ok(NativeChessEngine::Reactant(Box::new(fixture)));
   }
+  if let Ok(name) = std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE")
+    && let Some(app) = ReactantChessApp::named_review(&name).map_err(EngineError::new)?
+  {
+    return Ok(NativeChessEngine::ReactantApp(Box::new(app)));
+  }
   create_engine().map(Box::new).map(NativeChessEngine::Legacy)
 }
 
@@ -171,6 +186,7 @@ impl Engine for NativeChessEngine {
     match self {
       Self::Legacy(engine) => engine.connect(message),
       Self::Reactant(engine) => engine.connect(message),
+      Self::ReactantApp(engine) => engine.connect(message),
     }
   }
 
@@ -178,6 +194,7 @@ impl Engine for NativeChessEngine {
     match self {
       Self::Legacy(engine) => engine.submit(bytes),
       Self::Reactant(engine) => engine.submit(bytes),
+      Self::ReactantApp(engine) => engine.submit(bytes),
     }
   }
 
@@ -188,6 +205,7 @@ impl Engine for NativeChessEngine {
     match self {
       Self::Legacy(engine) => engine.submit_ui_event(action),
       Self::Reactant(engine) => engine.submit_ui_event(action),
+      Self::ReactantApp(engine) => engine.submit_ui_event(action),
     }
   }
 
@@ -195,6 +213,7 @@ impl Engine for NativeChessEngine {
     match self {
       Self::Legacy(engine) => engine.poll(),
       Self::Reactant(engine) => engine.poll(),
+      Self::ReactantApp(engine) => engine.poll(),
     }
   }
 }

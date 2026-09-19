@@ -50,8 +50,8 @@ pub struct FixturePiece {
 /// Immutable logical snapshot rendered by the fixture board.
 #[derive(Clone)]
 pub struct FixtureState {
-  board: Board,
-  pieces: [Option<FixturePiece>; 64],
+  pub(crate) board: Board,
+  pub(crate) pieces: [Option<FixturePiece>; 64],
 }
 
 /// Typed movement description authored by the rules worker.
@@ -140,15 +140,19 @@ impl FixtureState {
     let board = fen
       .parse::<Board>()
       .map_err(|error| format!("invalid chess fixture position: {error}"))?;
+    Ok(Self::from_board(board, 0))
+  }
+
+  pub(crate) fn from_board(board: Board, generation: u32) -> Self {
     let pieces = std::array::from_fn(|index| {
       let square = Square::index(index);
       Some(FixturePiece {
-        id: crate::piece_id(index, 0),
+        id: crate::piece_id(index, generation),
         color: board.color_on(square)?,
         kind: board.piece_on(square)?,
       })
     });
-    Ok(Self { board, pieces })
+    Self { board, pieces }
   }
 
   /// Returns the piece currently occupying a square.
@@ -156,11 +160,11 @@ impl FixtureState {
     self.pieces[square as usize]
   }
 
-  fn legal_move(&self, action: FixtureMove) -> Option<Move> {
+  pub(crate) fn legal_move(&self, action: FixtureMove) -> Option<Move> {
     player_move(&self.board, action.from, action.to)
   }
 
-  fn apply(&mut self, movement: Move) {
+  pub(crate) fn apply(&mut self, movement: Move) {
     let color = self
       .board
       .color_on(movement.from)
@@ -197,7 +201,7 @@ impl FixtureState {
     self.pieces[rook_to as usize] = Some(rook);
   }
 
-  fn animation(&self, movement: Move) -> FixtureAnimation {
+  pub(crate) fn animation(&self, movement: Move) -> FixtureAnimation {
     let moving = self
       .piece(movement.from)
       .expect("legal mover has an identity");
@@ -552,7 +556,7 @@ impl Component for PieceView {
   }
 }
 
-fn sequence(
+pub(crate) fn sequence(
   animation: &FixtureAnimation,
   references: &[reactant::prelude::ObjectRef; 64],
 ) -> AnimationSequence {
@@ -640,12 +644,15 @@ fn piece_reference(
   references: &[reactant::prelude::ObjectRef; 64],
   piece: ObjectId,
 ) -> reactant::prelude::ObjectRef {
-  references
+  let index = piece
+    .as_uuid()
+    .as_bytes()
     .iter()
-    .enumerate()
-    .find(|(index, _)| crate::piece_id(*index, 0) == piece)
+    .skip(10)
+    .fold(0_usize, |value, byte| (value << 8) | usize::from(*byte));
+  references
+    .get(index)
     .unwrap_or_else(|| panic!("fixture piece identity is outside the deterministic map: {piece}"))
-    .1
     .clone()
 }
 

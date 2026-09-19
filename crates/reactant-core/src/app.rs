@@ -3,9 +3,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use battlement::{
-  CameraClearMode, CameraState, Color, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
-  PanelSettings, ParentScene, Scene, SceneAddress, SceneId, ScreenSize, SessionId, UiDocument,
-  UiDocumentState,
+  CameraClearMode, CameraState, Color, ControllerInputSettings, GameObject, GameObjectKind,
+  ObjectId, PanelScaleMode, PanelSettings, ParentScene, PhysicalKey, Scene, SceneAddress, SceneId,
+  ScreenSize, SessionId, UiDocument, UiDocumentState,
 };
 use trox::{Bundle, Localizer, SourceLocale};
 
@@ -57,6 +57,9 @@ pub struct App<G: 'static = ()> {
   pub(crate) delivery: Delivery,
   pub(crate) output: OutputDelivery,
   pub(crate) session: Option<SessionId>,
+  pub(crate) global_keys: Vec<PhysicalKey>,
+  pub(crate) controller_input: Option<ControllerInputSettings>,
+  pub(crate) core_action: Option<CoreActionHandler<G>>,
   pub(crate) reset: bool,
   pub(crate) healthy: bool,
 }
@@ -101,6 +104,9 @@ impl<G: 'static> App<G> {
       delivery: Delivery::default(),
       output: OutputDelivery::default(),
       session: None,
+      global_keys: Vec::new(),
+      controller_input: None,
+      core_action: None,
       reset: false,
       healthy: true,
     }
@@ -110,6 +116,38 @@ impl<G: 'static> App<G> {
   pub fn delivery_limits(mut self, limits: DeliveryLimits) -> Self {
     self.require_configuring();
     self.output = OutputDelivery::new(limits);
+    self
+  }
+
+  /// Enables one duplicate-free set of physical keys for session-wide input.
+  #[must_use]
+  pub fn global_keys(mut self, keys: impl IntoIterator<Item = PhysicalKey>) -> Self {
+    self.require_configuring();
+    self.global_keys.clear();
+    for key in keys {
+      if !self.global_keys.contains(&key) {
+        self.global_keys.push(key);
+      }
+    }
+    self
+  }
+
+  /// Enables controller buttons and directional navigation for this application.
+  #[must_use]
+  pub fn controller_input(mut self, settings: ControllerInputSettings) -> Self {
+    self.require_configuring();
+    self.controller_input = Some(settings);
+    self
+  }
+
+  /// Handles core input families not already owned by Reactant world activation or observations.
+  #[must_use]
+  pub fn on_core_action(
+    mut self,
+    handler: impl for<'a> Fn(&mut G, battlement_native::CoreActionBodyView<'a>) + 'static,
+  ) -> Self {
+    self.require_configuring();
+    self.core_action = Some(Rc::new(handler));
     self
   }
 
@@ -278,6 +316,8 @@ impl<G: 'static> App<G> {
 
 #[derive(Clone)]
 struct SharedSpawner(Rc<RefCell<Box<dyn Spawner>>>);
+
+type CoreActionHandler<G> = Rc<dyn for<'a> Fn(&mut G, battlement_native::CoreActionBodyView<'a>)>;
 
 impl Spawner for SharedSpawner {
   fn spawn(&self, task: BoxFuture<'static, ()>) -> SpawnedTask {
