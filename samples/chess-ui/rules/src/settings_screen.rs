@@ -36,7 +36,7 @@ enum SettingsModal {
 pub struct SettingsScreen {
   #[builder(required)]
   overlay: PortalTarget,
-  #[builder(default = EventCallback::noop())]
+  #[builder(required)]
   on_return: EventCallback<()>,
   #[builder(required)]
   on_open_url: EventCallback<String>,
@@ -62,108 +62,105 @@ impl Component for SettingsScreen {
     let (active_modal, set_active_modal) = hooks::use_state(None::<SettingsModal>);
     let music = background_music::use_background_music();
 
-    font_scale::provider(
-      font_scale,
-      Region::new(ls(format!("{} settings", active_tab.label_text())))
-        .host_name("settings-screen")
-        .style(
-          Style::new()
-            .position(Position::Absolute)
-            .inset(0)
-            .overflow(battlement::Overflow::Hidden),
-        )
-        .child((
-          ScreenHeader::new()
-            .variant(HeaderVariant::Settings)
-            .autofocus(self.autofocus_heading),
-          View::new()
-            .name("settings-screen-composition")
-            .style(
-              Style::new()
-                .position(Position::Absolute)
-                .left(68)
-                .top(233)
-                .width(887),
-            )
-            .child((
-              SettingsTabs::new()
-                .active_tab(active_tab)
-                .on_select(EventCallback::new({
-                  let set_active_tab = set_active_tab.clone();
-                  let set_tab_direction = set_tab_direction.clone();
-                  move |tab: SettingsTab| {
-                    if tab != active_tab {
-                      set_tab_direction.set(if tab.index() > active_tab.index() {
-                        1
-                      } else {
-                        -1
-                      });
-                      set_active_tab.set(tab);
-                    }
+    Region::new(ls(format!("{} settings", active_tab.label_text())))
+      .host_name("settings-screen")
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .inset(0)
+          .overflow(battlement::Overflow::Hidden),
+      )
+      .child((
+        ScreenHeader::new()
+          .variant(HeaderVariant::Settings)
+          .autofocus(self.autofocus_heading),
+        View::new()
+          .name("settings-screen-composition")
+          .style(
+            Style::new()
+              .position(Position::Absolute)
+              .left(68)
+              .top(233)
+              .width(887),
+          )
+          .child((
+            SettingsTabs::new()
+              .active_tab(active_tab)
+              .on_select(EventCallback::new({
+                let set_active_tab = set_active_tab.clone();
+                let set_tab_direction = set_tab_direction.clone();
+                move |tab: SettingsTab| {
+                  if tab != active_tab {
+                    set_tab_direction.set(if tab.index() > active_tab.index() {
+                      1
+                    } else {
+                      -1
+                    });
+                    set_active_tab.set(tab);
                   }
-                })),
-              SettingsPanel::new().children(
-                ArcadeTabTransition::new()
-                  .active_key(active_tab)
-                  .direction(tab_direction)
-                  .reduce_motion(navigation.reduce_motion)
-                  .children(self::panel(
-                    active_tab,
-                    font_scale,
-                    &set_font_scale,
-                    &language,
-                    &set_language,
-                    navigation.reduce_motion,
-                    &navigation.reduce_motion_callback(),
-                    increase_move_duration,
-                    &set_increase_move_duration,
-                    upload_crash_reports,
-                    &set_upload_crash_reports,
-                    &resolution,
-                    &set_resolution,
-                    &max_framerate,
-                    &set_max_framerate,
-                    &display_mode,
-                    &set_display_mode,
-                    screenshake,
-                    &set_screenshake,
-                    vsync,
-                    &set_vsync,
-                    effects_volume,
-                    &set_effects_volume,
-                    panel_scrolled,
-                    &set_panel_scrolled,
-                    &music,
-                    &set_active_modal,
-                    self.overlay.clone(),
-                  )),
-              ),
-            )),
-          ReturnButton::new()
-            .reduced_motion(navigation.reduce_motion)
-            .on_press(self.on_return.clone()),
-          ArcadeModal::new()
-            .open(active_modal == Some(SettingsModal::Erase))
-            .title(tx("Erase Saved Data?", "Saved-data confirmation title."))
-            .children(Text::new(tx(
-              "All saved data will be permanently erased. This cannot be undone.",
-              "Saved-data confirmation warning.",
-            )))
-            .confirm_label(tx("Erase", "Saved-data confirmation action."))
-            .cancel_label(tx("Cancel", "Saved-data cancellation action."))
-            .danger(true)
-            .reduce_motion(navigation.reduce_motion)
-            .on_confirm(set_active_modal.callback().map_input(|_| None))
-            .on_close(set_active_modal.callback().map_input(|_| None))
-            .overlay(self.overlay.clone()),
-          PrivacyPolicyHelp::new()
-            .open(active_modal == Some(SettingsModal::Privacy))
-            .reduce_motion(navigation.reduce_motion)
-            .on_open_url(self.on_open_url.clone())
-            .on_close(set_active_modal.callback().map_input(|_| None))
-            .overlay(self.overlay.clone()),
-        )),
-    )
+                }
+              })),
+            SettingsPanel::new().children(
+              ArcadeTabTransition::new()
+                .active_key(active_tab)
+                .direction(tab_direction)
+                .reduce_motion(navigation.reduce_motion)
+                .children(self::panel(
+                  active_tab,
+                  font_scale,
+                  &set_font_scale,
+                  &language,
+                  &set_language,
+                  navigation.reduce_motion,
+                  &navigation.reduce_motion_callback(),
+                  increase_move_duration,
+                  &set_increase_move_duration,
+                  upload_crash_reports,
+                  &set_upload_crash_reports,
+                  &resolution,
+                  &set_resolution,
+                  &max_framerate,
+                  &set_max_framerate,
+                  &display_mode,
+                  &set_display_mode,
+                  screenshake,
+                  &set_screenshake,
+                  vsync,
+                  &set_vsync,
+                  effects_volume,
+                  &set_effects_volume,
+                  panel_scrolled,
+                  &set_panel_scrolled,
+                  &music,
+                  &set_active_modal,
+                  self.overlay.clone(),
+                )),
+            ),
+          )),
+        ReturnButton::new()
+          .reduced_motion(navigation.reduce_motion)
+          .on_press(self.on_return.clone()),
+        ArcadeModal::new()
+          .open(active_modal == Some(SettingsModal::Erase))
+          .title(tx("Erase Saved Data?", "Saved-data confirmation title."))
+          .children(Text::new(tx(
+            "All saved data will be permanently erased. This cannot be undone.",
+            "Saved-data confirmation warning.",
+          )))
+          .confirm_label(tx("Erase", "Saved-data confirmation action."))
+          .cancel_label(tx("Cancel", "Saved-data cancellation action."))
+          .danger(true)
+          .reduce_motion(navigation.reduce_motion)
+          .on_confirm(set_active_modal.callback().map_input(|_| None))
+          .on_close(set_active_modal.callback().map_input(|_| None))
+          .overlay(self.overlay.clone()),
+        PrivacyPolicyHelp::new()
+          .open(active_modal == Some(SettingsModal::Privacy))
+          .reduce_motion(navigation.reduce_motion)
+          .on_open_url(self.on_open_url.clone())
+          .on_close(set_active_modal.callback().map_input(|_| None))
+          .overlay(self.overlay.clone()),
+      ))
   }
 }
 

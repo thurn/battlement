@@ -76,6 +76,8 @@ struct OpenArcadeModal {
 
 #[builder]
 struct ModalBody {
+  #[builder(required)]
+  autofocus_actions: bool,
   title: Option<LocalizedString>,
   #[builder(required, into)]
   children: Children,
@@ -179,6 +181,7 @@ impl OpenArcadeModal {
       )
       .child(
         ModalBody::new()
+          .autofocus_actions(self.initial_focus.is_none())
           .title(self.title.clone())
           .children(self.children.clone())
           .confirm_label(self.confirm_label.clone())
@@ -232,7 +235,7 @@ impl Component for ModalBody {
           .child(self.cancel_label.as_ref().map(|label| {
             ModalButton::new()
               .label(label.clone())
-              .autofocus(true)
+              .autofocus(self.autofocus_actions)
               .reference(cancel.clone())
               .on_press(self.on_close.clone())
               .on_close(self.on_close.clone())
@@ -241,7 +244,7 @@ impl Component for ModalBody {
           .child(
             ModalButton::new()
               .label(self.confirm_label.clone())
-              .autofocus(self.cancel_label.is_none())
+              .autofocus(self.autofocus_actions && self.cancel_label.is_none())
               .danger(self.danger)
               .reference(confirm)
               .on_press(self.on_confirm.clone())

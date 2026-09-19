@@ -1,13 +1,15 @@
 use std::time::Duration;
 
 use battlement::{
-  AccessibilitySnapshot, AudioClipAddress, CheckedState, CommandBody, GameObjectKind, KeyEvent,
-  KeyModifiers, NavigationEvent, ObjectId, PhysicalKey, Prop, SemanticRole, StyleValue, UiEvent,
-  UiEventBody, UiFontAddress, UiVisualElementProperties, VisualElementAction,
+  AudioClipAddress, CheckedState, CommandBody, GameObjectKind, KeyEvent, KeyModifiers,
+  NavigationEvent, ObjectId, PhysicalKey, Prop, SemanticRole, StyleValue, UiAccessibilityAction,
+  UiAccessibilityActionEvent, UiEvent, UiEventBody, UiFontAddress, UiVisualElementProperties,
+  VisualElementAction,
 };
-use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
+use battlement_fake::assets::FakeAssetCatalog;
 use battlement_rules::engine;
 use reactant::{app::App, asset_generator};
+use reactant_testing::Display;
 
 const ACTION_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/action");
 const BACKGROUND_MUSIC: AudioClipAddress =
@@ -58,7 +60,7 @@ fn full_screen_router_scenario() {
   self::semantic(&client, SemanticRole::Heading, "Chess Chess Revolution");
   let settings_heading = self::named(&mut client, "screen-header-heading");
   assert_eq!(
-    client.ui().focused(),
+    client.focused(),
     Some(settings_heading),
     "settings heading should receive route focus"
   );
@@ -66,7 +68,7 @@ fn full_screen_router_scenario() {
   client.poll();
   self::semantic(&client, SemanticRole::Heading, "Settings");
   assert!(
-    client.ui().focused().is_some(),
+    client.focused().is_some(),
     "settings route should keep focus inside the application"
   );
   self::choose(&mut client, "Text Size 100%", "200%");
@@ -86,6 +88,43 @@ fn full_screen_router_scenario() {
 #[test]
 fn controller_cancel_returns_to_main_menu_without_dismissing_the_app() {
   self::with_render_stack(self::controller_cancel_scenario);
+}
+
+#[test]
+fn keyboard_rebinding_uses_accessible_actions_and_native_key_input() {
+  self::with_render_stack(|| {
+    let mut client = self::client();
+    self::click_semantic(&mut client, SemanticRole::Button, "SETTINGS");
+    self::click_semantic(&mut client, SemanticRole::Tab, "Input");
+    self::click_semantic(
+      &mut client,
+      SemanticRole::Button,
+      "Change Left keyboard binding",
+    );
+
+    self::semantic(
+      &client,
+      SemanticRole::StaticText,
+      "Waiting for keyboard input",
+    );
+    let capture = self::named(&mut client, "shortcut-waiting-marker");
+    client.deliver_ui_event(UiEvent::new(
+      capture,
+      true,
+      false,
+      UiEventBody::KeyDown(KeyEvent {
+        physical_key: Some(PhysicalKey::KeyA),
+        text: "a".to_owned(),
+        modifiers: KeyModifiers::default(),
+      }),
+    ));
+    for _ in 0..4 {
+      client.poll();
+    }
+
+    let label = self::named(&mut client, "keyboard-binding-label-0");
+    assert_eq!(client.ui_element(label).text(), Some("A"));
+  });
 }
 
 fn controller_cancel_scenario() {
@@ -142,11 +181,10 @@ fn menu_actions_pulse_from_music_and_respect_reduce_motion() {
   });
 }
 
-fn assert_music_pulse(client: &mut FakeClient<App>, root: ObjectId, enabled: bool) {
+fn assert_music_pulse(client: &mut Display<App>, root: ObjectId, enabled: bool) {
   let mut pending = vec![root];
   while let Some(id) = pending.pop() {
-    let ui = client.ui();
-    let element = ui.element(id);
+    let element = client.ui_element(id);
     if matches!(
       element.name(),
       Some("action-button" | "music-playback-indicator")
@@ -194,19 +232,19 @@ fn with_render_stack(scenario: fn()) {
     .expect("complete UI scenario");
 }
 
-fn choose(client: &mut FakeClient<App>, trigger: &str, option: &str) {
+fn choose(client: &mut Display<App>, trigger: &str, option: &str) {
   self::click_semantic(client, SemanticRole::Button, trigger);
   self::click_semantic(client, SemanticRole::Option, option);
 }
 
-fn toggle(client: &mut FakeClient<App>, label: &str) {
+fn toggle(client: &mut Display<App>, label: &str) {
   let target = self::semantic(client, SemanticRole::Checkbox, label);
-  client.ui().toggle_click(target);
+  self::activate_semantic(client, target);
   client.poll();
 }
 
-fn escape(client: &mut FakeClient<App>, target: ObjectId) {
-  client.ui().send_event(UiEvent::new(
+fn escape(client: &mut Display<App>, target: ObjectId) {
+  client.deliver_ui_event(UiEvent::new(
     target,
     true,
     false,
@@ -219,8 +257,8 @@ fn escape(client: &mut FakeClient<App>, target: ObjectId) {
   client.poll();
 }
 
-fn cancel(client: &mut FakeClient<App>, target: ObjectId) {
-  client.ui().send_event(UiEvent::new(
+fn cancel(client: &mut Display<App>, target: ObjectId) {
+  client.deliver_ui_event(UiEvent::new(
     target,
     true,
     false,
@@ -229,8 +267,9 @@ fn cancel(client: &mut FakeClient<App>, target: ObjectId) {
   client.poll();
 }
 
-fn assert_checkbox(client: &FakeClient<App>, label: &str, expected: bool) {
-  let node = self::snapshot(client)
+fn assert_checkbox(client: &Display<App>, label: &str, expected: bool) {
+  let node = client
+    .accessibility()
     .nodes
     .iter()
     .find(|node| node.role == SemanticRole::Checkbox && node.label.as_deref() == Some(label))
@@ -245,10 +284,9 @@ fn assert_checkbox(client: &FakeClient<App>, label: &str, expected: bool) {
   );
 }
 
-fn assert_px(client: &mut FakeClient<App>, name: &str, property: &str, expected: f32) {
+fn assert_px(client: &mut Display<App>, name: &str, property: &str, expected: f32) {
   let id = self::named(client, name);
-  let ui = client.ui();
-  let style = ui.element(id).style();
+  let style = client.ui_element(id).style();
   let value = match property {
     "top" => &style.top,
     _ => panic!("unknown property"),
@@ -260,14 +298,27 @@ fn assert_px(client: &mut FakeClient<App>, name: &str, property: &str, expected:
   ));
 }
 
-fn click_semantic(client: &mut FakeClient<App>, role: SemanticRole, label: &str) {
+fn click_semantic(client: &mut Display<App>, role: SemanticRole, label: &str) {
   let target = self::semantic(client, role, label);
-  client.ui().click(target);
+  self::activate_semantic(client, target);
   client.poll();
 }
 
-fn semantic(client: &FakeClient<App>, role: SemanticRole, label: &str) -> ObjectId {
-  self::snapshot(client)
+fn activate_semantic(client: &mut Display<App>, target: ObjectId) {
+  client.deliver_ui_event(UiEvent {
+    target_id: target,
+    cancelable: true,
+    default_prevented: false,
+    body: UiEventBody::AccessibilityAction(UiAccessibilityActionEvent {
+      backend_generation: 1,
+      action: UiAccessibilityAction::Activate,
+    }),
+  });
+}
+
+fn semantic(client: &Display<App>, role: SemanticRole, label: &str) -> ObjectId {
+  client
+    .accessibility()
     .nodes
     .iter()
     .find(|node| node.role == role && node.label.as_deref() == Some(label))
@@ -275,39 +326,18 @@ fn semantic(client: &FakeClient<App>, role: SemanticRole, label: &str) -> Object
     .object_id
 }
 
-fn snapshot(client: &FakeClient<App>) -> &AccessibilitySnapshot {
-  client
-    .commands()
-    .iter()
-    .rev()
-    .find_map(|entry| match &entry.command.body {
-      CommandBody::AccessibilityUpdate(update) => update.snapshot.as_ref(),
-      _ => None,
-    })
-    .expect("arcade screen semantics")
-}
-
-fn named(client: &mut FakeClient<App>, name: &str) -> ObjectId {
-  let mut pending = client
-    .world()
+fn named(client: &mut Display<App>, name: &str) -> ObjectId {
+  let root = client
     .objects()
-    .filter_map(|object| match object.kind() {
+    .find_map(|object| match object.kind() {
       GameObjectKind::UiDocument(document) => Some(document.root_id()),
       _ => None,
     })
-    .collect::<Vec<_>>();
-  while let Some(id) = pending.pop() {
-    let ui = client.ui();
-    let element = ui.element(id);
-    if element.name() == Some(name) {
-      return id;
-    }
-    pending.extend(element.children());
-  }
-  panic!("missing {name}");
+    .expect("chess UI document");
+  client.find_ui(root, name)
 }
 
-fn client() -> FakeClient<App> {
+fn client() -> Display<App> {
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("chess-ui/content");
   assets.add_audio_clip(BACKGROUND_MUSIC);
@@ -315,7 +345,7 @@ fn client() -> FakeClient<App> {
   assets.add_ui_font(DISPLAY_FONT);
   assets.add_ui_font(VALUE_FONT);
   assets.add_ui_font(ACTION_FONT);
-  let mut client = FakeClient::connect(engine::create_engine(), assets);
+  let mut client = Display::connect(engine::create_engine(), assets);
   client.poll();
   client
 }

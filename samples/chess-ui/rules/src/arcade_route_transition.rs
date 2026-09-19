@@ -54,14 +54,14 @@ impl Component for ArcadeRouteTransition {
     let (has_navigated, set_has_navigated) = hooks::use_state(false);
     let (reduce_motion, set_reduce_motion) = hooks::use_state(false);
     ContextProvider::new()
-      .context(Some(ArcadeNavigationContext {
+      .context(ArcadeNavigationContext {
         active_screen,
         has_navigated,
         reduce_motion,
         set_active_screen,
         set_has_navigated,
         set_reduce_motion,
-      }))
+      })
       .child(
         MotionConfig::new(self.children.render()).reduced_motion(if reduce_motion {
           ReducedMotion::Always
@@ -74,16 +74,5 @@ impl Component for ArcadeRouteTransition {
 
 /// Reads the nearest complete-app route and motion policy.
 pub fn use_arcade_navigation() -> ArcadeNavigationContext {
-  let provided = hooks::use_context::<Option<ArcadeNavigationContext>>();
-  let (active_screen, set_active_screen) = hooks::use_state(ArcadeScreen::Main);
-  let (has_navigated, set_has_navigated) = hooks::use_state(false);
-  let (reduce_motion, set_reduce_motion) = hooks::use_state(false);
-  provided.unwrap_or(ArcadeNavigationContext {
-    active_screen,
-    has_navigated,
-    reduce_motion,
-    set_active_screen,
-    set_has_navigated,
-    set_reduce_motion,
-  })
+  hooks::use_required_context::<ArcadeNavigationContext>()
 }

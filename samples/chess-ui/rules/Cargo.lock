@@ -85,6 +85,7 @@ dependencies = [
  "battlement-fake",
  "battlement-native",
  "reactant",
+ "reactant-testing",
  "serde",
  "syn 2.0.119",
  "trox",
@@ -677,6 +678,16 @@ dependencies = [
 [[package]]
 name = "reactant-rules"
 version = "0.1.0"
+
+[[package]]
+name = "reactant-testing"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-fake",
+ "battlement-native",
+ "reactant-rules",
+]
 
 [[package]]
 name = "reactant-ui"

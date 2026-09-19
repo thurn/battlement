@@ -17,7 +17,7 @@ use crate::{action_skin, control_effects, font_scale, setting_row::SettingRow, u
 /// A red arcade action whose visible row label supplies its accessible name.
 #[builder]
 pub struct EraseControl {
-  #[builder(default = EventCallback::noop())]
+  #[builder(required)]
   on_click: EventCallback<()>,
 }
 

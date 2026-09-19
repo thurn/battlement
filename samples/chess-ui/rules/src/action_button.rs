@@ -71,7 +71,7 @@ pub struct ActionButton {
   /// Caps the label size relative to its authored arcade typography.
   max_text_scale: Option<f32>,
   /// Handles an accepted button activation.
-  #[builder(default = EventCallback::noop())]
+  #[builder(required)]
   on_press: EventCallback<()>,
 }
 

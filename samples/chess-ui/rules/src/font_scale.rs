@@ -19,7 +19,7 @@ impl Component for FontScaleProvider {
   fn render(&self) -> impl Render {
     let (scale, set_scale) = hooks::use_state(FontScale::Percent100);
     ContextProvider::new()
-      .context(Some(FontScaleContext { scale, set_scale }))
+      .context(FontScaleContext { scale, set_scale })
       .child(self.children.render())
   }
 }
@@ -41,28 +41,15 @@ pub enum FontScaleRole {
   Heading,
 }
 
-/// Provides one text-size selection to a logical descendant tree.
-pub fn provider(scale: FontScale, child: impl Render) -> impl Render {
-  ContextProvider::new().context(Some(scale)).child(child)
-}
-
-/// Reads the current text size, defaulting to 100% outside a provider.
+/// Reads the complete application's current text size.
 pub fn use_font_scale() -> FontScale {
-  let state = hooks::use_context::<Option<FontScaleContext>>();
-  let fixed = hooks::use_context::<Option<FontScale>>();
-  state
-    .map(|context| context.scale)
-    .or(fixed)
-    .unwrap_or_default()
+  hooks::use_required_context::<FontScaleContext>().scale
 }
 
 /// Reads the complete application's text-size value and setter.
 pub fn use_font_scale_state() -> (FontScale, StateSetter<FontScale>) {
-  let context = hooks::use_context::<Option<FontScaleContext>>();
-  let fallback = hooks::use_state(FontScale::Percent100);
-  context
-    .map(|context| (context.scale, context.set_scale))
-    .unwrap_or(fallback)
+  let context = hooks::use_required_context::<FontScaleContext>();
+  (context.scale, context.set_scale)
 }
 
 impl FontScale {

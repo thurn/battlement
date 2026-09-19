@@ -65,7 +65,8 @@ const CONTROLLER: [&str; 7] = [
 /// Displays keyboard and controller bindings in a sticky-header table.
 #[builder]
 pub struct InputSettings {
-  overlay: Option<PortalTarget>,
+  #[builder(required)]
+  overlay: PortalTarget,
 }
 
 impl Component for InputSettings {
@@ -128,7 +129,6 @@ impl Component for InputSettings {
               self::binding_row(
                 index,
                 bindings[index],
-                self.overlay.is_some(),
                 set_capture.clone(),
                 set_status.clone(),
                 font_scale.factor(),
@@ -137,20 +137,18 @@ impl Component for InputSettings {
             }),
           )),
       ),
-      capture.and_then(|index| {
-        self.overlay.clone().map(|overlay| {
-          self::capture_modal(
-            index,
-            bindings,
-            set_bindings.clone(),
-            set_capture.clone(),
-            set_status.clone(),
-            status.clone(),
-            announce,
-            overlay,
-            capture_focus.clone(),
-          )
-        })
+      capture.map(|index| {
+        self::capture_modal(
+          index,
+          bindings,
+          set_bindings.clone(),
+          set_capture.clone(),
+          set_status.clone(),
+          status.clone(),
+          announce,
+          self.overlay.clone(),
+          capture_focus.clone(),
+        )
       }),
     )
   }
@@ -342,7 +340,6 @@ fn header(font_scale: f32, control_scale: f32) -> TableRow {
 fn binding_row(
   index: usize,
   keyboard: PhysicalKey,
-  interactive: bool,
   set_capture: hooks::StateSetter<Option<usize>>,
   set_status: hooks::StateSetter<Option<String>>,
   font_scale: f32,
@@ -375,7 +372,6 @@ fn binding_row(
           self::keyboard_cell(
             index,
             keyboard,
-            interactive,
             set_capture,
             set_status,
             font_scale,
@@ -389,7 +385,6 @@ fn binding_row(
 fn keyboard_cell(
   index: usize,
   keyboard: PhysicalKey,
-  interactive: bool,
   set_capture: hooks::StateSetter<Option<usize>>,
   set_status: hooks::StateSetter<Option<String>>,
   font_scale: f32,
@@ -398,10 +393,23 @@ fn keyboard_cell(
   let name = ls(self::key_name(keyboard));
   let direction = self::key_direction(keyboard);
   let compact = self::key_name(keyboard).len() == 1 && direction.is_none();
-  let accessibility_button = interactive.then(|| {
-    let set_capture = set_capture.clone();
-    let set_status = set_status.clone();
-    Button::content(())
+  View::new()
+    .semantic(SemanticProps::new(SemanticRole::Cell).name(SemanticName::Text(name.clone())))
+    .name(format!("keyboard-binding-cell-{index}"))
+    .style(Style::new().center_content())
+    .child(
+      Button::content((
+        direction.map(|direction| KeyboardArrow::new().direction(direction)),
+        direction.is_none().then(|| {
+          Label::new(name.clone())
+            .name(format!("keyboard-binding-label-{index}"))
+            .style(self::keycap_label_style(
+              keyboard,
+              font_scale,
+              control_scale,
+            ))
+        }),
+      ))
       .semantic_name(SemanticName::Text(ls(format!(
         "Change {} keyboard binding",
         ACTIONS[index]
@@ -410,44 +418,10 @@ fn keyboard_cell(
         set_status.set(None);
         set_capture.set(Some(index));
       })
-      .host_name(format!("keyboard-binding-action-{index}"))
-      .style(
-        Style::new()
-          .position(Position::Absolute)
-          .inset(0)
-          .padding(0)
-          .border_width(0)
-          .background_color(Color::TRANSPARENT),
-      )
-  });
-  let host = View::new()
-    .semantic(SemanticProps::new(SemanticRole::Cell).name(SemanticName::Text(name.clone())))
-    .name(format!("keyboard-binding-{index}"))
-    .style(self::keycap_style(compact, font_scale, control_scale))
-    .paint(self::keycap_paint())
-    .child((
-      direction.map(|direction| KeyboardArrow::new().direction(direction)),
-      direction.is_none().then(|| {
-        Label::new(name.clone())
-          .name(format!("keyboard-binding-label-{index}"))
-          .style(self::keycap_label_style(
-            keyboard,
-            font_scale,
-            control_scale,
-          ))
-      }),
-      accessibility_button,
-    ))
-    .focusable(interactive)
-    .tab_index(if interactive { 0 } else { -1 });
-  if interactive {
-    host.on_click(move || {
-      set_status.set(None);
-      set_capture.set(Some(index));
-    })
-  } else {
-    host
-  }
+      .host_name(format!("keyboard-binding-{index}"))
+      .style(self::keycap_style(compact, font_scale, control_scale))
+      .paint(self::keycap_paint()),
+    )
 }
 
 fn controller_cell(index: usize) -> impl Render {
@@ -589,6 +563,7 @@ fn keycap_style(compact: bool, font_scale: f32, control_scale: f32) -> Style {
     .position(Position::Relative)
     .width(if compact { 120.0 } else { 205.0 } * control_scale)
     .height(75.0 * control_scale)
+    .margin(0)
     .padding(3.0 * control_scale)
     .border_width(0)
     .align_self(Align::Center)

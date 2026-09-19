@@ -43,8 +43,9 @@ pub struct SelectControl {
   #[builder(required)]
   value: String,
   options: Vec<String>,
-  overlay: Option<PortalTarget>,
-  #[builder(default = EventCallback::noop())]
+  #[builder(required)]
+  overlay: PortalTarget,
+  #[builder(required)]
   on_change: EventCallback<String>,
 }
 
@@ -79,7 +80,7 @@ impl Component for SelectControl {
       let set_restore_focus = set_restore_focus.clone();
       let set_open_generation = set_open_generation.clone();
       let value_label = value_label.clone();
-      let interactive = self.overlay.is_some() && !self.options.is_empty();
+      let interactive = !self.options.is_empty();
       let selected_index = select_navigation::selected_index(&self.options, &self.value);
       move |name| {
         let SemanticName::LabelledBy(references) = name else {
@@ -261,8 +262,8 @@ impl Component for SelectControl {
                     Caret::new().is_open(open),
                   )),
               ),
-            (open && self.overlay.is_some()).then(|| {
-              Overlay::layer(self.overlay.clone().unwrap()).child(
+            open.then(|| {
+              Overlay::layer(self.overlay.clone()).child(
                 View::new()
                   .name("select-dismiss-layer")
                   .style(Style::new().width(100.pct()).height(100.pct()))
@@ -275,27 +276,25 @@ impl Component for SelectControl {
                   }),
               )
             }),
-            AnimatePresence::new()
-              .initial(false)
-              .child((open && self.overlay.is_some()).then(|| {
-                Node::new(
-                  SelectPopover::new()
-                    .active_index(active_index)
-                    .anchor(anchor)
-                    .font_scale(font_scale)
-                    .on_change(self.on_change.clone())
-                    .options(self.options.clone())
-                    .open_generation(open_generation)
-                    .overlay(self.overlay.clone().unwrap())
-                    .popover_scale(popover_scale)
-                    .reduced_motion(interaction.state.reduced_motion)
-                    .set_active_index(set_active_index.clone())
-                    .set_open(set_open.clone())
-                    .set_restore_focus(set_restore_focus.clone())
-                    .value(self.value.clone())
-                    .key("select-popover-presence"),
-                )
-              })),
+            AnimatePresence::new().initial(false).child(open.then(|| {
+              Node::new(
+                SelectPopover::new()
+                  .active_index(active_index)
+                  .anchor(anchor)
+                  .font_scale(font_scale)
+                  .on_change(self.on_change.clone())
+                  .options(self.options.clone())
+                  .open_generation(open_generation)
+                  .overlay(self.overlay.clone())
+                  .popover_scale(popover_scale)
+                  .reduced_motion(interaction.state.reduced_motion)
+                  .set_active_index(set_active_index.clone())
+                  .set_open(set_open.clone())
+                  .set_restore_focus(set_restore_focus.clone())
+                  .value(self.value.clone())
+                  .key("select-popover-presence"),
+              )
+            })),
           )),
       )
       .associated_label(label)
