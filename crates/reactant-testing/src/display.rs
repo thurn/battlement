@@ -224,6 +224,21 @@ where
     self.client.world().object(object_id)
   }
 
+  /// Iterates over the currently displayed world objects in presentation order.
+  pub fn objects(&self) -> impl Iterator<Item = &FakeObject> {
+    self.client.world().objects()
+  }
+
+  /// Iterates over currently displayed world images and their visible state.
+  pub fn images(&self) -> impl Iterator<Item = (&FakeObject, &battlement::ImageState)> {
+    self.client.world().images()
+  }
+
+  /// Iterates over currently displayed world text and its visible state.
+  pub fn texts(&self) -> impl Iterator<Item = (&FakeObject, &battlement::TextState)> {
+    self.client.world().texts()
+  }
+
   /// Returns one live audio playback when it is currently presented.
   #[must_use]
   pub fn audio(&self, command_id: CommandId) -> Option<&FakeAudio> {

@@ -8,8 +8,10 @@
 
 mod display;
 mod publications;
+#[cfg(feature = "worker-fixture")]
 mod worker;
 
 pub use display::Display;
 pub use publications::PublicationDisplay;
+#[cfg(feature = "worker-fixture")]
 pub use worker::{WorkerDisplay, WorkerDisplayBuilder, WorkerWaitError};

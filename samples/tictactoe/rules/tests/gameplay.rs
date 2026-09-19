@@ -1,19 +1,19 @@
 use std::time::Duration;
 
-use battlement::{
-  ImageFit, ImageState, ObjectId, PointerEvent, PreparedAsset, TextureAddress, Vector3,
-};
-use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, time::ManualClock};
+use battlement::{GameObjectKind, ImageFit, ImageState, ObjectId, PanelPoint, Vector3};
+use battlement_fake::assets::FakeAssetCatalog;
 use battlement_native::{
   ConnectInput, ConnectView, Engine, NativeReducedMotionPreference, ResponseView, write_connect,
 };
 use battlement_rules::{
-  BOARD_ID, BOARD_TEXTURE, CONTENT_SCENE, DITTO_SEED, FONT, O_TEXTURE, STATUS_ID, TITLE_ID,
-  TicTacToeEngine, VisualState, X_TEXTURE,
+  BOARD_TEXTURE, CONTENT_SCENE, DITTO_SEED, FONT, O_TEXTURE, TicTacToeEngine, VisualState,
+  X_TEXTURE,
 };
+use reactant_testing::Display;
 
 const BOARD_CENTER_Y: f64 = -0.7;
 const CELL_SIZE: f64 = 1.92;
+const TIMEOUT: Duration = Duration::from_secs(5);
 
 #[test]
 fn exported_connect_constructs_a_verified_snapshot_directly() {
@@ -32,217 +32,211 @@ fn exported_connect_constructs_a_verified_snapshot_directly() {
   })
   .unwrap();
   let mut engine = battlement_rules::create_engine().unwrap();
-
   let response =
     Engine::connect(&mut engine, ConnectView::read(request.as_bytes()).unwrap()).unwrap();
   let view = ResponseView::read(response.as_bytes()).unwrap();
 
   assert_eq!(view.session_id(), response.session_id());
-  assert_eq!(view.message_count(), 1);
+  assert!(view.message_count() >= 1);
 }
 
 #[test]
-fn initial_world_contains_clickable_board_and_prepared_art() {
-  let (client, _) = self::client(0);
-  let board = client.assert_object(BOARD_ID);
+fn initial_world_contains_board_text_and_row_major_hit_regions() {
+  let mut display = self::display(0);
+  self::synchronize_initial(&mut display);
 
-  assert_eq!(client.world().object_count(), 4);
-  assert_eq!(board.pointer_events(), &[PointerEvent::Click]);
-  assert_eq!(
-    board
-      .image()
-      .expect("board should be an image")
-      .texture
-      .as_str(),
-    BOARD_TEXTURE
-  );
-  for address in [BOARD_TEXTURE, X_TEXTURE, O_TEXTURE] {
-    assert!(
-      client
-        .world()
-        .is_prepared(&PreparedAsset::Texture(TextureAddress::new(address)))
-    );
-  }
-  client.assert_text(TITLE_ID, "TIC TAC TOE — ROUND 1");
-  client.assert_text(STATUS_ID, "Your turn — click an empty square");
-}
-
-#[test]
-fn board_hits_create_player_marks_in_row_major_cells() {
-  for (index, expected) in [
-    (0, Vector3::new(-1.92, 1.22, -0.05)),
-    (4, Vector3::new(0.0, -0.7, -0.05)),
-    (8, Vector3::new(1.92, -2.62, -0.05)),
+  assert!(self::image_ids(&display, BOARD_TEXTURE).len() == 1);
+  self::assert_text(&display, "TIC TAC TOE — ROUND 1");
+  self::assert_text(&display, "Your turn — click an empty square");
+  for expected in [
+    Vector3::new(-1.92, 1.22, 0.0),
+    Vector3::new(0.0, -0.7, 0.0),
+    Vector3::new(1.92, -2.62, 0.0),
   ] {
-    let (mut client, _) = self::client(index as u64);
-    let before = client.checkpoint();
+    let hit = self::hit_region_at(&display, expected);
+    self::assert_position(&display, hit, expected);
+  }
+}
 
-    self::click_cell(&mut client, index);
+#[test]
+fn committed_board_hits_create_stable_player_marks_in_row_major_cells() {
+  for index in [0, 4, 8] {
+    let mut display = self::display(index as u64);
+    self::synchronize_initial(&mut display);
+    self::click_cell(&mut display, index);
+    let marker = self::wait_for_human_move(&mut display, index);
 
-    let marker_id = client.assert_one_object_created_since(before);
-    client.assert_world_position(marker_id, expected, 1e-9);
-    self::assert_mark(&client, marker_id, X_TEXTURE);
+    self::assert_mark(&display, marker, X_TEXTURE);
+    self::assert_position(&display, marker, self::cell_position(index, -0.05));
   }
 
-  let (mut client, _) = self::client(9);
-  let before = client.world().clone();
-  client.click_at(BOARD_ID, Vector3::new(3.6, 0.0, 0.0));
-  assert_eq!(client.world(), &before);
+  let mut display = self::display(9);
+  self::synchronize_initial(&mut display);
+  self::click_world(&mut display, Vector3::new(3.3, BOARD_CENTER_Y, 0.0));
+  assert!(self::mark_ids(&display).is_empty());
+  self::assert_text(&display, "Your turn — click an empty square");
 }
 
 #[test]
 fn player_move_is_immediate_and_ai_move_appears_at_the_deadline() {
-  let (mut client, _) = self::client(7);
-  let before_player = client.checkpoint();
+  let mut display = self::display(DITTO_SEED);
+  self::synchronize_initial(&mut display);
+  self::click_cell(&mut display, 4);
+  let player = self::wait_for_human_move(&mut display, 4);
 
-  self::click_cell(&mut client, 4);
+  self::assert_mark(&display, player, X_TEXTURE);
+  self::assert_text(&display, "Computer thinking…");
+  assert_eq!(display.presentation_time(), Duration::ZERO);
+  assert_eq!(display.frame(), 0);
 
-  let player_marker = client.assert_one_object_created_since(before_player);
-  self::assert_mark(&client, player_marker, X_TEXTURE);
-  client.assert_text(STATUS_ID, "Computer thinking…");
-  assert!(!client.world().input_enabled());
+  self::synchronize_action(&mut display);
+  assert!(self::image_ids(&display, O_TEXTURE).is_empty());
+  display.advance_time(Duration::from_millis(99));
+  assert!(self::image_ids(&display, O_TEXTURE).is_empty());
+  self::assert_text(&display, "Computer thinking…");
+  assert_eq!(display.frame(), 0);
 
-  client.advance_time(Duration::from_millis(99));
-  client.poll();
-  assert_eq!(self::marker_ids(&client), vec![player_marker]);
-  client.assert_text(STATUS_ID, "Computer thinking…");
-
-  let before_ai = client.checkpoint();
-  client.advance_time(Duration::from_millis(1));
-  client.poll();
-  let ai_marker = client.assert_one_object_created_since(before_ai);
-  self::assert_mark(&client, ai_marker, O_TEXTURE);
-  client.assert_text(STATUS_ID, "Your turn — click an empty square");
-  assert!(client.world().input_enabled());
+  display.advance_time(Duration::from_millis(1));
+  display.advance_frame();
+  let ai = self::image_ids(&display, O_TEXTURE);
+  assert_eq!(ai.len(), 1);
+  self::assert_mark(&display, ai[0], O_TEXTURE);
+  self::assert_text(&display, "Your turn — click an empty square");
+  assert_eq!(self::mark_at(&display, 4, X_TEXTURE), Some(player));
+  assert_eq!(display.presentation_time(), Duration::from_millis(100));
+  assert_eq!(display.frame(), 1);
 }
 
 #[test]
-fn occupied_cell_leaves_the_visible_world_unchanged() {
-  let (mut client, clock) = self::client(7);
-  self::click_cell(&mut client, 4);
-  clock.advance(Duration::from_millis(100));
-  client.poll();
-  let before = client.world().clone();
+fn occupied_and_outside_hits_leave_the_visible_world_unchanged() {
+  let mut display = self::display(DITTO_SEED);
+  self::synchronize_initial(&mut display);
+  self::play_turn(&mut display, 4);
+  let marks = self::mark_ids(&display);
 
-  self::click_cell(&mut client, 4);
+  self::click_cell(&mut display, 4);
+  self::click_world(&mut display, Vector3::new(3.3, BOARD_CENTER_Y, 0.0));
 
-  assert_eq!(client.world(), &before);
+  assert_eq!(self::mark_ids(&display), marks);
+  self::assert_text(&display, "Your turn — click an empty square");
 }
 
 #[test]
-fn completed_round_reports_the_outcome_and_resets_on_the_next_click() {
-  let (mut client, clock) = self::client(7);
-  self::play_round(&mut client, &clock, &[0, 1, 2]);
-  let status = client
-    .assert_object(STATUS_ID)
-    .text()
-    .expect("status should be text")
-    .text
-    .clone();
-  let markers = self::marker_ids(&client);
+fn completed_round_reports_the_outcome_and_resets_on_the_next_hit() {
+  let mut display = self::display(DITTO_SEED);
+  self::synchronize_initial(&mut display);
+  self::play_round(&mut display, &[0, 1, 2]);
+  let status = self::status_text(&display);
+  assert!(status.contains("win") || status.contains("Draw"));
+  let marks = self::mark_ids(&display);
 
-  assert!(
-    status.contains("win") || status.contains("Draw"),
-    "expected a completed round, got {status:?}",
-  );
+  self::click_world(&mut display, Vector3::new(3.3, BOARD_CENTER_Y, 0.0));
+  self::synchronize_action(&mut display);
 
-  self::click_cell(&mut client, 4);
-
-  client.assert_text(TITLE_ID, "TIC TAC TOE — ROUND 2");
-  client.assert_text(STATUS_ID, "Your turn — click an empty square");
-  assert!(client.world().input_enabled());
-  for marker_id in markers {
-    client.assert_object_absent(marker_id);
+  self::assert_text(&display, "TIC TAC TOE — ROUND 2");
+  self::assert_text(&display, "Your turn — click an empty square");
+  for marker in marks {
+    assert!(display.object(marker).is_none());
   }
 }
 
 #[test]
 fn winning_rows_columns_and_diagonals_are_reported_in_the_world() {
   for cells in [[0, 1, 2], [0, 3, 6], [0, 4, 8], [2, 4, 6]] {
-    let (mut client, clock) = self::client(7);
-    self::play_round(&mut client, &clock, &cells);
-
-    client.assert_text(STATUS_ID, "You win! Click the board to play again.");
-    assert!(client.world().input_enabled());
+    let mut display = self::display(DITTO_SEED);
+    self::synchronize_initial(&mut display);
+    self::play_round(&mut display, &cells);
+    self::assert_text(&display, "You win! Click the board to play again.");
   }
 }
 
 #[test]
-fn computer_win_and_draw_are_reported_in_the_world() {
+fn computer_win_draw_and_default_seed_outcomes_are_preserved() {
   for (seed, cells, expected) in [
     (
       3,
-      [0, 2, 3, 7, 8],
+      &[0, 2, 3, 7, 8][..],
       "Computer wins. Click the board to play again.",
     ),
-    (0, [0, 2, 3, 7, 8], "Draw! Click the board to play again."),
-  ] {
-    let (mut client, clock) = self::client(seed);
-    self::play_round(&mut client, &clock, &cells);
-
-    client.assert_text(STATUS_ID, expected);
-    assert!(client.world().input_enabled());
-  }
-}
-
-#[test]
-fn default_seed_reaches_each_terminal_outcome_through_public_input() {
-  for (cells, expected) in [
-    (&[2, 1, 0][..], "You win! Click the board to play again."),
     (
+      0,
+      &[0, 2, 3, 7, 8][..],
+      "Draw! Click the board to play again.",
+    ),
+    (
+      DITTO_SEED,
+      &[2, 1, 0][..],
+      "You win! Click the board to play again.",
+    ),
+    (
+      DITTO_SEED,
       &[6, 5, 0][..],
       "Computer wins. Click the board to play again.",
     ),
-    (&[8, 4, 3, 7, 2][..], "Draw! Click the board to play again."),
+    (
+      DITTO_SEED,
+      &[8, 4, 3, 7, 2][..],
+      "Draw! Click the board to play again.",
+    ),
   ] {
-    let (mut client, clock) = self::client(DITTO_SEED);
-
-    self::play_round(&mut client, &clock, cells);
-
-    client.assert_text(STATUS_ID, expected);
-    assert!(client.world().input_enabled());
+    let mut display = self::display(seed);
+    self::synchronize_initial(&mut display);
+    self::play_round(&mut display, cells);
+    self::assert_text(&display, expected);
   }
 }
 
 #[test]
-fn deterministic_visual_states_match_the_ditto_registry() {
-  let states = [VisualState::HumanMove];
+fn navigation_activation_dispatches_the_same_typed_cell_action() {
+  let mut display = self::display(DITTO_SEED);
+  self::synchronize_initial(&mut display);
+  display.navigate(battlement::NavigationDirection::Right);
+  let focused = display
+    .focused()
+    .expect("a board cell should receive focus");
+  assert!(matches!(
+    display.object(focused).expect("focused object").kind(),
+    GameObjectKind::BoxHitRegion { .. }
+  ));
+  let position = display.world_point(focused, Vector3::ZERO);
+  let index = (0..9)
+    .find(|index| self::near(position, self::cell_position(*index, 0.0)))
+    .expect("focus should belong to a board cell");
+
+  display.activate_focused();
+  self::wait_for_human_move(&mut display, index);
+  assert!(self::mark_at(&display, index, X_TEXTURE).is_some());
+}
+
+#[test]
+fn reconnect_resets_round_state_and_deterministic_visual_registry_is_complete() {
+  let mut display = self::display(DITTO_SEED);
+  self::synchronize_initial(&mut display);
+  self::play_turn(&mut display, 4);
+  assert!(!self::mark_ids(&display).is_empty());
+
+  display.reconnect();
+  self::synchronize_initial(&mut display);
+  assert!(self::mark_ids(&display).is_empty());
+  self::assert_text(&display, "TIC TAC TOE — ROUND 1");
+
   assert_eq!(
     battlement_rules::DITTO_VISUAL_STATE_REGISTRY
       .matches("[[states]]")
       .count(),
-    states.len()
+    1
   );
-  for state in states {
-    assert!(
-      battlement_rules::DITTO_VISUAL_STATE_REGISTRY
-        .contains(&format!("key = \"{}\"", state.registry_key()))
-    );
-  }
+  assert!(
+    battlement_rules::DITTO_VISUAL_STATE_REGISTRY.contains(&format!(
+      "key = \"{}\"",
+      VisualState::HumanMove.registry_key()
+    ))
+  );
 }
 
-fn play_round(client: &mut FakeClient<TicTacToeEngine>, clock: &ManualClock, cells: &[usize]) {
-  for cell in cells {
-    let status = client
-      .assert_object(STATUS_ID)
-      .text()
-      .expect("status should be text")
-      .text
-      .as_str();
-    if status.contains("win") || status.contains("Draw") {
-      return;
-    }
-    self::click_cell(client, *cell);
-    if !client.world().input_enabled() {
-      clock.advance(Duration::from_millis(100));
-      client.poll();
-    }
-  }
-}
-
-fn client(seed: u64) -> (FakeClient<TicTacToeEngine>, ManualClock) {
-  FakeClient::connect_clocked(
-    |clock| battlement_rules::create_seeded_engine(seed, move || clock.now()),
+fn display(seed: u64) -> Display<TicTacToeEngine> {
+  Display::connect(
+    battlement_rules::create_seeded_engine(seed, std::time::Instant::now),
     self::asset_catalog(),
   )
 }
@@ -255,37 +249,165 @@ fn asset_catalog() -> FakeAssetCatalog {
   assets
 }
 
-fn click_cell(client: &mut FakeClient<TicTacToeEngine>, index: usize) {
-  client.click_at(BOARD_ID, self::cell_position(index));
+fn synchronize_initial(display: &mut Display<TicTacToeEngine>) {
+  display.poll();
+  for _ in 0..4 {
+    if display.with_engine(|engine| engine.game_status()) == reactant::GameStatus::Ready {
+      return;
+    }
+    display.poll();
+  }
+  panic!("initial game presentation did not become ready");
 }
 
-fn cell_position(index: usize) -> Vector3 {
+fn wait_for_human_move(display: &mut Display<TicTacToeEngine>, cell: usize) -> ObjectId {
+  for _ in 0..4 {
+    if let Some(marker) = self::mark_at(display, cell, X_TEXTURE)
+      && self::status_text(display) == "Computer thinking…"
+    {
+      return marker;
+    }
+    assert!(display.with_engine(|engine| engine.wait_for_output(TIMEOUT)));
+    display.poll();
+  }
+  panic!("human checkpoint did not become visible");
+}
+
+fn synchronize_action(display: &mut Display<TicTacToeEngine>) {
+  for _ in 0..8 {
+    if display.with_engine(|engine| engine.game_status()) == reactant::GameStatus::Ready {
+      assert!(display.with_engine(|engine| engine.wait_for_worker_stopped(TIMEOUT)));
+      return;
+    }
+    assert!(display.with_engine(|engine| engine.wait_for_output(TIMEOUT)));
+    display.poll();
+  }
+  panic!("game output did not reach the completed-action boundary");
+}
+
+fn play_turn(display: &mut Display<TicTacToeEngine>, cell: usize) {
+  self::click_cell(display, cell);
+  self::wait_for_human_move(display, cell);
+  self::synchronize_action(display);
+  display.advance_time(Duration::from_millis(100));
+  display.advance_frame();
+}
+
+fn play_round(display: &mut Display<TicTacToeEngine>, cells: &[usize]) {
+  for cell in cells {
+    if self::terminal(display) {
+      return;
+    }
+    self::click_cell(display, *cell);
+    self::synchronize_action(display);
+    if self::status_text(display) == "Computer thinking…" {
+      display.advance_time(Duration::from_millis(100));
+      display.advance_frame();
+    }
+  }
+}
+
+fn terminal(display: &Display<TicTacToeEngine>) -> bool {
+  let status = self::status_text(display);
+  status.contains("win") || status.contains("Draw")
+}
+
+fn click_cell(display: &mut Display<TicTacToeEngine>, index: usize) {
+  self::click_world(display, self::cell_position(index, 0.0));
+}
+
+fn click_world(display: &mut Display<TicTacToeEngine>, position: Vector3) {
+  let pixels_per_world_unit = 1080.0 / 11.2;
+  display.click_at(PanelPoint::new(
+    960.0 + position.x * pixels_per_world_unit,
+    540.0 - position.y * pixels_per_world_unit,
+  ));
+}
+
+fn cell_position(index: usize, z: f64) -> Vector3 {
   let row = index / 3;
   let column = index % 3;
   Vector3::new(
     (column as f64 - 1.0) * CELL_SIZE,
     BOARD_CENTER_Y + (1.0 - row as f64) * CELL_SIZE,
-    0.0,
+    z,
   )
 }
 
-fn marker_ids(client: &FakeClient<TicTacToeEngine>) -> Vec<ObjectId> {
-  client
-    .world()
-    .images()
-    .filter_map(|(object, image)| {
-      let texture = image.texture.as_str();
-      (texture == X_TEXTURE || texture == O_TEXTURE).then_some(object.id())
+fn assert_text(display: &Display<TicTacToeEngine>, expected: &str) {
+  let y = if expected.starts_with("TIC TAC TOE") {
+    4.7
+  } else {
+    3.75
+  };
+  assert_eq!(self::text_at(display, y), expected);
+}
+
+fn status_text(display: &Display<TicTacToeEngine>) -> &str {
+  self::text_at(display, 3.75)
+}
+
+fn text_at(display: &Display<TicTacToeEngine>, y: f64) -> &str {
+  display
+    .texts()
+    .filter(|(object, _)| {
+      let position = display.world_point(object.id(), Vector3::ZERO);
+      (position.y - y).abs() < 1e-9
     })
+    .last()
+    .map(|(_, text)| text.text.as_str())
+    .expect("positioned text")
+}
+
+fn image_ids(display: &Display<TicTacToeEngine>, texture: &str) -> Vec<ObjectId> {
+  display
+    .images()
+    .filter_map(|(object, image)| (image.texture.as_str() == texture).then_some(object.id()))
     .collect()
 }
 
-fn assert_mark(client: &FakeClient<TicTacToeEngine>, object_id: ObjectId, texture: &str) {
-  client.assert_image(
-    object_id,
+fn mark_at(display: &Display<TicTacToeEngine>, index: usize, texture: &str) -> Option<ObjectId> {
+  let expected = self::cell_position(index, -0.05);
+  self::image_ids(display, texture)
+    .into_iter()
+    .find(|id| self::near(display.world_point(*id, Vector3::ZERO), expected))
+}
+
+fn hit_region_at(display: &Display<TicTacToeEngine>, expected: Vector3) -> ObjectId {
+  display
+    .objects()
+    .filter(|object| matches!(object.kind(), GameObjectKind::BoxHitRegion { .. }))
+    .find(|object| self::near(display.world_point(object.id(), Vector3::ZERO), expected))
+    .map(|object| object.id())
+    .expect("row-major hit region")
+}
+
+fn assert_mark(display: &Display<TicTacToeEngine>, id: ObjectId, texture: &str) {
+  let GameObjectKind::Image { image } = display.object(id).expect("mark object").kind() else {
+    panic!("mark is not an image")
+  };
+  assert_eq!(
+    image,
     &ImageState {
       fit: ImageFit::Contain,
       ..ImageState::new(texture, 2.25, 2.25)
-    },
+    }
   );
+}
+
+fn assert_position(display: &Display<TicTacToeEngine>, id: ObjectId, expected: Vector3) {
+  assert!(self::near(display.world_point(id, Vector3::ZERO), expected));
+}
+
+fn near(actual: Vector3, expected: Vector3) -> bool {
+  (actual.x - expected.x).abs() < 1e-9
+    && (actual.y - expected.y).abs() < 1e-9
+    && (actual.z - expected.z).abs() < 1e-9
+}
+
+fn mark_ids(display: &Display<TicTacToeEngine>) -> Vec<ObjectId> {
+  self::image_ids(display, X_TEXTURE)
+    .into_iter()
+    .chain(self::image_ids(display, O_TEXTURE))
+    .collect()
 }

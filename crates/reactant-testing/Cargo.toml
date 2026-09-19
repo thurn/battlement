@@ -7,11 +7,15 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+default = ["worker-fixture"]
+worker-fixture = ["dep:exported-worker-fixture"]
+
 [dependencies]
 battlement = { path = "../battlement" }
 battlement-fake = { path = "../battlement-fake" }
 battlement-native = { path = "../battlement-native" }
-exported-worker-fixture = { package = "battlement-native-export-fixture", path = "../battlement-native/tests/fixtures/exported-engine" }
+exported-worker-fixture = { package = "battlement-native-export-fixture", path = "../battlement-native/tests/fixtures/exported-engine", optional = true }
 reactant-rules.workspace = true
 
 [dev-dependencies]

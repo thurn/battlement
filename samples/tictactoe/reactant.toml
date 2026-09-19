@@ -1,2 +1,4 @@
+[project]
 application = "Battlement Tic Tac Toe.app"
 scene = "Assets/Scenes/TicTacToe.unity"
+manifest-path = "rules/Cargo.toml"
