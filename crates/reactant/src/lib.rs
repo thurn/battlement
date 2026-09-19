@@ -11,6 +11,7 @@ mod game_hooks;
 mod game_output;
 mod game_session;
 pub mod prelude;
+mod presentation_inspector;
 pub mod world;
 mod world_adapter;
 mod world_hit_region;
@@ -25,11 +26,13 @@ mod world_visuals;
 
 pub use game_app::GameApp;
 pub use game_hooks::{
-  GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_presentation,
-  use_game_prompt, use_game_selector, use_game_selector_with, use_game_state, use_game_status,
+  GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_observation,
+  use_game_presentation, use_game_prompt, use_game_selector, use_game_selector_with,
+  use_game_state, use_game_status,
 };
 pub use game_output::{GameConsumer, GameOutput};
-pub use game_session::{DispatchResult, GameHandle, GameStatus};
+pub use game_session::{DispatchResult, GameHandle, GameObservation, GameStatus};
+pub use presentation_inspector::{InspectorObject, PresentationInspector};
 pub use reactant_core::*;
 
 /// Typed rules execution and worker lifecycle support.

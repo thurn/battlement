@@ -273,6 +273,16 @@ source = "b772ef6d622e4d6789b856fcbe65f188de07ef0934734362f4225ccf97db41df"
 
 [[baselines]]
 profile = "macos"
+scenario = "presentation inspector"
+checkpoint = "blocked-worker"
+sha256 = "3d83cdc59dfda23178e6baeddfdf8a9dd9089e565e496a6e9f3baebed3db0acf"
+width = 1280
+height = 720
+size_bytes = 91306
+source = "8bbff7b4bb06dbcf0ded353e401188a643ebfb1c80b79599692f0e028c0747c8"
+
+[[baselines]]
+profile = "macos"
 scenario = "presentation lifetime"
 checkpoint = "exit-completed"
 sha256 = "55a5bf12b6d042d9ed31afaea44bc079d89416026d4ac3acf5bbec4f6d125a09"

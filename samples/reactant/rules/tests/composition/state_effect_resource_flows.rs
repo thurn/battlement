@@ -509,6 +509,9 @@ fn sample_geometry(observation: &GeometryObservation) -> GeometryObservationValu
     GeometryObservationTarget::WorldRestBounds { .. } => {
       panic!("sample does not observe rest bounds")
     }
+    GeometryObservationTarget::PresentationWork => {
+      panic!("sample does not observe presentation work")
+    }
   };
   GeometryObservationValue {
     observation_id: observation.observation_id,

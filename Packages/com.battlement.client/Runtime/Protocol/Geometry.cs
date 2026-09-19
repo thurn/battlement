@@ -143,6 +143,13 @@ namespace Battlement
     /// <summary>Renderer bounds in an object's untransformed local XY space.</summary>
     public sealed record WorldRestBoundsGeometry(Rect Bound);
 
+    /// <summary>Current native scheduler work sampled without advancing playback.</summary>
+    public sealed record PresentationWorkGeometry(
+        uint QueuedBatches,
+        uint BlockingOperations,
+        uint PausedScopes
+    );
+
     /// <summary>One target installed in the native observation registry.</summary>
     public abstract record GeometryObservationTarget
     {
@@ -163,6 +170,8 @@ namespace Battlement
 
         public sealed record WorldRestBounds(ObjectId ObjectId, ObjectId RequestId)
             : GeometryObservationTarget;
+
+        public sealed record PresentationWork : GeometryObservationTarget;
     }
 
     /// <summary>Associates one observation epoch with its target.</summary>
@@ -191,6 +200,8 @@ namespace Battlement
         public sealed record WorldBounds(WorldBoundsGeometry Value) : GeometryValue;
 
         public sealed record WorldRestBounds(WorldRestBoundsGeometry Value) : GeometryValue;
+
+        public sealed record PresentationWork(PresentationWorkGeometry Value) : GeometryValue;
     }
 
     /// <summary>A temporary reason an observation could not be sampled.</summary>
@@ -314,7 +325,9 @@ namespace Battlement
                 || target is GeometryObservationTarget.WorldRenderedBounds
                     && current.Value is GeometryValue.WorldBounds
                 || target is GeometryObservationTarget.WorldRestBounds
-                    && current.Value is GeometryValue.WorldRestBounds;
+                    && current.Value is GeometryValue.WorldRestBounds
+                || target is GeometryObservationTarget.PresentationWork
+                    && current.Value is GeometryValue.PresentationWork;
             if (!kindMatches)
                 throw new ArgumentException(
                     "A geometry value does not match its registered target."
@@ -360,6 +373,8 @@ namespace Battlement
                         throw new ArgumentException(
                             "World rest bounds must have positive dimensions."
                         );
+                    break;
+                case GeometryValue.PresentationWork:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(value));

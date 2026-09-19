@@ -68,12 +68,19 @@ table WorldRestBoundsGeometry {
   bound:Rect (required);
 }
 
+table PresentationWorkGeometry {
+  queued_batches:uint;
+  blocking_operations:uint;
+  paused_scopes:uint;
+}
+
 union GeometryValue {
   ElementGeometry,
   ViewportGeometry,
   WorldPointGeometry,
   WorldBoundsGeometry,
-  WorldRestBoundsGeometry
+  WorldRestBoundsGeometry,
+  PresentationWorkGeometry
 }
 
 enum GeometryUnavailable:ubyte {
@@ -117,7 +124,8 @@ enum GeometryTargetKind:ubyte {
   WorldOrigin,
   WorldAnchor,
   WorldRenderedBounds,
-  WorldRestBounds
+  WorldRestBounds,
+  PresentationWork
 }
 
 enum CameraTargetKind:ubyte { Input, Object }

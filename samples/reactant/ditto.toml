@@ -122,6 +122,22 @@ advance = { frames = 30 }
 screenshot = { name = "energy-playing" }
 
 [[scenarios]]
+name = "presentation inspector"
+fixture = "presentation-inspector"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Open inspector" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 1 }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Begin ordered game" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 1 }
+[[scenarios.steps]]
+screenshot = { name = "blocked-worker" }
+
+[[scenarios]]
 name = "gameplay presentation pause"
 fixture = "gameplay-pause"
 [[scenarios.steps]]

@@ -1471,6 +1471,9 @@ fn read_geometry_update(
             )?,
           }
         }
+        geometry::GeometryTargetKind::PresentationWork => {
+          battlement::GeometryObservationTarget::PresentationWork
+        }
         _ => return Err("unknown geometry observation target".to_owned()),
       };
       Ok(battlement::GeometryObservation {

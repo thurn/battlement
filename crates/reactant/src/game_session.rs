@@ -4,7 +4,10 @@ use std::{
   rc::{Rc, Weak},
 };
 
-use reactant_rules::{ChoiceOwner, Game, PresentedPrompt, RulesContext, RulesRun, RulesWorker};
+use reactant_rules::{
+  ChoiceOwner, Game, PresentedPrompt, PublicationObservation, RulesContext, RulesRun, RulesWorker,
+  RunObservation,
+};
 
 use crate::{game_app::Coordinator, game_output::PendingOutput};
 
@@ -19,6 +22,17 @@ pub enum GameStatus {
   Failed,
   /// Ended publicly; worker cleanup may still be in progress.
   Stopped,
+}
+
+/// Read-only rules-worker and bounded-publication state for diagnostic UI.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GameObservation {
+  /// Public session readiness, independent of native playback.
+  pub status: GameStatus,
+  /// Current action worker lifecycle.
+  pub worker: RunObservation,
+  /// Current action publication boundaries.
+  pub publications: PublicationObservation,
 }
 
 /// The synchronous admission result; Started does not imply completion.

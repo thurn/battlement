@@ -11,8 +11,8 @@ use std::{
 
 use battlement::{
   AnchorName, CameraTarget, DisplayId, ElementGeometry, GeometryGeneration,
-  GeometryObservationTarget, GeometryUnavailable, ObjectId, ViewportGeometry, WorldBoundsGeometry,
-  WorldPointGeometry, WorldRestBoundsGeometry,
+  GeometryObservationTarget, GeometryUnavailable, ObjectId, PresentationWorkGeometry,
+  ViewportGeometry, WorldBoundsGeometry, WorldPointGeometry, WorldRestBoundsGeometry,
 };
 
 use crate::{
@@ -86,6 +86,10 @@ pub struct WorldRef {
 pub struct ViewportRef {
   pub(crate) display_id: DisplayId,
 }
+
+/// Selects native presentation-work diagnostics while a consumer is mounted.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub struct PresentationWorkRef;
 
 /// Geometry returned by a world target.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -180,6 +184,7 @@ pub(crate) enum GeometryTarget {
   Element(ElementRef),
   Viewport(ViewportRef),
   World(WorldRef),
+  PresentationWork,
 }
 
 pub(crate) struct GeometrySlot {
@@ -360,6 +365,18 @@ impl GeometryTargets for WorldRef {
   }
 }
 
+impl GeometryTargets for PresentationWorkRef {
+  type Measurements = Measurement<PresentationWorkGeometry>;
+
+  fn collect_targets(&self, targets: &mut Vec<GeometryTarget>) {
+    targets.push(GeometryTarget::PresentationWork);
+  }
+
+  fn read_measurements(&self, runtime: &GeometryRuntime) -> Self::Measurements {
+    runtime.presentation_work()
+  }
+}
+
 impl<T, const N: usize> GeometryTargets for [T; N]
 where
   T: GeometryTargets,
@@ -432,6 +449,7 @@ geometry_tuple!(A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, L:11);
 impl private::Sealed for ElementRef {}
 impl private::Sealed for ViewportRef {}
 impl private::Sealed for WorldRef {}
+impl private::Sealed for PresentationWorkRef {}
 impl<T: GeometryTargets, const N: usize> private::Sealed for [T; N] {}
 impl<T: GeometryTargets> private::Sealed for Vec<T> {}
 

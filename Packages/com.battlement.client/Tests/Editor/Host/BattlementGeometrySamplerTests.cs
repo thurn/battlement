@@ -16,6 +16,40 @@ namespace Battlement.Tests
 {
     public sealed class BattlementGeometrySamplerTests
     {
+        [Test]
+        public void SamplesPresentationWorkOnlyWhileRegisteredAndOnlyWhenChanged()
+        {
+            var work = new PresentationWorkGeometry(2, 1, 0);
+            var sampler = new BattlementGeometrySampler(
+                new BattlementUiDocuments(),
+                presentationWork: () => work
+            );
+            sampler.Apply(
+                new GeometryObservationUpdate(
+                    new[] { Observation(9, new GeometryObservationTarget.PresentationWork()) },
+                    Array.Empty<GeometryObservationId>()
+                )
+            );
+
+            var first = (GeometryValue.PresentationWork)
+                ((GeometryObservationResult.Current)Value(sampler.Sample()!, 9).Result).Value;
+            Assert.That(first.Value, Is.EqualTo(work));
+            Assert.That(sampler.Sample()!.Changed, Is.Empty);
+
+            work = new PresentationWorkGeometry(3, 2, 1);
+            var changed = (GeometryValue.PresentationWork)
+                ((GeometryObservationResult.Current)Value(sampler.Sample()!, 9).Result).Value;
+            Assert.That(changed.Value, Is.EqualTo(work));
+
+            sampler.Apply(
+                new GeometryObservationUpdate(
+                    Array.Empty<GeometryObservation>(),
+                    new[] { ObservationId(9) }
+                )
+            );
+            Assert.That(sampler.Sample(), Is.Null);
+        }
+
         [UnityTest]
         public IEnumerator SamplesScaledElementViewportAndAvailabilityInOnePass()
         {

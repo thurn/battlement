@@ -45,6 +45,10 @@ key = "rules-batches.energy-playing"
 screen = "rules-batches"
 
 [[states]]
+key = "presentation-inspector.blocked-worker"
+screen = "presentation-inspector"
+
+[[states]]
 key = "gameplay-pause.paused"
 screen = "gameplay-pause"
 

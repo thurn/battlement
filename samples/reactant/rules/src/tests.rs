@@ -1,5 +1,41 @@
 use crate::DITTO_VISUAL_STATE_REGISTRY;
 
+fn activate(display: &mut battlement_fake::client::FakeClient<crate::ReactantEngine>, label: &str) {
+  let object_id = display
+    .accessibility()
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some(label))
+    .unwrap_or_else(|| panic!("missing accessible control {label}"))
+    .object_id;
+  display.ui().deliver_event(battlement::UiEvent {
+    target_id: object_id,
+    cancelable: true,
+    default_prevented: false,
+    body: battlement::UiEventBody::AccessibilityAction(battlement::UiAccessibilityActionEvent {
+      backend_generation: 1,
+      action: battlement::UiAccessibilityAction::Activate,
+    }),
+  });
+  display.poll();
+}
+
+fn contains_named<E: battlement_native::Engine>(
+  ui: &battlement_fake::client::ui::UiClient<'_, E>,
+  root: battlement::ObjectId,
+  expected: &str,
+) -> bool {
+  let mut pending = vec![root];
+  while let Some(object_id) = pending.pop() {
+    let element = ui.element(object_id);
+    if element.name() == Some(expected) {
+      return true;
+    }
+    pending.extend(element.children());
+  }
+  false
+}
+
 #[test]
 fn effect_occurrence_fixture_connects_through_the_public_display() {
   let app = crate::effect_occurrence_proof::app();
@@ -54,5 +90,40 @@ fn assets_are_generated_without_runtime_images() {
   assert!(
     !source.contains("rules/assets/mockup"),
     "asset declarations must not refer to the mockup image directory"
+  );
+}
+
+#[test]
+fn presentation_inspector_stays_open_as_the_game_advances() {
+  let mut assets = battlement_fake::assets::FakeAssetCatalog::new();
+  assets.add_scene(crate::CONTENT_SCENE);
+  assets.add_material(crate::MOTION_MATERIAL);
+  assets.add_textures(crate::generated_asset_addresses());
+  let mut display =
+    battlement_fake::client::FakeClient::connect(crate::batch_proof::inspector_app(), assets);
+  display.poll();
+  for _ in 0..8 {
+    display.poll();
+  }
+
+  activate(&mut display, "Open inspector");
+  assert!(
+    contains_named(
+      &display.ui(),
+      crate::ROOT_ID,
+      "presentation-inspector-panel"
+    ),
+    "inspector panel was not displayed after semantic activation"
+  );
+  activate(&mut display, "Begin ordered game");
+  display.advance_frame();
+
+  assert!(
+    contains_named(
+      &display.ui(),
+      crate::ROOT_ID,
+      "presentation-inspector-panel"
+    ),
+    "game advancement closed the inspector"
   );
 }

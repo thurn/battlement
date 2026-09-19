@@ -28,18 +28,23 @@ struct Menu(Rc<Proof>);
 struct Board {
   automatic: bool,
 }
+struct InspectorBoard;
 struct StandardBoard;
 struct SnapshotAnimationBoard;
 
 pub(crate) fn app() -> App<Game> {
-  self::build(false)
+  self::build(false, false)
 }
 
 pub(crate) fn automatic_app() -> App<Game> {
-  self::build(true)
+  self::build(true, false)
 }
 
-fn build(automatic: bool) -> App<Game> {
+pub(crate) fn inspector_app() -> App<Game> {
+  self::build(false, true)
+}
+
+fn build(automatic: bool, inspector: bool) -> App<Game> {
   let mut app = App::with_model(CONTENT_SCENE, model::new());
   let game = app.start_game::<QueueGame>(0, |connection| ExecutionMode::Interactive {
     connection,
@@ -65,6 +70,7 @@ fn build(automatic: bool) -> App<Game> {
           Label::new(ls("Ordered game output")).style(Style::new().font_size(30.px())),
           Menu(proof),
           GameRoot::new(Board { automatic }),
+          inspector.then_some(InspectorBoard),
         )),
     )
     .document(|mut document| {
@@ -153,6 +159,39 @@ impl Component for Board {
     } else {
       Node::new(StandardBoard)
     }
+  }
+}
+
+impl Component for InspectorBoard {
+  fn render(&self) -> impl Render {
+    let stage = *reactant::use_game_state::<QueueGame>();
+    let observation = reactant::use_game_observation::<QueueGame>();
+    let worker = if observation.publications.waiting_for_capacity {
+      "waiting for snapshot capacity"
+    } else if observation.worker.started && !observation.worker.stopped {
+      "running rules action"
+    } else if observation.worker.stopped && observation.status == reactant::GameStatus::Busy {
+      "action complete; Unity may still be playing queued commands"
+    } else {
+      match observation.status {
+        reactant::GameStatus::Ready => "ready",
+        reactant::GameStatus::Busy => "waiting for initial presentation submission",
+        reactant::GameStatus::Failed => "failed; accepted state retained",
+        reactant::GameStatus::Stopped => "stopped; cleanup may still be finishing",
+      }
+    };
+    PresentationInspector::new(self::stage_label(stage), worker)
+      .prompt(None::<String>)
+      .selection(Some(InspectorObject::world(
+        GAME_CUBE,
+        battlement::CameraTarget::Input,
+        "visible game piece",
+        format!(
+          "{} at x={:.1}",
+          self::stage_label(stage),
+          f64::from(stage) - 2.0
+        ),
+      )))
   }
 }
 

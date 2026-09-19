@@ -118,6 +118,8 @@ pub enum GeometryValueView<'a> {
   WorldBounds(WorldBoundsGeometryView<'a>),
   /// Renderer bounds in the observed object's local XY space.
   WorldRestBounds(WorldRestBoundsGeometryView<'a>),
+  /// Native queue and blocking-work counts.
+  PresentationWork(PresentationWorkGeometryView<'a>),
 }
 
 impl GeometryValueView<'_> {
@@ -176,6 +178,13 @@ impl GeometryValueView<'_> {
         let [x, y, width, height] = value.bound();
         battlement::GeometryValue::WorldRestBounds(battlement::WorldRestBoundsGeometry {
           bound: battlement::Rect::new(x, y, width, height),
+        })
+      }
+      Self::PresentationWork(value) => {
+        battlement::GeometryValue::PresentationWork(battlement::PresentationWorkGeometry {
+          queued_batches: value.queued_batches(),
+          blocking_operations: value.blocking_operations(),
+          paused_scopes: value.paused_scopes(),
         })
       }
     }
@@ -317,6 +326,32 @@ pub struct WorldRestBoundsGeometryView<'a> {
   value: wire::WorldRestBoundsGeometry<'a>,
 }
 
+/// Borrowed native presentation-work counts.
+#[derive(Clone, Copy)]
+pub struct PresentationWorkGeometryView<'a> {
+  value: wire::PresentationWorkGeometry<'a>,
+}
+
+impl PresentationWorkGeometryView<'_> {
+  /// Returns retained native batches.
+  #[must_use]
+  pub fn queued_batches(self) -> u32 {
+    self.value.queued_batches()
+  }
+
+  /// Returns finite operations blocking batch progress.
+  #[must_use]
+  pub fn blocking_operations(self) -> u32 {
+    self.value.blocking_operations()
+  }
+
+  /// Returns paused gameplay presentation scopes.
+  #[must_use]
+  pub fn paused_scopes(self) -> u32 {
+    self.value.paused_scopes()
+  }
+}
+
 impl WorldRestBoundsGeometryView<'_> {
   /// Returns x, y, width, and height in local units.
   #[must_use]
@@ -438,6 +473,14 @@ fn current_value(value: wire::CurrentGeometry<'_>) -> Result<GeometryValueView<'
       validate_world_rest_bounds(value)?;
       Ok(GeometryValueView::WorldRestBounds(
         WorldRestBoundsGeometryView { value },
+      ))
+    }
+    wire::GeometryValue::PresentationWorkGeometry => {
+      let value = value
+        .value_as_presentation_work_geometry()
+        .ok_or_else(|| error("presentation-work geometry payload is missing"))?;
+      Ok(GeometryValueView::PresentationWork(
+        PresentationWorkGeometryView { value },
       ))
     }
     _ => Err(error("unknown geometry value union tag")),

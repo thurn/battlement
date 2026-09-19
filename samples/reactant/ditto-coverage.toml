@@ -69,6 +69,12 @@ checkpoint = "energy-playing"
 owner = "reactant-testing::batches"
 
 [[mappings]]
+state = "presentation-inspector.blocked-worker"
+scenario = "presentation inspector"
+checkpoint = "blocked-worker"
+owner = "reactant-testing::presentation_inspector"
+
+[[mappings]]
 state = "gameplay-pause.paused"
 scenario = "gameplay presentation pause"
 checkpoint = "paused"

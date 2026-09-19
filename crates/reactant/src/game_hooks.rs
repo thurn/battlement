@@ -16,9 +16,9 @@ use reactant_core::{
   render::{Node, Render},
   work_scope::WorkScope,
 };
-use reactant_rules::{ChoiceOwner, Game, PresentedPrompt};
+use reactant_rules::{ChoiceOwner, Game, PresentedPrompt, PublicationObservation, RunObservation};
 
-use crate::game_session::GameStatus;
+use crate::game_session::{GameObservation, GameStatus};
 
 /// A game subtree with a fresh component and native lifetime on replacement.
 /// Place persistent menus alongside this boundary.
@@ -36,6 +36,8 @@ pub(crate) struct GameRenderContext {
   pub(crate) prompt: Option<Rc<dyn Any>>,
   pub(crate) animation_sequence: Option<u64>,
   pub(crate) animation: Option<Rc<dyn Any>>,
+  pub(crate) worker: RunObservation,
+  pub(crate) publications: PublicationObservation,
 }
 
 /// One native operation authored from a queued semantic game event.
@@ -144,6 +146,16 @@ pub fn use_game_prompt<G: Game>() -> Option<Rc<PresentedPrompt<G::Prompt<'static
 /// Subscribes to the attached session's readiness and recovery state.
 pub fn use_game_status<G: Game>() -> GameStatus {
   self::context::<G>().status
+}
+
+/// Subscribes to the attached session's worker and publication diagnostics.
+pub fn use_game_observation<G: Game>() -> GameObservation {
+  let context = self::context::<G>();
+  GameObservation {
+    status: context.status,
+    worker: context.worker,
+    publications: context.publications,
+  }
 }
 
 /// Captures a reference-counted pause owner for the currently attached game.

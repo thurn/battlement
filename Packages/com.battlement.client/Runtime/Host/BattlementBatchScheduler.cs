@@ -44,6 +44,19 @@ namespace Battlement
 
         public int InfiniteOperationCount => operations.InfiniteOperationCount;
 
+        internal uint PendingBatchCount =>
+            checked((uint)batches.Count(batch => batch.Outcome == BatchOutcome.Pending));
+
+        internal uint BlockingOperationCount =>
+            checked(
+                (uint)
+                    batches
+                        .Where(batch => batch.Outcome == BatchOutcome.Pending)
+                        .Sum(batch => batch.BlockingOperations.Count)
+            );
+
+        internal uint PausedScopeCount => checked((uint)pausedScopes.Count);
+
         private bool IsControlled => clock is DittoMotionClock { IsControlled: true };
 
         public BattlementBatchScheduler(

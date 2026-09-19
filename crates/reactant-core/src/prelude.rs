@@ -80,7 +80,7 @@ pub use crate::{
   focus::FocusProps,
   geometry::{
     GeometrySnapshot, GeometryTargets, IntoGeometryEffectCleanup, Measurement, MeasurementStatus,
-    ViewportRef, WorldGeometry, WorldRef, use_geometry, use_geometry_effect,
+    PresentationWorkRef, ViewportRef, WorldGeometry, WorldRef, use_geometry, use_geometry_effect,
   },
   gesture::{
     DragAxis, DragConstraints, DragControls, DragElastic, DragStartOptions, DragTransition,

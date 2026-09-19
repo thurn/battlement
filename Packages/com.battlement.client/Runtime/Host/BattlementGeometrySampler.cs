@@ -67,6 +67,7 @@ namespace Battlement
         private readonly IBattlementGeometryDisplaySource displays;
         private readonly Func<Camera?> worldCamera;
         private readonly IBattlementGeometryWorldSource? world;
+        private readonly Func<PresentationWorkGeometry>? presentationWork;
         private GeometryRegistry registry = new();
         private readonly Dictionary<GeometryObservationId, GeometryObservationResult> latest =
             new();
@@ -76,13 +77,15 @@ namespace Battlement
             BattlementUiDocuments documents,
             IBattlementGeometryDisplaySource? displays = null,
             Func<Camera?>? worldCamera = null,
-            IBattlementGeometryWorldSource? world = null
+            IBattlementGeometryWorldSource? world = null,
+            Func<PresentationWorkGeometry>? presentationWork = null
         )
         {
             this.documents = documents;
             this.displays = displays ?? new UnityBattlementGeometryDisplaySource();
             this.worldCamera = worldCamera ?? (() => Camera.main);
             this.world = world;
+            this.presentationWork = presentationWork;
         }
 
         public void Apply(GeometryObservationUpdate update)
@@ -177,6 +180,9 @@ namespace Battlement
                 ),
                 GeometryObservationTarget.WorldRestBounds bounds => SampleWorldRestBounds(
                     bounds.ObjectId
+                ),
+                GeometryObservationTarget.PresentationWork => Current(
+                    presentationWork?.Invoke() ?? new PresentationWorkGeometry(0, 0, 0)
                 ),
                 _ => throw new InvalidOperationException(
                     $"Geometry target {target.GetType().Name} is not supported by this sampler."
@@ -371,6 +377,9 @@ namespace Battlement
 
         private static GeometryObservationResult Current(ViewportGeometry value) =>
             new GeometryObservationResult.Current(new GeometryValue.Viewport(value));
+
+        private static GeometryObservationResult Current(PresentationWorkGeometry value) =>
+            new GeometryObservationResult.Current(new GeometryValue.PresentationWork(value));
 
         private static GeometryObservationResult Unavailable(GeometryUnavailable reason) =>
             new GeometryObservationResult.Unavailable(reason);

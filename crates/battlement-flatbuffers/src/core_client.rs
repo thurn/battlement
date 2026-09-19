@@ -1196,6 +1196,42 @@ mod tests {
     assert_eq!(actual.to_owned(), expected);
   }
 
+  #[test]
+  fn round_trips_presentation_work_geometry() {
+    let observation_id = battlement::GeometryObservationId(battlement::ObjectId::new_v4());
+    let expected = battlement::GeometryObservationValue {
+      observation_id,
+      result: battlement::GeometryObservationResult::Current(
+        battlement::GeometryValue::PresentationWork(battlement::PresentationWorkGeometry {
+          queued_batches: 7,
+          blocking_operations: 2,
+          paused_scopes: 1,
+        }),
+      ),
+    };
+    let action = battlement::Action::new(
+      battlement::ActionId::new_v4(),
+      battlement::SessionId::new_v4(),
+      battlement::ActionBody::GeometryObservations(battlement::GeometryObservationBatch {
+        generation: battlement::GeometryGeneration(std::num::NonZeroU64::new(9).unwrap()),
+        changed: vec![expected],
+      }),
+    );
+    let bytes = write_core_action(&action).expect("encode presentation work geometry");
+
+    let CoreClientMessageView::Action(action) =
+      CoreClientMessageView::read(bytes.as_bytes()).expect("decode presentation work geometry")
+    else {
+      panic!("expected action");
+    };
+    let CoreActionBodyView::GeometryObservations(batch) = action.body() else {
+      panic!("expected geometry batch");
+    };
+    assert_eq!(batch.generation(), 9);
+    assert_eq!(batch.changed_count(), 1);
+    assert_eq!(batch.changed(0).unwrap().copy_for_retention(), expected);
+  }
+
   fn motion_action_bytes(first_sequence: u64, last_sequence: u64) -> Vec<u8> {
     let mut builder = flatbuffers::FlatBufferBuilder::new();
     let events = builder.create_vector_from_iter(std::iter::empty::<

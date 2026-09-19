@@ -206,6 +206,17 @@ pub struct WorldRestBoundsGeometry {
   pub bound: Rect,
 }
 
+/// Current host-side presentation work, sampled without advancing playback.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct PresentationWorkGeometry {
+  /// Batches still retained by the native scheduler.
+  pub queued_batches: u32,
+  /// Finite blocking operations delaying a batch.
+  pub blocking_operations: u32,
+  /// Gameplay scopes whose presentation clock is paused.
+  pub paused_scopes: u32,
+}
+
 /// One target installed in the native observation registry.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum GeometryObservationTarget {
@@ -232,6 +243,8 @@ pub enum GeometryObservationTarget {
     object_id: ObjectId,
     request_id: ObjectId,
   },
+  /// Samples the native scheduler only while an inspector requests it.
+  PresentationWork,
 }
 
 /// Associates one observation epoch with its target.
@@ -256,6 +269,7 @@ pub enum GeometryValue {
   WorldPoint(WorldPointGeometry),
   WorldBounds(WorldBoundsGeometry),
   WorldRestBounds(WorldRestBoundsGeometry),
+  PresentationWork(PresentationWorkGeometry),
 }
 
 /// A temporary reason an observation could not be sampled.
@@ -418,6 +432,9 @@ fn validate_result(
     ) | (
       GeometryObservationTarget::WorldRestBounds { .. },
       GeometryValue::WorldRestBounds(_)
+    ) | (
+      GeometryObservationTarget::PresentationWork,
+      GeometryValue::PresentationWork(_)
     )
   );
   if !matches {
@@ -450,6 +467,7 @@ fn validate_numbers(value: GeometryValue) -> Result<(), GeometryValidationError>
     GeometryValue::WorldRestBounds(value) => {
       rect_finite(value.bound) && value.bound.width > 0.0 && value.bound.height > 0.0
     }
+    GeometryValue::PresentationWork(_) => true,
   };
   if finite {
     Ok(())

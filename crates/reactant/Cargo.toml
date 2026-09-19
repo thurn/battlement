@@ -13,5 +13,6 @@ reactant-core.workspace = true
 reactant-rules.workspace = true
 reactant-ui.workspace = true
 taffy.workspace = true
+trox.workspace = true
 
 uuid.workspace = true

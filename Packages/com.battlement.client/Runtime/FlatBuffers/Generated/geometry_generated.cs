@@ -27,6 +27,7 @@ public enum GeometryValue : byte
   WorldPointGeometry = 3,
   WorldBoundsGeometry = 4,
   WorldRestBoundsGeometry = 5,
+  PresentationWorkGeometry = 6,
 };
 
 
@@ -52,6 +53,9 @@ static public class GeometryValueVerify
         break;
       case GeometryValue.WorldRestBoundsGeometry:
         result = Battlement.FlatBuffers.Generated.WorldRestBoundsGeometryVerify.Verify(verifier, tablePos);
+        break;
+      case GeometryValue.PresentationWorkGeometry:
+        result = Battlement.FlatBuffers.Generated.PresentationWorkGeometryVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;
@@ -110,6 +114,7 @@ public enum GeometryTargetKind : byte
   WorldAnchor = 3,
   WorldRenderedBounds = 4,
   WorldRestBounds = 5,
+  PresentationWork = 6,
 };
 
 public enum CameraTargetKind : byte
@@ -395,6 +400,53 @@ static public class WorldRestBoundsGeometryVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct PresentationWorkGeometry : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static PresentationWorkGeometry GetRootAsPresentationWorkGeometry(ByteBuffer _bb) { return GetRootAsPresentationWorkGeometry(_bb, new PresentationWorkGeometry()); }
+  public static PresentationWorkGeometry GetRootAsPresentationWorkGeometry(ByteBuffer _bb, PresentationWorkGeometry obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public PresentationWorkGeometry __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public uint QueuedBatches { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+  public uint BlockingOperations { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+  public uint PausedScopes { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+
+  public static Offset<Battlement.FlatBuffers.Generated.PresentationWorkGeometry> CreatePresentationWorkGeometry(FlatBufferBuilder builder,
+      uint queued_batches = 0,
+      uint blocking_operations = 0,
+      uint paused_scopes = 0) {
+    builder.StartTable(3);
+    PresentationWorkGeometry.AddPausedScopes(builder, paused_scopes);
+    PresentationWorkGeometry.AddBlockingOperations(builder, blocking_operations);
+    PresentationWorkGeometry.AddQueuedBatches(builder, queued_batches);
+    return PresentationWorkGeometry.EndPresentationWorkGeometry(builder);
+  }
+
+  public static void StartPresentationWorkGeometry(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void AddQueuedBatches(FlatBufferBuilder builder, uint queuedBatches) { builder.AddUint(0, queuedBatches, 0); }
+  public static void AddBlockingOperations(FlatBufferBuilder builder, uint blockingOperations) { builder.AddUint(1, blockingOperations, 0); }
+  public static void AddPausedScopes(FlatBufferBuilder builder, uint pausedScopes) { builder.AddUint(2, pausedScopes, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.PresentationWorkGeometry> EndPresentationWorkGeometry(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<Battlement.FlatBuffers.Generated.PresentationWorkGeometry>(o);
+  }
+}
+
+
+static public class PresentationWorkGeometryVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*QueuedBatches*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyField(tablePos, 6 /*BlockingOperations*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyField(tablePos, 8 /*PausedScopes*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct CurrentGeometry : IFlatbufferObject
 {
   private Table __p;
@@ -412,6 +464,7 @@ public struct CurrentGeometry : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.WorldPointGeometry ValueAsWorldPointGeometry() { return Value<Battlement.FlatBuffers.Generated.WorldPointGeometry>().Value; }
   public Battlement.FlatBuffers.Generated.WorldBoundsGeometry ValueAsWorldBoundsGeometry() { return Value<Battlement.FlatBuffers.Generated.WorldBoundsGeometry>().Value; }
   public Battlement.FlatBuffers.Generated.WorldRestBoundsGeometry ValueAsWorldRestBoundsGeometry() { return Value<Battlement.FlatBuffers.Generated.WorldRestBoundsGeometry>().Value; }
+  public Battlement.FlatBuffers.Generated.PresentationWorkGeometry ValueAsPresentationWorkGeometry() { return Value<Battlement.FlatBuffers.Generated.PresentationWorkGeometry>().Value; }
 
   public static Offset<Battlement.FlatBuffers.Generated.CurrentGeometry> CreateCurrentGeometry(FlatBufferBuilder builder,
       Battlement.FlatBuffers.Generated.GeometryValue value_type = Battlement.FlatBuffers.Generated.GeometryValue.NONE,

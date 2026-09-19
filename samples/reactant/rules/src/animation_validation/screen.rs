@@ -5,7 +5,7 @@ use crate::animation_validation::{
   run_fixture_case,
 };
 use crate::{Game, animation_validation::runner, design_system};
-use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
+use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, ObjectId, Style, object_id};
 use reactant::prelude::*;
 
 const TWEEN_CASE: CaseId = CaseId("public-tween");
@@ -13,6 +13,8 @@ const TWEEN_CASE: CaseId = CaseId("public-tween");
 const KEYFRAME_CASE: CaseId = CaseId("keyframe-boundary");
 
 const RETARGET_CASE: CaseId = CaseId("retarget-presentation");
+
+const INSPECTED_TARGET: ObjectId = object_id!("25300000-0000-4000-8000-000000000093");
 
 /// Interactive sample state for the shared animation validation strip.
 #[derive(Clone, Debug, PartialEq)]
@@ -102,6 +104,7 @@ pub(crate) struct ValidationScreen {
 
 impl Component for ValidationScreen {
   fn render(&self) -> impl Render {
+    let inspected_target = use_element_ref();
     let report_text = self.state.report.as_ref().map_or_else(
       || "No checkpoint captured".to_owned(),
       ValidationReport::concise,
@@ -311,6 +314,8 @@ impl Component for ValidationScreen {
                         ),
                     ))
                     .name("validation-result")
+                    .id(*INSPECTED_TARGET.as_uuid())
+                    .element_ref(inspected_target.clone())
                     .style(
                         result(
                             self
@@ -331,6 +336,27 @@ impl Component for ValidationScreen {
                 reactant::host::Label::new(ls(details))
                     .name("validation-details")
                     .style(details_style(self.compact)),
+            )
+            .child(
+                reactant::PresentationInspector::new(
+                    format!(
+                        "{} at {}µs",
+                        self.state.selected_case.0,
+                        self.state.session.elapsed_micros(),
+                    ),
+                    "unavailable: this motion fixture has no rules worker",
+                )
+                .prompt(None::<String>)
+                .selection(Some(reactant::InspectorObject::ui(
+                    INSPECTED_TARGET,
+                    inspected_target,
+                    "visible validation result",
+                    format!(
+                        "{} · {}",
+                        if self.state.session.playing() { "playing" } else { "paused" },
+                        report_text,
+                    ),
+                ))),
             )
   }
 }

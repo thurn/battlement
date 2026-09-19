@@ -667,6 +667,7 @@ dependencies = [
  "reactant-rules",
  "reactant-ui",
  "taffy",
+ "trox",
  "uuid",
 ]
 

@@ -1579,6 +1579,8 @@ namespace Battlement
                         _ = ReadUuid(target.ObjectId, "geometry rest-bounds object");
                         _ = ReadUuid(target.RequestId, "geometry rest-bounds request");
                         break;
+                    case Wire.GeometryTargetKind.PresentationWork:
+                        break;
                     default:
                         throw new InvalidDataException("A geometry target kind is unknown.");
                 }

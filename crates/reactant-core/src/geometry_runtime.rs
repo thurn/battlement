@@ -10,7 +10,7 @@ use battlement::{
   Command, CommandBody, ElementGeometry, GeometryGeneration, GeometryObservation,
   GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationUpdate, GeometryRegistry, GeometryValidationError,
-  GeometryValue, ObjectId, ViewportGeometry, WorldRestBoundsGeometry,
+  GeometryValue, ObjectId, PresentationWorkGeometry, ViewportGeometry, WorldRestBoundsGeometry,
 };
 
 use crate::{
@@ -432,6 +432,16 @@ impl GeometryRuntime {
     )
   }
 
+  pub(crate) fn presentation_work(&self) -> Measurement<PresentationWorkGeometry> {
+    self.read(
+      &TargetKey::Native(GeometryObservationTarget::PresentationWork),
+      |value| match value {
+        GeometryValue::PresentationWork(value) => Some(value),
+        _ => None,
+      },
+    )
+  }
+
   fn resolve(
     &self,
     target: &GeometryTarget,
@@ -458,6 +468,10 @@ impl GeometryRuntime {
         TargetKey::Native(world.target.clone()),
         world.target.clone(),
       )),
+      GeometryTarget::PresentationWork => {
+        let target = GeometryObservationTarget::PresentationWork;
+        Some((TargetKey::Native(target.clone()), target))
+      }
     }
   }
 
@@ -480,6 +494,9 @@ impl GeometryRuntime {
         }))
       }
       GeometryTarget::World(world) => Some(TargetKey::Native(world.target.clone())),
+      GeometryTarget::PresentationWork => Some(TargetKey::Native(
+        GeometryObservationTarget::PresentationWork,
+      )),
     }
   }
 

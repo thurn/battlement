@@ -1350,6 +1350,8 @@ namespace Battlement
                         Object(target.ObjectId, "geometry rest-bounds object"),
                         Object(target.RequestId, "geometry rest-bounds request")
                     ),
+                Wire.GeometryTargetKind.PresentationWork =>
+                    new GeometryObservationTarget.PresentationWork(),
                 _ => throw new InvalidDataException("A geometry target kind is unknown."),
             };
 

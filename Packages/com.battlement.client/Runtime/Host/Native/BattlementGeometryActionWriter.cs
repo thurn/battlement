@@ -97,6 +97,10 @@ namespace Battlement
                     Wire.GeometryValue.WorldRestBoundsGeometry,
                     WorldRestBounds(bounds.Value).Value
                 ),
+                GeometryValue.PresentationWork work => new(
+                    Wire.GeometryValue.PresentationWorkGeometry,
+                    PresentationWork(work.Value).Value
+                ),
                 _ => throw new InvalidDataException("Unknown geometry value."),
             };
             Offset<Wire.CurrentGeometry> current = Wire.CurrentGeometry.CreateCurrentGeometry(
@@ -220,6 +224,16 @@ namespace Battlement
             );
             return Wire.WorldRestBoundsGeometry.EndWorldRestBoundsGeometry(builder);
         }
+
+        private Offset<Wire.PresentationWorkGeometry> PresentationWork(
+            PresentationWorkGeometry value
+        ) =>
+            Wire.PresentationWorkGeometry.CreatePresentationWorkGeometry(
+                builder,
+                value.QueuedBatches,
+                value.BlockingOperations,
+                value.PausedScopes
+            );
 
         private Offset<Wire.Projective2> Projective(Projective2 value) =>
             Wire.Projective2.CreateProjective2(

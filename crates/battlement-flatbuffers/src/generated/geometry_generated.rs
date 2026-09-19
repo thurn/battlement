@@ -132,19 +132,20 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_GEOMETRY_VALUE: u8 = 5;
+      pub const ENUM_MAX_GEOMETRY_VALUE: u8 = 6;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_GEOMETRY_VALUE: [GeometryValue; 6] = [
+      pub const ENUM_VALUES_GEOMETRY_VALUE: [GeometryValue; 7] = [
         GeometryValue::NONE,
         GeometryValue::ElementGeometry,
         GeometryValue::ViewportGeometry,
         GeometryValue::WorldPointGeometry,
         GeometryValue::WorldBoundsGeometry,
         GeometryValue::WorldRestBoundsGeometry,
+        GeometryValue::PresentationWorkGeometry,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -158,9 +159,10 @@ pub mod battlement {
         pub const WorldPointGeometry: Self = Self(3);
         pub const WorldBoundsGeometry: Self = Self(4);
         pub const WorldRestBoundsGeometry: Self = Self(5);
+        pub const PresentationWorkGeometry: Self = Self(6);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 5;
+        pub const ENUM_MAX: u8 = 6;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ElementGeometry,
@@ -168,6 +170,7 @@ pub mod battlement {
           Self::WorldPointGeometry,
           Self::WorldBoundsGeometry,
           Self::WorldRestBoundsGeometry,
+          Self::PresentationWorkGeometry,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -178,6 +181,7 @@ pub mod battlement {
             Self::WorldPointGeometry => Some("WorldPointGeometry"),
             Self::WorldBoundsGeometry => Some("WorldBoundsGeometry"),
             Self::WorldRestBoundsGeometry => Some("WorldRestBoundsGeometry"),
+            Self::PresentationWorkGeometry => Some("PresentationWorkGeometry"),
             _ => None,
           }
         }
@@ -463,19 +467,20 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_GEOMETRY_TARGET_KIND: u8 = 5;
+      pub const ENUM_MAX_GEOMETRY_TARGET_KIND: u8 = 6;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_GEOMETRY_TARGET_KIND: [GeometryTargetKind; 6] = [
+      pub const ENUM_VALUES_GEOMETRY_TARGET_KIND: [GeometryTargetKind; 7] = [
         GeometryTargetKind::UiElement,
         GeometryTargetKind::Viewport,
         GeometryTargetKind::WorldOrigin,
         GeometryTargetKind::WorldAnchor,
         GeometryTargetKind::WorldRenderedBounds,
         GeometryTargetKind::WorldRestBounds,
+        GeometryTargetKind::PresentationWork,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -489,9 +494,10 @@ pub mod battlement {
         pub const WorldAnchor: Self = Self(3);
         pub const WorldRenderedBounds: Self = Self(4);
         pub const WorldRestBounds: Self = Self(5);
+        pub const PresentationWork: Self = Self(6);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 5;
+        pub const ENUM_MAX: u8 = 6;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::UiElement,
           Self::Viewport,
@@ -499,6 +505,7 @@ pub mod battlement {
           Self::WorldAnchor,
           Self::WorldRenderedBounds,
           Self::WorldRestBounds,
+          Self::PresentationWork,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -509,6 +516,7 @@ pub mod battlement {
             Self::WorldAnchor => Some("WorldAnchor"),
             Self::WorldRenderedBounds => Some("WorldRenderedBounds"),
             Self::WorldRestBounds => Some("WorldRestBounds"),
+            Self::PresentationWork => Some("PresentationWork"),
             _ => None,
           }
         }
@@ -2342,6 +2350,170 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum PresentationWorkGeometryOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct PresentationWorkGeometry<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for PresentationWorkGeometry<'a> {
+        type Inner = PresentationWorkGeometry<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> PresentationWorkGeometry<'a> {
+        pub const VT_QUEUED_BATCHES: ::flatbuffers::VOffsetT = 4;
+        pub const VT_BLOCKING_OPERATIONS: ::flatbuffers::VOffsetT = 6;
+        pub const VT_PAUSED_SCOPES: ::flatbuffers::VOffsetT = 8;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          PresentationWorkGeometry { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args PresentationWorkGeometryArgs,
+        ) -> ::flatbuffers::WIPOffset<PresentationWorkGeometry<'bldr>> {
+          let mut builder = PresentationWorkGeometryBuilder::new(_fbb);
+          builder.add_paused_scopes(args.paused_scopes);
+          builder.add_blocking_operations(args.blocking_operations);
+          builder.add_queued_batches(args.queued_batches);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn queued_batches(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(PresentationWorkGeometry::VT_QUEUED_BATCHES, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn blocking_operations(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(PresentationWorkGeometry::VT_BLOCKING_OPERATIONS, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn paused_scopes(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(PresentationWorkGeometry::VT_PAUSED_SCOPES, Some(0))
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for PresentationWorkGeometry<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<u32>("queued_batches", Self::VT_QUEUED_BATCHES, false)?
+            .visit_field::<u32>("blocking_operations", Self::VT_BLOCKING_OPERATIONS, false)?
+            .visit_field::<u32>("paused_scopes", Self::VT_PAUSED_SCOPES, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct PresentationWorkGeometryArgs {
+        pub queued_batches: u32,
+        pub blocking_operations: u32,
+        pub paused_scopes: u32,
+      }
+      impl<'a> Default for PresentationWorkGeometryArgs {
+        #[inline]
+        fn default() -> Self {
+          PresentationWorkGeometryArgs {
+            queued_batches: 0,
+            blocking_operations: 0,
+            paused_scopes: 0,
+          }
+        }
+      }
+
+      pub struct PresentationWorkGeometryBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PresentationWorkGeometryBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_queued_batches(&mut self, queued_batches: u32) {
+          self.fbb_.push_slot::<u32>(
+            PresentationWorkGeometry::VT_QUEUED_BATCHES,
+            queued_batches,
+            0,
+          );
+        }
+        #[inline]
+        pub fn add_blocking_operations(&mut self, blocking_operations: u32) {
+          self.fbb_.push_slot::<u32>(
+            PresentationWorkGeometry::VT_BLOCKING_OPERATIONS,
+            blocking_operations,
+            0,
+          );
+        }
+        #[inline]
+        pub fn add_paused_scopes(&mut self, paused_scopes: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(PresentationWorkGeometry::VT_PAUSED_SCOPES, paused_scopes, 0);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> PresentationWorkGeometryBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          PresentationWorkGeometryBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<PresentationWorkGeometry<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for PresentationWorkGeometry<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("PresentationWorkGeometry");
+          ds.field("queued_batches", &self.queued_batches());
+          ds.field("blocking_operations", &self.blocking_operations());
+          ds.field("paused_scopes", &self.paused_scopes());
+          ds.finish()
+        }
+      }
       pub enum CurrentGeometryOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -2481,6 +2653,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn value_as_presentation_work_geometry(&self) -> Option<PresentationWorkGeometry<'a>> {
+          if self.value_type() == GeometryValue::PresentationWorkGeometry {
+            let u = self.value();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { PresentationWorkGeometry::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CurrentGeometry<'_> {
@@ -2520,6 +2706,11 @@ pub mod battlement {
                 GeometryValue::WorldRestBoundsGeometry => v
                   .verify_union_variant::<::flatbuffers::ForwardsUOffset<WorldRestBoundsGeometry>>(
                     "GeometryValue::WorldRestBoundsGeometry",
+                    pos,
+                  ),
+                GeometryValue::PresentationWorkGeometry => v
+                  .verify_union_variant::<::flatbuffers::ForwardsUOffset<PresentationWorkGeometry>>(
+                    "GeometryValue::PresentationWorkGeometry",
                     pos,
                   ),
                 _ => Ok(()),
@@ -2630,6 +2821,16 @@ pub mod battlement {
             }
             GeometryValue::WorldRestBoundsGeometry => {
               if let Some(x) = self.value_as_world_rest_bounds_geometry() {
+                ds.field("value", &x)
+              } else {
+                ds.field(
+                  "value",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            GeometryValue::PresentationWorkGeometry => {
+              if let Some(x) = self.value_as_presentation_work_geometry() {
                 ds.field("value", &x)
               } else {
                 ds.field(

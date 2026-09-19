@@ -37,6 +37,7 @@ pub(crate) struct Coordinator {
   next: Cell<u64>,
   revision: Cell<u64>,
   observed: Cell<u64>,
+  observed_game: RefCell<Option<(u64, crate::GameObservation)>>,
 }
 
 pub(crate) trait AttachedSession: Any {
@@ -44,6 +45,7 @@ pub(crate) trait AttachedSession: Any {
   fn refresh(&self);
   fn fail(&self, message: String);
   fn view(&self, revision: u64) -> GameRenderContext;
+  fn observation(&self) -> crate::GameObservation;
   fn id(&self) -> u64;
   fn active(&self) -> bool;
   fn output(self: Rc<Self>) -> Option<Box<dyn AppOutput>>;
@@ -157,10 +159,15 @@ impl AppRuntime for Coordinator {
   }
 
   fn poll(&self) -> bool {
-    if let Some(session) = self.current.borrow().clone() {
+    let session = self.current.borrow().clone();
+    if let Some(session) = &session {
       session.refresh();
     }
-    self.observed.replace(self.revision.get()) != self.revision.get()
+    let game = session.map(|session| (session.id(), session.observation()));
+    let game_changed = self.observed_game.replace(game.clone()) != game;
+    let revision = self.revision.get();
+    let revision_changed = self.observed.replace(revision) != revision;
+    game_changed || revision_changed
   }
 
   fn callback(&self, callback: &mut dyn FnMut()) {
@@ -223,6 +230,7 @@ impl<G: Game> AttachedSession for GameSession<G> {
   }
   fn view(&self, revision: u64) -> GameRenderContext {
     let data = self.data.borrow();
+    let observation = self::game_observation(&data);
     GameRenderContext {
       game: TypeId::of::<G>(),
       id: self.id,
@@ -239,6 +247,25 @@ impl<G: Game> AttachedSession for GameSession<G> {
         .as_ref()
         .and_then(|pending| pending.animation.clone())
         .map(|animation| animation as Rc<dyn Any>),
+      worker: observation.worker,
+      publications: observation.publications,
     }
+  }
+  fn observation(&self) -> crate::GameObservation {
+    self::game_observation(&self.data.borrow())
+  }
+}
+
+fn game_observation<G: Game>(data: &SessionData<G>) -> crate::GameObservation {
+  crate::GameObservation {
+    status: data.status,
+    worker: data
+      .run
+      .as_ref()
+      .map_or_else(Default::default, |run| run.observation()),
+    publications: data
+      .run
+      .as_ref()
+      .map_or_else(Default::default, |run| run.publication_observation()),
   }
 }

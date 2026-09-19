@@ -166,6 +166,7 @@ namespace Battlement.Tests
                     )
                 ),
                 Observation(5, new GeometryObservationTarget.WorldRestBounds(ObjectId, PanelId)),
+                Observation(6, new GeometryObservationTarget.PresentationWork()),
             };
 
         private static GeometryObservationValue[] Values() =>
@@ -208,6 +209,7 @@ namespace Battlement.Tests
                         new WorldRestBoundsGeometry(new Rect(-1, -2, 2, 4))
                     )
                 ),
+                Value(6, new GeometryValue.PresentationWork(new PresentationWorkGeometry(3, 1, 2))),
             };
 
         private static GeometryObservation Observation(

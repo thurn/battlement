@@ -214,6 +214,20 @@ fn write_value<'a>(
         value.as_union_value(),
       )
     }
+    GeometryValue::PresentationWork(value) => {
+      let value = wire::PresentationWorkGeometry::create(
+        builder,
+        &wire::PresentationWorkGeometryArgs {
+          queued_batches: value.queued_batches,
+          blocking_operations: value.blocking_operations,
+          paused_scopes: value.paused_scopes,
+        },
+      );
+      (
+        wire::GeometryValue::PresentationWorkGeometry,
+        value.as_union_value(),
+      )
+    }
   })
 }
 

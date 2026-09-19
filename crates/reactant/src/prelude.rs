@@ -3,10 +3,12 @@
 pub use crate::{
   game_app::GameApp,
   game_hooks::{
-    GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_presentation,
-    use_game_prompt, use_game_selector, use_game_selector_with, use_game_state, use_game_status,
+    GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_observation,
+    use_game_presentation, use_game_prompt, use_game_selector, use_game_selector_with,
+    use_game_state, use_game_status,
   },
-  game_session::{DispatchResult, GameHandle, GameStatus},
+  game_session::{DispatchResult, GameHandle, GameObservation, GameStatus},
+  presentation_inspector::{InspectorObject, PresentationInspector},
 };
 pub use reactant_core::prelude::*;
 

@@ -2843,6 +2843,9 @@ fn write_geometry_update<'a>(
           request_id = Some(uuid(value_request.as_uuid()));
           geometry_wire::GeometryTargetKind::WorldRestBounds
         }
+        battlement::GeometryObservationTarget::PresentationWork => {
+          geometry_wire::GeometryTargetKind::PresentationWork
+        }
       };
       let target = geometry_wire::GeometryObservationTarget::create(
         builder,

@@ -616,7 +616,16 @@ namespace Battlement
                 uiDocuments.SetWorldCaptureResolver(pointerInput.IsWorldCaptured);
                 BattlementGeometrySampler geometrySampler = new BattlementGeometrySampler(
                     uiDocuments,
-                    world: this
+                    world: this,
+                    presentationWork: () =>
+                    {
+                        BattlementBatchScheduler scheduler = runtime.BatchScheduler;
+                        return new PresentationWorkGeometry(
+                            scheduler.PendingBatchCount,
+                            scheduler.BlockingOperationCount,
+                            scheduler.PausedScopeCount
+                        );
+                    }
                 );
                 runtime.SetGeometrySampler(geometrySampler);
                 BattlementSnapshotReplacement snapshotReplacement =

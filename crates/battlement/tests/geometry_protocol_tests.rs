@@ -4,13 +4,14 @@ use battlement::*;
 
 const OBJECT: &str = "10000000-0000-0000-0000-000000000001";
 const PANEL: &str = "10000000-0000-0000-0000-000000000002";
-const OBSERVATIONS: [&str; 6] = [
+const OBSERVATIONS: [&str; 7] = [
   "20000000-0000-0000-0000-000000000001",
   "20000000-0000-0000-0000-000000000002",
   "20000000-0000-0000-0000-000000000003",
   "20000000-0000-0000-0000-000000000004",
   "20000000-0000-0000-0000-000000000005",
   "20000000-0000-0000-0000-000000000006",
+  "20000000-0000-0000-0000-000000000007",
 ];
 
 #[test]
@@ -265,6 +266,10 @@ fn targets() -> Vec<GeometryObservation> {
         request_id: PANEL.parse().unwrap(),
       },
     },
+    GeometryObservation {
+      observation_id: observation(6),
+      target: GeometryObservationTarget::PresentationWork,
+    },
   ]
 }
 
@@ -309,6 +314,14 @@ fn values() -> Vec<GeometryObservationValue> {
       5,
       GeometryValue::WorldRestBounds(WorldRestBoundsGeometry {
         bound: Rect::new(-1.0, -2.0, 2.0, 4.0),
+      }),
+    ),
+    value(
+      6,
+      GeometryValue::PresentationWork(PresentationWorkGeometry {
+        queued_batches: 3,
+        blocking_operations: 1,
+        paused_scopes: 2,
       }),
     ),
   ]

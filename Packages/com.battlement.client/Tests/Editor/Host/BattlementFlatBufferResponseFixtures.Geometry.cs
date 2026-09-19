@@ -101,6 +101,26 @@ namespace Battlement.Tests
                         Wire.GeometryTargetKind.WorldRenderedBounds
                     );
                     break;
+                case GeometryObservationTarget.WorldRestBounds bounds:
+                    Wire.GeometryObservationTarget.AddRequestId(
+                        builder,
+                        Uuid(builder, bounds.RequestId.Value)
+                    );
+                    Wire.GeometryObservationTarget.AddObjectId(
+                        builder,
+                        Uuid(builder, bounds.ObjectId.Value)
+                    );
+                    Wire.GeometryObservationTarget.AddKind(
+                        builder,
+                        Wire.GeometryTargetKind.WorldRestBounds
+                    );
+                    break;
+                case GeometryObservationTarget.PresentationWork:
+                    Wire.GeometryObservationTarget.AddKind(
+                        builder,
+                        Wire.GeometryTargetKind.PresentationWork
+                    );
+                    break;
                 default:
                     throw Unsupported(value);
             }
