@@ -2,7 +2,9 @@
 
 use std::time::Duration;
 
-use battlement::{Command, CommandBody, ControllerVibrationPayload, DebugUiPayload};
+use battlement::{
+  AudioClipAddress, Command, CommandBody, ControllerVibrationPayload, DebugUiPayload,
+};
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use reactant::{
   hooks,
@@ -10,11 +12,21 @@ use reactant::{
 };
 
 use crate::{
-  MUSIC_TRACKS,
+  assets::music,
   chess_ui_state::{ChessUiController, LocalEffect},
 };
 
 const MUSIC_CROSSFADE: Duration = Duration::from_secs(5);
+pub(super) const MUSIC_TRACKS: [AudioClipAddress; 4] = [
+  music::CRITICAL,
+  music::SWITCH_WITH_ME,
+  music::BREAKBEAT_CHIPS,
+  music::DRAG_AND_DREAD,
+];
+
+pub(super) fn music_track_count() -> usize {
+  MUSIC_TRACKS.len()
+}
 
 /// Component that interprets app-local effect state at the host boundary.
 ///
@@ -94,8 +106,10 @@ impl Component for GameEffects {
                 app.send(command);
               }
               LocalEffect::Invalid => {
-                let (_, command) =
-                  AudioPlayback::play(crate::INVALID_DROP_SOUND, AudioPlaybackOptions::new());
+                let (_, command) = AudioPlayback::play(
+                  crate::audio::INVALID_DROP_SOUND,
+                  AudioPlaybackOptions::new(),
+                );
                 app.send(command);
                 app.send(Command::new_v4(CommandBody::ControllerVibrate(
                   ControllerVibrationPayload {

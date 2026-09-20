@@ -72,11 +72,8 @@ impl ChessState {
     Self::with_generation(board, 0)
   }
 
-  /// Creates a position whose presentation identities belong to one session generation.
-  ///
-  /// Most callers should use [`Self::new`]; application remounts increment the
-  /// generation so Reactant and the native host replace every piece cleanly.
-  pub fn with_generation(board: Board, generation: u32) -> Self {
+  /// Creates a position with identities owned by one mounted session.
+  pub fn with_generation(board: Board, generation: u64) -> Self {
     Self {
       position: ChessPosition::from_board(board, generation),
       result: None,
@@ -96,6 +93,16 @@ impl ChessState {
   /// Returns one visible piece identity.
   pub fn piece(&self, square: Square) -> Option<ChessPiece> {
     self.position.piece(square)
+  }
+
+  /// Finds a piece by its host object identity.
+  pub fn piece_with_id(&self, object_id: battlement::ObjectId) -> Option<ChessPiece> {
+    self.position.piece_with_id(object_id)
+  }
+
+  /// Returns unique player-visible destinations for one source square.
+  pub fn legal_destinations(&self, from: Square) -> Vec<Square> {
+    self.position.legal_destinations(from)
   }
 
   /// Returns legal engine moves matching one player-visible source and target.
@@ -156,22 +163,22 @@ impl ChessContext {
     let mut board_after = state.position.board.clone();
     board_after.play_unchecked(movement);
     let sound = match &description {
-      Movement::Castle { .. } => crate::CASTLE_SOUND,
-      Movement::Promotion { .. } => crate::PROMOTION_SOUND,
+      Movement::Castle { .. } => crate::audio::CASTLE_SOUND,
+      Movement::Promotion { .. } => crate::audio::PROMOTION_SOUND,
       Movement::Capture { .. } => {
-        crate::CAPTURE_SOUNDS[self.rng.usize(..crate::CAPTURE_SOUNDS.len())].clone()
+        crate::audio::CAPTURE_SOUNDS[self.rng.usize(..crate::audio::CAPTURE_SOUNDS.len())].clone()
       }
       Movement::Move { .. } | Movement::Knight { .. } => {
-        crate::DROP_SOUNDS[self.rng.usize(..crate::DROP_SOUNDS.len())].clone()
+        crate::audio::DROP_SOUNDS[self.rng.usize(..crate::audio::DROP_SOUNDS.len())].clone()
       }
     };
     let final_sound = match board_after.status() {
       GameStatus::Won if board_after.side_to_move() == Color::Black => {
-        Some(crate::PLAYER_WIN_SOUND)
+        Some(crate::audio::PLAYER_WIN_SOUND)
       }
-      GameStatus::Won => Some(crate::PLAYER_LOSS_SOUND),
-      GameStatus::Drawn => Some(crate::DRAW_SOUND),
-      GameStatus::Ongoing if !board_after.checkers().is_empty() => Some(crate::CHECK_SOUND),
+      GameStatus::Won => Some(crate::audio::PLAYER_LOSS_SOUND),
+      GameStatus::Drawn => Some(crate::audio::DRAW_SOUND),
+      GameStatus::Ongoing if !board_after.checkers().is_empty() => Some(crate::audio::CHECK_SOUND),
       GameStatus::Ongoing => None,
     };
     debug_assert_eq!(

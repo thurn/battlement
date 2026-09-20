@@ -6,10 +6,7 @@ use battlement::{DebugUiSurface, ObjectId, PhysicalKey};
 use cozy_chess::{Color, GameStatus, Square};
 use reactant::{DispatchResult, GameHandle, GameStatus as RulesStatus};
 
-use crate::{
-  MUSIC_TRACKS,
-  reactant_game::{ChessAction, ChessGame, ChessState},
-};
+use crate::reactant_game::{ChessAction, ChessGame, ChessState};
 
 const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 
@@ -122,7 +119,7 @@ pub struct ChessUiState {
   pub effect: Option<LocalEffect>,
   /// Playback generation incremented to restart or change music.
   pub music_generation: u64,
-  /// Index into [`crate::MUSIC_TRACKS`].
+  /// Index into the app-level music playlist.
   pub music_track: usize,
   /// Physical keys currently held for chord recognition.
   pub held: HashSet<PhysicalKey>,
@@ -335,7 +332,7 @@ impl ChessUiController {
   /// Advances the playlist and increments the playback dependency token.
   pub fn next_music(&self) {
     self.update(|local| {
-      local.music_track = (local.music_track + 1) % MUSIC_TRACKS.len();
+      local.music_track = (local.music_track + 1) % crate::reactant_effects::music_track_count();
       local.music_generation = local
         .music_generation
         .checked_add(1)
@@ -515,13 +512,13 @@ impl ChessUiController {
   fn cycle_cursor(&self, state: &ChessState, forward: bool) {
     let local = self.current();
     let candidates = if let Some(selected) = local.selected {
-      crate::legal_destinations(state.board(), selected)
+      state.legal_destinations(selected)
     } else {
       Square::ALL
         .into_iter()
         .filter(|square| {
           state.board().color_on(*square) == Some(Color::White)
-            && !crate::legal_destinations(state.board(), *square).is_empty()
+            && !state.legal_destinations(*square).is_empty()
         })
         .collect()
     };
@@ -573,9 +570,9 @@ impl ChessUiController {
       Self::effect(
         local,
         LocalEffect::Sound(if increased {
-          crate::VOLUME_UP_SOUND
+          crate::audio::VOLUME_UP_SOUND
         } else {
-          crate::VOLUME_DOWN_SOUND
+          crate::audio::VOLUME_DOWN_SOUND
         }),
       );
     });
@@ -596,7 +593,7 @@ fn piece_square(state: &ChessState, piece: ObjectId) -> Option<Square> {
   Square::ALL.into_iter().find(|square| {
     state
       .piece(*square)
-      .is_some_and(|value| value.entity_id == piece)
+      .is_some_and(|value| value.identity.object_id == piece)
   })
 }
 

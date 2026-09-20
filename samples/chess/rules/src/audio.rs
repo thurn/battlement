@@ -40,6 +40,7 @@ pub const PLAYER_LOSS_SOUND: AudioClipAddress = sfx::FALL_AND_DIE;
 pub const DRAW_SOUND: AudioClipAddress = sfx::WOBBLE_FALLING_TONE;
 
 /// Addresses of NotJam's sound-effect collection.
+#[cfg(test)]
 pub const SOUND_EFFECTS: [AudioClipAddress; 41] = [
   sfx::ACCEPT,
   sfx::ALARM,

@@ -1,17 +1,20 @@
 use std::{fs, path::PathBuf, time::Duration};
 
+use crate::{
+  app,
+  assets::{self, effects, sfx},
+  audio::SOUND_EFFECTS,
+  chess_board::PIECE_SPAWN_SEQUENCE_DURATION_MS,
+  reactant_effects::MUSIC_TRACKS,
+  reactant_game::ChessGame,
+  visual_state::{ROOT_ID as REACTANT_CHESS_ROOT_ID, VisualState},
+};
 use battlement::{
   CommandBody, Connect, ControllerButton, ControllerDirection, DragMode, PanelPoint, PhysicalKey,
   PointerButton, Quaternion, ScreenPosition, ScreenSize, Vector3,
 };
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use battlement_fake::client::PointerInput;
-use battlement_rules::{
-  ChessGame, MUSIC_TRACKS, PIECE_PREFABS, PIECE_SPAWN_SEQUENCE_DURATION_MS, REACTANT_CHESS_ROOT_ID,
-  assets::{self, effects, sfx},
-  audio::SOUND_EFFECTS,
-  visual_state::VisualState,
-};
 use cozy_chess::{Board, Square};
 use reactant::GameStatus;
 use reactant_testing::Display;
@@ -26,7 +29,7 @@ macro_rules! accepted {
 
 #[test]
 fn default_factory_exports_the_complete_reactant_app() {
-  let mut display = Display::mount(battlement_rules::application, catalog());
+  let mut display = Display::mount(crate::application, catalog());
   initial_ready(&mut display);
   assert!(display.game_state::<ChessGame>().is_none());
   assert_eq!(visual_state(&display), VisualState::Title);
@@ -42,10 +45,7 @@ fn default_factory_exports_the_complete_reactant_app() {
 fn positioned_compatibility_factory_preserves_the_title_screen_contract() {
   let fen = "8/8/8/8/8/5kq1/8/7K b - - 0 1";
   let mut display = Display::mount(
-    move || {
-      battlement_rules::application_with_position(fen, Duration::ZERO)
-        .expect("valid chess test position")
-    },
+    move || app::application_with_position(fen, Duration::ZERO),
     catalog(),
   );
   initial_ready(&mut display);
@@ -173,7 +173,7 @@ fn pause_menu_accessible_reset_confirms_without_replaying_spawn_beats() {
 #[test]
 fn music_uses_the_app_clock_and_crossfades_in_playlist_order() {
   let mut display = Display::mount(
-    || battlement_rules::application_with_think_time(Duration::ZERO),
+    || app::application_with_think_time(Duration::ZERO),
     catalog(),
   );
   initial_ready(&mut display);
@@ -477,7 +477,11 @@ fn en_passant_and_promotion_update_the_visible_piece_tree() {
   ));
 
   let mut promotion = position("1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1", Duration::ZERO);
-  let identity = accepted!(promotion).piece(Square::A7).unwrap().entity_id;
+  let identity = accepted!(promotion)
+    .piece(Square::A7)
+    .unwrap()
+    .identity
+    .object_id;
   let pawn = piece(&mut promotion, Square::A7);
   let victim = piece(&mut promotion, Square::B8);
   move_by_activation(&mut promotion, Square::A7, Square::B8);
@@ -486,7 +490,10 @@ fn en_passant_and_promotion_update_the_visible_piece_tree() {
     promotion.poll();
   }
   let waiting = accepted!(promotion);
-  assert_eq!(waiting.piece(Square::A7).unwrap().entity_id, identity);
+  assert_eq!(
+    waiting.piece(Square::A7).unwrap().identity.object_id,
+    identity
+  );
   assert!(waiting.piece(Square::B8).is_some());
   let knight = promotion.find_ui(REACTANT_CHESS_ROOT_ID, "promote-knight");
   promotion.click_ui(knight);
@@ -495,7 +502,10 @@ fn en_passant_and_promotion_update_the_visible_piece_tree() {
   assert!(promotion.object(victim).is_none());
   assert!(promotion.object(pawn).is_some());
   let accepted = accepted!(promotion);
-  assert_eq!(accepted.piece(Square::B8).unwrap().entity_id, identity);
+  assert_eq!(
+    accepted.piece(Square::B8).unwrap().identity.object_id,
+    identity
+  );
   assert_eq!(
     accepted.piece(Square::B8).unwrap().kind,
     cozy_chess::Piece::Knight
@@ -559,14 +569,14 @@ fn restart_replaces_busy_rules_and_required_presentation_without_stale_results()
 fn accepted_state_drives_save_reload_and_survives_save_failure() {
   let directory = temporary("save");
   let connect = connection().persistent_data_path(directory.to_string_lossy());
-  let mut display = Display::mount_with(battlement_rules::application, catalog(), connect.clone());
+  let mut display = Display::mount_with(crate::application, catalog(), connect.clone());
   initial_ready(&mut display);
   let play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
   display.click_ui(play);
   ready(&mut display);
   assert!(directory.join("chess-game.json").is_file());
 
-  let mut restored = Display::mount_with(battlement_rules::application, catalog(), connect);
+  let mut restored = Display::mount_with(crate::application, catalog(), connect);
   initial_ready(&mut restored);
   assert!(restored.game_state::<ChessGame>().is_some());
   assert_eq!(visual_state(&restored), VisualState::Resumed);
@@ -575,7 +585,7 @@ fn accepted_state_drives_save_reload_and_survives_save_failure() {
   let blocked = temporary("blocked");
   fs::write(&blocked, b"not a directory").expect("temporary blocked path");
   let mut failed = Display::mount_with(
-    battlement_rules::application,
+    crate::application,
     catalog(),
     connection().persistent_data_path(blocked.to_string_lossy()),
   );
@@ -592,7 +602,7 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
   let directory = temporary("save-before-ai");
   let connect = connection().persistent_data_path(directory.to_string_lossy());
   let mut display = Display::mount_with(
-    || battlement_rules::application_with_think_time(Duration::from_secs(1)),
+    || app::application_with_think_time(Duration::from_secs(1)),
     catalog(),
     connect.clone(),
   );
@@ -630,7 +640,7 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
   drop(display);
 
   let mut restored = Display::mount_with(
-    || battlement_rules::application_with_think_time(Duration::ZERO),
+    || app::application_with_think_time(Duration::ZERO),
     catalog(),
     connect,
   );
@@ -653,7 +663,7 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
 fn diagnostics_metadata_is_emitted_only_when_the_module_is_selected() {
   let mut connect = connection();
   connect.modules.push("battlement.diagnostics".to_owned());
-  let mut display = Display::mount_with(battlement_rules::application, catalog(), connect);
+  let mut display = Display::mount_with(crate::application, catalog(), connect);
   initial_ready(&mut display);
   for _ in 0..4 {
     display.poll();
@@ -676,7 +686,7 @@ fn diagnostics_metadata_is_emitted_only_when_the_module_is_selected() {
 
 fn title() -> Display {
   let mut display = Display::mount(
-    || battlement_rules::application_with_think_time(Duration::ZERO),
+    || app::application_with_think_time(Duration::ZERO),
     catalog(),
   );
   initial_ready(&mut display);
@@ -686,10 +696,7 @@ fn title() -> Display {
 fn position(fen: &str, think_time: Duration) -> Display {
   let fen = fen.to_owned();
   let mut display = Display::mount(
-    move || {
-      battlement_rules::application_at_position(&fen, think_time)
-        .expect("valid chess test position")
-    },
+    move || app::application_at_position(&fen, think_time),
     catalog(),
   );
   initial_ready(&mut display);
@@ -807,7 +814,7 @@ fn piece_scales(display: &mut Display) -> Vec<Vector3> {
     .filter_map(|square| state.piece(square))
     .map(|piece| {
       let native = display
-        .presentation(*piece.entity_id.as_uuid())
+        .presentation(*piece.identity.object_id.as_uuid())
         .and_then(|presentation| presentation.native_objects.first().copied())
         .expect("piece has native host");
       display.object(native).unwrap().local_transform().scale
@@ -819,7 +826,8 @@ fn piece(display: &mut Display, square: Square) -> battlement::ObjectId {
   let identity = accepted!(display)
     .piece(square)
     .expect("piece exists")
-    .entity_id;
+    .identity
+    .object_id;
   display
     .presentation(*identity.as_uuid())
     .and_then(|presentation| presentation.native_objects.first().copied())
@@ -908,7 +916,20 @@ fn temporary(label: &str) -> PathBuf {
 fn catalog() -> FakeAssetCatalog {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(assets::CONTENT);
-  for address in PIECE_PREFABS {
+  for address in [
+    assets::white::PAWN,
+    assets::white::ROOK,
+    assets::white::KNIGHT,
+    assets::white::BISHOP,
+    assets::white::QUEEN,
+    assets::white::KING,
+    assets::black::PAWN,
+    assets::black::ROOK,
+    assets::black::KNIGHT,
+    assets::black::BISHOP,
+    assets::black::QUEEN,
+    assets::black::KING,
+  ] {
     catalog.add_prefab(
       address,
       FakePrefab::new()

@@ -2,14 +2,14 @@
 
 use std::time::Duration;
 
-use battlement::{ObjectId, Vector3};
+use battlement::Vector3;
 use cozy_chess::Square;
 use reactant::{
   animation_controls::{AnimationSequence, MotionSelector, SequencePosition},
   prelude::{Easing, StyleTarget, Transition},
 };
 
-use crate::position::Movement;
+use crate::position::{Movement, PieceIdentity};
 
 const MOVE_DURATION: Duration = Duration::from_millis(300);
 const KNIGHT_FIRST_LEG: Duration = Duration::from_millis(200);
@@ -101,7 +101,7 @@ pub fn sequence(
 /// Builds the common single-segment translation used by most pieces.
 fn move_step(
   references: &[reactant::prelude::ObjectRef; 64],
-  piece: ObjectId,
+  piece: PieceIdentity,
   to: Square,
   duration: Duration,
 ) -> AnimationSequence {
@@ -115,7 +115,7 @@ fn move_step(
 /// Animates a knight through an L-shaped corner so its path reads clearly in 3D.
 fn knight_steps(
   references: &[reactant::prelude::ObjectRef; 64],
-  piece: ObjectId,
+  piece: PieceIdentity,
   corner: Square,
   to: Square,
 ) -> AnimationSequence {
@@ -126,29 +126,25 @@ fn knight_steps(
   )
 }
 
-/// Resolves a stable piece identity into the object reference captured by the board.
-///
-/// Piece IDs encode their original square in the final UUID bytes. This avoids a
-/// mutable reference map while preserving the same motion target after pieces move.
+/// Resolves a piece's explicit reference slot into the object reference captured by the board.
 fn piece_reference(
   references: &[reactant::prelude::ObjectRef; 64],
-  piece: ObjectId,
+  piece: PieceIdentity,
 ) -> reactant::prelude::ObjectRef {
-  let index = piece
-    .as_uuid()
-    .as_bytes()
-    .iter()
-    .skip(10)
-    .fold(0_usize, |value, byte| (value << 8) | usize::from(*byte));
   references
-    .get(index)
-    .unwrap_or_else(|| panic!("piece identity is outside the stable board map: {piece}"))
+    .get(piece.reference_slot)
+    .unwrap_or_else(|| {
+      panic!(
+        "piece reference slot is outside the stable board map: {}",
+        piece.reference_slot
+      )
+    })
     .clone()
 }
 
 /// Creates the Motion target corresponding to the center of a chess square.
 pub fn position_target(square: Square) -> StyleTarget {
-  let position = crate::square_position(square);
+  let position = crate::chess_board::square_position(square);
   StyleTarget::new()
     .local_position_x(position.x as f32)
     .local_position_y(position.y as f32)

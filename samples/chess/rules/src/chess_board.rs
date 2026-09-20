@@ -2,8 +2,11 @@
 
 use std::time::Duration;
 
-use battlement::{DragMode, MaterialAssignment, ObjectId, ParentScene, Quaternion, Vector3};
-use cozy_chess::{Color, GameStatus, Square};
+use battlement::{
+  DragMode, GridLayout, MaterialAssignment, ObjectId, ParentScene, PrefabAddress, Quaternion,
+  Vector3, object_id,
+};
+use cozy_chess::{Color, File, GameStatus, Piece, Rank, Square};
 use reactant::{
   GameStatus as RulesStatus, SnapshotAnimation,
   animation_controls::{AnimationSequence, MotionSelector, SequencePosition},
@@ -17,11 +20,26 @@ use reactant::{
 use trox::ls;
 
 use crate::{
-  PIECE_SPAWN_EFFECT_LIFETIME_MS, PIECE_SPAWN_SEQUENCE_DURATION_MS,
+  assets::{black, white},
   chess_ui_state::{ChessUiController, ChessUiState, SessionStart, UiAction},
-  position::{ChessPiece, Movement},
+  position::{ChessPiece, Movement, PieceIdentity},
   reactant_game::{ChessAnimation, ChessGame},
 };
+
+const CAMERA_BUTTON_DEPTH: f64 = 1.5;
+const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
+const CRITICAL_BEAT_INTERVAL_MS: u64 = 570;
+const CRITICAL_FIRST_BEAT_OFFSET_MS: u64 = 80;
+const HIGHLIGHT_HEIGHT: f64 = 0.02;
+const HIGHLIGHT_SCALE: f64 = 0.09;
+const PIECE_SPAWN_BEAT_COUNT: usize = 8;
+const PIECE_SPAWN_EFFECT_LIFETIME_MS: u64 = 1_000;
+const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
+const REFRESH_BUTTON_MARGIN: f64 = 0.12;
+const REFRESH_BUTTON_SIZE: f64 = 0.16;
+pub(super) const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = CRITICAL_FIRST_BEAT_OFFSET_MS
+  + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS
+  + PIECE_SPAWN_EFFECT_LIFETIME_MS;
 
 /// Declarative world-space board composed from rules state and app-local UI state.
 ///
@@ -122,12 +140,15 @@ impl Component for ChessBoard {
 
     let restore_scope = scope.clone();
     let restore_references = references.clone();
+    let restore_state = state.clone();
     let drag_restore = local.drag_restore;
     reactant::hooks::use_commit_effect(
       move || {
-        if let Some((piece, square)) = drag_restore {
+        if let Some((piece, square)) = drag_restore
+          && let Some(piece) = restore_state.piece_with_id(piece)
+        {
           restore_scope.set(
-            MotionSelector::object(piece_reference(&restore_references, piece)),
+            MotionSelector::object(piece_reference(&restore_references, piece.identity)),
             crate::motion::position_target(square),
           );
         }
@@ -137,7 +158,7 @@ impl Component for ChessBoard {
 
     let legal = local
       .selected
-      .map(|square| crate::legal_destinations(state.board(), square))
+      .map(|square| state.legal_destinations(square))
       .unwrap_or_default();
     let interactive = status == RulesStatus::Ready
       && state.board().status() == GameStatus::Ongoing
@@ -152,7 +173,7 @@ impl Component for ChessBoard {
           piece: state.piece(square),
           piece_reference: state
             .piece(square)
-            .map(|piece| piece_reference(&references, piece.entity_id))
+            .map(|piece| piece_reference(&references, piece.identity))
             .unwrap_or_else(|| references[square as usize].clone()),
           on_activate: self.on_activate.clone(),
           spawning: local.spawning,
@@ -167,7 +188,8 @@ impl Component for ChessBoard {
       .into_iter()
       .filter(|square| state.board().color_on(*square) == Some(Color::White))
       .flat_map(|from| {
-        crate::legal_destinations(state.board(), from)
+        state
+          .legal_destinations(from)
           .into_iter()
           .map(move |to| (from, to))
       })
@@ -205,7 +227,7 @@ impl Component for ChessBoard {
     };
     let cursor = world::Group::new()
       .id(*crate::cursor::EFFECT_ID.as_uuid())
-      .position(crate::square_position(local.cursor))
+      .position(square_position(local.cursor))
       .scale(Vector3::new(cursor_scale, cursor_scale, cursor_scale))
       .active(cursor_active)
       .child(world::Prefab::at(crate::assets::effects::PIECE_SELECTED));
@@ -215,22 +237,20 @@ impl Component for ChessBoard {
       } else {
         f64::from(screen.width) / f64::from(screen.height)
       };
-      let half_height =
-        crate::CAMERA_BUTTON_DEPTH * (crate::CAMERA_VERTICAL_FOV_RADIANS / 2.0).tan();
-      let right =
-        half_height * aspect - crate::REFRESH_BUTTON_SIZE / 2.0 - crate::REFRESH_BUTTON_MARGIN;
-      let up = half_height - crate::REFRESH_BUTTON_SIZE / 2.0 - crate::REFRESH_BUTTON_MARGIN;
+      let half_height = CAMERA_BUTTON_DEPTH * (CAMERA_VERTICAL_FOV_RADIANS / 2.0).tan();
+      let right = half_height * aspect - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
+      let up = half_height - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
       world::Sprite::new()
-        .id(*crate::REFRESH_BUTTON_ID.as_uuid())
+        .id(*REFRESH_BUTTON_ID.as_uuid())
         .texture(crate::assets::REFRESH_BUTTON)
-        .size(crate::REFRESH_BUTTON_SIZE, crate::REFRESH_BUTTON_SIZE)
+        .size(REFRESH_BUTTON_SIZE, REFRESH_BUTTON_SIZE)
         .fit(battlement::ImageFit::Stretch)
         .position(Vector3::new(
           right,
-          8.0 - 0.946201 * crate::CAMERA_BUTTON_DEPTH + 0.323579 * up,
-          -3.75 + 0.323579 * crate::CAMERA_BUTTON_DEPTH + 0.946201 * up,
+          8.0 - 0.946201 * CAMERA_BUTTON_DEPTH + 0.323579 * up,
+          -3.75 + 0.323579 * CAMERA_BUTTON_DEPTH + 0.946201 * up,
         ))
-        .rotation(crate::CAMERA_ROTATION)
+        .rotation(crate::reactant_view::CAMERA_ROTATION)
         .on_click(self.on_request_new_game.clone())
     });
 
@@ -249,15 +269,11 @@ impl Component for ChessSquare {
   /// Renders a legal-target surface and the keyed piece occupying this square.
   fn render(&self) -> impl Render {
     let square = self.square;
-    let mut position = crate::square_position(square);
-    position.y = crate::HIGHLIGHT_HEIGHT;
+    let mut position = square_position(square);
+    position.y = HIGHLIGHT_HEIGHT;
     let surface = world::Plane::new()
       .position(position)
-      .scale(Vector3::new(
-        crate::HIGHLIGHT_SCALE,
-        1.0,
-        crate::HIGHLIGHT_SCALE,
-      ))
+      .scale(Vector3::new(HIGHLIGHT_SCALE, 1.0, HIGHLIGHT_SCALE))
       .active(self.legal_target && self.interactive)
       .materials([MaterialAssignment::new(0, crate::assets::LEGAL_SQUARE)])
       .on_click(self.on_activate.clone().map_input(move |()| square));
@@ -271,7 +287,7 @@ impl Component for ChessSquare {
         game: self.game.clone(),
         control: self.control.clone(),
       }
-      .id(*piece.entity_id.as_uuid())
+      .id(*piece.identity.object_id.as_uuid())
     });
     (surface, piece)
   }
@@ -283,7 +299,7 @@ impl Component for ChessPieceView {
     let square = self.square;
     let hit = world::BoxHitRegion::new()
       .size(Vector3::new(0.9, 1.5, 0.9))
-      .position(crate::square_position(self.square))
+      .position(square_position(self.square))
       .scale(if self.spawning {
         Vector3::ZERO
       } else {
@@ -296,7 +312,7 @@ impl Component for ChessPieceView {
       })
       .reference(self.reference.clone());
     let hit = if self.piece.color == Color::White && !self.spawning {
-      let entity = self.piece.entity_id;
+      let entity = self.piece.identity.object_id;
       let start_control = self.control.clone();
       let start_game = self.game.clone();
       let end_control = self.control.clone();
@@ -309,7 +325,7 @@ impl Component for ChessPieceView {
         .on_drag_end(move |position| {
           end_control.dispatch(
             Some(&end_game),
-            UiAction::EndDrag(entity, crate::square_at(position)),
+            UiAction::EndDrag(entity, square_at(position)),
           );
         })
     } else if self.piece.color == Color::Black {
@@ -318,7 +334,7 @@ impl Component for ChessPieceView {
       hit
     };
     hit
-      .child(world::Prefab::at(crate::address(
+      .child(world::Prefab::at(address(
         self.piece.color,
         self.piece.kind,
       )))
@@ -377,7 +393,7 @@ fn opening_sequence(
   let sound = if mode == SessionStart::Fresh {
     crate::audio::START_SOUND
   } else {
-    crate::RESET_SOUND
+    crate::audio::RESET_SOUND
   };
   let mut sequence = AnimationSequence::new().play_sound(sound);
   if mode == SessionStart::Refresh {
@@ -386,21 +402,21 @@ fn opening_sequence(
   let white = pieces
     .iter()
     .filter(|piece| piece.color == Color::White)
-    .map(|piece| piece.entity_id)
+    .map(|piece| piece.identity)
     .collect::<Vec<_>>();
   let black = pieces
     .iter()
     .filter(|piece| piece.color == Color::Black)
-    .map(|piece| piece.entity_id)
+    .map(|piece| piece.identity)
     .collect::<Vec<_>>();
   let maximum = white.len().max(black.len());
-  let per_beat = maximum.div_ceil(crate::PIECE_SPAWN_BEAT_COUNT).max(1);
+  let per_beat = maximum.div_ceil(PIECE_SPAWN_BEAT_COUNT).max(1);
   let stages = maximum.div_ceil(per_beat);
   for beat in 0..stages {
     let start = beat * per_beat;
     let end = start + per_beat;
     let at = Duration::from_millis(
-      crate::CRITICAL_FIRST_BEAT_OFFSET_MS + beat as u64 * crate::CRITICAL_BEAT_INTERVAL_MS,
+      CRITICAL_FIRST_BEAT_OFFSET_MS + beat as u64 * CRITICAL_BEAT_INTERVAL_MS,
     );
     for piece in white
       .get(start..end.min(white.len()))
@@ -438,16 +454,47 @@ fn opening_sequence(
     .at(SequencePosition::Absolute(Duration::ZERO))
 }
 
-/// Decodes the reference-table slot embedded in a stable piece identity.
+/// Resolves a piece's explicit reference slot into the board's hook-backed reference.
 fn piece_reference(
   references: &[reactant::prelude::ObjectRef; 64],
-  piece: ObjectId,
+  piece: PieceIdentity,
 ) -> reactant::prelude::ObjectRef {
-  let index = piece
-    .as_uuid()
-    .as_bytes()
-    .iter()
-    .skip(10)
-    .fold(0_usize, |value, byte| (value << 8) | usize::from(*byte));
-  references[index].clone()
+  references[piece.reference_slot].clone()
+}
+
+fn square_at(position: Vector3) -> Option<Square> {
+  if !(-4.0..4.0).contains(&position.x) || !(-4.0..4.0).contains(&position.z) {
+    return None;
+  }
+  let file = (position.x + 3.5).round() as usize;
+  let rank = (position.z + 3.5).round() as usize;
+  Some(Square::new(File::index(file), Rank::index(rank)))
+}
+
+pub(super) fn square_position(square: Square) -> Vector3 {
+  GridLayout::centered(
+    Vector3::ZERO,
+    8,
+    8,
+    Vector3::new(1.0, 0.0, 0.0),
+    Vector3::new(0.0, 0.0, 1.0),
+  )
+  .position(square.file() as u32, square.rank() as u32)
+}
+
+fn address(color: Color, piece: Piece) -> PrefabAddress {
+  match (color, piece) {
+    (Color::White, Piece::Pawn) => white::PAWN,
+    (Color::White, Piece::Rook) => white::ROOK,
+    (Color::White, Piece::Knight) => white::KNIGHT,
+    (Color::White, Piece::Bishop) => white::BISHOP,
+    (Color::White, Piece::Queen) => white::QUEEN,
+    (Color::White, Piece::King) => white::KING,
+    (Color::Black, Piece::Pawn) => black::PAWN,
+    (Color::Black, Piece::Rook) => black::ROOK,
+    (Color::Black, Piece::Knight) => black::KNIGHT,
+    (Color::Black, Piece::Bishop) => black::BISHOP,
+    (Color::Black, Piece::Queen) => black::QUEEN,
+    (Color::Black, Piece::King) => black::KING,
+  }
 }

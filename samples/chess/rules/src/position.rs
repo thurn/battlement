@@ -3,10 +3,19 @@
 use battlement::ObjectId;
 use cozy_chess::{Board, Color, File, Move, Piece, Rank, Square};
 
+/// Stable object identity paired with its explicit board reference slot.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PieceIdentity {
+  /// Host object identity retained while the piece moves.
+  pub object_id: ObjectId,
+  /// Slot in the board component's hook-backed reference table.
+  pub reference_slot: usize,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ChessPiece {
-  /// Stable entity identity retained while the piece moves between squares.
-  pub entity_id: ObjectId,
+  /// Presentation identity retained while the piece moves between squares.
+  pub identity: PieceIdentity,
   /// Piece color.
   pub color: Color,
   /// Visible opaque prefab kind.
@@ -34,14 +43,14 @@ pub enum Movement {
   /// Ordinary translation to an empty square.
   Move {
     /// Stable identity of the moving piece.
-    piece: ObjectId,
+    piece: PieceIdentity,
     /// Destination square.
     to: Square,
   },
   /// Knight translation split into two orthogonal animation legs.
   Knight {
     /// Stable identity of the moving knight.
-    piece: ObjectId,
+    piece: PieceIdentity,
     /// Visual corner between the two legs.
     corner: Square,
     /// Destination square.
@@ -50,9 +59,9 @@ pub enum Movement {
   /// Move that removes an opposing piece, including en passant.
   Capture {
     /// Stable identity of the moving piece.
-    piece: ObjectId,
+    piece: PieceIdentity,
     /// Stable identity of the captured piece.
-    captured: ObjectId,
+    captured: PieceIdentity,
     /// Square occupied by the captured piece before the move.
     capture_at: Square,
     /// Destination square of the moving piece.
@@ -63,20 +72,20 @@ pub enum Movement {
   /// Coordinated king and rook translation.
   Castle {
     /// Stable identity of the king.
-    king: ObjectId,
+    king: PieceIdentity,
     /// King's visible destination.
     king_to: Square,
     /// Stable identity of the rook.
-    rook: ObjectId,
+    rook: PieceIdentity,
     /// Rook's visible destination.
     rook_to: Square,
   },
   /// Pawn translation whose prefab changes when state commits.
   Promotion {
     /// Stable identity retained by the promoted piece.
-    piece: ObjectId,
+    piece: PieceIdentity,
     /// Optional captured identity for a promotion capture.
-    captured: Option<ObjectId>,
+    captured: Option<PieceIdentity>,
     /// Promotion square.
     to: Square,
   },
@@ -85,13 +94,18 @@ pub enum Movement {
 impl ChessPosition {
   /// Builds presentation identities for every occupied square on a board.
   ///
-  /// A session generation is encoded into each ID so replacing the game remounts
-  /// pieces, while moves within one game preserve identity for reconciliation.
-  pub fn from_board(board: Board, generation: u32) -> Self {
+  /// Object IDs and reference slots are separate concerns: the former identifies
+  /// host objects while the latter selects the matching hook-backed reference.
+  pub fn from_board(board: Board, generation: u64) -> Self {
+    let mut identities = fastrand::Rng::with_seed(generation ^ 0xA599_7560_9834_72D1);
     let pieces = std::array::from_fn(|index| {
       let square = Square::index(index);
+      let object_id = piece_id(&mut identities);
       Some(ChessPiece {
-        entity_id: crate::piece_entity_id(index, generation),
+        identity: PieceIdentity {
+          object_id,
+          reference_slot: index,
+        },
         color: board.color_on(square)?,
         kind: board.piece_on(square)?,
       })
@@ -104,12 +118,51 @@ impl ChessPosition {
     self.pieces[square as usize]
   }
 
+  /// Finds a piece by the identity attached to its host object.
+  pub fn piece_with_id(&self, object_id: ObjectId) -> Option<ChessPiece> {
+    self
+      .pieces
+      .iter()
+      .flatten()
+      .find(|piece| piece.identity.object_id == object_id)
+      .copied()
+  }
+
+  /// Returns unique player-visible targets for one source square.
+  pub fn legal_destinations(&self, from: Square) -> Vec<Square> {
+    let mut destinations = Vec::new();
+    self.board.generate_moves_for(from.bitboard(), |moves| {
+      destinations.extend(
+        moves
+          .into_iter()
+          .map(|movement| visible_destination(&self.board, movement)),
+      );
+      false
+    });
+    destinations.sort_unstable();
+    destinations.dedup();
+    destinations
+  }
+
   /// Returns all legal moves matching one visible source and destination.
   ///
   /// The result may contain several promotion choices because those share the
   /// same visible squares and are disambiguated by a typed prompt later.
   pub fn legal_moves(&self, from: Square, to: Square) -> Vec<Move> {
-    crate::player_moves(&self.board, from, to)
+    if self.board.side_to_move() != Color::White || self.board.color_on(from) != Some(Color::White)
+    {
+      return Vec::new();
+    }
+    let mut candidates = Vec::new();
+    self.board.generate_moves_for(from.bitboard(), |moves| {
+      candidates.extend(
+        moves
+          .into_iter()
+          .filter(|movement| visible_destination(&self.board, *movement) == to),
+      );
+      false
+    });
+    candidates
   }
 
   /// Applies one legal move to both the rules board and its identity map.
@@ -165,20 +218,20 @@ impl ChessPosition {
     if moving.kind == Piece::King && self.board.color_on(movement.to) == Some(moving.color) {
       let (king_to, rook_to) = castle_destinations(movement, moving.color);
       return Movement::Castle {
-        king: moving.entity_id,
+        king: moving.identity,
         king_to,
         rook: self
           .piece(movement.to)
           .expect("castling rook has an identity")
-          .entity_id,
+          .identity,
         rook_to,
       };
     }
     let capture_at = capture_square(&self.board, movement, moving.kind);
-    let captured = self.piece(capture_at).map(|piece| piece.entity_id);
+    let captured = self.piece(capture_at).map(|piece| piece.identity);
     if movement.promotion.is_some() {
       return Movement::Promotion {
-        piece: moving.entity_id,
+        piece: moving.identity,
         captured,
         to: movement.to,
       };
@@ -187,7 +240,7 @@ impl ChessPosition {
       (moving.kind == Piece::Knight).then(|| knight_corner(movement.from, movement.to));
     if let Some(captured) = captured {
       return Movement::Capture {
-        piece: moving.entity_id,
+        piece: moving.identity,
         captured,
         capture_at,
         to: movement.to,
@@ -196,16 +249,36 @@ impl ChessPosition {
     }
     if let Some(corner) = knight_corner {
       Movement::Knight {
-        piece: moving.entity_id,
+        piece: moving.identity,
         corner,
         to: movement.to,
       }
     } else {
       Movement::Move {
-        piece: moving.entity_id,
+        piece: moving.identity,
         to: movement.to,
       }
     }
+  }
+}
+
+/// Generates an opaque, deterministic host identity for a piece slot.
+fn piece_id(rng: &mut fastrand::Rng) -> ObjectId {
+  let mut bytes = [0; 16];
+  bytes[..8].copy_from_slice(&rng.u64(..).to_be_bytes());
+  bytes[8..].copy_from_slice(&rng.u64(..).to_be_bytes());
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  ObjectId::from_bytes(bytes).expect("generated piece identity is nonzero")
+}
+
+/// Resolves cozy-chess's castling representation to the visible king target.
+fn visible_destination(board: &Board, movement: Move) -> Square {
+  let color = board.color_on(movement.from);
+  if board.piece_on(movement.from) == Some(Piece::King) && board.color_on(movement.to) == color {
+    castle_destinations(movement, color.expect("castling king has a color")).0
+  } else {
+    movement.to
   }
 }
 

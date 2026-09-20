@@ -6,6 +6,9 @@
 use battlement::{ObjectId, object_id};
 use cozy_chess::{Board, Color as PieceColor, GameStatus, Move, Piece};
 
+#[cfg(test)]
+const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
+
 /// Stable identity of the Reactant document root inspected by native scenarios.
 pub const ROOT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000002");
 
@@ -183,7 +186,7 @@ fn is_en_passant(board: &Board, mv: Move) -> bool {
 
 #[cfg(test)]
 mod tests {
-  use super::{VisualState, after_move, semantic_fixture};
+  use super::{DITTO_VISUAL_STATE_REGISTRY, VisualState, after_move, semantic_fixture};
   use cozy_chess::{Board, Color, Move, Piece, Square};
 
   #[test]
@@ -196,15 +199,13 @@ mod tests {
       VisualState::Resumed,
     ];
     assert_eq!(
-      crate::DITTO_VISUAL_STATE_REGISTRY
-        .matches("[[states]]")
-        .count(),
+      DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
       deterministic_states.len()
     );
     for state in deterministic_states {
       assert!(!state.registry_key().is_empty());
       assert!(
-        crate::DITTO_VISUAL_STATE_REGISTRY.contains(&format!("key = \"{}\"", state.registry_key())),
+        DITTO_VISUAL_STATE_REGISTRY.contains(&format!("key = \"{}\"", state.registry_key())),
         "registry is missing {}",
         state.registry_key()
       );

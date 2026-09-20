@@ -2,7 +2,7 @@
 
 use std::{rc::Rc, time::Duration};
 
-use battlement::{ParentScene, Vector3};
+use battlement::{ObjectId, ParentScene, Quaternion, Vector3, object_id};
 use cozy_chess::{Color, GameStatus};
 use reactant::{
   Application, DispatchResult, GameHandle, GameRoot, GameStatus as RulesStatus, PersistentState,
@@ -24,6 +24,10 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
 };
+
+const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
+pub(super) const CAMERA_ROTATION: Quaternion =
+  Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
 #[derive(Clone)]
 /// Typed inputs used to assemble every chess application variant.
@@ -108,7 +112,7 @@ pub fn application(config: ChessConfig) -> Application {
       world::Camera::new()
         .perspective(60.0)
         .position(Vector3::new(0.0, 8.0, -3.75))
-        .rotation(crate::CAMERA_ROTATION)
+        .rotation(CAMERA_ROTATION)
         .into_object(camera.object_id)
     });
   crate::reactant_input::configure_application(app)
@@ -185,12 +189,9 @@ impl Component for ChessApp {
         let state = if local.opening_generation == 0 {
           initial_state
             .clone()
-            .unwrap_or_else(|| ChessState::with_generation(self.config.starting_board.clone(), 0))
+            .unwrap_or_else(|| ChessState::new(self.config.starting_board.clone()))
         } else {
-          ChessState::with_generation(
-            self.config.starting_board.clone(),
-            u32::try_from(local.opening_generation).expect("chess generation exceeds u32"),
-          )
+          ChessState::with_generation(self.config.starting_board.clone(), local.opening_generation)
         };
         // Keying by generation intentionally remounts hooks, worker state, and
         // piece identities when the user starts a replacement session.
@@ -301,12 +302,12 @@ impl Component for TitleScreen {
         .on_press(self.on_play.clone()),
       world::SceneRoot::new(ParentScene::PrimaryScene).child(
         world::Sprite::new()
-          .id(*crate::PLAY_BUTTON_ID.as_uuid())
+          .id(*PLAY_BUTTON_ID.as_uuid())
           .texture(crate::assets::PLAY_BUTTON)
           .size(0.8, 0.24)
           .fit(battlement::ImageFit::Stretch)
           .position(Vector3::new(0.0, 6.38, -3.86))
-          .rotation(crate::CAMERA_ROTATION)
+          .rotation(CAMERA_ROTATION)
           .on_click(self.on_play.clone()),
       ),
       self
