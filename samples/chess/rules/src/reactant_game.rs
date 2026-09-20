@@ -52,8 +52,14 @@ pub struct ChessState {
   result: Option<crate::visual_state::VisualState>,
 }
 
+/// Type-level description connecting chess state, actions, prompts, and animations.
 pub struct ChessGame;
-pub(crate) struct ChessPolicy;
+/// Choice policy used when rules execution encounters a typed prompt.
+pub struct ChessPolicy;
+/// Mutable services available only while the bounded rules worker executes.
+///
+/// Keeping presentation randomness and the display connection here avoids putting
+/// nondeterministic or host-specific data into the clonable logical state.
 pub struct ChessContext {
   execution: ExecutionMode<ChessGame, ChessPolicy>,
   think_time: Duration,
@@ -66,7 +72,11 @@ impl ChessState {
     Self::with_generation(board, 0)
   }
 
-  pub(crate) fn with_generation(board: Board, generation: u32) -> Self {
+  /// Creates a position whose presentation identities belong to one session generation.
+  ///
+  /// Most callers should use [`Self::new`]; application remounts increment the
+  /// generation so Reactant and the native host replace every piece cleanly.
+  pub fn with_generation(board: Board, generation: u32) -> Self {
     Self {
       position: ChessPosition::from_board(board, generation),
       result: None,
@@ -88,7 +98,8 @@ impl ChessState {
     self.position.piece(square)
   }
 
-  pub(crate) fn legal_moves(&self, from: Square, to: Square) -> Vec<Move> {
+  /// Returns legal engine moves matching one player-visible source and target.
+  pub fn legal_moves(&self, from: Square, to: Square) -> Vec<Move> {
     self.position.legal_moves(from, to)
   }
 
@@ -99,13 +110,18 @@ impl ChessState {
 }
 
 impl ChessAnimation {
-  pub(crate) const fn result(&self) -> crate::visual_state::VisualState {
+  /// Returns the semantic result published alongside this animation checkpoint.
+  pub const fn result(&self) -> crate::visual_state::VisualState {
     match self {
       Self::Movement { result, .. } => *result,
     }
   }
 
-  pub(crate) fn accepted_board(&self) -> &Board {
+  /// Returns the post-move board captured before any following action can run.
+  ///
+  /// Persistence reads publications rather than waiting for rendered state, which
+  /// keeps saved data aligned with the exact animation currently being presented.
+  pub fn accepted_board(&self) -> &Board {
     match self {
       Self::Movement { accepted_board, .. } => accepted_board,
     }
@@ -113,7 +129,8 @@ impl ChessAnimation {
 }
 
 impl ChessContext {
-  pub(crate) fn new(
+  /// Creates the services used by one mounted rules session.
+  pub fn new(
     execution: ExecutionMode<ChessGame, ChessPolicy>,
     think_time: Duration,
     rng: Rng,
@@ -125,6 +142,11 @@ impl ChessContext {
     }
   }
 
+  /// Derives the presentation checkpoint before committing a logical move.
+  ///
+  /// A state animation should contain all transient facts the component tree
+  /// needs. Reading them later from mutated state would lose captured identities
+  /// and blur which move produced a sound or semantic outcome.
   fn movement(&mut self, state: &ChessState, movement: Move) -> ChessAnimation {
     let moving = state
       .position
@@ -170,6 +192,10 @@ impl ChessContext {
     }
   }
 
+  /// Publishes an animation checkpoint, then commits the matching logical state.
+  ///
+  /// `present` is the Reactant boundary that lets the display animate an accepted
+  /// transition while the rules worker remains the sole owner of mutation.
   fn apply_move(&mut self, state: &mut ChessState, movement: Move) {
     let animation = self.movement(state, movement);
     let result = animation.result();
@@ -180,12 +206,14 @@ impl ChessContext {
 }
 
 impl ChoicePolicy<ChessGame> for ChessPolicy {
+  /// Assigns promotion decisions to the human-facing Reactant prompt UI.
   fn owner(&self, _: &ChessState, prompt: &ChessPrompt<'_>) -> ChoiceOwner {
     match prompt {
       ChessPrompt::Promotion(_) => ChoiceOwner::Human,
     }
   }
 
+  /// Rejects automatic choice because every current prompt is human-owned.
   fn choose(&mut self, _: &ChessState, _: &ChessPrompt<'_>) -> usize {
     unreachable!("interactive chess prompts are owned by the player")
   }
@@ -198,10 +226,15 @@ impl Game for ChessGame {
   type Prompt<'a> = ChessPrompt<'a>;
   type Context = ChessContext;
 
+  /// Clones only deterministic logical state for speculative rules execution.
   fn logical_clone(state: &ChessState) -> ChessState {
     state.clone()
   }
 
+  /// Validates actions again at the worker boundary before execution.
+  ///
+  /// UI disabling improves affordance, but rules legality is still authoritative;
+  /// callers may be stale or actions may arrive from other input sources.
   fn is_legal_action(state: &ChessState, action: &ChessAction) -> bool {
     match action {
       ChessAction::MoveTo { from, to } => {
@@ -214,6 +247,10 @@ impl Game for ChessGame {
     }
   }
 
+  /// Executes one complete action, pausing on a typed prompt when necessary.
+  ///
+  /// A player move and the computer reply are separate actions so the display can
+  /// commit and animate each checkpoint before the next bounded action begins.
   fn execute(context: &mut ChessContext, state: &mut ChessState, action: ChessAction) {
     match action {
       ChessAction::MoveTo { from, to } => {

@@ -1,7 +1,13 @@
+//! Semantic presentation states used by diagnostics and native Ditto scenarios.
+//!
+//! These names describe user-visible outcomes rather than component internals.
+//! That makes automated scenarios durable even when the visual tree is refactored.
+
 use battlement::{ObjectId, object_id};
 use cozy_chess::{Board, Color as PieceColor, GameStatus, Move, Piece};
 
-pub(crate) const ROOT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000002");
+/// Stable identity of the Reactant document root inspected by native scenarios.
+pub const ROOT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000002");
 
 /// Finite user-visible presentation families recognized by the Chess engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -70,7 +76,11 @@ impl VisualState {
     }
   }
 
-  pub(crate) const fn label(self) -> &'static str {
+  /// Returns the hidden semantic label exposed for the active state.
+  ///
+  /// The labels are not player-facing layout. They give native black-box tests
+  /// an accessible assertion surface without coupling them to Rust state.
+  pub const fn label(self) -> &'static str {
     match self {
       Self::Title => "CHESS · START A NEW GAME",
       Self::Initial => "YOUR TURN · CHOOSE A PIECE",
@@ -93,12 +103,19 @@ impl VisualState {
   }
 }
 
-pub(crate) struct SemanticFixture {
-  pub(crate) board: Board,
-  pub(crate) state: VisualState,
+/// Deterministic board and expected semantic state for review scenarios.
+pub struct SemanticFixture {
+  /// Starting logical position.
+  pub board: Board,
+  /// State marker to expose when the fixture mounts.
+  pub state: VisualState,
 }
 
-pub(crate) fn semantic_fixture(name: &str) -> Option<SemanticFixture> {
+/// Resolves a named review fixture without adding test-only branches to components.
+///
+/// FEN keeps the fixtures compact and exercises the same application assembly as
+/// a real session. Returning `None` lets the entry point report unknown names.
+pub fn semantic_fixture(name: &str) -> Option<SemanticFixture> {
   let (fen, state) = match name {
     "title" => {
       return Some(SemanticFixture {
@@ -127,7 +144,12 @@ pub(crate) fn semantic_fixture(name: &str) -> Option<SemanticFixture> {
   })
 }
 
-pub(crate) fn after_move(
+/// Classifies the most specific user-visible outcome of an accepted move.
+///
+/// Classification happens beside the rules transition because it needs both the
+/// old and new boards. Components consume the resulting semantic value instead
+/// of duplicating chess inference in the view layer.
+pub fn after_move(
   board_before: &Board,
   board_after: &Board,
   mv: Move,
@@ -147,10 +169,12 @@ pub(crate) fn after_move(
   }
 }
 
+/// Recognizes cozy-chess's king-to-friendly-rook representation of castling.
 fn is_castle(board: &Board, mv: Move, mover: PieceColor) -> bool {
   board.piece_on(mv.from) == Some(Piece::King) && board.color_on(mv.to) == Some(mover)
 }
 
+/// Recognizes a diagonal pawn move whose captured piece is not on the destination.
 fn is_en_passant(board: &Board, mv: Move) -> bool {
   board.piece_on(mv.from) == Some(Piece::Pawn)
     && mv.from.file() != mv.to.file()
@@ -163,6 +187,7 @@ mod tests {
   use cozy_chess::{Board, Color, Move, Piece, Square};
 
   #[test]
+  /// Keeps the semantic registry synchronized with deterministic review fixtures.
   fn deterministic_visual_states_and_semantic_fixtures_are_registered() {
     assert_eq!(VisualState::ALL.len(), 17);
     let deterministic_states = [
@@ -200,6 +225,7 @@ mod tests {
   }
 
   #[test]
+  /// Distinguishes equivalent quiet moves by which side committed them.
   fn normal_moves_distinguish_player_commit_from_ai_response() {
     let mut board = Board::default();
     let player_move = Move {
@@ -228,6 +254,7 @@ mod tests {
   }
 
   #[test]
+  /// Proves the draw fixture reaches the intended stalemate through legal play.
   fn draw_fixture_reaches_stalemate_through_a_legal_move() {
     let mut board = semantic_fixture("draw").unwrap().board;
     let mv = Move {

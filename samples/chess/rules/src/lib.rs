@@ -3,18 +3,18 @@
 mod ai;
 pub mod assets;
 pub mod audio;
-mod chess_board;
-mod chess_prompt;
-mod chess_ui_state;
-mod cursor;
-mod motion;
-mod persistence;
-mod position;
-mod promotion_dialog;
-mod reactant_effects;
-mod reactant_game;
-mod reactant_input;
-mod reactant_view;
+pub mod chess_board;
+pub mod chess_prompt;
+pub mod chess_ui_state;
+pub mod cursor;
+pub mod motion;
+pub mod persistence;
+pub mod position;
+pub mod promotion_dialog;
+pub mod reactant_effects;
+pub mod reactant_game;
+pub mod reactant_input;
+pub mod reactant_view;
 pub mod visual_state;
 
 pub use position::ChessPiece;
@@ -27,20 +27,28 @@ use battlement::{
 use cozy_chess::{Board, Color, File, Move, Piece, Rank, Square};
 
 use crate::assets::{black, music, white};
-pub(crate) use crate::audio::{
+pub use crate::audio::{
   CAPTURE_SOUNDS, CASTLE_SOUND, CHECK_SOUND, DRAW_SOUND, DROP_SOUNDS, INVALID_DROP_SOUND,
   PLAYER_LOSS_SOUND, PLAYER_WIN_SOUND, PROMOTION_SOUND, RESET_SOUND, VOLUME_DOWN_SOUND,
   VOLUME_UP_SOUND,
 };
 
-pub(crate) const AI_THINK_TIME: Duration = Duration::from_secs(2);
-pub(crate) const HIGHLIGHT_HEIGHT: f64 = 0.02;
-pub(crate) const HIGHLIGHT_SCALE: f64 = 0.09;
-pub(crate) const CAMERA_BUTTON_DEPTH: f64 = 1.5;
-pub(crate) const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
-pub(crate) const REFRESH_BUTTON_SIZE: f64 = 0.16;
-pub(crate) const REFRESH_BUTTON_MARGIN: f64 = 0.12;
-pub(crate) const CAMERA_ROTATION: Quaternion =
+/// Default time budget for the embedded computer opponent.
+pub const AI_THINK_TIME: Duration = Duration::from_secs(2);
+/// Small lift that keeps legal-target highlights above the board surface.
+pub const HIGHLIGHT_HEIGHT: f64 = 0.02;
+/// World-space scale applied to legal-target highlight planes.
+pub const HIGHLIGHT_SCALE: f64 = 0.09;
+/// Distance from the camera used to place the world-space refresh button.
+pub const CAMERA_BUTTON_DEPTH: f64 = 1.5;
+/// Camera field of view used by the viewport-relative button calculation.
+pub const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
+/// World-space width and height of the refresh button.
+pub const REFRESH_BUTTON_SIZE: f64 = 0.16;
+/// View-frustum inset around the refresh button.
+pub const REFRESH_BUTTON_MARGIN: f64 = 0.12;
+/// Shared rotation that makes world-space sprites face the sample camera.
+pub const CAMERA_ROTATION: Quaternion =
   Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
 /// Addresses of all chess-piece prefabs.
@@ -87,6 +95,10 @@ pub const REACTANT_CHESS_ROOT_ID: ObjectId = visual_state::ROOT_ID;
 pub const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 
 /// Creates the component-first application used by the native sample.
+///
+/// Environment-driven fixture selection lives only at this exported boundary.
+/// The component tree therefore receives ordinary typed configuration and does
+/// not need test-specific conditionals scattered through its renders.
 pub fn application() -> reactant::Application {
   if let Ok(name) = std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE") {
     return review_application(&name).unwrap_or_else(|error| panic!("{error}"));
@@ -100,6 +112,9 @@ pub fn application() -> reactant::Application {
 }
 
 /// Creates the sample application with a custom AI budget.
+///
+/// Supplying a duration is useful for tests and embedding: the same rules and UI
+/// can run instantly or spend more time searching without changing components.
 pub fn application_with_think_time(think_time: Duration) -> reactant::Application {
   configured_application(
     Board::default(),
@@ -113,6 +128,9 @@ pub fn application_with_think_time(think_time: Duration) -> reactant::Applicatio
 }
 
 /// Creates the application with deterministic presentation randomness.
+///
+/// Random sound variants belong to presentation context rather than logical
+/// state. Seeding that context makes captures reproducible for recorded scenarios.
 pub fn seeded_application(seed: u64) -> reactant::Application {
   configured_application(
     Board::default(),
@@ -126,6 +144,9 @@ pub fn seeded_application(seed: u64) -> reactant::Application {
 }
 
 /// Creates a title-screen application whose game starts from a FEN position.
+///
+/// This constructor preserves the normal user journey while making a particular
+/// rules position available after Play is activated.
 pub fn application_with_position(
   fen: &str,
   think_time: Duration,
@@ -145,6 +166,9 @@ pub fn application_with_position(
 }
 
 /// Creates an already-started application from a FEN position.
+///
+/// Starting inside the game is useful for host integrations that already own
+/// session selection, and for examples that focus on board interaction.
 pub fn application_at_position(
   fen: &str,
   think_time: Duration,
@@ -163,6 +187,10 @@ pub fn application_at_position(
   ))
 }
 
+/// Funnels exported constructors into one typed component configuration.
+///
+/// A single assembly path is a useful Reactant pattern: variants differ in data,
+/// while document ownership, hooks, and component structure remain identical.
 fn configured_application(
   starting_board: Board,
   initial_state: Option<reactant_game::ChessState>,
@@ -183,6 +211,7 @@ fn configured_application(
   })
 }
 
+/// Builds a deterministic semantic fixture through the production app assembly.
 fn review_application(name: &str) -> Result<reactant::Application, String> {
   let (board, state) = if name == "paused" {
     (Board::default(), visual_state::VisualState::Paused)
@@ -204,6 +233,10 @@ fn review_application(name: &str) -> Result<reactant::Application, String> {
   ))
 }
 
+/// Returns unique visible targets for highlights and accessible move buttons.
+///
+/// Promotions collapse to one square and cozy-chess's castling encoding is
+/// translated to the king's visible destination before deduplication.
 fn legal_destinations(board: &Board, from: Square) -> Vec<Square> {
   let mut destinations = Vec::new();
   board.generate_moves_for(from.bitboard(), |moves| {
@@ -219,6 +252,10 @@ fn legal_destinations(board: &Board, from: Square) -> Vec<Square> {
   destinations
 }
 
+/// Resolves a player-visible target back into every matching legal rules move.
+///
+/// Several candidates are retained for promotion so the rules action can ask a
+/// typed prompt instead of making the view invent a special command.
 fn player_moves(board: &Board, from: Square, target: Square) -> Vec<Move> {
   if board.side_to_move() != Color::White || board.color_on(from) != Some(Color::White) {
     return Vec::new();
@@ -235,6 +272,7 @@ fn player_moves(board: &Board, from: Square, target: Square) -> Vec<Move> {
   candidates
 }
 
+/// Maps engine encodings to the square a player sees the moving piece occupy.
 fn visible_destination(board: &Board, movement: Move) -> Square {
   let color = board.color_on(movement.from);
   if board.piece_on(movement.from) != Some(Piece::King) || board.color_on(movement.to) != color {
@@ -250,6 +288,7 @@ fn visible_destination(board: &Board, movement: Move) -> Square {
   )
 }
 
+/// Converts a world-space drag endpoint into a square inside the board bounds.
 fn square_at(position: Vector3) -> Option<Square> {
   if !(-4.0..4.0).contains(&position.x) || !(-4.0..4.0).contains(&position.z) {
     return None;
@@ -259,6 +298,7 @@ fn square_at(position: Vector3) -> Option<Square> {
   Some(Square::new(File::index(file), Rank::index(rank)))
 }
 
+/// Converts a logical square to its centered world-space board position.
 fn square_position(square: Square) -> Vector3 {
   GridLayout::centered(
     Vector3::ZERO,
@@ -270,12 +310,17 @@ fn square_position(square: Square) -> Vector3 {
   .position(square.file() as u32, square.rank() as u32)
 }
 
+/// Creates a stable piece identity that also encodes its reference-table slot.
+///
+/// The generation changes when a session is replaced, forcing a clean remount;
+/// the index stays stable across moves so Motion can keep targeting the object.
 fn piece_entity_id(index: usize, generation: u32) -> ObjectId {
   format!("43000000-0000-4000-83{generation:02x}-{index:012x}")
     .parse()
     .expect("generated Chess piece ID is valid")
 }
 
+/// Selects the Unity prefab for one logical piece without leaking assets into rules code.
 fn address(color: Color, piece: Piece) -> PrefabAddress {
   match (color, piece) {
     (Color::White, Piece::Pawn) => white::PAWN,

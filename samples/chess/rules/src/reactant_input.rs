@@ -39,7 +39,11 @@ const CONTROLLER_BUTTONS: [ControllerButton; 5] = [
   ControllerButton::Start,
 ];
 
-pub(crate) fn configure_application(application: Application) -> Application {
+/// Declares the global keys and controller controls the host should forward.
+///
+/// Reactant opts into global input explicitly. Keeping the allowlist beside its
+/// mapping makes host subscription and action normalization easy to review.
+pub fn configure_application(application: Application) -> Application {
   application.global_keys(GLOBAL_KEYS).controller_input(
     ControllerInputSettings::new()
       .buttons(CONTROLLER_BUTTONS)
@@ -48,7 +52,12 @@ pub(crate) fn configure_application(application: Application) -> Application {
   )
 }
 
-pub(crate) fn use_chess_input(control: ChessUiController, game: Option<GameHandle<ChessGame>>) {
+/// Installs one global-input hook and normalizes events into [`UiAction`] values.
+///
+/// The title screen passes no game handle, while an active session passes one.
+/// Sharing this hook ensures keyboard and controller input use the same reducer
+/// and legality paths as clicks and drags.
+pub fn use_chess_input(control: ChessUiController, game: Option<GameHandle<ChessGame>>) {
   reactant::use_global_input(move |input| match input {
     GlobalInput::KeyDown(key) => key_down(&control, game.as_ref(), key),
     GlobalInput::KeyUp(key) => control.dispatch(game.as_ref(), UiAction::KeyUp(key)),
@@ -68,6 +77,7 @@ pub(crate) fn use_chess_input(control: ChessUiController, game: Option<GameHandl
   });
 }
 
+/// Applies chord detection, then maps one keyboard press to app intent.
 fn key_down(control: &ChessUiController, game: Option<&GameHandle<ChessGame>>, key: PhysicalKey) {
   let mut held = control.current().held;
   held.insert(key);
@@ -105,6 +115,7 @@ fn key_down(control: &ChessUiController, game: Option<&GameHandle<ChessGame>>, k
   }
 }
 
+/// Maps controller buttons according to the current screen and overlay state.
 fn controller_button(
   control: &ChessUiController,
   game: Option<&GameHandle<ChessGame>>,
@@ -140,6 +151,7 @@ fn controller_button(
   }
 }
 
+/// Selects, activates, or cancels the square addressed by the shared cursor.
 fn activate_cursor(control: &ChessUiController, game: &GameHandle<ChessGame>) {
   let local = control.current();
   control.dispatch(
@@ -152,6 +164,7 @@ fn activate_cursor(control: &ChessUiController, game: &GameHandle<ChessGame>) {
   );
 }
 
+/// Converts a relative input into the reducer's clamped absolute volume action.
 fn adjust_volume(control: &ChessUiController, game: Option<&GameHandle<ChessGame>>, delta: f64) {
   control.dispatch(
     game,
@@ -159,6 +172,7 @@ fn adjust_volume(control: &ChessUiController, game: Option<&GameHandle<ChessGame
   );
 }
 
+/// Recognizes Control/Command + Shift + R independent of left/right modifiers.
 fn restart_shortcut(held: &HashSet<PhysicalKey>) -> bool {
   held.contains(&PhysicalKey::KeyR)
     && held

@@ -16,13 +16,18 @@ use crate::{
 
 const MUSIC_CROSSFADE: Duration = Duration::from_secs(5);
 
-pub(crate) struct GameEffects {
+/// Component that interprets app-local effect state at the host boundary.
+///
+/// Keeping effects in a leaf component separates idempotent rendering from
+/// imperative audio, vibration, debug UI, and diagnostics commands.
+pub struct GameEffects {
   control: ChessUiController,
   diagnostics: bool,
 }
 
 impl GameEffects {
-  pub(crate) fn new(control: ChessUiController, diagnostics: bool) -> Self {
+  /// Creates the effect bridge for one app-local controller.
+  pub fn new(control: ChessUiController, diagnostics: bool) -> Self {
     Self {
       control,
       diagnostics,
@@ -31,10 +36,17 @@ impl GameEffects {
 }
 
 impl Component for GameEffects {
+  /// Declares effects keyed by the smallest state that should retrigger them.
+  ///
+  /// Music depends on generation, track, and volume, while one-shot feedback
+  /// depends on a monotonically increasing serial. Explicit dependencies prevent
+  /// ordinary rerenders from replaying host commands.
   fn render(&self) -> impl Render {
     let local = self.control.snapshot();
     let app = reactant::app_context::use_app();
     let previous_music = hooks::use_ref(None::<(u64, usize, AudioPlayback)>);
+    // Retain the playback handle outside render so track changes can crossfade
+    // the previous host-owned audio instance instead of starting duplicates.
     hooks::use_effect(
       {
         let app = app.clone();
@@ -130,7 +142,11 @@ impl Component for GameEffects {
   }
 }
 
-pub(crate) fn diagnostics_view(status: &'static str, origin: &'static str) -> impl Render {
+/// Publishes game metadata only when the optional diagnostics host module exists.
+///
+/// This helper returns renderable effect work, letting callers colocate metadata
+/// with the component that derives it while Reactant schedules the host command.
+pub fn diagnostics_view(status: &'static str, origin: &'static str) -> impl Render {
   let app = reactant::app_context::use_app();
   hooks::use_effect(
     move || {

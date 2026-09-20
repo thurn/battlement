@@ -16,7 +16,11 @@ const KNIGHT_FIRST_LEG: Duration = Duration::from_millis(200);
 const KNIGHT_SECOND_LEG: Duration = Duration::from_millis(120);
 const CAPTURE_EFFECT_LIFETIME: Duration = Duration::from_millis(2_000);
 
-pub(crate) const fn arrival_duration(movement: &Movement) -> Duration {
+/// Returns when a movement reaches its destination for synchronized audio.
+///
+/// The board component uses the same timing as the sequence builder rather
+/// than duplicating animation constants, keeping sound and motion aligned.
+pub const fn arrival_duration(movement: &Movement) -> Duration {
   match movement {
     Movement::Knight { .. }
     | Movement::Capture {
@@ -30,7 +34,13 @@ pub(crate) const fn arrival_duration(movement: &Movement) -> Duration {
   }
 }
 
-pub(crate) fn sequence(
+/// Converts a semantic chess movement into one host-independent Motion sequence.
+///
+/// Rules code describes *what* moved through [`Movement`]; this presentation
+/// module decides *how* that event is animated. That separation is idiomatic in
+/// Reactant because the rules worker remains deterministic while the component
+/// tree owns effects and host object references.
+pub fn sequence(
   movement: &Movement,
   references: &[reactant::prelude::ObjectRef; 64],
 ) -> AnimationSequence {
@@ -88,6 +98,7 @@ pub(crate) fn sequence(
   }
 }
 
+/// Builds the common single-segment translation used by most pieces.
 fn move_step(
   references: &[reactant::prelude::ObjectRef; 64],
   piece: ObjectId,
@@ -101,6 +112,7 @@ fn move_step(
   )
 }
 
+/// Animates a knight through an L-shaped corner so its path reads clearly in 3D.
 fn knight_steps(
   references: &[reactant::prelude::ObjectRef; 64],
   piece: ObjectId,
@@ -114,6 +126,10 @@ fn knight_steps(
   )
 }
 
+/// Resolves a stable piece identity into the object reference captured by the board.
+///
+/// Piece IDs encode their original square in the final UUID bytes. This avoids a
+/// mutable reference map while preserving the same motion target after pieces move.
 fn piece_reference(
   references: &[reactant::prelude::ObjectRef; 64],
   piece: ObjectId,
@@ -130,7 +146,8 @@ fn piece_reference(
     .clone()
 }
 
-pub(crate) fn position_target(square: Square) -> StyleTarget {
+/// Creates the Motion target corresponding to the center of a chess square.
+pub fn position_target(square: Square) -> StyleTarget {
   let position = crate::square_position(square);
   StyleTarget::new()
     .local_position_x(position.x as f32)
@@ -138,6 +155,7 @@ pub(crate) fn position_target(square: Square) -> StyleTarget {
     .local_position_z(position.z as f32)
 }
 
+/// Uses one easing curve for every board translation so composed moves feel coherent.
 fn movement_transition(duration: Duration) -> Transition {
   Transition::tween()
     .duration_secs(duration.as_secs_f64())

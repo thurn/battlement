@@ -23,16 +23,29 @@ use crate::{
   reactant_game::{ChessAnimation, ChessGame},
 };
 
-pub(crate) struct ChessBoard {
-  pub(crate) ui: ChessUiState,
-  pub(crate) on_activate: EventCallback<Square>,
-  pub(crate) on_move: EventCallback<(Square, Square)>,
-  pub(crate) on_request_new_game: EventCallback<()>,
-  pub(crate) on_opening_finished: std::rc::Rc<dyn Fn(AnimationPlayback, u64)>,
-  pub(crate) game: reactant::GameHandle<ChessGame>,
-  pub(crate) control: ChessUiController,
+/// Declarative world-space board composed from rules state and app-local UI state.
+///
+/// The component receives callbacks and handles as props instead of reaching into
+/// a global model. This keeps rendering reusable while the parent owns session
+/// orchestration, persistence, and input policy.
+pub struct ChessBoard {
+  /// Current app-local selection, cursor, overlay, and opening state.
+  pub ui: ChessUiState,
+  /// Unified pointer activation callback for squares and opposing pieces.
+  pub on_activate: EventCallback<Square>,
+  /// Accessible move callback exposed through hidden semantic buttons.
+  pub on_move: EventCallback<(Square, Square)>,
+  /// Callback for the world-space refresh affordance.
+  pub on_request_new_game: EventCallback<()>,
+  /// Registers completion of the session-opening animation.
+  pub on_opening_finished: std::rc::Rc<dyn Fn(AnimationPlayback, u64)>,
+  /// Typed rules-session handle used by draggable pieces.
+  pub game: reactant::GameHandle<ChessGame>,
+  /// Reducer-style controller shared with other input paths.
+  pub control: ChessUiController,
 }
 
+/// One board cell, including its interaction surface and optional piece.
 struct ChessSquare {
   square: Square,
   legal_target: bool,
@@ -45,6 +58,7 @@ struct ChessSquare {
   interactive: bool,
 }
 
+/// Hit region and prefab for a piece with stable identity and Motion targeting.
 struct ChessPieceView {
   piece: ChessPiece,
   square: Square,
@@ -56,6 +70,11 @@ struct ChessPieceView {
 }
 
 impl Component for ChessBoard {
+  /// Renders the board and declares effects that bridge committed state to Motion.
+  ///
+  /// Reactant components describe both native UI and world objects. Hooks stay at
+  /// the top level of `render`, while event closures capture cloned handles rather
+  /// than borrowing the transient render frame.
   fn render(&self) -> impl Render {
     let state = reactant::use_game_state::<ChessGame>();
     let status = reactant::use_game_status::<ChessGame>();
@@ -63,6 +82,8 @@ impl Component for ChessBoard {
     let local = &self.ui;
     let scope = reactant::animation_controls::use_animation_scope();
     let event_scope = scope.clone();
+    // Reserve one hook-backed reference per original piece slot. Piece identities
+    // retain that slot across moves, so animations never depend on tree position.
     let references: [reactant::prelude::ObjectRef; 64] = std::array::from_fn(|_| use_object_ref());
     let event_references = references.clone();
     reactant::use_animate::<ChessGame>(move |animation| {
@@ -81,6 +102,8 @@ impl Component for ChessBoard {
       .into_iter()
       .filter_map(|square| state.piece(square))
       .collect::<Vec<_>>();
+    // Starting Motion after commit guarantees all newly mounted piece references
+    // are attached before the sequence tries to animate them.
     reactant::hooks::use_commit_effect(
       move || {
         if let Some(mode) = opening {
@@ -149,6 +172,8 @@ impl Component for ChessBoard {
           .map(move |to| (from, to))
       })
       .collect::<Vec<_>>();
+    // Invisible UI buttons give accessibility and Ditto a semantic interaction
+    // surface; they dispatch the same callback as the rendered board.
     let semantics = semantic_moves
       .into_iter()
       .enumerate()
@@ -221,6 +246,7 @@ impl Component for ChessBoard {
 }
 
 impl Component for ChessSquare {
+  /// Renders a legal-target surface and the keyed piece occupying this square.
   fn render(&self) -> impl Render {
     let square = self.square;
     let mut position = crate::square_position(square);
@@ -252,6 +278,7 @@ impl Component for ChessSquare {
 }
 
 impl Component for ChessPieceView {
+  /// Renders one stable hit region and chooses interaction by piece ownership.
   fn render(&self) -> impl Render {
     let square = self.square;
     let hit = world::BoxHitRegion::new()
@@ -300,6 +327,10 @@ impl Component for ChessPieceView {
   }
 }
 
+/// Adds event-specific audio timing to the shared movement animation.
+///
+/// Motion owns spatial composition; this board-level adapter owns sounds because
+/// it can schedule them against the same sequence clock delivered to the host.
 fn sequence(
   animation: &ChessAnimation,
   references: &[reactant::prelude::ObjectRef; 64],
@@ -334,6 +365,10 @@ fn sequence(
   }
 }
 
+/// Builds the staged piece reveal used when mounting a fresh or restarted session.
+///
+/// White and black pieces enter in parallel groups aligned to the music beats.
+/// A refresh skips the reveal because its existing board is already visible.
 fn opening_sequence(
   mode: SessionStart,
   pieces: &[ChessPiece],
@@ -403,6 +438,7 @@ fn opening_sequence(
     .at(SequencePosition::Absolute(Duration::ZERO))
 }
 
+/// Decodes the reference-table slot embedded in a stable piece identity.
 fn piece_reference(
   references: &[reactant::prelude::ObjectRef; 64],
   piece: ObjectId,

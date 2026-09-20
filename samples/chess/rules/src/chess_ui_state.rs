@@ -15,77 +15,126 @@ const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 
 /// Application screen selected independently of rules state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum AppScreen {
+pub enum AppScreen {
+  /// Start screen before a rules session is mounted.
   Title,
+  /// Active board backed by a mounted rules session.
   Game,
 }
 
 /// Transient application overlays, independent of rules execution and prompts.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum Overlay {
-  Pause { confirm_new_game: bool },
+pub enum Overlay {
+  /// Paused controls, optionally asking for a second new-game activation.
+  Pause {
+    /// Whether the next new-game request should replace the session.
+    confirm_new_game: bool,
+  },
 }
 
 /// Presentation intents shared by pointer, keyboard, controller, and drag input.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum UiAction {
+pub enum UiAction {
+  /// Selects a player piece at a square.
   Select(Square),
+  /// Activates a square through click, keyboard, or controller input.
   Activate(Square),
+  /// Begins dragging a stable piece identity.
   BeginDrag(ObjectId),
+  /// Ends a drag over an optional board square.
   EndDrag(ObjectId, Option<Square>),
+  /// Clears the current piece selection.
   CancelSelection,
+  /// Moves the shared keyboard/controller cursor.
   MoveCursor(Square),
+  /// Cycles through selectable pieces or legal targets.
   CycleCursor(bool),
+  /// Opens or closes the pause overlay.
   TogglePause,
+  /// Requests a new game, preserving whether non-pointer input needs a cursor.
   RequestNewGame { cursor_visible: bool },
+  /// Returns from the confirmation state to the ordinary pause overlay.
   DismissNewGameConfirmation,
+  /// Sets normalized music volume.
   SetVolume(f64),
+  /// Records a held key before handling chords.
   KeyDown(PhysicalKey),
+  /// Releases a held key.
   KeyUp(PhysicalKey),
+  /// Requests one host debug surface.
   ShowDebug(DebugUiSurface),
 }
 
 /// App-owned reason for creating or replacing a chess session.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum SessionStart {
+pub enum SessionStart {
+  /// First session created from the title screen.
   Fresh,
+  /// Replacement requested through the keyboard shortcut.
   Restart,
+  /// Replacement confirmed through the pause UI.
   Refresh,
 }
 
 /// One app-local effect delivered after input without entering rules state.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum LocalEffect {
+pub enum LocalEffect {
+  /// Plays one sound without changing logical rules state.
   Sound(battlement::AudioClipAddress),
+  /// Plays invalid-action feedback and vibrates the controller.
   Invalid,
+  /// Opens a host-provided debug surface.
   ShowDebug(DebugUiSurface),
 }
 
 /// Selection, navigation, overlays, settings, and one-shot app effects.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct ChessUiState {
-  pub(crate) screen: AppScreen,
-  pub(crate) visual_state: crate::visual_state::VisualState,
-  pub(crate) origin_saved: bool,
-  pub(crate) spawning: bool,
-  pub(crate) opening_generation: u64,
-  pub(crate) opening: Option<SessionStart>,
-  pub(crate) selected: Option<Square>,
-  pub(crate) drag_restore: Option<(ObjectId, Square)>,
-  pub(crate) drag_restore_generation: u64,
-  pub(crate) cursor: Square,
-  pub(crate) cursor_visible: bool,
-  pub(crate) overlay: Option<Overlay>,
-  pub(crate) volume: f64,
-  pub(crate) effect_serial: u64,
-  pub(crate) effect: Option<LocalEffect>,
-  pub(crate) music_generation: u64,
-  pub(crate) music_track: usize,
-  pub(crate) held: HashSet<PhysicalKey>,
+pub struct ChessUiState {
+  /// Top-level screen independent of rules worker state.
+  pub screen: AppScreen,
+  /// Last durable semantic presentation state.
+  pub visual_state: crate::visual_state::VisualState,
+  /// Whether this session began from persisted board data.
+  pub origin_saved: bool,
+  /// Whether opening animation currently suppresses interaction.
+  pub spawning: bool,
+  /// Identity used to remount sessions and ignore stale animation completions.
+  pub opening_generation: u64,
+  /// Opening animation requested for the current generation.
+  pub opening: Option<SessionStart>,
+  /// Source square selected for the next move.
+  pub selected: Option<Square>,
+  /// Piece and square to restore after a rejected drag.
+  pub drag_restore: Option<(ObjectId, Square)>,
+  /// Dependency token that retriggers repeated restores to the same square.
+  pub drag_restore_generation: u64,
+  /// Shared keyboard and controller cursor square.
+  pub cursor: Square,
+  /// Whether the cursor is visible without an active selection.
+  pub cursor_visible: bool,
+  /// Current app-owned overlay.
+  pub overlay: Option<Overlay>,
+  /// Normalized music volume.
+  pub volume: f64,
+  /// Dependency token that delivers repeated equal one-shot effects.
+  pub effect_serial: u64,
+  /// Most recently requested app-local effect.
+  pub effect: Option<LocalEffect>,
+  /// Playback generation incremented to restart or change music.
+  pub music_generation: u64,
+  /// Index into [`crate::MUSIC_TRACKS`].
+  pub music_track: usize,
+  /// Physical keys currently held for chord recognition.
+  pub held: HashSet<PhysicalKey>,
 }
 
+/// Reducer-style interface shared by components and every input source.
+///
+/// The render snapshot is convenient for declarative output, while `current`
+/// gives event handlers the latest committed value even when their closure was
+/// created by an earlier render.
 #[derive(Clone)]
-pub(crate) struct ChessUiController {
+pub struct ChessUiController {
   local: ChessUiState,
   current: reactant::hooks::Ref<ChessUiState>,
   dispatch: reactant::hooks::ReducerDispatch<ChessUiState>,
@@ -93,6 +142,7 @@ pub(crate) struct ChessUiController {
 }
 
 impl Default for ChessUiState {
+  /// Starts on the title screen with no transient interaction or host effects.
   fn default() -> Self {
     Self {
       screen: AppScreen::Title,
@@ -118,7 +168,8 @@ impl Default for ChessUiState {
 }
 
 impl ChessUiState {
-  pub(crate) const fn resolved_visual_state(&self) -> crate::visual_state::VisualState {
+  /// Resolves temporary overlays and selection ahead of the durable game state.
+  pub const fn resolved_visual_state(&self) -> crate::visual_state::VisualState {
     if self.pause_open() {
       crate::visual_state::VisualState::Paused
     } else if self.selected.is_some() {
@@ -128,11 +179,13 @@ impl ChessUiState {
     }
   }
 
-  pub(crate) const fn pause_open(&self) -> bool {
+  /// Returns whether the pause overlay currently owns interaction.
+  pub const fn pause_open(&self) -> bool {
     matches!(self.overlay, Some(Overlay::Pause { .. }))
   }
 
-  pub(crate) const fn confirm_new_game(&self) -> bool {
+  /// Returns whether a second new-game request should replace the session.
+  pub const fn confirm_new_game(&self) -> bool {
     matches!(
       self.overlay,
       Some(Overlay::Pause {
@@ -142,7 +195,12 @@ impl ChessUiState {
   }
 }
 
-pub(crate) fn use_chess_ui(initial: ChessUiState) -> ChessUiController {
+/// Creates app-local reducer state and a controller safe for event closures.
+///
+/// Reactant's reducer snapshot updates on render. The companion ref is updated
+/// both eagerly by events and after commit, so several events arriving before a
+/// rerender still reduce from the latest value rather than a captured snapshot.
+pub fn use_chess_ui(initial: ChessUiState) -> ChessUiController {
   let (local, dispatch) = reactant::hooks::use_reducer(|_, next| next, initial);
   let current = reactant::hooks::use_ref(local.clone());
   let committed = current.clone();
@@ -163,14 +221,17 @@ pub(crate) fn use_chess_ui(initial: ChessUiState) -> ChessUiController {
 }
 
 impl ChessUiController {
-  pub(crate) fn snapshot(&self) -> ChessUiState {
+  /// Returns the render-frame snapshot used for declarative composition.
+  pub fn snapshot(&self) -> ChessUiState {
     self.local.clone()
   }
 
-  pub(crate) fn current(&self) -> ChessUiState {
+  /// Returns the latest value for callbacks that may outlive their render frame.
+  pub fn current(&self) -> ChessUiState {
     self.current.get()
   }
 
+  /// Applies one local-state transaction to both the live ref and reducer.
   fn update(&self, update: impl FnOnce(&mut ChessUiState)) {
     let mut local = self.current();
     update(&mut local);
@@ -178,7 +239,12 @@ impl ChessUiController {
     self.dispatch.send(local);
   }
 
-  pub(crate) fn dispatch(&self, game: Option<&GameHandle<ChessGame>>, action: UiAction) {
+  /// Routes normalized presentation intent through one state transition boundary.
+  ///
+  /// Pointer, drag, keyboard, controller, and semantic controls all use this
+  /// method. Centralization keeps affordance behavior consistent and leaves the
+  /// rules worker responsible only for authoritative chess actions.
+  pub fn dispatch(&self, game: Option<&GameHandle<ChessGame>>, action: UiAction) {
     match action {
       UiAction::Select(square) => self.select(&required_game(game).accepted_state(), square),
       UiAction::Activate(square) => self.activate_square(required_game(game), square),
@@ -213,7 +279,11 @@ impl ChessUiController {
     }
   }
 
-  pub(crate) fn begin_session(&self, mode: SessionStart, cursor_visible: bool, origin_saved: bool) {
+  /// Replaces app-local state for a newly mounted rules session.
+  ///
+  /// User settings survive the reset, while transient selection and effects do
+  /// not. Incrementing the generation keys both the rules session and callbacks.
+  pub fn begin_session(&self, mode: SessionStart, cursor_visible: bool, origin_saved: bool) {
     let previous = self.current();
     let opening_generation = previous
       .opening_generation
@@ -240,15 +310,21 @@ impl ChessUiController {
     self.dispatch.send(next);
   }
 
-  pub(crate) fn request_restart(&self) {
+  /// Starts a replacement session requested by the global restart chord.
+  pub fn request_restart(&self) {
     self.begin_session(SessionStart::Restart, true, false);
   }
 
-  pub(crate) fn request_start(&self, cursor_visible: bool) {
+  /// Starts the first session, choosing cursor visibility by input modality.
+  pub fn request_start(&self, cursor_visible: bool) {
     self.begin_session(SessionStart::Fresh, cursor_visible, false);
   }
 
-  pub(crate) fn finish_opening(&self, generation: u64) {
+  /// Enables interaction after the matching opening animation completes.
+  ///
+  /// Comparing generations prevents an old playback callback from unlocking a
+  /// replacement session that has already mounted.
+  pub fn finish_opening(&self, generation: u64) {
     self.update(|local| {
       if local.opening_generation == generation {
         local.spawning = false;
@@ -256,7 +332,8 @@ impl ChessUiController {
     });
   }
 
-  pub(crate) fn next_music(&self) {
+  /// Advances the playlist and increments the playback dependency token.
+  pub fn next_music(&self) {
     self.update(|local| {
       local.music_track = (local.music_track + 1) % MUSIC_TRACKS.len();
       local.music_generation = local
@@ -266,7 +343,8 @@ impl ChessUiController {
     });
   }
 
-  pub(crate) fn start_music(&self) {
+  /// Starts the first track once without restarting it on later renders.
+  pub fn start_music(&self) {
     self.update(|local| {
       if local.music_generation == 0 {
         local.music_generation = 1;
@@ -275,7 +353,8 @@ impl ChessUiController {
     });
   }
 
-  pub(crate) fn restart_music(&self) {
+  /// Returns to the first track with a new playback generation.
+  pub fn restart_music(&self) {
     self.update(|local| {
       local.music_track = 0;
       local.music_generation = local
@@ -285,6 +364,7 @@ impl ChessUiController {
     });
   }
 
+  /// Selects a movable player piece and queues presentation-only pickup feedback.
   fn select(&self, state: &ChessState, square: Square) {
     if state.board().side_to_move() != Color::White
       || state.board().status() != GameStatus::Ongoing
@@ -306,6 +386,7 @@ impl ChessUiController {
     });
   }
 
+  /// Interprets a square activation against the latest accepted rules snapshot.
   fn activate_square(&self, game: &GameHandle<ChessGame>, target: Square) {
     if game.status() != RulesStatus::Ready || self.current().spawning {
       return;
@@ -335,7 +416,11 @@ impl ChessUiController {
     }
   }
 
-  pub(crate) fn move_piece(&self, game: &GameHandle<ChessGame>, from: Square, target: Square) {
+  /// Dispatches a semantic source-to-target move after the same readiness checks as input.
+  ///
+  /// Hidden accessibility controls use this direct path, but legality still
+  /// comes from the accepted game state and the rules worker validates it again.
+  pub fn move_piece(&self, game: &GameHandle<ChessGame>, from: Square, target: Square) {
     if game.status() != RulesStatus::Ready || self.current().spawning {
       return;
     }
@@ -355,6 +440,7 @@ impl ChessUiController {
     }
   }
 
+  /// Converts a draggable host identity back into the ordinary selection flow.
   fn drag_start(&self, game: &GameHandle<ChessGame>, piece: ObjectId) {
     if game.status() != RulesStatus::Ready || self.current().spawning {
       return;
@@ -367,6 +453,7 @@ impl ChessUiController {
     }
   }
 
+  /// Commits a legal drag target or schedules a visual snap-back.
   fn drag_end(&self, game: &GameHandle<ChessGame>, piece: ObjectId, target: Option<Square>) {
     let state = game.accepted_state();
     let Some(from) = piece_square(&state, piece) else {
@@ -386,6 +473,7 @@ impl ChessUiController {
     }
   }
 
+  /// Requests an imperative Motion restore while keeping the logical board unchanged.
   fn restore_drag(&self, entity: ObjectId, square: Square, invalid: bool) {
     self.update(|local| {
       local.drag_restore = Some((entity, square));
@@ -402,6 +490,7 @@ impl ChessUiController {
     });
   }
 
+  /// Clears selection and leaves the cursor at the previously selected piece.
   fn cancel_selection(&self) {
     self.update(|local| {
       if let Some(selected) = local.selected.take() {
@@ -411,6 +500,7 @@ impl ChessUiController {
     });
   }
 
+  /// Moves and reveals the non-pointer cursor.
   fn move_cursor(&self, square: Square) {
     self.update(|local| {
       local.cursor = square;
@@ -418,6 +508,10 @@ impl ChessUiController {
     });
   }
 
+  /// Cycles through legal targets or through player pieces that can move.
+  ///
+  /// Candidate derivation from rules state keeps controller navigation useful in
+  /// sparse endgames without embedding a second focus graph in the view.
   fn cycle_cursor(&self, state: &ChessState, forward: bool) {
     let local = self.current();
     let candidates = if let Some(selected) = local.selected {
@@ -444,6 +538,7 @@ impl ChessUiController {
     self.move_cursor(candidates[index]);
   }
 
+  /// Toggles the app-owned pause overlay without pausing or mutating rules state.
   fn toggle_pause(&self) {
     self.update(|local| {
       local.overlay = if local.pause_open() {
@@ -456,6 +551,7 @@ impl ChessUiController {
     });
   }
 
+  /// Implements the two-step destructive new-game confirmation flow.
   fn request_new_game(&self, cursor_visible: bool) {
     if self.current().confirm_new_game() {
       self.begin_session(SessionStart::Refresh, cursor_visible, false);
@@ -469,6 +565,7 @@ impl ChessUiController {
     });
   }
 
+  /// Stores clamped volume and emits directional audible feedback.
   fn set_volume(&self, volume: f64) {
     self.update(|local| {
       let increased = volume > local.volume;
@@ -484,6 +581,7 @@ impl ChessUiController {
     });
   }
 
+  /// Records a one-shot effect and changes its dependency token even when equal.
   fn effect(local: &mut ChessUiState, effect: LocalEffect) {
     local.effect_serial = local
       .effect_serial
@@ -493,6 +591,7 @@ impl ChessUiController {
   }
 }
 
+/// Finds the current square for a stable presentation identity.
 fn piece_square(state: &ChessState, piece: ObjectId) -> Option<Square> {
   Square::ALL.into_iter().find(|square| {
     state
@@ -501,6 +600,7 @@ fn piece_square(state: &ChessState, piece: ObjectId) -> Option<Square> {
   })
 }
 
+/// Makes misuse of game-only actions fail at the central dispatch boundary.
 fn required_game(game: Option<&GameHandle<ChessGame>>) -> &GameHandle<ChessGame> {
   game.expect("game action requires an active chess session")
 }

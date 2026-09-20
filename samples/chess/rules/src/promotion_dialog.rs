@@ -15,14 +15,20 @@ use crate::{
   reactant_game::ChessGame,
 };
 
-pub(crate) struct PromotionDialog;
+/// Prompt-aware component that appears only while promotion awaits a response.
+pub struct PromotionDialog;
 
+/// Owned prompt data and response capability for the visible choice buttons.
 struct PromotionChoices {
   data: PromotionPrompt,
   handle: ResponseHandle<ChessPrompt<'static>>,
 }
 
 impl Component for PromotionDialog {
+  /// Projects the current typed rules prompt into a keyed child component.
+  ///
+  /// Keying by response handle gives each prompt a fresh component identity and
+  /// prevents a late click from being confused with a later promotion.
   fn render(&self) -> impl Render {
     reactant::use_game_prompt::<ChessGame>().map(|presented| {
       let ChessPrompt::Promotion(data) = &presented.prompt;
@@ -36,6 +42,7 @@ impl Component for PromotionDialog {
 }
 
 impl Component for PromotionChoices {
+  /// Renders every response advertised by [`PromotionPrompt`] as a button.
   fn render(&self) -> impl Render {
     View::new()
       .name("promotion-dialog")
@@ -74,6 +81,10 @@ impl Component for PromotionChoices {
   }
 }
 
+/// Builds a button that submits through the prompt's capability-checked handle.
+///
+/// The UI does not dispatch a custom promotion action. Submitting a typed response
+/// resumes the already-running rules action at its `choose` call.
 fn choice(
   label: &'static str,
   piece: Piece,

@@ -1,3 +1,9 @@
+//! Small deterministic chess opponent used by the sample.
+//!
+//! This is intentionally an embedded search rather than a separate service: it
+//! demonstrates doing bounded rules work off the presentation path. It favors
+//! clarity and a stable zero-budget fallback over engine strength.
+
 use std::{
   cmp::Reverse,
   time::{Duration, Instant},
@@ -10,10 +16,18 @@ const INFINITY: i32 = 1_000_000;
 const CHECKMATE: i32 = 100_000;
 const PIECE_VALUES: [i32; 6] = [100, 320, 330, 500, 900, 0];
 /// Searches for the best move found before the think-time budget expires.
+///
+/// Reactant calls this from a bounded rules action. The function always returns
+/// a deterministic legal move when one exists, even when scenarios set the
+/// budget to zero to avoid wall-clock-dependent tests.
 pub(super) fn choose_move(board: &Board, think_time: Duration) -> Option<Move> {
   self::search(board, think_time)
 }
 
+/// Deepens the search one ply at a time and keeps only fully completed depths.
+///
+/// Root moves are evaluated in parallel, but deterministic sorting and a
+/// previous-best hint keep equal or interrupted searches reproducible.
 fn search(board: &Board, think_time: Duration) -> Option<Move> {
   let deadline = Instant::now() + think_time;
   let mut moves = self::legal_moves(board);
@@ -61,6 +75,10 @@ fn search(board: &Board, think_time: Duration) -> Option<Move> {
   Some(best)
 }
 
+/// Evaluates a subtree with negamax and alpha-beta pruning.
+///
+/// `None` propagates a deadline miss without mistaking an incomplete score for
+/// a real evaluation; the iterative-deepening caller then retains its last result.
 fn negamax(
   board: &Board,
   depth: u8,
@@ -96,6 +114,10 @@ fn negamax(
   Some(alpha)
 }
 
+/// Extends leaf search through checks and tactical moves to reduce horizon noise.
+///
+/// Stopping immediately at a capture-heavy position makes shallow searches
+/// misleading. Quiescence reaches a quieter position before static evaluation.
 fn quiescence(
   board: &Board,
   mut alpha: i32,
@@ -138,6 +160,7 @@ fn quiescence(
   Some(alpha)
 }
 
+/// Scores material and lightweight piece activity from the side-to-move perspective.
 fn evaluate(board: &Board) -> i32 {
   let mut score = 0;
   for color in Color::ALL {
@@ -170,6 +193,7 @@ fn evaluate(board: &Board) -> i32 {
   }
 }
 
+/// Collects cozy-chess's callback-based move generation into an owned work list.
 fn legal_moves(board: &Board) -> Vec<Move> {
   let mut moves = Vec::new();
   board.generate_moves(|piece_moves| {
@@ -179,10 +203,12 @@ fn legal_moves(board: &Board) -> Vec<Move> {
   moves
 }
 
+/// Searches forcing moves first so alpha-beta cutoffs occur earlier.
 fn order_moves(board: &Board, moves: &mut [Move]) {
   moves.sort_unstable_by_key(|&mv| Reverse(self::move_score(board, mv)));
 }
 
+/// Ranks captures by victim value and promotions above ordinary moves.
 fn move_score(board: &Board, mv: Move) -> i32 {
   let attacker = board.piece_on(mv.from).expect("legal moves have a piece");
   let victim = board.piece_on(mv.to).unwrap_or(Piece::Pawn);
@@ -197,6 +223,7 @@ fn move_score(board: &Board, mv: Move) -> i32 {
       .map_or(0, |piece| PIECE_VALUES[piece as usize] + 800)
 }
 
+/// Identifies captures and promotions worth exploring during quiescence.
 fn is_tactical(board: &Board, mv: Move) -> bool {
   mv.promotion.is_some()
     || board
@@ -207,6 +234,7 @@ fn is_tactical(board: &Board, mv: Move) -> bool {
       && board.piece_on(mv.to).is_none())
 }
 
+/// Moves the previous completed depth's winner to the front of the next search.
 fn prioritize(moves: &mut [Move], best: Move) {
   if let Some(index) = moves.iter().position(|&mv| mv == best) {
     moves.swap(0, index);
@@ -220,6 +248,7 @@ mod tests {
   use cozy_chess::Board;
 
   #[test]
+  /// Verifies scenarios remain deterministic when they disable timed search.
   fn zero_budget_always_chooses_the_same_legal_move() {
     let board = Board::default();
     let first = super::choose_move(&board, Duration::ZERO).unwrap();
@@ -229,6 +258,7 @@ mod tests {
   }
 
   #[test]
+  /// Verifies the zero-budget fallback still takes an immediately winning move.
   fn zero_budget_prefers_an_immediate_checkmate() {
     let board: Board = "8/8/8/8/8/5kq1/8/7K b - - 0 1".parse().unwrap();
     let selected = super::choose_move(&board, Duration::ZERO).unwrap();

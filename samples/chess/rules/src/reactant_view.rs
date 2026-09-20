@@ -26,26 +26,41 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub(crate) struct ChessConfig {
-  pub(crate) starting_board: cozy_chess::Board,
-  pub(crate) initial_state: Option<ChessState>,
-  pub(crate) visual_state: crate::visual_state::VisualState,
-  pub(crate) origin_saved: bool,
-  pub(crate) think_time: Duration,
-  pub(crate) seed: Option<u64>,
-  pub(crate) load_persistence: bool,
+/// Typed inputs used to assemble every chess application variant.
+///
+/// Configuration is plain data so exported constructors can share one component
+/// tree. This is preferable to branching on environment or scenario names deep
+/// inside Reactant components.
+pub struct ChessConfig {
+  /// Board used when a new rules session has no supplied or restored state.
+  pub starting_board: cozy_chess::Board,
+  /// Optional state that mounts directly into an active session.
+  pub initial_state: Option<ChessState>,
+  /// Initial semantic marker exposed by the view.
+  pub visual_state: crate::visual_state::VisualState,
+  /// Whether the configured session should be marked as restored.
+  pub origin_saved: bool,
+  /// Search budget for each computer move.
+  pub think_time: Duration,
+  /// Optional seed for presentation-only sound selection.
+  pub seed: Option<u64>,
+  /// Whether host persistence may replace the configured initial state.
+  pub load_persistence: bool,
 }
 
+/// Root component that chooses the title or active-session subtree.
 struct ChessApp {
   config: ChessConfig,
 }
 
+/// Title presentation and its input-independent Play callback.
 struct TitleScreen {
   on_play: EventCallback<()>,
   control: ChessUiController,
   diagnostics: bool,
 }
 
+/// Active game composition around an already-mounted rules handle.
 struct ChessScreen {
   game: GameHandle<ChessGame>,
   control: ChessUiController,
@@ -53,27 +68,35 @@ struct ChessScreen {
   persistence: PersistentState<SavedGame>,
 }
 
+/// Semantic and diagnostic projection of the current game result.
 struct GameStatusView {
   visual_state: crate::visual_state::VisualState,
   origin_saved: bool,
   diagnostics: bool,
 }
 
+/// Hidden semantic controls mirroring the world-space refresh affordance.
 struct GameControls {
   pause_open: bool,
   confirm_new_game: bool,
   on_request_new_game: EventCallback<()>,
 }
 
+/// Effect-only component that schedules the computer action when appropriate.
 struct TurnCoordinator {
   game: GameHandle<ChessGame>,
 }
 
+/// Effect-only component that persists the latest accepted publication.
 struct PersistenceCoordinator {
   persistence: PersistentState<SavedGame>,
 }
 
-pub(crate) fn application(config: ChessConfig) -> Application {
+/// Assembles the Reactant application, document, camera, and global input policy.
+///
+/// The application owns host setup once; components below it remain declarative
+/// and can focus on state, events, and effects.
+pub fn application(config: ChessConfig) -> Application {
   let app = Application::new(crate::assets::CONTENT)
     .child(ChessApp { config })
     .document(|mut document| {
@@ -92,9 +115,16 @@ pub(crate) fn application(config: ChessConfig) -> Application {
 }
 
 impl Component for ChessApp {
+  /// Restores persistent state once, creates app-local state, and selects a screen.
+  ///
+  /// Hooks are evaluated unconditionally before screen composition. Conditional
+  /// behavior is expressed by rendering keyed child components, which preserves
+  /// Reactant's hook ordering and gives each rules-session generation a lifecycle.
   fn render(&self) -> impl Render {
     let persistence = reactant::use_persistent_state::<SavedGame>("chess-game.json");
     let diagnostics = reactant::use_host_module("battlement.diagnostics");
+    // Persistence is an input to initial assembly, not an ongoing competing
+    // source of truth. Once mounted, the rules session owns the logical state.
     let initial_state = reactant::hooks::use_memo(
       {
         let configured = self.config.initial_state.clone();
@@ -162,6 +192,8 @@ impl Component for ChessApp {
             u32::try_from(local.opening_generation).expect("chess generation exceeds u32"),
           )
         };
+        // Keying by generation intentionally remounts hooks, worker state, and
+        // piece identities when the user starts a replacement session.
         Either::right(
           ChessSession {
             state,
@@ -184,6 +216,7 @@ impl Component for ChessApp {
   }
 }
 
+/// Keyed owner of one rules worker and its session-scoped effects.
 struct ChessSession {
   state: ChessState,
   generation: u64,
@@ -196,6 +229,7 @@ struct ChessSession {
 }
 
 impl Component for ChessSession {
+  /// Mounts the typed game, installs input, and declares session-scoped effects.
   fn render(&self) -> impl Render {
     let think_time = self.think_time;
     let seed = self.seed;
@@ -245,6 +279,10 @@ impl Component for ChessSession {
 }
 
 impl Component for TitleScreen {
+  /// Renders matching semantic and world-space Play controls.
+  ///
+  /// Both controls share one callback so accessible UI activation and scene
+  /// picking follow exactly the same transition.
   fn render(&self) -> impl Render {
     crate::reactant_input::use_chess_input(self.control.clone(), None);
     (
@@ -279,6 +317,10 @@ impl Component for TitleScreen {
 }
 
 impl Component for ChessScreen {
+  /// Composes independent coordinators around the visible board and prompt UI.
+  ///
+  /// Small effect-only components are idiomatic when each concern reads different
+  /// hooks. They avoid one monolithic render function and make dependencies clear.
   fn render(&self) -> impl Render {
     let local = self.control.snapshot();
     let state_result = reactant::use_game_selector::<ChessGame, _>(ChessState::result);
@@ -359,6 +401,11 @@ impl Component for ChessScreen {
 }
 
 impl Component for PersistenceCoordinator {
+  /// Persists the board attached to the latest publication checkpoint.
+  ///
+  /// During animation, the ordinary game-state hook may still expose the prior
+  /// accepted snapshot. Publications carry the exact post-move board that should
+  /// survive an app exit at that moment.
   fn render(&self) -> impl Render {
     let state = reactant::use_game_state::<ChessGame>();
     let publication = reactant::use_game_publication::<ChessGame>();
@@ -374,6 +421,7 @@ impl Component for PersistenceCoordinator {
 }
 
 impl Component for GameStatusView {
+  /// Projects logical terminal status and app origin into host diagnostics.
   fn render(&self) -> impl Render {
     let state = reactant::use_game_state::<ChessGame>();
     let game_status = match state.board().status() {
@@ -392,6 +440,7 @@ impl Component for GameStatusView {
 }
 
 impl Component for GameControls {
+  /// Renders the semantic new-game action only while the pause overlay is open.
   fn render(&self) -> impl Render {
     self.pause_open.then(|| {
       Button::new(ls(if self.confirm_new_game {
@@ -415,6 +464,11 @@ impl Component for GameControls {
 }
 
 impl Component for TurnCoordinator {
+  /// Dispatches exactly one computer action when the accepted state becomes ready.
+  ///
+  /// Deriving `ready` during render and dispatching inside an effect avoids a
+  /// state change during reconciliation. The dependency tuple retriggers only
+  /// when readiness or the accepted position changes.
   fn render(&self) -> impl Render {
     let state = reactant::use_game_state::<ChessGame>();
     let status = reactant::use_game_status::<ChessGame>();
@@ -436,6 +490,10 @@ impl Component for TurnCoordinator {
   }
 }
 
+/// Renders a stable, hidden semantic node for every known visual state.
+///
+/// Stable nodes make black-box automation query a fixed topology; only the active
+/// node receives text, so no test needs to inspect Rust state or visual styling.
 fn status_markers(active: crate::visual_state::VisualState) -> impl Render {
   crate::visual_state::VisualState::ALL
     .into_iter()
