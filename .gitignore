@@ -118,3 +118,5 @@ target/
 /samples/*/[Aa]ssets/[Ss]treaming[Aa]ssets/
 
 .logs
+
+.tours
