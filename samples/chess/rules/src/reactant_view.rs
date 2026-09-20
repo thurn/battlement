@@ -1,14 +1,13 @@
 //! React-shaped application and screen composition for the chess sample.
 
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 
 use battlement::{ParentScene, Vector3};
 use cozy_chess::{Color, GameStatus};
 use reactant::{
   DispatchResult, GameApp, GameHandle, GameRoot, GameStatus as RulesStatus,
   app::App,
-  callback::IntoCallback,
-  prelude::{Button, Component, Either, PickingMode, Position, Render, Style},
+  prelude::{Button, Component, Either, EventCallback, PickingMode, Position, Render, Style},
   rules::ExecutionMode,
   world,
 };
@@ -29,7 +28,7 @@ struct ChessApp {
 }
 
 struct TitleScreen {
-  control: AppControl,
+  on_play: EventCallback<()>,
   diagnostics: bool,
 }
 
@@ -40,13 +39,15 @@ struct ChessScreen {
 }
 
 struct GameStatusView {
-  control: AppControl,
+  visual_state: crate::visual_state::VisualState,
+  origin_saved: bool,
   diagnostics: bool,
 }
 
 struct GameControls {
-  game: GameHandle<ChessGame>,
-  control: AppControl,
+  pause_open: bool,
+  confirm_new_game: bool,
+  on_request_new_game: EventCallback<()>,
 }
 
 struct TurnCoordinator {
@@ -109,10 +110,13 @@ impl Component for ChessApp {
   fn render(&self) -> impl Render {
     let local = reactant::hooks::use_external_store(self.control.store());
     let screen = match local.screen {
-      AppScreen::Title => Either::left(TitleScreen {
-        control: self.control.clone(),
-        diagnostics: self.diagnostics,
-      }),
+      AppScreen::Title => {
+        let control = self.control.clone();
+        Either::left(TitleScreen {
+          on_play: EventCallback::new(move |()| control.request_start(false)),
+          diagnostics: self.diagnostics,
+        })
+      }
       AppScreen::Game => Either::right(GameRoot::new(ChessScreen {
         game: self
           .game
@@ -131,8 +135,6 @@ impl Component for ChessApp {
 
 impl Component for TitleScreen {
   fn render(&self) -> impl Render {
-    let control = self.control.clone();
-    let sprite_control = self.control.clone();
     (
       status_label(crate::visual_state::VisualState::Title),
       Button::new(ls("Play chess"))
@@ -146,7 +148,7 @@ impl Component for TitleScreen {
             .height(40.0)
             .opacity(0.0),
         )
-        .on_press(move || control.request_start(false)),
+        .on_press(self.on_play.clone()),
       world::SceneRoot::new(ParentScene::PrimaryScene).child(
         world::Sprite::new()
           .id(*crate::PLAY_BUTTON_ID.as_uuid())
@@ -156,7 +158,7 @@ impl Component for TitleScreen {
           .position(Vector3::new(0.0, 6.38, -3.86))
           .rotation(crate::CAMERA_ROTATION)
           .focusable(true)
-          .on_click((move || sprite_control.request_start(false)).into_callback()),
+          .on_click(self.on_play.clone()),
       ),
       self
         .diagnostics
@@ -167,22 +169,69 @@ impl Component for TitleScreen {
 
 impl Component for ChessScreen {
   fn render(&self) -> impl Render {
+    let local = reactant::hooks::use_external_store(self.control.store());
+    let activate = {
+      let control = self.control.clone();
+      let game = self.game.clone();
+      EventCallback::new(move |square| control.dispatch(Some(&game), UiAction::Activate(square)))
+    };
+    let move_piece = {
+      let control = self.control.clone();
+      let game = self.game.clone();
+      EventCallback::new(move |(from, to)| {
+        control.dispatch(Some(&game), UiAction::Select(from));
+        control.dispatch(Some(&game), UiAction::Activate(to));
+      })
+    };
+    let begin_drag = {
+      let control = self.control.clone();
+      let game = self.game.clone();
+      EventCallback::new(move |piece| control.dispatch(Some(&game), UiAction::BeginDrag(piece)))
+    };
+    let cancel_selection = {
+      let control = self.control.clone();
+      EventCallback::new(move |()| control.dispatch(None, UiAction::CancelSelection))
+    };
+    let request_new_game = {
+      let control = self.control.clone();
+      let game = self.game.clone();
+      EventCallback::new(move |()| {
+        control.dispatch(
+          Some(&game),
+          UiAction::RequestNewGame {
+            cursor_visible: false,
+          },
+        );
+      })
+    };
+    let opening_control = self.control.clone();
+    let on_opening_finished = Rc::new(move |playback, generation| {
+      opening_control.retain_opening(playback);
+      opening_control.finish_opening(generation);
+    });
     (
       TurnCoordinator {
         game: self.game.clone(),
       },
       GameStatusView {
-        control: self.control.clone(),
+        visual_state: local.resolved_visual_state(),
+        origin_saved: local.origin_saved,
         diagnostics: self.diagnostics,
       },
       ChessBoard {
-        game: self.game.clone(),
-        control: self.control.clone(),
+        ui: local.clone(),
+        on_activate: activate,
+        on_move: move_piece,
+        on_begin_drag: begin_drag,
+        on_cancel_selection: cancel_selection,
+        on_request_new_game: request_new_game.clone(),
+        on_opening_finished,
       },
       PromotionDialog,
       GameControls {
-        game: self.game.clone(),
-        control: self.control.clone(),
+        pause_open: local.pause_open(),
+        confirm_new_game: local.confirm_new_game(),
+        on_request_new_game: request_new_game,
       },
     )
   }
@@ -191,16 +240,14 @@ impl Component for ChessScreen {
 impl Component for GameStatusView {
   fn render(&self) -> impl Render {
     let state = reactant::use_game_state::<ChessGame>();
-    let visual_state = self.control.visual_state();
-    let local = reactant::hooks::use_external_store(self.control.store());
     let game_status = match state.board().status() {
       GameStatus::Ongoing => "ongoing",
       GameStatus::Drawn => "drawn",
       GameStatus::Won => "won",
     };
-    let game_origin = if local.origin_saved { "saved" } else { "new" };
+    let game_origin = if self.origin_saved { "saved" } else { "new" };
     (
-      status_label(visual_state),
+      status_label(self.visual_state),
       self
         .diagnostics
         .then(|| crate::reactant_effects::diagnostics_view(game_status, game_origin)),
@@ -210,11 +257,8 @@ impl Component for GameStatusView {
 
 impl Component for GameControls {
   fn render(&self) -> impl Render {
-    let local = reactant::hooks::use_external_store(self.control.store());
-    let control = self.control.clone();
-    let game = self.game.clone();
-    local.pause_open().then(|| {
-      Button::new(ls(if local.confirm_new_game() {
+    self.pause_open.then(|| {
+      Button::new(ls(if self.confirm_new_game {
         "Confirm new game"
       } else {
         "New game"
@@ -229,14 +273,7 @@ impl Component for GameControls {
           .height(40.0)
           .opacity(0.0),
       )
-      .on_press(move || {
-        control.dispatch(
-          Some(&game),
-          UiAction::RequestNewGame {
-            cursor_visible: false,
-          },
-        );
-      })
+      .on_press(self.on_request_new_game.clone())
     })
   }
 }

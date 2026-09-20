@@ -129,6 +129,16 @@ impl Default for ChessUiState {
 }
 
 impl ChessUiState {
+  pub(crate) const fn resolved_visual_state(&self) -> crate::visual_state::VisualState {
+    if self.pause_open() {
+      crate::visual_state::VisualState::Paused
+    } else if self.selected.is_some() {
+      crate::visual_state::VisualState::Selected
+    } else {
+      self.visual_state
+    }
+  }
+
   pub(crate) const fn pause_open(&self) -> bool {
     matches!(self.overlay, Some(Overlay::Pause { .. }))
   }
@@ -173,14 +183,7 @@ impl AppControl {
   }
 
   pub(crate) fn visual_state(&self) -> crate::visual_state::VisualState {
-    let local = self.snapshot();
-    if local.pause_open() {
-      crate::visual_state::VisualState::Paused
-    } else if local.selected.is_some() {
-      crate::visual_state::VisualState::Selected
-    } else {
-      local.visual_state
-    }
+    self.snapshot().resolved_visual_state()
   }
 
   pub(crate) fn dispatch(&self, game: Option<&GameHandle<ChessGame>>, action: UiAction) {

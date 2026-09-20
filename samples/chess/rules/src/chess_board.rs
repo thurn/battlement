@@ -8,13 +8,13 @@ use battlement::{
 };
 use cozy_chess::{Color, GameStatus, Square};
 use reactant::{
-  GameHandle, GameStatus as RulesStatus, SnapshotAnimation,
+  GameStatus as RulesStatus, SnapshotAnimation,
   animation_controls::{AnimationSequence, MotionSelector, SequencePosition},
-  callback::IntoCallback,
   event::ReactantEvent,
   prelude::{
-    Button, Component, Easing, IdentityRenderExt, KeyRenderExt, MotionComponentExt, MotionProps,
-    Position, Render, Style, StyleTarget, Transition, use_object_ref,
+    AnimationPlayback, Button, Component, Easing, EventCallback, IdentityRenderExt, KeyRenderExt,
+    MotionComponentExt, MotionProps, Position, Render, Style, StyleTarget, Transition,
+    use_object_ref,
   },
   world,
 };
@@ -22,14 +22,19 @@ use trox::ls;
 
 use crate::{
   PIECE_SPAWN_EFFECT_LIFETIME_MS, PIECE_SPAWN_SEQUENCE_DURATION_MS,
-  chess_ui_state::{AppControl, SessionStart, UiAction},
+  chess_ui_state::{ChessUiState, SessionStart},
   position::{ChessPiece, Movement},
   reactant_game::{ChessAnimation, ChessGame},
 };
 
 pub(crate) struct ChessBoard {
-  pub(crate) game: GameHandle<ChessGame>,
-  pub(crate) control: AppControl,
+  pub(crate) ui: ChessUiState,
+  pub(crate) on_activate: EventCallback<Square>,
+  pub(crate) on_move: EventCallback<(Square, Square)>,
+  pub(crate) on_begin_drag: EventCallback<ObjectId>,
+  pub(crate) on_cancel_selection: EventCallback<()>,
+  pub(crate) on_request_new_game: EventCallback<()>,
+  pub(crate) on_opening_finished: std::rc::Rc<dyn Fn(AnimationPlayback, u64)>,
 }
 
 struct ChessSquare {
@@ -38,8 +43,9 @@ struct ChessSquare {
   legal_target: bool,
   piece: Option<ChessPiece>,
   piece_reference: reactant::prelude::ObjectRef,
-  control: AppControl,
-  game: GameHandle<ChessGame>,
+  on_activate: EventCallback<Square>,
+  on_begin_drag: EventCallback<ObjectId>,
+  on_cancel_selection: EventCallback<()>,
   spawning: bool,
   interactive: bool,
 }
@@ -48,8 +54,9 @@ struct ChessPieceView {
   piece: ChessPiece,
   square: Square,
   reference: reactant::prelude::ObjectRef,
-  control: AppControl,
-  game: GameHandle<ChessGame>,
+  on_activate: EventCallback<Square>,
+  on_begin_drag: EventCallback<ObjectId>,
+  on_cancel_selection: EventCallback<()>,
   spawning: bool,
   interactive: bool,
 }
@@ -59,7 +66,7 @@ impl Component for ChessBoard {
     let state = reactant::use_game_state::<ChessGame>();
     let status = reactant::use_game_status::<ChessGame>();
     let screen = reactant::app_context::use_viewport_size();
-    let local = reactant::hooks::use_external_store(self.control.store());
+    let local = &self.ui;
     let scope = reactant::animation_controls::use_animation_scope();
     let event_scope = scope.clone();
     let references: [reactant::prelude::ObjectRef; 64] = std::array::from_fn(|_| use_object_ref());
@@ -73,7 +80,7 @@ impl Component for ChessBoard {
 
     let opening_scope = scope.clone();
     let opening_references = references.clone();
-    let opening_control = self.control.clone();
+    let on_opening_finished = self.on_opening_finished.clone();
     let opening = local.opening;
     let opening_generation = local.opening_generation;
     let opening_pieces = Square::ALL
@@ -88,8 +95,7 @@ impl Component for ChessBoard {
             &opening_pieces,
             &opening_references,
           ));
-          opening_control.retain_opening(playback);
-          opening_control.finish_opening(opening_generation);
+          on_opening_finished(playback, opening_generation);
         } else {
           opening_scope.stop(MotionSelector::Descendants);
         }
@@ -117,8 +123,9 @@ impl Component for ChessBoard {
             .piece(square)
             .map(|piece| piece_reference(&references, piece.entity_id))
             .unwrap_or_else(|| references[square as usize].clone()),
-          control: self.control.clone(),
-          game: self.game.clone(),
+          on_activate: self.on_activate.clone(),
+          on_begin_drag: self.on_begin_drag.clone(),
+          on_cancel_selection: self.on_cancel_selection.clone(),
           spawning: local.spawning,
           interactive,
         }
@@ -138,8 +145,6 @@ impl Component for ChessBoard {
       .into_iter()
       .enumerate()
       .map(|(index, (from, to))| {
-        let control = self.control.clone();
-        let game = self.game.clone();
         Button::new(ls(format!("Move {from} to {to}")))
           .host_name(format!(
             "move-{}-{}",
@@ -155,10 +160,7 @@ impl Component for ChessBoard {
               .height(18.0)
               .opacity(0.0),
           )
-          .on_press(move || {
-            control.dispatch(Some(&game), UiAction::Select(from));
-            control.dispatch(Some(&game), UiAction::Activate(to));
-          })
+          .on_press(self.on_move.clone().map_input(move |()| (from, to)))
           .key((from, to))
       })
       .collect::<Vec<_>>();
@@ -174,8 +176,6 @@ impl Component for ChessBoard {
       .scale(Vector3::new(cursor_scale, cursor_scale, cursor_scale))
       .active(cursor_active)
       .child(world::Prefab::at(crate::assets::effects::PIECE_SELECTED));
-    let control = self.control.clone();
-    let refresh_game = self.game.clone();
     let refresh = local.pause_open().then(|| {
       let aspect = if screen.height == 0 {
         1.0
@@ -199,17 +199,7 @@ impl Component for ChessBoard {
         ))
         .rotation(crate::CAMERA_ROTATION)
         .focusable(true)
-        .on_click(
-          (move || {
-            control.dispatch(
-              Some(&refresh_game),
-              UiAction::RequestNewGame {
-                cursor_visible: false,
-              },
-            );
-          })
-          .into_callback(),
-        )
+        .on_click(self.on_request_new_game.clone())
     });
 
     (
@@ -228,8 +218,6 @@ impl Component for ChessSquare {
     let square = self.square;
     let mut position = crate::square_position(square);
     position.y = crate::HIGHLIGHT_HEIGHT;
-    let control = self.control.clone();
-    let game = self.game.clone();
     let surface = world::Plane::new()
       .position(position)
       .scale(Vector3::new(
@@ -240,16 +228,15 @@ impl Component for ChessSquare {
       .active(self.legal_target && self.interactive)
       .materials([MaterialAssignment::new(0, crate::assets::LEGAL_SQUARE)])
       .focusable(self.interactive && (self.legal_target || self.selected))
-      .on_click(
-        (move || control.dispatch(Some(&game), UiAction::Activate(square))).into_callback(),
-      );
+      .on_click(self.on_activate.clone().map_input(move |()| square));
     let piece = self.piece.map(|piece| {
       ChessPieceView {
         piece,
         square,
         reference: self.piece_reference.clone(),
-        control: self.control.clone(),
-        game: self.game.clone(),
+        on_activate: self.on_activate.clone(),
+        on_begin_drag: self.on_begin_drag.clone(),
+        on_cancel_selection: self.on_cancel_selection.clone(),
         spawning: self.spawning,
         interactive: self.interactive,
       }
@@ -262,16 +249,8 @@ impl Component for ChessSquare {
 impl Component for ChessPieceView {
   fn render(&self) -> impl Render {
     let screen = reactant::app_context::use_viewport_size();
-    let control = self.control.clone();
-    let game = self.game.clone();
     let square = self.square;
-    let pointer_control = self.control.clone();
-    let pointer_game = self.game.clone();
     let pointer_piece = self.piece.entity_id;
-    let release_control = self.control.clone();
-    let release_game = self.game.clone();
-    let cancel_control = self.control.clone();
-    let cancel_game = self.game.clone();
     world::BoxHitRegion::new()
       .size(Vector3::new(0.9, 1.5, 0.9))
       .position(crate::square_position(square))
@@ -290,27 +269,26 @@ impl Component for ChessPieceView {
       .capture_on_press(self.interactive)
       .events(
         world::PointerHandlers::new()
-          .on_pointer_down(
+          .on_pointer_down(self.on_begin_drag.clone().filter_map_input(
             move |event: ReactantEvent<battlement::PointerButtonEvent>| {
-              if event.payload().button == PointerButton::Left {
-                pointer_control.dispatch(Some(&pointer_game), UiAction::BeginDrag(pointer_piece));
-              }
+              (event.payload().button == PointerButton::Left).then_some(pointer_piece)
             },
-          )
-          .on_pointer_up(
+          ))
+          .on_pointer_up(self.on_activate.clone().filter_map_input(
             move |event: ReactantEvent<battlement::PointerButtonEvent>| {
-              if event.payload().button == PointerButton::Left
-                && let Some(target) = panel_square(event.payload().position, screen)
-              {
-                release_control.dispatch(Some(&release_game), UiAction::Activate(target));
-              }
+              (event.payload().button == PointerButton::Left)
+                .then(|| panel_square(event.payload().position, screen))
+                .flatten()
             },
-          )
-          .on_pointer_cancel(move |_: ReactantEvent<battlement::PointerCancelEvent>| {
-            cancel_control.dispatch(Some(&cancel_game), UiAction::CancelSelection);
-          }),
+          ))
+          .on_pointer_cancel(
+            self
+              .on_cancel_selection
+              .clone()
+              .map_input(|_: ReactantEvent<battlement::PointerCancelEvent>| ()),
+          ),
       )
-      .on_click((move || control.dispatch(Some(&game), UiAction::Activate(square))).into_callback())
+      .on_click(self.on_activate.clone().map_input(move |()| square))
       .child(world::Prefab::at(crate::address(
         self.piece.color,
         self.piece.kind,
