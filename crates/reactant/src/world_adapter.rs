@@ -21,6 +21,7 @@ pub(crate) struct WorldDescription {
   pub(crate) material_instances: Vec<battlement::MaterialInstance>,
   pub(crate) clickable: bool,
   pub(crate) world_pointer: Option<battlement::WorldPointerSettings>,
+  pub(crate) drag_mode: Option<battlement::DragMode>,
   pub(crate) preserve_world_on_reparent: bool,
 }
 
@@ -33,6 +34,7 @@ impl HostAdapter for WorldAdapter {
     let attachment_changed = previous.root && previous.scene != desired.scene;
     !world_properties::compatible(&previous.kind, &desired.kind)
       || previous.root != desired.root
+      || previous.drag_mode != desired.drag_mode
       || attachment_changed
   }
 
@@ -152,6 +154,7 @@ impl HostAdapter for WorldAdapter {
   fn inert(description: &mut WorldDescription) {
     description.clickable = false;
     description.world_pointer = None;
+    description.drag_mode = None;
   }
   fn input_enabled(description: &WorldDescription) -> bool {
     description.active
@@ -179,6 +182,7 @@ impl HostAdapter for WorldAdapter {
     object.material_instances = description.material_instances.clone();
     object.pointer_events = Self::events(description);
     object.world_pointer = description.world_pointer;
+    object.drag_mode = description.drag_mode;
     Some(object)
   }
 }

@@ -2,15 +2,11 @@
 
 use std::time::Duration;
 
-use battlement::{
-  MaterialAssignment, ObjectId, PanelPoint, ParentScene, PointerButton, Quaternion, ScreenSize,
-  Vector3,
-};
+use battlement::{DragMode, MaterialAssignment, ObjectId, ParentScene, Quaternion, Vector3};
 use cozy_chess::{Color, GameStatus, Square};
 use reactant::{
   GameStatus as RulesStatus, SnapshotAnimation,
   animation_controls::{AnimationSequence, MotionSelector, SequencePosition},
-  event::ReactantEvent,
   prelude::{
     AnimationPlayback, Button, Component, Easing, EventCallback, IdentityRenderExt, KeyRenderExt,
     MotionComponentExt, MotionProps, Position, Render, Style, StyleTarget, Transition,
@@ -31,21 +27,17 @@ pub(crate) struct ChessBoard {
   pub(crate) ui: ChessUiState,
   pub(crate) on_activate: EventCallback<Square>,
   pub(crate) on_move: EventCallback<(Square, Square)>,
-  pub(crate) on_begin_drag: EventCallback<ObjectId>,
-  pub(crate) on_cancel_selection: EventCallback<()>,
   pub(crate) on_request_new_game: EventCallback<()>,
   pub(crate) on_opening_finished: std::rc::Rc<dyn Fn(AnimationPlayback, u64)>,
+  pub(crate) on_piece_mounted: std::rc::Rc<dyn Fn(ObjectId, ObjectId)>,
 }
 
 struct ChessSquare {
   square: Square,
-  selected: bool,
   legal_target: bool,
   piece: Option<ChessPiece>,
   piece_reference: reactant::prelude::ObjectRef,
   on_activate: EventCallback<Square>,
-  on_begin_drag: EventCallback<ObjectId>,
-  on_cancel_selection: EventCallback<()>,
   spawning: bool,
   interactive: bool,
 }
@@ -55,10 +47,7 @@ struct ChessPieceView {
   square: Square,
   reference: reactant::prelude::ObjectRef,
   on_activate: EventCallback<Square>,
-  on_begin_drag: EventCallback<ObjectId>,
-  on_cancel_selection: EventCallback<()>,
   spawning: bool,
-  interactive: bool,
 }
 
 impl Component for ChessBoard {
@@ -87,7 +76,21 @@ impl Component for ChessBoard {
       .into_iter()
       .filter_map(|square| state.piece(square))
       .collect::<Vec<_>>();
-    reactant::hooks::use_effect(
+    let mounted_pieces = opening_pieces.clone();
+    let mounted_references = references.clone();
+    let on_piece_mounted = self.on_piece_mounted.clone();
+    reactant::hooks::use_commit_effect(
+      move || {
+        for piece in mounted_pieces {
+          let reference = piece_reference(&mounted_references, piece.entity_id);
+          if let Some(host) = reference.object_id() {
+            on_piece_mounted(piece.entity_id, host);
+          }
+        }
+      },
+      state.board().to_string(),
+    );
+    reactant::hooks::use_commit_effect(
       move || {
         if let Some(mode) = opening {
           let playback = opening_scope.start_blocking(opening_sequence(
@@ -103,6 +106,21 @@ impl Component for ChessBoard {
       (opening_generation, opening),
     );
 
+    let restore_scope = scope.clone();
+    let restore_references = references.clone();
+    let drag_restore = local.drag_restore;
+    reactant::hooks::use_commit_effect(
+      move || {
+        if let Some((piece, square)) = drag_restore {
+          restore_scope.set(
+            MotionSelector::object(piece_reference(&restore_references, piece)),
+            crate::motion::position_target(square),
+          );
+        }
+      },
+      local.drag_restore_generation,
+    );
+
     let legal = local
       .selected
       .map(|square| crate::legal_destinations(state.board(), square))
@@ -116,7 +134,6 @@ impl Component for ChessBoard {
       .map(|square| {
         ChessSquare {
           square,
-          selected: local.selected == Some(square),
           legal_target: legal.contains(&square),
           piece: state.piece(square),
           piece_reference: state
@@ -124,8 +141,6 @@ impl Component for ChessBoard {
             .map(|piece| piece_reference(&references, piece.entity_id))
             .unwrap_or_else(|| references[square as usize].clone()),
           on_activate: self.on_activate.clone(),
-          on_begin_drag: self.on_begin_drag.clone(),
-          on_cancel_selection: self.on_cancel_selection.clone(),
           spawning: local.spawning,
           interactive,
         }
@@ -198,7 +213,6 @@ impl Component for ChessBoard {
           -3.75 + 0.323579 * crate::CAMERA_BUTTON_DEPTH + 0.946201 * up,
         ))
         .rotation(crate::CAMERA_ROTATION)
-        .focusable(true)
         .on_click(self.on_request_new_game.clone())
     });
 
@@ -227,7 +241,6 @@ impl Component for ChessSquare {
       ))
       .active(self.legal_target && self.interactive)
       .materials([MaterialAssignment::new(0, crate::assets::LEGAL_SQUARE)])
-      .focusable(self.interactive && (self.legal_target || self.selected))
       .on_click(self.on_activate.clone().map_input(move |()| square));
     let piece = self.piece.map(|piece| {
       ChessPieceView {
@@ -235,10 +248,7 @@ impl Component for ChessSquare {
         square,
         reference: self.piece_reference.clone(),
         on_activate: self.on_activate.clone(),
-        on_begin_drag: self.on_begin_drag.clone(),
-        on_cancel_selection: self.on_cancel_selection.clone(),
         spawning: self.spawning,
-        interactive: self.interactive,
       }
       .id(*piece.entity_id.as_uuid())
     });
@@ -248,12 +258,10 @@ impl Component for ChessSquare {
 
 impl Component for ChessPieceView {
   fn render(&self) -> impl Render {
-    let screen = reactant::app_context::use_viewport_size();
     let square = self.square;
-    let pointer_piece = self.piece.entity_id;
-    world::BoxHitRegion::new()
+    let hit = world::BoxHitRegion::new()
       .size(Vector3::new(0.9, 1.5, 0.9))
-      .position(crate::square_position(square))
+      .position(crate::square_position(self.square))
       .scale(if self.spawning {
         Vector3::ZERO
       } else {
@@ -264,31 +272,13 @@ impl Component for ChessPieceView {
       } else {
         Quaternion::IDENTITY
       })
-      .reference(self.reference.clone())
-      .focusable(self.piece.color == Color::White && self.interactive)
-      .capture_on_press(self.interactive)
-      .events(
-        world::PointerHandlers::new()
-          .on_pointer_down(self.on_begin_drag.clone().filter_map_input(
-            move |event: ReactantEvent<battlement::PointerButtonEvent>| {
-              (event.payload().button == PointerButton::Left).then_some(pointer_piece)
-            },
-          ))
-          .on_pointer_up(self.on_activate.clone().filter_map_input(
-            move |event: ReactantEvent<battlement::PointerButtonEvent>| {
-              (event.payload().button == PointerButton::Left)
-                .then(|| panel_square(event.payload().position, screen))
-                .flatten()
-            },
-          ))
-          .on_pointer_cancel(
-            self
-              .on_cancel_selection
-              .clone()
-              .map_input(|_: ReactantEvent<battlement::PointerCancelEvent>| ()),
-          ),
-      )
-      .on_click(self.on_activate.clone().map_input(move |()| square))
+      .reference(self.reference.clone());
+    let hit = if self.piece.color == Color::White {
+      hit.draggable(DragMode::SnapToPointer)
+    } else {
+      hit.on_click(self.on_activate.clone().map_input(move |()| square))
+    };
+    hit
       .child(world::Prefab::at(crate::address(
         self.piece.color,
         self.piece.kind,
@@ -410,45 +400,4 @@ fn piece_reference(
     .skip(10)
     .fold(0_usize, |value, byte| (value << 8) | usize::from(*byte));
   references[index].clone()
-}
-
-fn panel_square(point: PanelPoint, screen: ScreenSize) -> Option<Square> {
-  if screen.width == 0 || screen.height == 0 {
-    return None;
-  }
-  let width = f64::from(screen.width);
-  let height = f64::from(screen.height);
-  let tangent = (crate::CAMERA_VERTICAL_FOV_RADIANS / 2.0).tan();
-  let ray = Vector3::new(
-    (2.0 * point.x / width - 1.0) * width / height * tangent,
-    (1.0 - 2.0 * point.y / height) * tangent,
-    1.0,
-  );
-  let direction = rotate(crate::CAMERA_ROTATION, ray);
-  if direction.y >= -f64::EPSILON {
-    return None;
-  }
-  let camera = Vector3::new(0.0, 8.0, -3.75);
-  let distance = -camera.y / direction.y;
-  Some(crate::square_at(Vector3::new(
-    camera.x + direction.x * distance,
-    0.0,
-    camera.z + direction.z * distance,
-  )))
-}
-
-fn rotate(rotation: Quaternion, value: Vector3) -> Vector3 {
-  let dot = rotation.x * value.x + rotation.y * value.y + rotation.z * value.z;
-  let length = rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z;
-  Vector3::new(
-    2.0 * dot * rotation.x
-      + (rotation.w * rotation.w - length) * value.x
-      + 2.0 * rotation.w * (rotation.y * value.z - rotation.z * value.y),
-    2.0 * dot * rotation.y
-      + (rotation.w * rotation.w - length) * value.y
-      + 2.0 * rotation.w * (rotation.z * value.x - rotation.x * value.z),
-    2.0 * dot * rotation.z
-      + (rotation.w * rotation.w - length) * value.z
-      + 2.0 * rotation.w * (rotation.x * value.y - rotation.y * value.x),
-  )
 }

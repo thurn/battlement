@@ -1,8 +1,8 @@
 //! World attachments and typed visuals owned by ordinary Reactant components.
 
 use battlement::{
-  GameObject, GameObjectKind, LocalTransform, ObjectId, ParentScene, PrefabAddress, Quaternion,
-  RenderOrder, Vector3,
+  DragMode, GameObject, GameObjectKind, LocalTransform, ObjectId, ParentScene, PrefabAddress,
+  Quaternion, RenderOrder, Vector3,
 };
 use reactant_core::{
   callback::Callback,
@@ -65,6 +65,7 @@ pub struct Group {
   events: PointerHandlers,
   navigation: NavigationHandlers,
   pointer: battlement::WorldPointerSettings,
+  drag_mode: Option<DragMode>,
   preserve_world_on_reparent: bool,
   id: Option<Uuid>,
   motion: MotionProps,
@@ -108,6 +109,7 @@ impl Component for SceneRoot {
                   active: true,
                   clickable: false,
                   world_pointer: None,
+                  drag_mode: None,
                   preserve_world_on_reparent: false,
                   render_order: None,
                   material_instances: Vec::new(),
@@ -134,6 +136,7 @@ impl Group {
       events: PointerHandlers::new(),
       navigation: NavigationHandlers::new(),
       pointer: battlement::WorldPointerSettings::default(),
+      drag_mode: None,
       preserve_world_on_reparent: false,
       id: None,
       motion: MotionProps::new(),
@@ -166,6 +169,7 @@ impl Group {
     object.active = self.active;
     object.render_order = self.render_order;
     object.material_instances = self.material_instances;
+    object.drag_mode = self.drag_mode;
     object
   }
 
@@ -215,6 +219,11 @@ impl Group {
   /// Controls native activation while preserving logical component state.
   pub fn active(mut self, active: bool) -> Self {
     self.active = active;
+    self
+  }
+  /// Uses the native pointer-following path and emits legacy drag core actions.
+  pub fn draggable(mut self, mode: DragMode) -> Self {
+    self.drag_mode = Some(mode);
     self
   }
   /// Attaches a reference after the host commits.
@@ -277,6 +286,14 @@ impl Component for Group {
       hooks::use_context::<MotionPointerInput>().0 || self.motion.has_pointer_gestures();
     let rust_pointer =
       hooks::use_context::<RustPointerInput>().0 || self.click.is_some() || !self.events.is_empty();
+    assert!(
+      self.drag_mode.is_none()
+        || (!rust_pointer
+          && !pointer_motion
+          && !self.pointer.focusable
+          && self.navigation.is_empty()),
+      "native draggable hosts cannot also use Reactant pointer or navigation routing"
+    );
     let mut pointer = self.pointer;
     pointer.forwards_ui_events = rust_pointer;
     let mut host = NativeHost::<WorldAdapter>::new(WorldDescription {
@@ -290,11 +307,12 @@ impl Component for Group {
         || [
           self.pointer.focusable,
           pointer_motion,
-          matches!(self.kind, GameObjectKind::BoxHitRegion { .. }),
+          self.drag_mode.is_none() && matches!(self.kind, GameObjectKind::BoxHitRegion { .. }),
         ]
         .into_iter()
         .any(|enabled| enabled),
-      world_pointer: Some(pointer),
+      world_pointer: self.drag_mode.is_none().then_some(pointer),
+      drag_mode: self.drag_mode,
       preserve_world_on_reparent: self.preserve_world_on_reparent,
       render_order: self.render_order,
       material_instances: self.material_instances.clone(),

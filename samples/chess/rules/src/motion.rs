@@ -130,7 +130,7 @@ fn piece_reference(
     .clone()
 }
 
-fn position_target(square: Square) -> StyleTarget {
+pub(crate) fn position_target(square: Square) -> StyleTarget {
   let position = crate::square_position(square);
   StyleTarget::new()
     .local_position_x(position.x as f32)

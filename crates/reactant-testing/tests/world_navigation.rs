@@ -1,6 +1,6 @@
 use battlement::{
-  GameObjectKind, NavigationDirection, ObjectId, PanelPoint, ParentScene, PickingMode, Prop,
-  Vector3, object_id,
+  ControllerButton, ControllerInputSettings, GameObjectKind, NavigationDirection, ObjectId,
+  PanelPoint, ParentScene, PhysicalKey, PickingMode, Prop, Vector3, object_id,
 };
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
@@ -27,6 +27,7 @@ struct Model {
   activations: usize,
   clicks: Vec<i32>,
   navigation: Vec<(NavigationDirection, battlement::Vector)>,
+  core_actions: usize,
 }
 fn fixture() -> Display<App<Model>> {
   let mut app = App::with_model("navigation/scene", Model::default());
@@ -116,10 +117,27 @@ fn fixture() -> Display<App<Model>> {
         camera.projection = battlement::CameraProjection::Orthographic;
       }
       object
-    });
+    })
+    .global_keys([PhysicalKey::ArrowRight, PhysicalKey::Enter])
+    .controller_input(ControllerInputSettings::new().buttons([ControllerButton::South]))
+    .on_core_action(|model, _| model.core_actions += 1);
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("navigation/scene");
   Display::connect(app, assets)
+}
+
+#[test]
+fn physical_keyboard_and_controller_inputs_follow_native_world_focus_arbitration() {
+  let mut display = fixture();
+  display.key_down(PhysicalKey::ArrowRight);
+  assert_eq!(display.focused(), Some(FIRST));
+  display.controller_navigate(0, battlement::ControllerDirection::Right);
+  assert_eq!(display.focused(), Some(SECOND));
+  display.controller_button_down(0, ControllerButton::South);
+  display.with_engine(|app| {
+    assert_eq!(app.model().activations, 1);
+    assert_eq!(app.model().core_actions, 0);
+  });
 }
 #[test]
 fn semantic_world_focus_modal_return_and_removal_do_not_synthesize_clicks() {

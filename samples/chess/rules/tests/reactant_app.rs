@@ -5,9 +5,11 @@ use std::{
 };
 
 use battlement::{
-  CommandBody, Connect, ControllerButton, PanelPoint, PhysicalKey, Quaternion, ScreenSize, Vector3,
+  CommandBody, Connect, ControllerButton, ControllerDirection, DragMode, PanelPoint, PhysicalKey,
+  PointerButton, Quaternion, ScreenPosition, ScreenSize, Vector3,
 };
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
+use battlement_fake::client::PointerInput;
 use battlement_fake::time::ManualClock;
 use battlement_rules::{
   MUSIC_TRACKS, PIECE_PREFABS, PIECE_SPAWN_SEQUENCE_DURATION_MS, REACTANT_CHESS_ROOT_ID,
@@ -37,6 +39,11 @@ fn default_factory_exports_the_complete_reactant_app() {
   assert_eq!(
     display.with_engine(|app| app.visual_state()),
     VisualState::Title
+  );
+  let marker = display.find_ui(REACTANT_CHESS_ROOT_ID, "screen.title");
+  assert_eq!(
+    display.ui_element(marker).style().display,
+    battlement::Prop::Set(battlement::StyleValue::Value(battlement::Display::None))
   );
   let _play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
 }
@@ -84,16 +91,49 @@ fn opening_uses_accessible_play_and_shared_spawn_checkpoints() {
       .any(|occurrence| occurrence.address == MUSIC_TRACKS[0] && occurrence.looping)
   );
 
+  assert!(
+    piece_scales(&mut display)
+      .iter()
+      .all(|scale| *scale == Vector3::ZERO)
+  );
+  for key in [
+    PhysicalKey::Enter,
+    PhysicalKey::ArrowUp,
+    PhysicalKey::ArrowUp,
+    PhysicalKey::Enter,
+  ] {
+    display.key_down(key);
+    display.key_up(key);
+  }
+  assert_eq!(accepted!(display).board(), &Board::default());
+
   display.advance_time(Duration::from_millis(79));
   assert!(display.particle_occurrences().is_empty());
+  assert!(
+    piece_scales(&mut display)
+      .iter()
+      .all(|scale| *scale == Vector3::ZERO)
+  );
   display.advance_time(Duration::from_millis(1));
   assert_eq!(display.particle_occurrences().len(), 4);
-  display.advance_time(Duration::from_millis(PIECE_SPAWN_SEQUENCE_DURATION_MS - 80));
+  display.advance_time(Duration::from_millis(100));
+  let scales = piece_scales(&mut display);
+  assert!(scales.iter().any(|scale| *scale != Vector3::ZERO));
+  assert!(scales.contains(&Vector3::ZERO));
+  for _ in 0..7 {
+    display.advance_time(Duration::from_millis(570));
+  }
+  display.advance_time(Duration::from_millis(1_100));
+  for _ in 0..4 {
+    display.poll();
+  }
   assert_eq!(display.particle_occurrences().len(), 32);
-  assert_eq!(
-    display.presentation_time(),
-    Duration::from_millis(PIECE_SPAWN_SEQUENCE_DURATION_MS)
+  let scales = piece_scales(&mut display);
+  assert!(
+    scales.iter().all(|scale| *scale == Vector3::ONE),
+    "opening completed with piece scales {scales:?}"
   );
+  assert!(display.presentation_time() >= Duration::from_millis(PIECE_SPAWN_SEQUENCE_DURATION_MS));
 }
 
 #[test]
@@ -212,42 +252,91 @@ fn music_uses_the_app_clock_and_crossfades_in_playlist_order() {
 }
 
 #[test]
-fn keyboard_controller_click_and_fake_drag_share_the_app_owned_input_path() {
+fn keyboard_and_controller_follow_the_unfocused_global_chess_input_path() {
   let mut keyboard = title();
   keyboard.key_down(PhysicalKey::Enter);
   keyboard.key_up(PhysicalKey::Enter);
   ready(&mut keyboard);
   assert!(keyboard.with_engine(|app| app.accepted_state()).is_some());
+  keyboard.settle();
+  for _ in 0..4 {
+    keyboard.poll();
+  }
+  assert!(keyboard.objects().all(|object| {
+    !object
+      .world_pointer_settings()
+      .is_some_and(|settings| settings.focusable)
+  }));
+  for key in [
+    PhysicalKey::ArrowRight,
+    PhysicalKey::Enter,
+    PhysicalKey::ArrowUp,
+    PhysicalKey::ArrowUp,
+    PhysicalKey::Enter,
+  ] {
+    keyboard.key_down(key);
+    keyboard.key_up(key);
+    keyboard.poll();
+  }
+  ready(&mut keyboard);
+  assert!(accepted!(keyboard).board().piece_on(Square::F2).is_none());
 
   let mut controller = title();
   controller.controller_button_down(0, ControllerButton::South);
   controller.controller_button_up(0, ControllerButton::South);
   ready(&mut controller);
   assert!(controller.with_engine(|app| app.accepted_state()).is_some());
+  controller.settle();
+  for _ in 0..4 {
+    controller.poll();
+  }
+  controller.controller_navigate(0, ControllerDirection::Left);
+  controller.controller_button_down(0, ControllerButton::South);
+  controller.controller_button_up(0, ControllerButton::South);
+  controller.controller_navigate(0, ControllerDirection::Up);
+  controller.controller_navigate(0, ControllerDirection::Up);
+  controller.controller_button_down(0, ControllerButton::South);
+  controller.controller_button_up(0, ControllerButton::South);
+  ready(&mut controller);
+  assert!(accepted!(controller).board().piece_on(Square::D2).is_none());
+}
 
+#[test]
+fn native_drag_follows_the_pointer_and_commits_the_drop() {
   let mut drag = position(&Board::default().to_string(), Duration::ZERO);
   let pawn = piece(&mut drag, Square::E2);
+  assert_eq!(drag.with_engine(|app| app.status()), GameStatus::Ready);
   assert!(matches!(
     drag.object(pawn).expect("piece host exists").kind(),
     battlement::GameObjectKind::BoxHitRegion { .. }
   ));
   assert_eq!(drag.world_point(pawn, Vector3::ZERO), square(Square::E2));
-  let pointer = drag
-    .object(pawn)
-    .unwrap()
-    .world_pointer_settings()
-    .expect("piece world pointer settings");
-  assert!(pointer.capture_on_press);
-  assert!(!drag.object(pawn).unwrap().pointer_events().is_empty());
-  let from = panel(Square::E2);
-  let to = panel(Square::E4);
-  drag.pointer_down(7, from);
-  assert_eq!(drag.pointer_capture(7), Some(pawn));
-  drag.poll();
-  drag.poll();
+  assert_eq!(
+    drag.object(pawn).unwrap().drag_mode(),
+    Some(DragMode::SnapToPointer)
+  );
+  assert!(
+    drag
+      .object(pawn)
+      .unwrap()
+      .world_pointer_settings()
+      .is_none()
+  );
+  assert!(drag.object(pawn).unwrap().pointer_events().is_empty());
+  let input = pointer_input(7);
+  drag.drag_start(pawn, input);
+  for _ in 0..8 {
+    drag.poll();
+    if drag.with_engine(|app| app.visual_state()) == VisualState::Selected {
+      break;
+    }
+  }
+  assert_eq!(
+    drag.with_engine(|app| app.visual_state()),
+    VisualState::Selected
+  );
   let _ = drag.find_ui(REACTANT_CHESS_ROOT_ID, "selection.legal-targets");
-  drag.pointer_move(7, to, true);
-  drag.pointer_up(7, to);
+  drag.drag_end(pawn, input, square(Square::E4));
   ready(&mut drag);
   let accepted = accepted!(drag);
   assert!(accepted.board().piece_on(Square::E2).is_none());
@@ -255,16 +344,54 @@ fn keyboard_controller_click_and_fake_drag_share_the_app_owned_input_path() {
 }
 
 #[test]
+fn dropping_outside_the_board_restores_the_piece_without_selecting_the_edge_rook() {
+  let mut display = position(&Board::default().to_string(), Duration::ZERO);
+  let pawn = piece(&mut display, Square::E2);
+  let input = pointer_input(9);
+  display.drag_start(pawn, input);
+  display.poll();
+  display.drag_end(pawn, input, Vector3::new(8.0, 0.0, 0.0));
+  for _ in 0..4 {
+    display.poll();
+  }
+  assert_eq!(accepted!(display).board(), &Board::default());
+  assert_ne!(
+    display.with_engine(|app| app.visual_state()),
+    VisualState::Selected
+  );
+  assert_eq!(display.world_point(pawn, Vector3::ZERO), square(Square::E2));
+}
+
+#[test]
+fn dropping_on_an_illegal_square_restores_the_piece() {
+  let mut display = position(&Board::default().to_string(), Duration::ZERO);
+  let pawn = piece(&mut display, Square::E2);
+  let input = pointer_input(10);
+  display.drag_start(pawn, input);
+  display.poll();
+  display.drag_end(pawn, input, square(Square::E5));
+  for _ in 0..4 {
+    display.poll();
+  }
+  assert_eq!(accepted!(display).board(), &Board::default());
+  assert_ne!(
+    display.with_engine(|app| app.visual_state()),
+    VisualState::Selected
+  );
+  assert_eq!(display.world_point(pawn, Vector3::ZERO), square(Square::E2));
+  assert_eq!(
+    display.audio_occurrences().last().unwrap().address,
+    sfx::ERROR
+  );
+}
+
+#[test]
 fn fake_pointer_click_keeps_the_selected_white_source() {
   let mut display = position("4k3/8/8/4p3/3B4/8/8/4K3 w - - 0 1", Duration::ZERO);
-  let bishop = piece(&mut display, Square::D4);
-  display.activate(bishop);
-  display.poll();
-  display.poll();
+  select_by_pointer(&mut display, Square::D4);
 
-  let victim = piece(&mut display, Square::E5);
   display.pointer_down(8, panel(Square::E5));
-  assert_eq!(display.pointer_capture(8), Some(victim));
+  assert_eq!(display.pointer_capture(8), None);
   display.pointer_up(8, panel(Square::E5));
   ready(&mut display);
 
@@ -297,7 +424,13 @@ fn capture_and_castle_register_move_owned_sound_timing() {
   assert!(!capture.audio_occurrences().iter().any(|occurrence| {
     [sfx::ATTACK_A, sfx::ATTACK_B, sfx::ATTACK_C, sfx::ATTACK_D].contains(&occurrence.address)
   }));
-  capture.advance_time(Duration::from_millis(299));
+  capture.advance_time(Duration::from_millis(225));
+  let at_225 = capture.object(bishop).unwrap().local_transform().position;
+  capture.advance_time(Duration::from_millis(25));
+  let at_250 = capture.object(bishop).unwrap().local_transform().position;
+  capture.advance_time(Duration::from_millis(49));
+  let at_299 = capture.object(bishop).unwrap().local_transform().position;
+  assert!(at_225.x < at_250.x && at_250.x < at_299.x);
   assert_ne!(
     capture.object(bishop).unwrap().local_transform().position,
     square(Square::E5)
@@ -420,8 +553,7 @@ fn restart_replaces_busy_rules_and_required_presentation_without_stale_results()
   display.settle();
   display.poll();
 
-  let pawn = piece(&mut display, Square::E2);
-  display.activate(pawn);
+  select_by_pointer(&mut display, Square::E2);
   display.poll();
   display.poll();
   let target = highlight(&display, Square::E4);
@@ -437,8 +569,7 @@ fn restart_replaces_busy_rules_and_required_presentation_without_stale_results()
   assert_eq!(accepted!(display).board(), &Board::default());
   display.settle();
   display.poll();
-  let pawn = piece(&mut display, Square::D2);
-  display.activate(pawn);
+  select_by_pointer(&mut display, Square::D2);
   display.poll();
   display.poll();
   assert!(
@@ -494,6 +625,10 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
   let play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
   display.click_ui(play);
   ready(&mut display);
+  display.settle();
+  for _ in 0..4 {
+    display.poll();
+  }
   for key in [
     PhysicalKey::Enter,
     PhysicalKey::ArrowUp,
@@ -605,13 +740,54 @@ fn wait_for_visual(display: &mut Display<ReactantChessApp>, expected: VisualStat
 }
 
 fn move_by_activation(display: &mut Display<ReactantChessApp>, from: Square, to: Square) {
-  let piece = piece(display, from);
-  display.activate(piece);
+  select_by_pointer(display, from);
   for _ in 0..8 {
     display.poll();
   }
   let target = highlight(display, to);
   display.activate(target);
+}
+
+fn select_by_pointer(display: &mut Display<ReactantChessApp>, square: Square) {
+  let piece = piece(display, square);
+  let input = pointer_input(0);
+  display.drag_start(piece, input);
+  for _ in 0..8 {
+    display.poll();
+    if display.with_engine(|app| app.visual_state()) == VisualState::Selected {
+      break;
+    }
+  }
+  assert_eq!(
+    display.with_engine(|app| app.visual_state()),
+    VisualState::Selected
+  );
+  display.drag_end(piece, input, self::square(square));
+  display.poll();
+  display.poll();
+}
+
+fn pointer_input(pointer_id: i32) -> PointerInput {
+  PointerInput {
+    pointer_id,
+    screen_position: ScreenPosition::new(960.0, 540.0),
+    world_hit: Vector3::ZERO,
+    button: PointerButton::Left,
+  }
+}
+
+fn piece_scales(display: &mut Display<ReactantChessApp>) -> Vec<Vector3> {
+  let state = accepted!(display);
+  Square::ALL
+    .into_iter()
+    .filter_map(|square| state.piece(square))
+    .map(|piece| {
+      let native = display
+        .with_engine(|app| app.native_piece(piece.entity_id))
+        .expect("piece has native host");
+      display.object(native).unwrap().local_transform().scale
+    })
+    .collect()
 }
 
 fn piece(display: &mut Display<ReactantChessApp>, square: Square) -> battlement::ObjectId {

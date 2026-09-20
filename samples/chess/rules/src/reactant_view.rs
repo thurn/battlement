@@ -7,7 +7,9 @@ use cozy_chess::{Color, GameStatus};
 use reactant::{
   DispatchResult, GameApp, GameHandle, GameRoot, GameStatus as RulesStatus,
   app::App,
-  prelude::{Button, Component, Either, EventCallback, PickingMode, Position, Render, Style},
+  prelude::{
+    Button, Component, Display, Either, EventCallback, PickingMode, Position, Render, Style,
+  },
   rules::ExecutionMode,
   world,
 };
@@ -157,7 +159,6 @@ impl Component for TitleScreen {
           .fit(battlement::ImageFit::Stretch)
           .position(Vector3::new(0.0, 6.38, -3.86))
           .rotation(crate::CAMERA_ROTATION)
-          .focusable(true)
           .on_click(self.on_play.clone()),
       ),
       self
@@ -183,15 +184,6 @@ impl Component for ChessScreen {
         control.dispatch(Some(&game), UiAction::Activate(to));
       })
     };
-    let begin_drag = {
-      let control = self.control.clone();
-      let game = self.game.clone();
-      EventCallback::new(move |piece| control.dispatch(Some(&game), UiAction::BeginDrag(piece)))
-    };
-    let cancel_selection = {
-      let control = self.control.clone();
-      EventCallback::new(move |()| control.dispatch(None, UiAction::CancelSelection))
-    };
     let request_new_game = {
       let control = self.control.clone();
       let game = self.game.clone();
@@ -205,9 +197,16 @@ impl Component for ChessScreen {
       })
     };
     let opening_control = self.control.clone();
-    let on_opening_finished = Rc::new(move |playback, generation| {
-      opening_control.retain_opening(playback);
-      opening_control.finish_opening(generation);
+    let on_opening_finished = Rc::new(
+      move |playback: reactant::prelude::AnimationPlayback, generation: u64| {
+        let completion_control = opening_control.clone();
+        playback.on_complete(move || completion_control.finish_opening(generation));
+        opening_control.retain_opening(playback);
+      },
+    );
+    let piece_control = self.control.clone();
+    let on_piece_mounted = Rc::new(move |entity, host| {
+      piece_control.register_piece_host(entity, host);
     });
     (
       TurnCoordinator {
@@ -222,10 +221,9 @@ impl Component for ChessScreen {
         ui: local.clone(),
         on_activate: activate,
         on_move: move_piece,
-        on_begin_drag: begin_drag,
-        on_cancel_selection: cancel_selection,
         on_request_new_game: request_new_game.clone(),
         on_opening_finished,
+        on_piece_mounted,
       },
       PromotionDialog,
       GameControls {
@@ -304,16 +302,6 @@ fn status_label(visual_state: crate::visual_state::VisualState) -> impl Render {
   reactant::prelude::Label::new(ls(visual_state.label()))
     .name(visual_state.registry_key())
     .picking_mode(PickingMode::Ignore)
-    .style(
-      Style::new()
-        .position(Position::Absolute)
-        .left(24.0)
-        .top(18.0)
-        .padding((9.0, 15.0))
-        .font_size(18.0)
-        .color(battlement::Color::rgba(0.96, 0.97, 0.91, 1.0))
-        .background_color(battlement::Color::rgba(0.03, 0.04, 0.035, 0.88))
-        .border_radius(6.0),
-    )
+    .style(Style::new().display(Display::None))
     .id(*visual_state.object_id().as_uuid())
 }

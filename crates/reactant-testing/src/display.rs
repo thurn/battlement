@@ -92,6 +92,19 @@ where
     self.pointer_down(0, position);
     self.pointer_up(0, position);
   }
+  /// Starts the native draggable-object path without resolving screen geometry.
+  pub fn drag_start(&mut self, object_id: ObjectId, input: battlement_fake::client::PointerInput) {
+    self.client.drag_start(object_id, input);
+  }
+  /// Ends the native draggable-object path at one world-space position.
+  pub fn drag_end(
+    &mut self,
+    object_id: ObjectId,
+    input: battlement_fake::client::PointerInput,
+    world_position: Vector3,
+  ) {
+    self.client.drag_end(object_id, input, world_position);
+  }
   /// Observes the current pointer capture owner.
   pub fn pointer_capture(&self, pointer_id: i32) -> Option<ObjectId> {
     self.client.geometric_capture(pointer_id)

@@ -222,10 +222,7 @@ impl ReactantChessApp {
 
   /// Resolves a stable Reactant piece identity to its current native host.
   pub fn native_piece(&self, piece: ObjectId) -> Option<ObjectId> {
-    self
-      .app
-      .presentation(*piece.as_uuid())
-      .and_then(|observation| observation.native_objects.first().copied())
+    self.app.model().control.native_piece(piece)
   }
 
   /// Returns the latest non-fatal persistence failure.

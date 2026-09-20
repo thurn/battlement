@@ -608,7 +608,9 @@ where
     if !self.held_keys.insert(key) {
       return;
     }
-    self.submit_action(ActionBody::KeyDown(battlement::KeyPayload { key }));
+    if !self.route_semantic_key(key) {
+      self.submit_action(ActionBody::KeyDown(battlement::KeyPayload { key }));
+    }
     self.reconcile_device_state();
   }
 
@@ -636,10 +638,12 @@ where
     if !self.held_controller_buttons.insert(button) {
       return;
     }
-    self.submit_action(ActionBody::ControllerButtonDown(ControllerButtonPayload {
-      controller_id,
-      button,
-    }));
+    if !self.route_controller_button(button) {
+      self.submit_action(ActionBody::ControllerButtonDown(ControllerButtonPayload {
+        controller_id,
+        button,
+      }));
+    }
     self.reconcile_device_state();
   }
 
@@ -676,14 +680,22 @@ where
         .is_some_and(|settings| settings.navigation_enabled),
       "controller navigation is not enabled"
     );
-    self.submit_action(ActionBody::ControllerNavigate(
-      ControllerNavigationPayload {
-        controller_id,
-        direction,
-        source,
-        repeat,
-      },
-    ));
+    let navigation = match direction {
+      ControllerDirection::Left => battlement::NavigationDirection::Left,
+      ControllerDirection::Right => battlement::NavigationDirection::Right,
+      ControllerDirection::Up => battlement::NavigationDirection::Up,
+      ControllerDirection::Down => battlement::NavigationDirection::Down,
+    };
+    if !self.route_controller_navigation(navigation) {
+      self.submit_action(ActionBody::ControllerNavigate(
+        ControllerNavigationPayload {
+          controller_id,
+          direction,
+          source,
+          repeat,
+        },
+      ));
+    }
     self.reconcile_device_state();
   }
 

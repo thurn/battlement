@@ -2,7 +2,7 @@
 
 use std::{
   cell::{Cell, RefCell},
-  collections::HashSet,
+  collections::{HashMap, HashSet},
   rc::Rc,
 };
 
@@ -39,7 +39,7 @@ pub(crate) enum UiAction {
   Select(Square),
   Activate(Square),
   BeginDrag(ObjectId),
-  EndDrag(ObjectId, Square),
+  EndDrag(ObjectId, Option<Square>),
   CancelSelection,
   MoveCursor(Square),
   CycleCursor(bool),
@@ -78,6 +78,8 @@ pub(crate) struct ChessUiState {
   pub(crate) opening_generation: u64,
   pub(crate) opening: Option<SessionStart>,
   pub(crate) selected: Option<Square>,
+  pub(crate) drag_restore: Option<(ObjectId, Square)>,
+  pub(crate) drag_restore_generation: u64,
   pub(crate) cursor: Square,
   pub(crate) cursor_visible: bool,
   pub(crate) overlay: Option<Overlay>,
@@ -96,6 +98,7 @@ struct AppControlState {
   local: DisplayStore<ChessUiState>,
   replacement: RefCell<Option<ReplacementRequest>>,
   opening_playbacks: RefCell<Vec<AnimationPlayback>>,
+  piece_hosts: RefCell<HashMap<ObjectId, ObjectId>>,
   sound_cursor: Cell<usize>,
 }
 
@@ -115,6 +118,8 @@ impl Default for ChessUiState {
       opening_generation: 0,
       opening: None,
       selected: None,
+      drag_restore: None,
+      drag_restore_generation: 0,
       cursor: crate::cursor::START,
       cursor_visible: false,
       overlay: None,
@@ -159,6 +164,7 @@ impl AppControl {
       local: DisplayStore::new(local),
       replacement: RefCell::new(None),
       opening_playbacks: RefCell::new(Vec::new()),
+      piece_hosts: RefCell::new(HashMap::new()),
       sound_cursor: Cell::new(0),
     }))
   }
@@ -241,6 +247,7 @@ impl AppControl {
   }
 
   pub(crate) fn begin_session(&self, mode: SessionStart, cursor_visible: bool, origin_saved: bool) {
+    self.0.piece_hosts.borrow_mut().clear();
     let previous = self.snapshot();
     let opening_generation = previous
       .opening_generation
@@ -275,6 +282,14 @@ impl AppControl {
 
   pub(crate) fn retain_opening(&self, playback: AnimationPlayback) {
     self.0.opening_playbacks.borrow_mut().push(playback);
+  }
+
+  pub(crate) fn register_piece_host(&self, entity: ObjectId, host: ObjectId) {
+    self.0.piece_hosts.borrow_mut().insert(entity, host);
+  }
+
+  pub(crate) fn native_piece(&self, entity: ObjectId) -> Option<ObjectId> {
+    self.0.piece_hosts.borrow().get(&entity).copied()
   }
 
   pub(crate) fn cancel_opening(&self) {
@@ -343,7 +358,7 @@ impl AppControl {
   }
 
   fn activate_square(&self, game: &GameHandle<ChessGame>, target: Square) {
-    if game.status() != RulesStatus::Ready {
+    if game.status() != RulesStatus::Ready || self.snapshot().spawning {
       return;
     }
     let state = game.accepted_state();
@@ -372,31 +387,65 @@ impl AppControl {
   }
 
   fn drag_start(&self, game: &GameHandle<ChessGame>, piece: ObjectId) {
-    if game.status() != RulesStatus::Ready {
+    if game.status() != RulesStatus::Ready || self.snapshot().spawning {
       return;
     }
     let state = game.accepted_state();
-    if let Some(square) = piece_square(&state, piece)
+    let entity = self.piece_entity(piece);
+    if let Some(square) = piece_square(&state, entity)
       && state.board().color_on(square) == Some(Color::White)
     {
       self.dispatch(Some(game), UiAction::Select(square));
     }
   }
 
-  fn drag_end(&self, game: &GameHandle<ChessGame>, piece: ObjectId, target: Square) {
+  fn drag_end(&self, game: &GameHandle<ChessGame>, piece: ObjectId, target: Option<Square>) {
     let state = game.accepted_state();
-    let Some(from) = piece_square(&state, piece) else {
+    let entity = self.piece_entity(piece);
+    let Some(from) = piece_square(&state, entity) else {
       self
         .0
         .local
         .update(|local| Self::effect(local, LocalEffect::Invalid));
       return;
     };
+    let Some(target) = target.filter(|_| game.status() == RulesStatus::Ready) else {
+      self.restore_drag(entity, from, false);
+      return;
+    };
     if target == from {
       self.select(&state, from);
+    } else if state.legal_moves(from, target).is_empty() {
+      self.restore_drag(entity, from, true);
     } else {
       self.activate_square(game, target);
     }
+  }
+
+  fn restore_drag(&self, entity: ObjectId, square: Square, invalid: bool) {
+    self.0.local.update(|local| {
+      local.drag_restore = Some((entity, square));
+      local.drag_restore_generation = local
+        .drag_restore_generation
+        .checked_add(1)
+        .expect("drag restore generation overflow");
+      local.selected = None;
+      local.cursor = square;
+      local.cursor_visible = true;
+      if invalid {
+        Self::effect(local, LocalEffect::Invalid);
+      }
+    });
+  }
+
+  fn piece_entity(&self, host: ObjectId) -> ObjectId {
+    self
+      .0
+      .piece_hosts
+      .borrow()
+      .iter()
+      .find_map(|(entity, value)| (*value == host).then_some(*entity))
+      .unwrap_or(host)
   }
 
   fn cancel_selection(&self) {

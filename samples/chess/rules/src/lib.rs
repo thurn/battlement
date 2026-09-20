@@ -172,10 +172,13 @@ fn visible_destination(board: &Board, movement: Move) -> Square {
   )
 }
 
-fn square_at(position: Vector3) -> Square {
-  let file = (position.x + 3.5).round().clamp(0.0, 7.0) as usize;
-  let rank = (position.z + 3.5).round().clamp(0.0, 7.0) as usize;
-  Square::new(File::index(file), Rank::index(rank))
+fn square_at(position: Vector3) -> Option<Square> {
+  if !(-4.0..4.0).contains(&position.x) || !(-4.0..4.0).contains(&position.z) {
+    return None;
+  }
+  let file = (position.x + 3.5).round() as usize;
+  let rank = (position.z + 3.5).round() as usize;
+  Some(Square::new(File::index(file), Rank::index(rank)))
 }
 
 fn square_position(square: Square) -> Vector3 {

@@ -81,6 +81,12 @@ impl<P> WorldObject<P> {
     self
   }
 
+  /// Uses the native pointer-following path and emits legacy drag core actions.
+  pub fn draggable(mut self, mode: battlement::DragMode) -> Self {
+    self.group = self.group.draggable(mode);
+    self
+  }
+
   /// Attaches a reference after the host commits.
   pub fn reference(mut self, reference: ObjectRef) -> Self {
     self.group = self.group.reference(reference);

@@ -1,8 +1,8 @@
 use crate::{client::FakeClient, transform};
 use battlement::{
   CameraProjection, FocusEvent, GameObjectKind, NavigationDirection, NavigationEvent,
-  NavigationMoveEvent, ObjectId, PanelPoint, Rect, UiEvent, UiEventBody, UiEventDisposition,
-  Vector,
+  NavigationMoveEvent, ObjectId, PanelPoint, PhysicalKey, Rect, UiEvent, UiEventBody,
+  UiEventDisposition, Vector,
 };
 use battlement_native::Engine;
 
@@ -16,6 +16,46 @@ pub(super) struct Navigation {
 }
 
 impl<E: Engine> FakeClient<E> {
+  pub(super) fn route_semantic_key(&mut self, key: PhysicalKey) -> bool {
+    self.reconcile_navigation();
+    if !self.owns_world_navigation() {
+      return false;
+    }
+    match key {
+      PhysicalKey::ArrowLeft => self.navigate(NavigationDirection::Left),
+      PhysicalKey::ArrowRight => self.navigate(NavigationDirection::Right),
+      PhysicalKey::ArrowUp => self.navigate(NavigationDirection::Up),
+      PhysicalKey::ArrowDown => self.navigate(NavigationDirection::Down),
+      PhysicalKey::Tab => self.navigate(NavigationDirection::Next),
+      PhysicalKey::Enter | PhysicalKey::Space => self.activate_focused(),
+      PhysicalKey::Escape => self.cancel_navigation(),
+      _ => return false,
+    }
+    true
+  }
+
+  pub(super) fn route_controller_navigation(&mut self, direction: NavigationDirection) -> bool {
+    self.reconcile_navigation();
+    if !self.owns_world_navigation() {
+      return false;
+    }
+    self.navigate(direction);
+    true
+  }
+
+  pub(super) fn route_controller_button(&mut self, button: battlement::ControllerButton) -> bool {
+    self.reconcile_navigation();
+    if !self.owns_world_navigation() {
+      return false;
+    }
+    match button {
+      battlement::ControllerButton::South => self.activate_focused(),
+      battlement::ControllerButton::East => self.cancel_navigation(),
+      _ => return false,
+    }
+    true
+  }
+
   /// Observes semantic world/UI focus without advancing time or frames.
   pub fn focused(&self) -> Option<ObjectId> {
     self.navigation.focused.or(self.ui_world.focused())
@@ -151,6 +191,23 @@ impl<E: Engine> FakeClient<E> {
       .filter_map(|o| self.focus_position(o.id()).map(|p| (o.id(), p)))
       .collect::<Vec<_>>();
     if world.is_empty() { ui } else { world }
+  }
+
+  fn owns_world_navigation(&self) -> bool {
+    self.world.input_enabled()
+      && (self.navigation.focused.is_some()
+        || self.navigation.invoker.is_some()
+        || self
+          .world
+          .objects()
+          .filter(|object| object.active_in_hierarchy())
+          .filter(|object| !object.pointer_events().is_empty())
+          .filter(|object| {
+            object
+              .world_pointer
+              .is_some_and(|settings| settings.focusable)
+          })
+          .any(|object| self.focus_position(object.id()).is_some()))
   }
 
   fn focus_position(&self, id: ObjectId) -> Option<PanelPoint> {
