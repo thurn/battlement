@@ -2,62 +2,34 @@
 
 use std::time::Duration;
 
-use battlement::{AudioClipAddress, ObjectId};
+use battlement::AudioClipAddress;
 use cozy_chess::{Board, Color, GameStatus, Move, Square};
 use fastrand::Rng;
 use reactant::rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game};
 
 use crate::{
-  ai, audio,
-  position::{ChessMove, ChessPiece, ChessPosition, Movement},
-  visual_state::VisualState,
+  ai,
+  chess_prompt::{ChessPrompt, PromotionPrompt},
+  position::{ChessPiece, ChessPosition, Movement},
 };
-
-/// File operation scheduled after a state becomes accepted.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PersistenceDirective {
-  /// Leave the durable save unchanged.
-  None,
-  /// Persist the accepted board.
-  Save,
-  /// Remove the durable save after accepting a shortcut restart.
-  Clear,
-}
-
-/// Start presentation selected by app-owned replacement state.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum StartMode {
-  /// First play from the title screen.
-  Fresh,
-  /// Desktop shortcut restart with opening beats.
-  Restart,
-  /// Confirmed new game without replaying the spawn choreography.
-  Refresh,
-}
 
 /// One complete user action admitted to the bounded rules worker.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ChessAction {
-  /// Starts the app-owned board state.
-  Start(StartMode),
-  /// Commits one legal visible-square player move.
-  Move(ChessMove),
+  /// Completes a legal player move to one visible destination.
+  MoveTo {
+    /// Selected source square.
+    from: Square,
+    /// Visible destination square.
+    to: Square,
+  },
   /// Searches and commits one computer reply from an accepted player move.
-  AiMove,
+  ComputerMove,
 }
 
 /// Semantic checkpoint consumed exactly once by the board presentation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ChessAnimation {
-  /// Opening or reset presentation.
-  Opening {
-    /// Whether to play the eight spawn beats.
-    spawn: bool,
-    /// Stable piece identities grouped by beat.
-    beats: Vec<Vec<ObjectId>>,
-    /// One-shot start or reset sound.
-    sound: AudioClipAddress,
-  },
   /// One player or computer movement and its composed sounds.
   Movement {
     /// Movement description consumed by the shared Motion owner.
@@ -73,14 +45,6 @@ pub enum ChessAnimation {
 #[derive(Clone)]
 pub struct ChessState {
   position: ChessPosition,
-  starting_board: Board,
-  started: bool,
-  spawning: bool,
-  origin_saved: bool,
-  generation: u32,
-  visual_state: VisualState,
-  persistence_revision: u64,
-  persistence: PersistenceDirective,
 }
 
 pub(crate) struct ChessGame;
@@ -92,52 +56,20 @@ pub(crate) struct ChessContext {
 }
 
 impl ChessState {
-  /// Creates a title state with no visible pieces.
-  pub fn title(starting_board: Board) -> Self {
-    Self::title_generation(starting_board, 0)
+  /// Creates one complete playable chess position.
+  pub fn new(board: Board) -> Self {
+    Self::with_generation(board, 0)
   }
 
-  pub(crate) fn title_generation(starting_board: Board, generation: u32) -> Self {
+  pub(crate) fn with_generation(board: Board, generation: u32) -> Self {
     Self {
-      position: ChessPosition::from_board(starting_board.clone(), generation),
-      starting_board,
-      started: false,
-      spawning: false,
-      origin_saved: false,
-      generation,
-      visual_state: VisualState::Title,
-      persistence_revision: 0,
-      persistence: PersistenceDirective::None,
+      position: ChessPosition::from_board(board, generation),
     }
   }
 
-  /// Creates a restored playable state without replaying transient effects.
+  /// Creates a restored playable position.
   pub fn resumed(board: Board) -> Self {
-    Self {
-      position: ChessPosition::from_board(board.clone(), 0),
-      starting_board: Board::default(),
-      started: true,
-      spawning: false,
-      origin_saved: true,
-      generation: 0,
-      visual_state: VisualState::Resumed,
-      persistence_revision: 0,
-      persistence: PersistenceDirective::None,
-    }
-  }
-
-  pub(crate) fn review(board: Board, visual_state: VisualState) -> Self {
-    Self {
-      position: ChessPosition::from_board(board.clone(), 0),
-      starting_board: board,
-      started: true,
-      spawning: false,
-      origin_saved: visual_state == VisualState::Resumed,
-      generation: 0,
-      visual_state,
-      persistence_revision: 0,
-      persistence: PersistenceDirective::None,
-    }
+    Self::new(board)
   }
 
   /// Returns the current rules board.
@@ -150,41 +82,8 @@ impl ChessState {
     self.position.piece(square)
   }
 
-  /// Whether the playable board is mounted.
-  pub const fn started(&self) -> bool {
-    self.started
-  }
-
-  /// Whether the opening checkpoint initially hides all pieces.
-  pub const fn spawning(&self) -> bool {
-    self.spawning
-  }
-
-  /// Whether this session originated from a durable saved game.
-  pub const fn origin_saved(&self) -> bool {
-    self.origin_saved
-  }
-
-  /// Current semantic visual classification.
-  pub const fn visual_state(&self) -> VisualState {
-    self.visual_state
-  }
-
-  /// Monotonic accepted-save scheduling generation.
-  pub const fn persistence_revision(&self) -> u64 {
-    self.persistence_revision
-  }
-
-  /// File operation belonging to this accepted state.
-  pub const fn persistence(&self) -> PersistenceDirective {
-    self.persistence
-  }
-
-  pub(crate) fn legal_move(&self, action: ChessMove) -> Option<Move> {
-    self
-      .started
-      .then(|| self.position.legal_move(action))
-      .flatten()
+  pub(crate) fn legal_moves(&self, from: Square, to: Square) -> Vec<Move> {
+    self.position.legal_moves(from, to)
   }
 }
 
@@ -198,48 +97,6 @@ impl ChessContext {
       execution,
       think_time,
       rng,
-    }
-  }
-
-  fn opening(&mut self, state: &ChessState, mode: StartMode) -> ChessAnimation {
-    let spawn = mode != StartMode::Refresh;
-    let mut white = Vec::new();
-    let mut black = Vec::new();
-    for square in Square::ALL {
-      if let Some(piece) = state.position.piece(square) {
-        if piece.color == Color::White {
-          white.push(piece.id);
-        } else {
-          black.push(piece.id);
-        }
-      }
-    }
-    self.rng.shuffle(&mut white);
-    self.rng.shuffle(&mut black);
-    let maximum = white.len().max(black.len());
-    let per_beat = maximum.div_ceil(crate::PIECE_SPAWN_BEAT_COUNT).max(1);
-    let stages = maximum.div_ceil(per_beat);
-    let beats = (0..stages)
-      .map(|index| {
-        let start = index * per_beat;
-        let end = start + per_beat;
-        white
-          .get(start..end.min(white.len()))
-          .into_iter()
-          .flatten()
-          .chain(black.get(start..end.min(black.len())).into_iter().flatten())
-          .copied()
-          .collect()
-      })
-      .collect();
-    ChessAnimation::Opening {
-      spawn,
-      beats,
-      sound: if mode == StartMode::Fresh {
-        audio::START_SOUND
-      } else {
-        crate::RESET_SOUND
-      },
     }
   }
 
@@ -282,25 +139,21 @@ impl ChessContext {
   }
 
   fn apply_move(&mut self, state: &mut ChessState, movement: Move) {
-    let board_before = state.position.board.clone();
-    let mover = board_before
-      .color_on(movement.from)
-      .expect("legal mover has a color");
     let animation = self.movement(state, movement);
     self.execution.present(state, || animation);
     state.position.apply(movement);
-    state.visual_state =
-      crate::visual_state::after_move(&board_before, &state.position.board, movement, mover);
   }
 }
 
 impl ChoicePolicy<ChessGame> for ChessPolicy {
-  fn owner(&self, _: &ChessState, _: &()) -> ChoiceOwner {
-    ChoiceOwner::Policy
+  fn owner(&self, _: &ChessState, prompt: &ChessPrompt<'_>) -> ChoiceOwner {
+    match prompt {
+      ChessPrompt::Promotion(_) => ChoiceOwner::Human,
+    }
   }
 
-  fn choose(&mut self, _: &ChessState, _: &()) -> usize {
-    unreachable!("chess has no typed prompts")
+  fn choose(&mut self, _: &ChessState, _: &ChessPrompt<'_>) -> usize {
+    unreachable!("interactive chess prompts are owned by the player")
   }
 }
 
@@ -308,7 +161,7 @@ impl Game for ChessGame {
   type State = ChessState;
   type Action = ChessAction;
   type StateAnimation = ChessAnimation;
-  type Prompt<'a> = ();
+  type Prompt<'a> = ChessPrompt<'a>;
   type Context = ChessContext;
 
   fn logical_clone(state: &ChessState) -> ChessState {
@@ -317,13 +170,11 @@ impl Game for ChessGame {
 
   fn is_legal_action(state: &ChessState, action: &ChessAction) -> bool {
     match action {
-      ChessAction::Start(_) => !state.started,
-      ChessAction::Move(action) => {
-        state.board().side_to_move() == Color::White && state.legal_move(*action).is_some()
+      ChessAction::MoveTo { from, to } => {
+        state.board().side_to_move() == Color::White && !state.legal_moves(*from, *to).is_empty()
       }
-      ChessAction::AiMove => {
-        state.started
-          && state.board().side_to_move() == Color::Black
+      ChessAction::ComputerMove => {
+        state.board().side_to_move() == Color::Black
           && state.board().status() == GameStatus::Ongoing
       }
     }
@@ -331,46 +182,26 @@ impl Game for ChessGame {
 
   fn execute(context: &mut ChessContext, state: &mut ChessState, action: ChessAction) {
     match action {
-      ChessAction::Start(mode) => {
-        state.generation = state
-          .generation
-          .checked_add(1)
-          .expect("piece generation overflow");
-        state.position = ChessPosition::from_board(state.starting_board.clone(), state.generation);
-        state.started = true;
-        state.spawning = mode != StartMode::Refresh;
-        state.origin_saved = false;
-        state.visual_state = match mode {
-          StartMode::Fresh => VisualState::Initial,
-          StartMode::Restart => VisualState::Restarted,
-          StartMode::Refresh => VisualState::Refreshed,
-        };
-        let opening = context.opening(state, mode);
-        context.execution.present(state, || opening);
-        state.spawning = false;
-        state.persistence = if mode == StartMode::Restart {
-          PersistenceDirective::Clear
+      ChessAction::MoveTo { from, to } => {
+        let candidates = state.legal_moves(from, to);
+        let movement = if candidates.len() == 1 {
+          candidates[0]
         } else {
-          PersistenceDirective::Save
+          let promotion = context
+            .execution
+            .choose(state, PromotionPrompt::new(from, to));
+          candidates
+            .into_iter()
+            .find(|movement| movement.promotion == Some(promotion))
+            .expect("promotion response selects one legal move")
         };
-      }
-      ChessAction::Move(action) => {
-        let movement = state
-          .legal_move(action)
-          .expect("worker receives a checked player move");
         context.apply_move(state, movement);
-        state.persistence = PersistenceDirective::Save;
       }
-      ChessAction::AiMove => {
+      ChessAction::ComputerMove => {
         let reply = ai::choose_move(&state.position.board, context.think_time)
           .expect("ongoing chess position has a computer move");
         context.apply_move(state, reply);
-        state.persistence = PersistenceDirective::Save;
       }
     }
-    state.persistence_revision = state
-      .persistence_revision
-      .checked_add(1)
-      .expect("persistence revision overflow");
   }
 }

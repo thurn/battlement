@@ -3,11 +3,15 @@
 mod ai;
 pub mod assets;
 pub mod audio;
+mod chess_board;
+mod chess_prompt;
+mod chess_ui_state;
 mod cursor;
 mod diagnostics;
 mod motion;
 mod persistence;
 mod position;
+mod promotion_dialog;
 mod reactant_app;
 mod reactant_effects;
 mod reactant_game;
@@ -137,30 +141,20 @@ fn legal_destinations(board: &Board, from: Square) -> Vec<Square> {
   destinations
 }
 
-fn player_move(board: &Board, from: Square, target: Square) -> Option<Move> {
+fn player_moves(board: &Board, from: Square, target: Square) -> Vec<Move> {
   if board.side_to_move() != Color::White || board.color_on(from) != Some(Color::White) {
-    return None;
+    return Vec::new();
   }
-  let target = if board.piece_on(from) == Some(Piece::King) {
-    match target {
-      Square::G1 => Square::H1,
-      Square::C1 => Square::A1,
-      _ => target,
-    }
-  } else {
-    target
-  };
-  let promotion = if board.piece_on(from) == Some(Piece::Pawn) && target.rank() == Rank::Eighth {
-    Some(Piece::Queen)
-  } else {
-    None
-  };
-  let candidate = Move {
-    from,
-    to: target,
-    promotion,
-  };
-  board.is_legal(candidate).then_some(candidate)
+  let mut candidates = Vec::new();
+  board.generate_moves_for(from.bitboard(), |moves| {
+    candidates.extend(
+      moves
+        .into_iter()
+        .filter(|movement| visible_destination(board, *movement) == target),
+    );
+    false
+  });
+  candidates
 }
 
 fn visible_destination(board: &Board, movement: Move) -> Square {
@@ -195,16 +189,10 @@ fn square_position(square: Square) -> Vector3 {
   .position(square.file() as u32, square.rank() as u32)
 }
 
-fn piece_id(index: usize, generation: u32) -> ObjectId {
-  format!("43000000-0000-4000-81{generation:02x}-{index:012x}")
+fn piece_entity_id(index: usize, generation: u32) -> ObjectId {
+  format!("43000000-0000-4000-83{generation:02x}-{index:012x}")
     .parse()
     .expect("generated Chess piece ID is valid")
-}
-
-fn highlight_id(index: usize) -> ObjectId {
-  format!("43000000-0000-4000-8200-{index:012x}")
-    .parse()
-    .expect("generated Chess highlight ID is valid")
 }
 
 fn address(color: Color, piece: Piece) -> PrefabAddress {

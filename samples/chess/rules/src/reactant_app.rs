@@ -11,18 +11,22 @@ use battlement_native::{
   UiEventResult,
 };
 use cozy_chess::Board;
-use reactant::{
-  DispatchResult, GameStatus as RulesStatus, app::App, prelude::GameApp, rules::ExecutionMode,
-};
+use reactant::{GameStatus as RulesStatus, app::App, prelude::GameApp, rules::ExecutionMode};
 
 use crate::{
-  reactant_game::{
-    ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState, PersistenceDirective, StartMode,
-  },
+  chess_ui_state::{ReplacementRequest, SessionStart},
+  reactant_game::{ChessContext, ChessGame, ChessPolicy, ChessState},
   reactant_input::ChessModel,
 };
 
 const MUSIC_TRACK_DURATION: Duration = Duration::from_secs(120);
+
+#[derive(Clone)]
+struct InitialSession {
+  state: ChessState,
+  visual_state: crate::visual_state::VisualState,
+  origin_saved: bool,
+}
 
 /// Complete Reactant chess engine exported by the sample.
 pub struct ReactantChessApp {
@@ -31,22 +35,22 @@ pub struct ReactantChessApp {
   think_time: Duration,
   seed: Option<u64>,
   now: Box<dyn Fn() -> Instant>,
-  initial_state: ChessState,
+  initial_session: Option<InitialSession>,
   load_persistence: bool,
   review_state: Option<crate::visual_state::VisualState>,
   persistent_data_path: Option<PathBuf>,
-  persisted_revision: u64,
+  observed_board: Option<Board>,
+  persisted_position: Option<String>,
   persistence_error: Option<String>,
-  pending_start: Option<StartMode>,
+  pending_replacement: Option<ReplacementRequest>,
   music_due: Option<Instant>,
-  replacement_generation: u32,
 }
 
 impl ReactantChessApp {
   /// Creates the app with production AI settings.
   pub fn new() -> Self {
     Self::with_state(
-      ChessState::title(Board::default()),
+      None,
       Board::default(),
       crate::AI_THINK_TIME,
       None,
@@ -62,7 +66,7 @@ impl ReactantChessApp {
   /// Creates an app with production AI timing and deterministic presentation randomness.
   pub fn with_seed(seed: u64) -> Self {
     Self::with_state(
-      ChessState::title(Board::default()),
+      None,
       Board::default(),
       crate::AI_THINK_TIME,
       Some(seed),
@@ -75,13 +79,7 @@ impl ReactantChessApp {
     think_time: Duration,
     now: impl Fn() -> Instant + 'static,
   ) -> Self {
-    Self::with_state(
-      ChessState::title(Board::default()),
-      Board::default(),
-      think_time,
-      Some(43),
-      now,
-    )
+    Self::with_state(None, Board::default(), think_time, Some(43), now)
   }
 
   /// Creates an already-started deterministic position.
@@ -90,7 +88,11 @@ impl ReactantChessApp {
       .parse::<Board>()
       .map_err(|error| format!("invalid chess position: {error}"))?;
     Ok(Self::with_state(
-      ChessState::resumed(board.clone()),
+      Some(InitialSession {
+        state: ChessState::new(board.clone()),
+        visual_state: crate::visual_state::VisualState::Resumed,
+        origin_saved: true,
+      }),
       board,
       think_time,
       Some(43),
@@ -104,7 +106,7 @@ impl ReactantChessApp {
       .parse::<Board>()
       .map_err(|error| format!("invalid chess position: {error}"))?;
     Ok(Self::with_state(
-      ChessState::title(board.clone()),
+      None,
       board,
       think_time,
       None,
@@ -120,13 +122,17 @@ impl ReactantChessApp {
         .ok_or_else(|| format!("unknown Reactant Chess app fixture {name:?}"))?;
       (fixture.board, fixture.state)
     };
-    let state = if visual_state == crate::visual_state::VisualState::Title {
-      ChessState::title(starting_board.clone())
+    let session = if visual_state == crate::visual_state::VisualState::Title {
+      None
     } else {
-      ChessState::review(starting_board.clone(), visual_state)
+      Some(InitialSession {
+        state: ChessState::new(starting_board.clone()),
+        visual_state,
+        origin_saved: visual_state == crate::visual_state::VisualState::Resumed,
+      })
     };
     let mut app = Self::with_state(
-      state,
+      session,
       starting_board,
       Duration::ZERO,
       Some(43),
@@ -138,28 +144,38 @@ impl ReactantChessApp {
   }
 
   fn with_state(
-    initial_state: ChessState,
+    initial_session: Option<InitialSession>,
     starting_board: Board,
     think_time: Duration,
     seed: Option<u64>,
     now: impl Fn() -> Instant + 'static,
   ) -> Self {
-    let app = crate::reactant_view::app(initial_state.clone(), think_time, seed, false);
+    let (state, visual_state, origin_saved) = initial_session
+      .as_ref()
+      .map(|session| {
+        (
+          Some(session.state.clone()),
+          session.visual_state,
+          session.origin_saved,
+        )
+      })
+      .unwrap_or((None, crate::visual_state::VisualState::Title, false));
+    let app = crate::reactant_view::app(state, visual_state, origin_saved, think_time, seed, false);
     Self {
       app,
       starting_board,
       think_time,
       seed,
       now: Box::new(now),
-      initial_state,
+      initial_session,
       load_persistence: true,
       review_state: None,
       persistent_data_path: None,
-      persisted_revision: 0,
+      observed_board: None,
+      persisted_position: None,
       persistence_error: None,
-      pending_start: None,
+      pending_replacement: None,
       music_due: None,
-      replacement_generation: 0,
     }
   }
 
@@ -171,8 +187,7 @@ impl ReactantChessApp {
       .consumer
       .borrow()
       .as_ref()
-      .expect("chess consumer")
-      .wait_for_output(timeout)
+      .is_none_or(|consumer| consumer.wait_for_output(timeout))
   }
 
   /// Waits for the active rules worker to stop.
@@ -183,24 +198,26 @@ impl ReactantChessApp {
       .consumer
       .borrow()
       .as_ref()
-      .expect("chess consumer")
-      .wait_for_worker_stopped(timeout)
+      .is_none_or(|consumer| consumer.wait_for_worker_stopped(timeout))
   }
 
   /// Returns current rules readiness.
   pub fn status(&self) -> RulesStatus {
-    self.app.model().game().status()
+    self
+      .app
+      .model()
+      .game()
+      .map_or(RulesStatus::Ready, |game| game.status())
   }
 
   /// Returns the last accepted chess state.
-  pub fn accepted_state(&self) -> ChessState {
-    self.app.model().game().accepted_state()
+  pub fn accepted_state(&self) -> Option<ChessState> {
+    self.app.model().game().map(|game| game.accepted_state())
   }
 
   /// Returns the current user-visible state classification.
   pub fn visual_state(&self) -> crate::visual_state::VisualState {
-    let state = self.accepted_state();
-    self.app.model().control.visual_state(&state)
+    self.app.model().control.visual_state()
   }
 
   /// Resolves a stable Reactant piece identity to its current native host.
@@ -224,18 +241,34 @@ impl ReactantChessApp {
   fn rebuild_for_connect(&mut self, message: ConnectView<'_>) {
     self.persistent_data_path = message.persistent_data_path().map(PathBuf::from);
     let deterministic = std::env::var("BATTLEMENT_DITTO_ACTIVE").as_deref() == Ok("1");
-    let state = if deterministic || !self.load_persistence {
-      self.initial_state.clone()
+    let session = if deterministic || !self.load_persistence {
+      self.initial_session.clone()
     } else {
       self
         .persistent_data_path
         .as_deref()
         .and_then(crate::persistence::load)
-        .map(ChessState::resumed)
-        .unwrap_or_else(|| self.initial_state.clone())
+        .map(|board| InitialSession {
+          state: ChessState::resumed(board),
+          visual_state: crate::visual_state::VisualState::Resumed,
+          origin_saved: true,
+        })
+        .or_else(|| self.initial_session.clone())
     };
+    let (state, visual_state, origin_saved) = session
+      .as_ref()
+      .map(|session| {
+        (
+          Some(session.state.clone()),
+          session.visual_state,
+          session.origin_saved,
+        )
+      })
+      .unwrap_or((None, crate::visual_state::VisualState::Title, false));
     self.app = crate::reactant_view::app(
       state,
+      visual_state,
+      origin_saved,
       self.think_time,
       self.seed,
       crate::diagnostics::is_available(message),
@@ -243,24 +276,26 @@ impl ReactantChessApp {
     if let Some(review_state) = self.review_state {
       self.app.model().control.prepare_review(review_state);
     }
-    self.persisted_revision = 0;
+    self.observed_board = session
+      .as_ref()
+      .map(|session| session.state.board().clone());
+    self.persisted_position = session
+      .as_ref()
+      .filter(|session| session.origin_saved)
+      .map(|session| session.state.board().to_string());
     self.persistence_error = None;
-    self.pending_start = None;
+    self.pending_replacement = None;
     self.music_due = None;
-    self.replacement_generation = 0;
   }
 
   fn maintain(&mut self) {
     self.apply_replacement();
-    let game = self.app.model().game();
-    if game.status() == RulesStatus::Ready
-      && let Some(mode) = self.pending_start.take()
-    {
-      let result = game.dispatch(ChessAction::Start(mode));
-      assert_eq!(result, DispatchResult::Started);
-    }
+    let Some(game) = self.app.model().game() else {
+      return;
+    };
     let accepted = game.accepted_state();
-    if accepted.started() && self.music_due.is_none() {
+    self.observe(&accepted);
+    if self.music_due.is_none() {
       self.app.model().control.start_music();
       self.music_due = Some((self.now)() + MUSIC_TRACK_DURATION);
     }
@@ -268,33 +303,26 @@ impl ReactantChessApp {
       self.app.model().control.next_music();
       self.music_due = Some((self.now)() + MUSIC_TRACK_DURATION);
     }
-    if game.status() == RulesStatus::Ready {
-      self.persist(&accepted);
-      let ai_turn = accepted.board().side_to_move() == cozy_chess::Color::Black
-        && accepted.board().status() == cozy_chess::GameStatus::Ongoing;
-      if accepted.started() && ai_turn {
-        let result = game.dispatch(ChessAction::AiMove);
-        assert_eq!(result, DispatchResult::Started);
-      }
-    }
+    self.persist(accepted.board());
   }
 
   fn apply_replacement(&mut self) {
-    let Some(request) = self.app.model().control.take_replacement() else {
-      return;
+    let request = if let Some(request) = self.pending_replacement.take() {
+      request
+    } else {
+      let Some(request) = self.app.model().control.take_replacement() else {
+        return;
+      };
+      if let Some(game) = self.app.model().game() {
+        game.stop();
+        self.app.model().control.cancel_opening();
+        self.pending_replacement = Some(request);
+        return;
+      }
+      request
     };
-    let restart_music = request.mode == StartMode::Restart;
-    self
-      .app
-      .model()
-      .control
-      .reset_for_replacement(request.cursor_visible);
-    self.replacement_generation = self
-      .replacement_generation
-      .checked_add(1)
-      .expect("replacement generation overflow");
-    let state =
-      ChessState::title_generation(self.starting_board.clone(), self.replacement_generation);
+    let restart_music = request.mode == SessionStart::Restart;
+    let state = ChessState::with_generation(self.starting_board.clone(), 1);
     let game = self.app.start_game::<ChessGame>(state, {
       let think_time = self.think_time;
       let seed = self.seed;
@@ -313,28 +341,36 @@ impl ReactantChessApp {
     consumer.resume_automatic_submission();
     self.app.model().consumer.replace(Some(consumer));
     self.app.model().game.replace(Some(game));
-    self.persisted_revision = 0;
+    self
+      .app
+      .model()
+      .control
+      .begin_session(request.mode, request.cursor_visible, false);
+    self.observed_board = Some(self.starting_board.clone());
+    self.persisted_position = None;
     self.persistence_error = None;
-    self.pending_start = Some(request.mode);
+    if request.mode == SessionStart::Restart {
+      self.clear_persistence();
+      self.persisted_position = Some(self.starting_board.to_string());
+    }
     if restart_music {
       self.app.model().control.restart_music();
       self.music_due = Some((self.now)() + MUSIC_TRACK_DURATION);
     }
   }
 
-  fn persist(&mut self, state: &ChessState) {
-    let revision = state.persistence_revision();
-    if revision == 0 || revision == self.persisted_revision {
+  fn persist(&mut self, board: &Board) {
+    let position = board.to_string();
+    if self.persisted_position.as_deref() == Some(position.as_str()) {
       return;
     }
-    let result = match (&self.persistent_data_path, state.persistence()) {
-      (Some(path), PersistenceDirective::Save) => crate::persistence::save(path, state.board()),
-      (Some(path), PersistenceDirective::Clear) => crate::persistence::clear(path),
-      (None, _) | (_, PersistenceDirective::None) => Ok(()),
+    let result = match &self.persistent_data_path {
+      Some(path) => crate::persistence::save(path, board),
+      None => Ok(()),
     };
     match result {
       Ok(()) => {
-        self.persisted_revision = revision;
+        self.persisted_position = Some(position);
         self.persistence_error = None;
       }
       Err(error) => {
@@ -343,6 +379,62 @@ impl ReactantChessApp {
       }
     }
   }
+
+  fn clear_persistence(&mut self) {
+    let result = self
+      .persistent_data_path
+      .as_deref()
+      .map_or(Ok(()), crate::persistence::clear);
+    match result {
+      Ok(()) => self.persistence_error = None,
+      Err(error) => {
+        tracing::warn!(%error, "Chess saved game could not be cleared");
+        self.persistence_error = Some(error);
+      }
+    }
+  }
+
+  fn observe(&mut self, state: &ChessState) {
+    let after = state.board();
+    if self
+      .observed_board
+      .as_ref()
+      .is_some_and(|before| before.to_string() == after.to_string())
+    {
+      return;
+    }
+    if let Some(before) = &self.observed_board
+      && let Some(movement) = transition(before, after)
+    {
+      let mover = before
+        .color_on(movement.from)
+        .expect("observed legal move has a mover");
+      self
+        .app
+        .model()
+        .control
+        .observe_visual_state(crate::visual_state::after_move(
+          before, after, movement, mover,
+        ));
+    }
+    self.observed_board = Some(after.clone());
+  }
+}
+
+fn transition(before: &Board, after: &Board) -> Option<cozy_chess::Move> {
+  let mut found = None;
+  before.generate_moves(|moves| {
+    for movement in moves {
+      let mut candidate = before.clone();
+      candidate.play_unchecked(movement);
+      if candidate.to_string() == after.to_string() {
+        found = Some(movement);
+        return true;
+      }
+    }
+    false
+  });
+  found
 }
 
 impl Default for ReactantChessApp {

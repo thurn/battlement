@@ -11,17 +11,17 @@ use reactant::{
 
 use crate::{
   MUSIC_TRACKS,
-  reactant_input::{AppControl, LocalEffect},
+  chess_ui_state::{AppControl, LocalEffect},
 };
 
 const MUSIC_CROSSFADE: Duration = Duration::from_secs(5);
 
-pub(crate) struct EffectsView {
+pub(crate) struct GameEffects {
   control: AppControl,
   diagnostics: bool,
 }
 
-impl EffectsView {
+impl GameEffects {
   pub(crate) fn new(control: AppControl, diagnostics: bool) -> Self {
     Self {
       control,
@@ -30,7 +30,7 @@ impl EffectsView {
   }
 }
 
-impl Component for EffectsView {
+impl Component for GameEffects {
   fn render(&self) -> impl Render {
     let local = hooks::use_external_store(self.control.store());
     let app = reactant::app_context::use_app();

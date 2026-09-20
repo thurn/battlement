@@ -4,15 +4,9 @@ use battlement::ObjectId;
 use cozy_chess::{Board, Color, File, Move, Piece, Rank, Square};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct ChessMove {
-  pub(crate) from: Square,
-  pub(crate) to: Square,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ChessPiece {
-  /// Stable outer Reactant presentation identity.
-  pub id: ObjectId,
+  /// Stable entity identity retained while the piece moves between squares.
+  pub entity_id: ObjectId,
   /// Piece color.
   pub color: Color,
   /// Visible opaque prefab kind.
@@ -61,7 +55,7 @@ impl ChessPosition {
     let pieces = std::array::from_fn(|index| {
       let square = Square::index(index);
       Some(ChessPiece {
-        id: crate::piece_id(index, generation),
+        entity_id: crate::piece_entity_id(index, generation),
         color: board.color_on(square)?,
         kind: board.piece_on(square)?,
       })
@@ -73,8 +67,8 @@ impl ChessPosition {
     self.pieces[square as usize]
   }
 
-  pub(crate) fn legal_move(&self, action: ChessMove) -> Option<Move> {
-    crate::player_move(&self.board, action.from, action.to)
+  pub(crate) fn legal_moves(&self, from: Square, to: Square) -> Vec<Move> {
+    crate::player_moves(&self.board, from, to)
   }
 
   pub(crate) fn apply(&mut self, movement: Move) {
@@ -121,20 +115,20 @@ impl ChessPosition {
     if moving.kind == Piece::King && self.board.color_on(movement.to) == Some(moving.color) {
       let (king_to, rook_to) = castle_destinations(movement, moving.color);
       return Movement::Castle {
-        king: moving.id,
+        king: moving.entity_id,
         king_to,
         rook: self
           .piece(movement.to)
           .expect("castling rook has an identity")
-          .id,
+          .entity_id,
         rook_to,
       };
     }
     let capture_at = capture_square(&self.board, movement, moving.kind);
-    let captured = self.piece(capture_at).map(|piece| piece.id);
+    let captured = self.piece(capture_at).map(|piece| piece.entity_id);
     if movement.promotion.is_some() {
       return Movement::Promotion {
-        piece: moving.id,
+        piece: moving.entity_id,
         captured,
         to: movement.to,
       };
@@ -143,7 +137,7 @@ impl ChessPosition {
       (moving.kind == Piece::Knight).then(|| knight_corner(movement.from, movement.to));
     if let Some(captured) = captured {
       return Movement::Capture {
-        piece: moving.id,
+        piece: moving.entity_id,
         captured,
         capture_at,
         to: movement.to,
@@ -152,13 +146,13 @@ impl ChessPosition {
     }
     if let Some(corner) = knight_corner {
       Movement::Knight {
-        piece: moving.id,
+        piece: moving.entity_id,
         corner,
         to: movement.to,
       }
     } else {
       Movement::Move {
-        piece: moving.id,
+        piece: moving.entity_id,
         to: movement.to,
       }
     }
