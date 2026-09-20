@@ -33,13 +33,16 @@ implementation before changing it; do not load whole document collections.
 - Prefer black-box tests and native Ditto one-off scenarios. Use unit tests
   sparingly for complex code; do not test simple implementation details.
   Interactive web testing is only for specifically web features.
-- Commit once locally and immediately submit `tg candidate HEAD` without
-  promotion authority. Use Conventional Commits with a short imperative
-  description; include a body only for large or non-obvious changes.
-- Promotion requires explicit approval: authorize the exact candidate with
-  `tg approve <candidate-id>`. Tollgate owns certified promotion and remote
-  synchronization; use its configuration and the wt skill for branch targets.
-  Worktree branches stay local. Never create remote branches unless requested.
+- Commit once locally, immediately submit `tg candidate HEAD`, authorize that
+  exact candidate, and wait for certified promotion and remote synchronization
+  without a separate approval prompt. The task request supplies promotion
+  authority for its completed in-scope implementation and in-scope CI repairs;
+  it does not authorize unrelated or materially expanded work. Use Conventional
+  Commits with a short imperative description; include a body only for large or
+  non-obvious changes.
+- Tollgate owns certified promotion and remote synchronization; use its
+  configuration and the wt skill for branch targets. Worktree branches stay
+  local. Never create remote branches unless requested.
 - For major work (>500 non-test lines), use
   `~/.llms/skills/independent-review/SKILL.md`, verify findings,
   and fix confirmed issues. Run at most one review per session, including follow-ups.
