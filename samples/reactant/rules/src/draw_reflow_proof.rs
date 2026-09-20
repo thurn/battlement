@@ -13,9 +13,9 @@ struct DrawReflowProof {
   destination: world::LayoutDestination,
 }
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(DrawReflowProof {
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(DrawReflowProof {
       destination: world::LayoutDestination::new(*CARD.as_uuid()),
     })
     .document(|mut document| {

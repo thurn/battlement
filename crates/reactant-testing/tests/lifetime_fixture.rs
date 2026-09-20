@@ -1,6 +1,5 @@
 use battlement::{ObjectId, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::app::App;
 use reactant_testing::Display;
 
 #[path = "../../../samples/reactant/rules/src/lifetime_proof.rs"]
@@ -9,7 +8,7 @@ mod lifetime_proof;
 const CONTENT_SCENE: &str = "lifetime/fixture";
 const ROOT_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000004");
 
-fn semantic(display: &Display<App>, label: &str) -> ObjectId {
+fn semantic(display: &Display, label: &str) -> ObjectId {
   display
     .accessibility()
     .nodes
@@ -18,7 +17,7 @@ fn semantic(display: &Display<App>, label: &str) -> ObjectId {
     .unwrap_or_else(|| panic!("missing semantic {label}"))
     .object_id
 }
-fn click(display: &mut Display<App>, label: &str) {
+fn click(display: &mut Display, label: &str) {
   let id = self::semantic(display, label);
   display.deliver_ui_event(battlement::UiEvent {
     target_id: id,
@@ -36,7 +35,7 @@ fn click(display: &mut Display<App>, label: &str) {
 fn native_fixture_shared_holds_survive_stale_callback_and_ancestor_updates() {
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene(CONTENT_SCENE);
-  let mut display = Display::connect(lifetime_proof::app(), assets);
+  let mut display = Display::mount(lifetime_proof::app, assets);
   display.poll();
   self::click(&mut display, "Increment card");
   self::click(&mut display, "Hide card");

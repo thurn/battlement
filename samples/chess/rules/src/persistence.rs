@@ -1,40 +1,19 @@
-use std::{fs, io::ErrorKind, path::Path};
-
 use cozy_chess::Board;
 use serde::{Deserialize, Serialize};
 
-const SAVE_FILE: &str = "chess-game.json";
-
-#[derive(Deserialize, Serialize)]
-struct SavedGame {
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
+pub(crate) struct SavedGame {
   position: String,
 }
 
-pub fn load(directory: &Path) -> Option<Board> {
-  serde_json::from_slice::<SavedGame>(&fs::read(directory.join(SAVE_FILE)).ok()?)
-    .ok()?
-    .position
-    .parse()
-    .ok()
-}
-
-pub fn save(directory: &Path, board: &Board) -> Result<(), String> {
-  fs::create_dir_all(directory)
-    .map_err(|error| format!("could not create persistent data directory: {error}"))?;
-  fs::write(
-    directory.join(SAVE_FILE),
-    serde_json::to_vec_pretty(&SavedGame {
+impl SavedGame {
+  pub(crate) fn new(board: &Board) -> Self {
+    Self {
       position: board.to_string(),
-    })
-    .map_err(|error| format!("could not serialize chess game: {error}"))?,
-  )
-  .map_err(|error| format!("could not persist chess game: {error}"))
-}
+    }
+  }
 
-pub(crate) fn clear(directory: &Path) -> Result<(), String> {
-  match fs::remove_file(directory.join(SAVE_FILE)) {
-    Ok(()) => Ok(()),
-    Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
-    Err(error) => Err(format!("could not clear persisted chess game: {error}")),
+  pub(crate) fn board(&self) -> Option<Board> {
+    self.position.parse().ok()
   }
 }

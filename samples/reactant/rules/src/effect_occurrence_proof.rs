@@ -20,9 +20,9 @@ struct EffectConfig {
 
 struct EffectOccurrenceProof;
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(EffectOccurrenceProof)
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(EffectOccurrenceProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document.element.picking_mode = Prop::Set(battlement::PickingMode::Ignore);

@@ -6,9 +6,9 @@ use trox::ls;
 const CARD: ObjectId = object_id!("38110000-0000-4000-8000-000000000001");
 const HIT: ObjectId = object_id!("38110000-0000-4000-8000-000000000002");
 struct HitProof;
-pub(crate) fn app() -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(HitProof)
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(HitProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document

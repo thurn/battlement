@@ -2,8 +2,7 @@ use super::*;
 
 #[test]
 fn events_screen_runs_and_restores_one_logical_event_path() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let navigation = find_named(&client.ui(), ROOT_ID, "events-navigation");
   client.ui().click(navigation);
 
@@ -45,8 +44,7 @@ fn events_screen_runs_and_restores_one_logical_event_path() {
 
 #[test]
 fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let navigation = find_named(&client.ui(), ROOT_ID, "state-navigation");
   client.ui().click(navigation);
 
@@ -122,8 +120,7 @@ fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
 
 #[test]
 fn context_screen_overrides_only_the_nested_descendant_and_restores() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let navigation = find_named(&client.ui(), ROOT_ID, "context-navigation");
   client.ui().click(navigation);
 
@@ -199,8 +196,7 @@ fn context_screen_overrides_only_the_nested_descendant_and_restores() {
 
 #[test]
 fn effects_screen_defers_connection_until_poll_and_restores() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let navigation = find_named(&client.ui(), ROOT_ID, "effects-navigation");
   client.ui().click(navigation);
 
@@ -228,8 +224,7 @@ fn effects_screen_defers_connection_until_poll_and_restores() {
 
 #[test]
 fn effects_store_swaps_updates_and_restores_its_external_snapshot() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let navigation = find_named(&client.ui(), ROOT_ID, "effects-navigation");
   client.ui().click(navigation);
 
@@ -256,8 +251,7 @@ fn effects_store_swaps_updates_and_restores_its_external_snapshot() {
 
 #[test]
 fn resources_screen_catches_resets_and_restores() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let navigation = find_named(&client.ui(), ROOT_ID, "resources-navigation");
   client.ui().click(navigation);
 
@@ -285,7 +279,7 @@ fn resources_screen_catches_resets_and_restores() {
   );
 
   client.ui().click(resolve);
-  let ready = find_named(&client.ui(), canvas, "resource-ready");
+  let ready = wait_for_named(&mut client, canvas, "resource-ready");
   let refetch = find_named(&client.ui(), ready, "resource-refetch");
   assert_eq!(
     visible_text(&client.ui(), ready),
@@ -315,6 +309,7 @@ fn resources_screen_catches_resets_and_restores() {
     ["RESOURCE PENDING", "RESOLVE RESOURCE",]
   );
   client.ui().click(repeated_resolve);
+  wait_for_named(&mut client, canvas, "resource-ready");
   assert_eq!(find_named(&client.ui(), canvas, "resource-ready"), ready);
 
   client.ui().click(action);
@@ -341,8 +336,7 @@ fn resources_screen_catches_resets_and_restores() {
 
 #[test]
 fn refs_screen_samples_world_geometry_and_restores_an_unavailable_target() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let navigation = find_named(&client.ui(), ROOT_ID, "refs-navigation");
   client.ui().click(navigation);
 
@@ -357,7 +351,7 @@ fn refs_screen_samples_world_geometry_and_restores_an_unavailable_target() {
   assert_eq!(client.ui().selection(field), None);
   assert_eq!(client.ui().element(status).text(), Some("MEASURING"));
 
-  client.submit_geometry(GeometryObservationBatch {
+  client.deliver_geometry(GeometryObservationBatch {
     generation: self::generation(1),
     changed: initial_observations
       .iter()
@@ -382,7 +376,7 @@ fn refs_screen_samples_world_geometry_and_restores_an_unavailable_target() {
   assert_eq!(client.ui().element(status).text(), Some("MEASURING"));
   let unavailable = self::added_observations(&client.commands()[command_start..]);
   assert_eq!(unavailable.len(), 2);
-  client.submit_geometry(GeometryObservationBatch {
+  client.deliver_geometry(GeometryObservationBatch {
     generation: self::generation(2),
     changed: unavailable
       .iter()
@@ -404,7 +398,7 @@ fn refs_screen_samples_world_geometry_and_restores_an_unavailable_target() {
   assert_eq!(client.ui().element(action).text(), Some("SHOW UNAVAILABLE"));
   let restored = self::added_observations(&client.commands()[command_start..]);
   assert_eq!(restored.len(), 2);
-  client.submit_geometry(GeometryObservationBatch {
+  client.deliver_geometry(GeometryObservationBatch {
     generation: self::generation(3),
     changed: restored.iter().map(self::sample_geometry).collect(),
   });
@@ -532,10 +526,7 @@ fn visible_word_count(ui: &UiClient<'_, ReactantEngine>, root: ObjectId) -> usiz
   words
 }
 
-fn identity_labels<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
-where
-  E: Engine,
-{
+fn identity_labels(ui: &UiClient<'_, ReactantEngine>, root: ObjectId) -> Vec<String> {
   ui.element(root)
     .children()
     .iter()
@@ -548,10 +539,7 @@ where
     .collect()
 }
 
-fn identity_states<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
-where
-  E: Engine,
-{
+fn identity_states(ui: &UiClient<'_, ReactantEngine>, root: ObjectId) -> Vec<String> {
   ui.element(root)
     .children()
     .iter()
@@ -564,10 +552,7 @@ where
     .collect()
 }
 
-fn visible_text<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
-where
-  E: Engine,
-{
+fn visible_text(ui: &UiClient<'_, ReactantEngine>, root: ObjectId) -> Vec<String> {
   let mut pending = vec![root];
   let mut text = Vec::new();
   while let Some(object_id) = pending.pop() {

@@ -6,7 +6,7 @@ use std::{
 
 use battlement::{GameObjectKind, ObjectId, ParentScene, Quaternion, Vector3, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{app::App, hooks, host::ButtonHost, native_host, prelude::*, world};
+use reactant::{hooks, host::ButtonHost, native_host, prelude::*, testing::App, world};
 use reactant_testing::Display;
 use trox::ls;
 

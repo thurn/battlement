@@ -5,7 +5,7 @@ use battlement::{
   RgbColor, Vector3, VerticalAlignment, object_id,
 };
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{app::App, hooks, host::ButtonHost, prelude::*, world};
+use reactant::{hooks, host::ButtonHost, prelude::*, testing::App, world};
 use reactant_testing::Display;
 use trox::ls;
 

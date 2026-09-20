@@ -3,7 +3,7 @@ use battlement::{
   Vector3, object_id,
 };
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{app::App, hooks, host::ButtonHost, prelude::*, world};
+use reactant::{hooks, host::ButtonHost, prelude::*, testing::App, world};
 use reactant_testing::Display;
 use std::{
   panic::{self, AssertUnwindSafe},

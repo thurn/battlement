@@ -64,6 +64,8 @@ impl<G: 'static> App<G> {
         _ => unreachable!("ConnectView validates reduced-motion ordinals"),
       };
       observations.screen = ScreenSize::new(message.screen_width(), message.screen_height());
+      observations.host.modules = message.modules().map(str::to_owned).collect();
+      observations.host.persistent_data_path = message.persistent_data_path().map(Into::into);
       if self.reset {
         observations.remount = queue.generation;
       }
@@ -129,6 +131,7 @@ impl<G: 'static> App<G> {
           self.healthy = true;
           return Ok(DeliveryResponse::empty(session));
         };
+        let _callback_scope = self.orchestration.borrow().enter();
         handler(&mut self.model, body);
         self.runtime.refresh(&mut self.model)
       }

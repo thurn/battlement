@@ -17,6 +17,7 @@ use reactant_core::{
 
 use uuid::Uuid;
 
+use crate::input::{DragCallbacks, use_drag_callbacks};
 use crate::world_adapter::{WorldAdapter, WorldDescription};
 
 pub use crate::world_hit_region::BoxHitRegion;
@@ -66,6 +67,7 @@ pub struct Group {
   navigation: NavigationHandlers,
   pointer: battlement::WorldPointerSettings,
   drag_mode: Option<DragMode>,
+  drag_callbacks: DragCallbacks,
   preserve_world_on_reparent: bool,
   id: Option<Uuid>,
   motion: MotionProps,
@@ -137,6 +139,7 @@ impl Group {
       navigation: NavigationHandlers::new(),
       pointer: battlement::WorldPointerSettings::default(),
       drag_mode: None,
+      drag_callbacks: DragCallbacks::default(),
       preserve_world_on_reparent: false,
       id: None,
       motion: MotionProps::new(),
@@ -226,6 +229,16 @@ impl Group {
     self.drag_mode = Some(mode);
     self
   }
+  /// Handles the start of this native host's drag gesture.
+  pub fn on_drag_start(mut self, callback: impl Fn() + 'static) -> Self {
+    self.drag_callbacks.start = Some(std::rc::Rc::new(callback));
+    self
+  }
+  /// Handles the native host's completed world-space drop.
+  pub fn on_drag_end(mut self, callback: impl Fn(Vector3) + 'static) -> Self {
+    self.drag_callbacks.end = Some(std::rc::Rc::new(callback));
+    self
+  }
   /// Attaches a reference after the host commits.
   pub fn reference(mut self, reference: ObjectRef) -> Self {
     self.reference = Some(reference);
@@ -281,6 +294,7 @@ impl Prefab {
 
 impl Component for Group {
   fn render(&self) -> impl Render {
+    let internal_reference = reactant_core::native_host::use_object_ref();
     let scene = hooks::use_required_context::<SceneAttachment>();
     let pointer_motion =
       hooks::use_context::<MotionPointerInput>().0 || self.motion.has_pointer_gestures();
@@ -293,6 +307,17 @@ impl Component for Group {
           && !self.pointer.focusable
           && self.navigation.is_empty()),
       "native draggable hosts cannot also use Reactant pointer or navigation routing"
+    );
+    let has_drag_callbacks =
+      self.drag_callbacks.start.is_some() || self.drag_callbacks.end.is_some();
+    assert!(
+      !has_drag_callbacks || self.drag_mode.is_some(),
+      "drag callbacks require a native draggable host"
+    );
+    let reference = self.reference.clone().unwrap_or(internal_reference);
+    use_drag_callbacks(
+      reference.clone(),
+      has_drag_callbacks.then(|| self.drag_callbacks.clone()),
     );
     let mut pointer = self.pointer;
     pointer.forwards_ui_events = rust_pointer;
@@ -324,8 +349,8 @@ impl Component for Group {
     if let Some(id) = self.id {
       host = host.id(id);
     }
-    if let Some(reference) = &self.reference {
-      host = host.reference(reference.clone());
+    if self.reference.is_some() || has_drag_callbacks {
+      host = host.reference(reference);
     }
     if let Some(callback) = &self.click {
       host = host.on_click(callback.clone());

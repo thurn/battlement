@@ -1,19 +1,19 @@
 use std::{fs, path::Path, sync::Arc};
 
 use battlement::{ClickEvent, KeyModifiers, ObjectId, PanelPoint, PointerButton, UiEvent};
-use battlement_fake::{
-  assets::FakeAssetCatalog,
-  client::{FakeClient, ui::UiClient},
-};
-use battlement_native::Engine;
+use battlement_fake::{assets::FakeAssetCatalog, client::ui::UiClient};
 use battlement_rules::{
-  CONTENT_SCENE, MOTION_AUDIO_CLIP, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, create_engine,
+  CONTENT_SCENE, MOTION_AUDIO_CLIP, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, application,
   generated_asset_addresses,
 };
 
+use reactant_testing::Display as ReactantDisplay;
+
+type ReactantEngine = reactant::ApplicationEngine;
+
 #[test]
 fn release_lab_navigates_every_focused_screen() {
-  let mut client = FakeClient::connect(create_engine(), catalog());
+  let mut client = ReactantDisplay::mount(application, catalog());
   for (navigation, canvas) in [
     ("composition-navigation", "composition-canvas"),
     ("events-navigation", "events-canvas"),
@@ -62,10 +62,7 @@ fn release_sample_source_contains_no_c_sharp() {
   );
 }
 
-fn click_label<E>(client: &mut FakeClient<E>, target_id: ObjectId)
-where
-  E: Engine,
-{
+fn click_label(client: &mut ReactantDisplay, target_id: ObjectId) {
   client.ui().send_event(UiEvent::click(
     target_id,
     ClickEvent::pointer(
@@ -88,10 +85,7 @@ fn catalog() -> Arc<FakeAssetCatalog> {
   Arc::new(catalog)
 }
 
-fn find_named<E>(ui: &UiClient<'_, E>, root: ObjectId, expected: &str) -> ObjectId
-where
-  E: Engine,
-{
+fn find_named(ui: &UiClient<'_, ReactantEngine>, root: ObjectId, expected: &str) -> ObjectId {
   let mut pending = vec![root];
   while let Some(object_id) = pending.pop() {
     let element = ui.element(object_id);

@@ -8,9 +8,10 @@ use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use battlement_fake::assets::FakeAssetCatalog;
 use failure_recorder::FailureRecorder;
 use reactant::{
-  GameConsumer, GameHandle, GameStatus, app::App, app_output::DeliveryLimits, host::ButtonHost,
-  prelude::*,
+  GameConsumer, GameHandle, GameStatus, host::ButtonHost, prelude::*, testing::App,
+  testing::GameApp,
 };
+use reactant_core::app_output::DeliveryLimits;
 use reactant_rules::{ChoiceOwner, ChoicePolicy, DisplayConnection, ExecutionMode, Game};
 use reactant_testing::Display;
 use trox::ls;

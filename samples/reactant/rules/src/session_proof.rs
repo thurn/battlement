@@ -1,7 +1,7 @@
-use std::{borrow::Cow, cell::RefCell, rc::Rc, time::Duration};
+use std::borrow::Cow;
 
 use reactant::{
-  GameConsumer, GameHandle, GameOutput,
+  GameHandle,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame, PromptData},
 };
@@ -13,50 +13,52 @@ struct Counter;
 struct Policy;
 #[derive(Clone)]
 struct Number;
+#[derive(Clone, Copy)]
+enum Action {
+  Choose,
+  Fail,
+}
 enum Prompt<'a> {
   Number(Cow<'a, Number>),
 }
 struct Proof {
   game: GameHandle<Counter>,
-  consumer: GameConsumer<Counter>,
-  held: RefCell<Option<GameOutput<Counter>>>,
 }
-struct Screen(Rc<Proof>);
+struct Screen(Proof);
+struct Root;
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
-  let game = app.start_game::<Counter>(0, |connection| ExecutionMode::Interactive {
-    connection,
-    policy: Policy,
-  });
-  let proof = Rc::new(Proof {
-    game,
-    consumer: app.game_consumer::<Counter>(),
-    held: RefCell::new(None),
-  });
-  app
-    .ui(
-      View::new()
-        .style(
-          Style::new()
-            .padding(32.px())
-            .background_color(Color::rgb(0.05, 0.07, 0.11))
-            .color(Color::rgb(0.95, 0.95, 1.0)),
-        )
-        .child((
-          Label::new(ls("Rules session")).style(
-            Style::new()
-              .font_size(30.px())
-              .color(Color::rgb(0.95, 0.95, 1.0)),
-          ),
-          Menu,
-          GameRoot::new(Screen(proof)),
-        )),
-    )
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(Root)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document
     })
+}
+
+impl Component for Root {
+  fn render(&self) -> impl Render {
+    let game = reactant::use_game::<Counter, _>((), 0, |connection| ExecutionMode::Interactive {
+      connection,
+      policy: Policy,
+    });
+    View::new()
+      .style(
+        Style::new()
+          .padding(32.px())
+          .background_color(Color::rgb(0.05, 0.07, 0.11))
+          .color(Color::rgb(0.95, 0.95, 1.0)),
+      )
+      .child((
+        Label::new(ls("Rules session")).style(
+          Style::new()
+            .font_size(30.px())
+            .color(Color::rgb(0.95, 0.95, 1.0)),
+        ),
+        Menu,
+        GameRoot::new(Screen(Proof { game })),
+      ))
+  }
 }
 struct Menu;
 impl Component for Menu {
@@ -78,10 +80,7 @@ impl Component for Screen {
     let state = reactant::use_game_state::<Counter>();
     let status = reactant::use_game_status::<Counter>();
     let prompt = reactant::use_game_prompt::<Counter>();
-    let submit = self.0.clone();
-    let dispatch = self.0.clone();
-    let fail = self.0.clone();
-    let answer = self.0.clone();
+    let dispatch = self.0.game.clone();
     View::new().child((
       Label::new(ls(format!(
         "Rendered {} / Accepted {} / {status:?}",
@@ -94,18 +93,8 @@ impl Component for Screen {
           .font_size(24.px())
           .color(Color::rgb(1.0, 1.0, 1.0)),
       ),
-      Button::new(ls("Submit output")).on_press(move || {
-        let output = submit
-          .held
-          .borrow_mut()
-          .take()
-          .unwrap_or_else(|| submit.next());
-        output.submitted();
-      }),
       Button::new(ls("Choose number")).on_press(move || {
-        if dispatch.game.dispatch(()) == reactant::DispatchResult::Started {
-          dispatch.next().submitted();
-        }
+        dispatch.dispatch(Action::Choose);
       }),
       prompt.map(|prompt| {
         Button::new(ls("Answer five"))
@@ -113,24 +102,18 @@ impl Component for Screen {
           .on_press(move || {
             let Prompt::Number(number) = &prompt.prompt;
             prompt.handle.submit(number.as_ref(), 5);
-            *answer.held.borrow_mut() = Some(answer.next());
           })
       }),
-      Button::new(ls("Fail gameplay host"))
-        .on_press(move || fail.consumer.fail("Native fixture host failure")),
+      Button::new(ls("Fail gameplay host")).on_press({
+        let game = self.0.game.clone();
+        move || {
+          game.dispatch(Action::Fail);
+        }
+      }),
       (status == reactant::GameStatus::Failed).then(|| {
         Label::new(ls("Recovery available: accepted state retained")).name("session-recovery")
       }),
     ))
-  }
-}
-impl Proof {
-  fn next(&self) -> GameOutput<Counter> {
-    assert!(
-      self.consumer.wait_for_output(Duration::from_secs(5)),
-      "fixture publication timed out"
-    );
-    self.consumer.take_output().expect("fixture output")
   }
 }
 impl PromptData<Counter> for Number {
@@ -158,17 +141,20 @@ impl ChoicePolicy<Counter> for Policy {
 }
 impl RulesGame for Counter {
   type State = u32;
-  type Action = ();
+  type Action = Action;
   type StateAnimation = ();
   type Prompt<'a> = Prompt<'a>;
   type Context = ExecutionMode<Self, Policy>;
   fn logical_clone(state: &u32) -> u32 {
     *state
   }
-  fn is_legal_action(_: &u32, _: &()) -> bool {
+  fn is_legal_action(_: &u32, _: &Action) -> bool {
     true
   }
-  fn execute(cx: &mut Self::Context, state: &mut u32, _: ()) {
-    *state += cx.choose(state, Number);
+  fn execute(cx: &mut Self::Context, state: &mut u32, action: Action) {
+    match action {
+      Action::Choose => *state += cx.choose(state, Number),
+      Action::Fail => panic!("Native fixture host failure"),
+    }
   }
 }

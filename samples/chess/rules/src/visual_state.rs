@@ -2,25 +2,6 @@ use battlement::{ObjectId, object_id};
 use cozy_chess::{Board, Color as PieceColor, GameStatus, Move, Piece};
 
 pub(crate) const ROOT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000002");
-const STATE_IDS: [ObjectId; 17] = [
-  object_id!("43000000-0000-4000-8000-000000000101"),
-  object_id!("43000000-0000-4000-8000-000000000102"),
-  object_id!("43000000-0000-4000-8000-000000000103"),
-  object_id!("43000000-0000-4000-8000-000000000104"),
-  object_id!("43000000-0000-4000-8000-000000000105"),
-  object_id!("43000000-0000-4000-8000-000000000106"),
-  object_id!("43000000-0000-4000-8000-000000000107"),
-  object_id!("43000000-0000-4000-8000-000000000108"),
-  object_id!("43000000-0000-4000-8000-000000000109"),
-  object_id!("43000000-0000-4000-8000-000000000110"),
-  object_id!("43000000-0000-4000-8000-000000000111"),
-  object_id!("43000000-0000-4000-8000-000000000112"),
-  object_id!("43000000-0000-4000-8000-000000000113"),
-  object_id!("43000000-0000-4000-8000-000000000114"),
-  object_id!("43000000-0000-4000-8000-000000000115"),
-  object_id!("43000000-0000-4000-8000-000000000116"),
-  object_id!("43000000-0000-4000-8000-000000000117"),
-];
 
 /// Finite user-visible presentation families recognized by the Chess engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -87,10 +68,6 @@ impl VisualState {
       Self::Restarted => "board.restarted",
       Self::Resumed => "board.resumed",
     }
-  }
-
-  pub(crate) const fn object_id(self) -> ObjectId {
-    STATE_IDS[self as usize]
   }
 
   pub(crate) const fn label(self) -> &'static str {

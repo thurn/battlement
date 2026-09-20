@@ -6,13 +6,13 @@ use std::{
 use battlement::{ObjectId, ParentScene, Vector3};
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use reactant::{
-  app::App,
   callback::Callback,
   hooks,
   host::ButtonHost,
   native_host,
   portal::{self, PortalTarget},
   prelude::*,
+  testing::App,
 };
 use reactant_testing::Display;
 use trox::ls;

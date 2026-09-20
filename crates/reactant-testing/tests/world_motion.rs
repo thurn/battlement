@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc, time::Duration};
 
 use battlement::{FloatValue, ObjectId, ParentScene, Prop, StyleValue, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{app::App, prelude::*, world};
+use reactant::{prelude::*, testing::App, world};
 use reactant_testing::Display;
 
 const WORLD: ObjectId = object_id!("321a0000-0000-4000-8000-000000000001");

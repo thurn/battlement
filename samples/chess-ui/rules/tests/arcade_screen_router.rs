@@ -8,7 +8,7 @@ use battlement::{
 };
 use battlement_fake::assets::FakeAssetCatalog;
 use battlement_rules::engine;
-use reactant::{app::App, asset_generator};
+use reactant::asset_generator;
 use reactant_testing::Display;
 
 const ACTION_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/action");
@@ -181,7 +181,7 @@ fn menu_actions_pulse_from_music_and_respect_reduce_motion() {
   });
 }
 
-fn assert_music_pulse(client: &mut Display<App>, root: ObjectId, enabled: bool) {
+fn assert_music_pulse(client: &mut Display, root: ObjectId, enabled: bool) {
   let mut pending = vec![root];
   while let Some(id) = pending.pop() {
     let element = client.ui_element(id);
@@ -232,18 +232,18 @@ fn with_render_stack(scenario: fn()) {
     .expect("complete UI scenario");
 }
 
-fn choose(client: &mut Display<App>, trigger: &str, option: &str) {
+fn choose(client: &mut Display, trigger: &str, option: &str) {
   self::click_semantic(client, SemanticRole::Button, trigger);
   self::click_semantic(client, SemanticRole::Option, option);
 }
 
-fn toggle(client: &mut Display<App>, label: &str) {
+fn toggle(client: &mut Display, label: &str) {
   let target = self::semantic(client, SemanticRole::Checkbox, label);
   self::activate_semantic(client, target);
   client.poll();
 }
 
-fn escape(client: &mut Display<App>, target: ObjectId) {
+fn escape(client: &mut Display, target: ObjectId) {
   client.deliver_ui_event(UiEvent::new(
     target,
     true,
@@ -257,7 +257,7 @@ fn escape(client: &mut Display<App>, target: ObjectId) {
   client.poll();
 }
 
-fn cancel(client: &mut Display<App>, target: ObjectId) {
+fn cancel(client: &mut Display, target: ObjectId) {
   client.deliver_ui_event(UiEvent::new(
     target,
     true,
@@ -267,7 +267,7 @@ fn cancel(client: &mut Display<App>, target: ObjectId) {
   client.poll();
 }
 
-fn assert_checkbox(client: &Display<App>, label: &str, expected: bool) {
+fn assert_checkbox(client: &Display, label: &str, expected: bool) {
   let node = client
     .accessibility()
     .nodes
@@ -284,7 +284,7 @@ fn assert_checkbox(client: &Display<App>, label: &str, expected: bool) {
   );
 }
 
-fn assert_px(client: &mut Display<App>, name: &str, property: &str, expected: f32) {
+fn assert_px(client: &mut Display, name: &str, property: &str, expected: f32) {
   let id = self::named(client, name);
   let style = client.ui_element(id).style();
   let value = match property {
@@ -298,13 +298,13 @@ fn assert_px(client: &mut Display<App>, name: &str, property: &str, expected: f3
   ));
 }
 
-fn click_semantic(client: &mut Display<App>, role: SemanticRole, label: &str) {
+fn click_semantic(client: &mut Display, role: SemanticRole, label: &str) {
   let target = self::semantic(client, role, label);
   self::activate_semantic(client, target);
   client.poll();
 }
 
-fn activate_semantic(client: &mut Display<App>, target: ObjectId) {
+fn activate_semantic(client: &mut Display, target: ObjectId) {
   client.deliver_ui_event(UiEvent {
     target_id: target,
     cancelable: true,
@@ -316,7 +316,7 @@ fn activate_semantic(client: &mut Display<App>, target: ObjectId) {
   });
 }
 
-fn semantic(client: &Display<App>, role: SemanticRole, label: &str) -> ObjectId {
+fn semantic(client: &Display, role: SemanticRole, label: &str) -> ObjectId {
   client
     .accessibility()
     .nodes
@@ -326,7 +326,7 @@ fn semantic(client: &Display<App>, role: SemanticRole, label: &str) -> ObjectId 
     .object_id
 }
 
-fn named(client: &mut Display<App>, name: &str) -> ObjectId {
+fn named(client: &mut Display, name: &str) -> ObjectId {
   let root = client
     .objects()
     .find_map(|object| match object.kind() {
@@ -337,7 +337,7 @@ fn named(client: &mut Display<App>, name: &str) -> ObjectId {
   client.find_ui(root, name)
 }
 
-fn client() -> Display<App> {
+fn client() -> Display {
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("chess-ui/content");
   assets.add_audio_clip(BACKGROUND_MUSIC);
@@ -345,7 +345,7 @@ fn client() -> Display<App> {
   assets.add_ui_font(DISPLAY_FONT);
   assets.add_ui_font(VALUE_FONT);
   assets.add_ui_font(ACTION_FONT);
-  let mut client = Display::connect(engine::create_engine(), assets);
+  let mut client = Display::mount(engine::application, assets);
   client.poll();
   client
 }

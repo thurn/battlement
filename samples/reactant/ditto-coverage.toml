@@ -15,12 +15,6 @@ checkpoint = "human-wait-menu"
 owner = "reactant-testing::sessions"
 
 [[mappings]]
-state = "rules-session.held-final-output"
-scenario = "rules session acceptance"
-checkpoint = "held-final-output"
-owner = "reactant-testing::sessions"
-
-[[mappings]]
 state = "rules-session.accepted-ready"
 scenario = "rules session acceptance"
 checkpoint = "accepted-ready"

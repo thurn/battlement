@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use battlement::{ObjectId, object_id};
-use reactant::{app::App, element_ref, hooks, prelude::*};
+use reactant::{Application, element_ref, hooks, prelude::*};
 use trox::ls;
 
 use crate::{CONTENT_SCENE, ROOT_ID};
@@ -23,9 +23,9 @@ struct Card {
   probe: Probe,
 }
 
-pub(crate) fn app() -> App {
-  App::new(CONTENT_SCENE)
-    .ui(Screen(Probe::default()))
+pub(crate) fn app() -> Application {
+  Application::new(CONTENT_SCENE)
+    .child(Screen(Probe::default()))
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document

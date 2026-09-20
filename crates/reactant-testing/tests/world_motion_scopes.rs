@@ -13,8 +13,8 @@ use reactant::{
   animation_controls::{
     self, AnimationScope, AnimationSequence, MotionPositionRef, MotionSelector, SequencePosition,
   },
-  app::App,
   prelude::*,
+  testing::App,
   world,
 };
 use reactant_testing::Display;

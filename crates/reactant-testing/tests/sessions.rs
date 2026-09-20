@@ -9,8 +9,8 @@ use std::{
 
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
-  DispatchResult, GameConsumer, GameHandle, GameOutput, GameStatus, app::App, host::ButtonHost,
-  prelude::*,
+  DispatchResult, GameConsumer, GameHandle, GameOutput, GameStatus, host::ButtonHost, prelude::*,
+  testing::App, testing::GameApp,
 };
 use reactant_rules::Game;
 use reactant_testing::Display;

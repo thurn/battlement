@@ -11,7 +11,7 @@ use battlement::{
   ParentScene, Quaternion, Rect, Vector3, WorldRestBoundsGeometry, object_id,
 };
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{animation_controls, app::App, prelude::*, world};
+use reactant::{animation_controls, prelude::*, testing::App, world};
 use reactant_testing::Display;
 
 const FIRST: ObjectId = object_id!("323a0000-0000-4000-8000-000000000001");

@@ -20,7 +20,7 @@ pub(crate) struct ChessPosition {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum Movement {
+pub enum Movement {
   Move {
     piece: ObjectId,
     to: Square,

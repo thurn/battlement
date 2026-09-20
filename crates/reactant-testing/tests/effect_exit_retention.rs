@@ -8,11 +8,11 @@ use battlement::{ObjectId, ParentScene, Vector3};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
   animation_controls::{self, AnimationScope, AnimationSequence, MotionSelector, SequenceTarget},
-  app::App,
   hooks,
   host::ButtonHost,
   native_host::{self, ObjectRef},
   prelude::*,
+  testing::App,
   world,
 };
 use reactant_testing::Display;

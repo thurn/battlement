@@ -18,7 +18,7 @@ use trox::ls;
 
 use crate::{
   PIECE_SPAWN_EFFECT_LIFETIME_MS, PIECE_SPAWN_SEQUENCE_DURATION_MS,
-  chess_ui_state::{ChessUiState, SessionStart},
+  chess_ui_state::{ChessUiController, ChessUiState, SessionStart, UiAction},
   position::{ChessPiece, Movement},
   reactant_game::{ChessAnimation, ChessGame},
 };
@@ -29,7 +29,8 @@ pub(crate) struct ChessBoard {
   pub(crate) on_move: EventCallback<(Square, Square)>,
   pub(crate) on_request_new_game: EventCallback<()>,
   pub(crate) on_opening_finished: std::rc::Rc<dyn Fn(AnimationPlayback, u64)>,
-  pub(crate) on_piece_mounted: std::rc::Rc<dyn Fn(ObjectId, ObjectId)>,
+  pub(crate) game: reactant::GameHandle<ChessGame>,
+  pub(crate) control: ChessUiController,
 }
 
 struct ChessSquare {
@@ -39,6 +40,8 @@ struct ChessSquare {
   piece_reference: reactant::prelude::ObjectRef,
   on_activate: EventCallback<Square>,
   spawning: bool,
+  game: reactant::GameHandle<ChessGame>,
+  control: ChessUiController,
   interactive: bool,
 }
 
@@ -48,6 +51,8 @@ struct ChessPieceView {
   reference: reactant::prelude::ObjectRef,
   on_activate: EventCallback<Square>,
   spawning: bool,
+  game: reactant::GameHandle<ChessGame>,
+  control: ChessUiController,
 }
 
 impl Component for ChessBoard {
@@ -76,20 +81,6 @@ impl Component for ChessBoard {
       .into_iter()
       .filter_map(|square| state.piece(square))
       .collect::<Vec<_>>();
-    let mounted_pieces = opening_pieces.clone();
-    let mounted_references = references.clone();
-    let on_piece_mounted = self.on_piece_mounted.clone();
-    reactant::hooks::use_commit_effect(
-      move || {
-        for piece in mounted_pieces {
-          let reference = piece_reference(&mounted_references, piece.entity_id);
-          if let Some(host) = reference.object_id() {
-            on_piece_mounted(piece.entity_id, host);
-          }
-        }
-      },
-      state.board().to_string(),
-    );
     reactant::hooks::use_commit_effect(
       move || {
         if let Some(mode) = opening {
@@ -143,6 +134,8 @@ impl Component for ChessBoard {
           on_activate: self.on_activate.clone(),
           spawning: local.spawning,
           interactive,
+          game: self.game.clone(),
+          control: self.control.clone(),
         }
         .key(square)
       })
@@ -249,6 +242,8 @@ impl Component for ChessSquare {
         reference: self.piece_reference.clone(),
         on_activate: self.on_activate.clone(),
         spawning: self.spawning,
+        game: self.game.clone(),
+        control: self.control.clone(),
       }
       .id(*piece.entity_id.as_uuid())
     });
@@ -273,10 +268,27 @@ impl Component for ChessPieceView {
         Quaternion::IDENTITY
       })
       .reference(self.reference.clone());
-    let hit = if self.piece.color == Color::White {
-      hit.draggable(DragMode::SnapToPointer)
-    } else {
+    let hit = if self.piece.color == Color::White && !self.spawning {
+      let entity = self.piece.entity_id;
+      let start_control = self.control.clone();
+      let start_game = self.game.clone();
+      let end_control = self.control.clone();
+      let end_game = self.game.clone();
+      hit
+        .draggable(DragMode::SnapToPointer)
+        .on_drag_start(move || {
+          start_control.dispatch(Some(&start_game), UiAction::BeginDrag(entity));
+        })
+        .on_drag_end(move |position| {
+          end_control.dispatch(
+            Some(&end_game),
+            UiAction::EndDrag(entity, crate::square_at(position)),
+          );
+        })
+    } else if self.piece.color == Color::Black {
       hit.on_click(self.on_activate.clone().map_input(move |()| square))
+    } else {
+      hit
     };
     hit
       .child(world::Prefab::at(crate::address(
@@ -284,6 +296,7 @@ impl Component for ChessPieceView {
         self.piece.kind,
       )))
       .motion(MotionProps::new().motion_name("chess-piece"))
+      .key(self.spawning)
   }
 }
 
@@ -296,6 +309,7 @@ fn sequence(
       movement,
       sound,
       final_sound,
+      ..
     } => {
       let capture_or_promotion = matches!(
         movement,

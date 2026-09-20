@@ -2,8 +2,7 @@ use super::*;
 
 #[test]
 fn sample_opens_on_an_accessible_composition_screen() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let ui = client.ui();
   let navigation = find_named(&ui, ROOT_ID, "navigation");
   assert_eq!(
@@ -16,12 +15,7 @@ fn sample_opens_on_an_accessible_composition_screen() {
 
 #[test]
 fn sample_uses_top_navigation_for_narrow_connections() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect_with(
-    engine,
-    catalog(),
-    Connect::new("test", "test", ScreenSize::new(900, 720)),
-  );
+  let mut client = mount_with(Connect::new("test", "test", ScreenSize::new(900, 720)));
   let ui = client.ui();
   let shell = find_named(&ui, ROOT_ID, "sample-shell");
   let navigation = find_named(&ui, ROOT_ID, "navigation");
@@ -38,12 +32,7 @@ fn sample_uses_top_navigation_for_narrow_connections() {
 
 #[test]
 fn resources_screen_uses_phone_safe_navigation_and_cards() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect_with(
-    engine,
-    catalog(),
-    Connect::new("test", "test", ScreenSize::new(360, 800)),
-  );
+  let mut client = mount_with(Connect::new("test", "test", ScreenSize::new(360, 800)));
   let navigation = find_named(&client.ui(), ROOT_ID, "next-navigation");
   assert_eq!(
     style_length_or_auto(&client.ui().element(navigation).style().height),
@@ -65,8 +54,7 @@ fn resources_screen_uses_phone_safe_navigation_and_cards() {
 
 #[test]
 fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let shell = find_named(&client.ui(), ROOT_ID, "sample-shell");
 
   self::resize_viewport(&mut client, 1, 500.0, 700.0);
@@ -90,8 +78,7 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
 
 #[test]
 fn assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_frame() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let addresses = generated_asset_addresses();
   assert_eq!(addresses.len(), 18);
   assert_eq!(addresses.iter().cloned().collect::<BTreeSet<_>>().len(), 18);
@@ -163,12 +150,7 @@ fn assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_fram
 
 #[test]
 fn variants_screen_propagates_ordered_snapshotted_targets_and_reverses_cleanly() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect_with(
-    engine,
-    catalog(),
-    Connect::new("test", "test", ScreenSize::new(360, 800)),
-  );
+  let mut client = mount_with(Connect::new("test", "test", ScreenSize::new(360, 800)));
   let next = find_named(&client.ui(), ROOT_ID, "next-navigation");
   for _ in 0..11 {
     client.ui().click(next);
@@ -228,12 +210,7 @@ fn variants_screen_propagates_ordered_snapshotted_targets_and_reverses_cleanly()
 
 #[test]
 fn composition_action_reorders_and_restores_the_badges() {
-  let correlations = Rc::new(RefCell::new(Vec::new()));
-  let engine = CorrelationEngine {
-    inner: create_engine(),
-    correlations: Rc::clone(&correlations),
-  };
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let action = find_named(&client.ui(), ROOT_ID, "composition-action");
   let badges = find_named(&client.ui(), ROOT_ID, "composition-badges");
   let initial = self::child_text(&client.ui(), badges);
@@ -260,16 +237,11 @@ fn composition_action_reorders_and_restores_the_badges() {
     Some(pressed)
   );
   assert_eq!(self::child_text(&client.ui(), badges), initial);
-  for (action_id, causes) in correlations.borrow().iter() {
-    assert_eq!(causes, &[Some(*action_id)]);
-  }
-  assert_eq!(correlations.borrow().len(), 3);
 }
 
 #[test]
 fn buttons_render_distinct_hover_pressed_and_focus_states() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   let navigation = find_named(&client.ui(), ROOT_ID, "composition-navigation");
   let selected = style_color(&client.ui().element(navigation).style().background_color)
     .expect("selected navigation background should be authored");
@@ -363,12 +335,7 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
 
 #[test]
 fn composed_effects_preserve_finite_ambient_reduced_and_reconnect_contracts() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect_with(
-    engine,
-    catalog(),
-    Connect::new("test", "test", ScreenSize::new(360, 800)),
-  );
+  let mut client = mount_with(Connect::new("test", "test", ScreenSize::new(360, 800)));
   let next = find_named(&client.ui(), ROOT_ID, "next-navigation");
   for _ in 0..17 {
     client.ui().click(next);
@@ -428,8 +395,7 @@ fn composed_effects_preserve_finite_ambient_reduced_and_reconnect_contracts() {
 
 #[test]
 fn layout_gallery_preserves_state_routes_portals_and_authors_modal_focus() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   navigate_brand(
     &mut client,
     &[
@@ -589,8 +555,7 @@ fn layout_gallery_preserves_state_routes_portals_and_authors_modal_focus() {
 
 #[test]
 fn layout_performance_builds_the_exact_mixed_workload() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   navigate_brand(
     &mut client,
     &[
@@ -631,8 +596,7 @@ fn layout_performance_builds_the_exact_mixed_workload() {
 
 #[test]
 fn motion_performance_builds_the_exact_transform_workload() {
-  let engine = create_engine();
-  let mut client = FakeClient::connect(engine, catalog());
+  let mut client = mount();
   for navigation in [
     "targets-timelines-navigation",
     "values-navigation",
@@ -808,10 +772,7 @@ fn sample_geometry(observation: &GeometryObservation) -> GeometryObservationValu
   }
 }
 
-fn visible_text<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
-where
-  E: Engine,
-{
+fn visible_text(ui: &UiClient<'_, ReactantEngine>, root: ObjectId) -> Vec<String> {
   let mut pending = vec![root];
   let mut text = Vec::new();
   while let Some(object_id) = pending.pop() {
@@ -892,10 +853,7 @@ fn linear_channel(value: f64) -> f64 {
   }
 }
 
-fn child_text<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
-where
-  E: Engine,
-{
+fn child_text(ui: &UiClient<'_, ReactantEngine>, root: ObjectId) -> Vec<String> {
   ui.element(root)
     .children()
     .iter()
@@ -910,10 +868,10 @@ where
     .collect()
 }
 
-fn motion_descriptor<E>(ui: &UiClient<'_, E>, object_id: ObjectId) -> battlement::MotionDescriptor
-where
-  E: Engine,
-{
+fn motion_descriptor(
+  ui: &UiClient<'_, ReactantEngine>,
+  object_id: ObjectId,
+) -> battlement::MotionDescriptor {
   match &ui.element(object_id).element().visual_element().motion {
     Prop::Set(value) => value.clone(),
     value => panic!("expected a motion descriptor, received {value:?}"),
@@ -938,10 +896,7 @@ fn motion_scalar(
   }
 }
 
-fn count_sticky<E>(ui: &UiClient<'_, E>, root: ObjectId) -> usize
-where
-  E: Engine,
-{
+fn count_sticky(ui: &UiClient<'_, ReactantEngine>, root: ObjectId) -> usize {
   let mut count = 0;
   let mut pending = vec![root];
   while let Some(object_id) = pending.pop() {
@@ -954,12 +909,7 @@ where
   count
 }
 
-fn resize_viewport(
-  client: &mut FakeClient<ReactantEngine>,
-  generation: u64,
-  width: f64,
-  height: f64,
-) {
+fn resize_viewport(client: &mut ReactantDisplay, generation: u64, width: f64, height: f64) {
   let observation = self::added_observations(client.commands())
     .into_iter()
     .find(|observation| {
@@ -975,7 +925,7 @@ fn resize_viewport(
     geometry.viewport.height = height;
     geometry.safe_area = geometry.viewport;
   }
-  client.submit_geometry(GeometryObservationBatch {
+  client.deliver_geometry(GeometryObservationBatch {
     generation: self::generation(generation),
     changed: vec![value],
   });

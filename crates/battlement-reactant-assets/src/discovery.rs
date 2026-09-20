@@ -75,6 +75,23 @@ struct Node {
 struct NodeDependency {
   name: String,
   pkg: String,
+  #[serde(default)]
+  dep_kinds: Vec<DependencyKind>,
+}
+
+#[derive(Deserialize)]
+struct DependencyKind {
+  kind: Option<String>,
+}
+
+impl NodeDependency {
+  fn is_production(&self) -> bool {
+    self.dep_kinds.is_empty()
+      || self
+        .dep_kinds
+        .iter()
+        .any(|kind| kind.kind.as_deref() != Some("dev"))
+  }
 }
 
 struct GraphDiscovery {
@@ -192,6 +209,7 @@ fn resolve_graph(
     let reactant_dependencies = node
       .deps
       .iter()
+      .filter(|dependency| dependency.is_production())
       .filter(|dependency| {
         package_map
           .get(dependency.pkg.as_str())
@@ -301,7 +319,13 @@ fn reachable_packages(root: &str, nodes: &BTreeMap<&str, &Node>) -> Result<BTree
     let node = nodes
       .get(id.as_str())
       .with_context(|| format!("Cargo graph omits dependency node {id}"))?;
-    pending.extend(node.deps.iter().map(|dependency| dependency.pkg.clone()));
+    pending.extend(
+      node
+        .deps
+        .iter()
+        .filter(|dependency| dependency.is_production())
+        .map(|dependency| dependency.pkg.clone()),
+    );
   }
   Ok(reachable)
 }
@@ -334,7 +358,49 @@ fn coordinate(package: &Package, project: &Path) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-  use super::{Package, coordinate};
+  use std::collections::BTreeMap;
+
+  use super::{DependencyKind, Node, NodeDependency, Package, coordinate, reachable_packages};
+
+  #[test]
+  fn reachable_packages_exclude_dev_only_edges() {
+    let root = Node {
+      id: "root".to_owned(),
+      deps: vec![
+        NodeDependency {
+          name: "runtime".to_owned(),
+          pkg: "runtime".to_owned(),
+          dep_kinds: vec![DependencyKind { kind: None }],
+        },
+        NodeDependency {
+          name: "testing".to_owned(),
+          pkg: "testing".to_owned(),
+          dep_kinds: vec![DependencyKind {
+            kind: Some("dev".to_owned()),
+          }],
+        },
+      ],
+    };
+    let runtime = Node {
+      id: "runtime".to_owned(),
+      deps: Vec::new(),
+    };
+    let testing = Node {
+      id: "testing".to_owned(),
+      deps: Vec::new(),
+    };
+    let nodes = [&root, &runtime, &testing]
+      .into_iter()
+      .map(|node| (node.id.as_str(), node))
+      .collect::<BTreeMap<_, _>>();
+
+    assert_eq!(
+      reachable_packages("root", &nodes).unwrap(),
+      ["root".to_owned(), "runtime".to_owned()]
+        .into_iter()
+        .collect()
+    );
+  }
 
   #[test]
   fn registry_and_git_packages_keep_their_cargo_coordinates() {

@@ -1,8 +1,8 @@
-use crate::{CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen};
-use reactant::{app::App, prelude::*};
+use crate::{CONTENT_SCENE, ROOT_ID, ReactantApplication, Screen};
+use reactant::{Application, prelude::*};
 use trox::ls;
 
-type Builder = fn() -> ReactantEngine;
+type Builder = fn() -> ReactantApplication;
 
 #[derive(Clone, Copy)]
 pub(crate) enum FixtureStatus {
@@ -91,7 +91,7 @@ pub(crate) const FIXTURES: &[Fixture] = &[
   unavailable!("save-failure", "45a"),
 ];
 
-pub(crate) fn build(selector: &str) -> ReactantEngine {
+pub(crate) fn build(selector: &str) -> ReactantApplication {
   let fixture = FIXTURES
     .iter()
     .find(|fixture| fixture.selector == selector)
@@ -102,9 +102,9 @@ pub(crate) fn build(selector: &str) -> ReactantEngine {
   }
 }
 
-fn unavailable(selector: &str, owner: &str) -> ReactantEngine {
-  App::new(CONTENT_SCENE)
-    .ui(
+fn unavailable(selector: &str, owner: &str) -> ReactantApplication {
+  Application::new(CONTENT_SCENE)
+    .child(
       View::new()
         .style(
           Style::new()
@@ -126,23 +126,23 @@ fn unavailable(selector: &str, owner: &str) -> ReactantEngine {
     })
 }
 
-fn motion_ui() -> ReactantEngine {
-  crate::app_setup::create_engine_with_screen(Some(Screen::TargetsTimelines))
+fn motion_ui() -> ReactantApplication {
+  crate::app_setup::application_with_screen(Some(Screen::TargetsTimelines))
 }
 
-fn motion_reduced() -> ReactantEngine {
-  crate::app_setup::create_engine_with_screen(Some(Screen::ComposedEffects))
+fn motion_reduced() -> ReactantApplication {
+  crate::app_setup::application_with_screen(Some(Screen::ComposedEffects))
 }
 
-fn motion_sequence() -> ReactantEngine {
-  crate::app_setup::create_engine_with_screen(Some(Screen::ValuesTimeControls))
+fn motion_sequence() -> ReactantApplication {
+  crate::app_setup::application_with_screen(Some(Screen::ValuesTimeControls))
 }
 
-fn stable_selectors() -> ReactantEngine {
+fn stable_selectors() -> ReactantApplication {
   crate::selector_proof::app(false)
 }
 
-fn stable_props() -> ReactantEngine {
+fn stable_props() -> ReactantApplication {
   crate::selector_proof::app(true)
 }
 
@@ -153,7 +153,8 @@ mod tests {
     time::{Duration, Instant},
   };
 
-  use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
+  use battlement_fake::assets::FakeAssetCatalog;
+  use reactant_testing::Display;
 
   use super::*;
 
@@ -196,7 +197,7 @@ mod tests {
       assert!(matches!(fixture.status, FixtureStatus::Unavailable { .. }));
     }
 
-    let mut display = FakeClient::connect(build("identity-transfer"), catalog());
+    let mut display = Display::mount(|| build("identity-transfer"), catalog());
     display.poll();
     assert!(has_label(&display, "Fixture unavailable"));
     assert!(has_label(
@@ -207,32 +208,32 @@ mod tests {
 
   #[test]
   fn available_scenes_reset_through_fresh_engine_entrypoints() {
-    let mut display = FakeClient::connect(build("stable-selectors"), catalog());
+    let mut display = Display::mount(|| build("stable-selectors"), catalog());
     display.poll();
     activate(&mut display, "Change settings");
     assert!(has_label(&display, "Settings: 1"));
     drop(display);
 
-    let mut display = FakeClient::connect(build("draw-reflow"), catalog());
+    let mut display = Display::mount(|| build("draw-reflow"), catalog());
     display.poll();
     display.advance_time(Duration::from_millis(250));
     display.poll();
     drop(display);
 
-    let mut display = FakeClient::connect(build("rules-session"), catalog());
+    let mut display = Display::mount(|| build("rules-session"), catalog());
     display.poll();
-    activate(&mut display, "Submit output");
+    wait_for_label(&mut display, "Choose number");
     activate(&mut display, "Choose number");
     wait_for_label(&mut display, "Answer five");
     drop(display);
 
-    let mut display = FakeClient::connect(build("stable-selectors"), catalog());
+    let mut display = Display::mount(|| build("stable-selectors"), catalog());
     display.poll();
     assert!(has_label(&display, "Settings: 0"));
     assert!(has_label(&display, "Score 1 / local 0"));
   }
 
-  fn activate(display: &mut FakeClient<ReactantEngine>, label: &str) {
+  fn activate(display: &mut Display, label: &str) {
     let object_id = display
       .accessibility()
       .nodes
@@ -252,7 +253,7 @@ mod tests {
     display.poll();
   }
 
-  fn has_label(display: &FakeClient<ReactantEngine>, label: &str) -> bool {
+  fn has_label(display: &Display, label: &str) -> bool {
     display
       .accessibility()
       .nodes
@@ -260,7 +261,7 @@ mod tests {
       .any(|node| node.label.as_deref() == Some(label))
   }
 
-  fn wait_for_label(display: &mut FakeClient<ReactantEngine>, label: &str) {
+  fn wait_for_label(display: &mut Display, label: &str) {
     let deadline = Instant::now() + Duration::from_secs(2);
     while !has_label(display, label) {
       assert!(Instant::now() < deadline, "timed out waiting for {label}");

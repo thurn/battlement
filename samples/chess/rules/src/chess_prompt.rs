@@ -8,14 +8,14 @@ use reactant::rules::PromptData;
 use crate::reactant_game::ChessGame;
 
 /// A player decision requested by the chess rules worker.
-pub(crate) enum ChessPrompt<'a> {
+pub enum ChessPrompt<'a> {
   /// Selects the piece created by one pawn move.
   Promotion(Cow<'a, PromotionPrompt>),
 }
 
 /// The missing choice required to complete one legal promotion move.
 #[derive(Clone)]
-pub(crate) struct PromotionPrompt {
+pub struct PromotionPrompt {
   pub(crate) from: Square,
   pub(crate) to: Square,
   pub(crate) choices: [Piece; 4],

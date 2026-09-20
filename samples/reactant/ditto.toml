@@ -55,8 +55,6 @@ fixture = "rules-session"
 [[scenarios.steps]]
 wait = { object = "root", state = "visible" }
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "Submit output" }, action = "activate" }
-[[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Choose number" }, action = "activate" }
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Settings" }, action = "activate" }
@@ -64,10 +62,6 @@ accessibility_action = { target = { role = "button", name = "Settings" }, action
 screenshot = { name = "human-wait-menu" }
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Answer five" }, action = "activate" }
-[[scenarios.steps]]
-screenshot = { name = "held-final-output" }
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "Submit output" }, action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "accepted-ready" }
 [[scenarios.steps]]

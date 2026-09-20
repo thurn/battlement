@@ -5,9 +5,10 @@ use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
   GameConsumer, GameHandle,
   animation_controls::{self, AnimationSequence, MotionSelector, SequencePosition},
-  app::App,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game},
+  testing::App,
+  testing::GameApp,
   world,
 };
 use reactant_testing::Display;

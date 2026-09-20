@@ -9,10 +9,6 @@ key = "rules-session.human-wait-menu"
 screen = "rules-session"
 
 [[states]]
-key = "rules-session.held-final-output"
-screen = "rules-session"
-
-[[states]]
 key = "rules-session.accepted-ready"
 screen = "rules-session"
 

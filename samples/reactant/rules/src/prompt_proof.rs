@@ -1,11 +1,11 @@
-use std::{borrow::Cow, rc::Rc, time::Duration};
+use std::{borrow::Cow, rc::Rc};
 
 use battlement::{
   Command, CommandBody, GameObject, GameObjectKind, MaterialAssignment, ObjectId, ParentScene,
   PropertyCommand, Tween, TweenPositionPayload, Vector3, object_id,
 };
 use reactant::{
-  GameConsumer, GameHandle,
+  GameHandle,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame, PromptData},
 };
@@ -24,35 +24,15 @@ enum Prompt<'a> {
 }
 struct Proof {
   game: GameHandle<Decisions>,
-  consumer: GameConsumer<Decisions>,
 }
+struct Root;
 struct Menu(Rc<Proof>);
-struct Board(Rc<Proof>);
+struct AnswerFromApp;
+struct Board;
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
-  let game = app.start_game::<Decisions>(0, |connection| ExecutionMode::Interactive {
-    connection,
-    policy: Policy,
-  });
-  let consumer = app.game_consumer::<Decisions>();
-  consumer.resume_automatic_submission();
-  let proof = Rc::new(Proof { game, consumer });
-  app
-    .ui(
-      View::new()
-        .style(
-          Style::new()
-            .padding(32.px())
-            .background_color(Color::rgb(0.05, 0.07, 0.11))
-            .color(Color::rgb(0.95, 0.95, 1.0)),
-        )
-        .child((
-          Label::new(ls("Queued prompt input")).style(Style::new().font_size(30.px())),
-          Menu(proof.clone()),
-          GameRoot::new(Board(proof)),
-        )),
-    )
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(Root)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document
@@ -70,13 +50,33 @@ pub(crate) fn app() -> crate::ReactantEngine {
     )
 }
 
+impl Component for Root {
+  fn render(&self) -> impl Render {
+    let game = reactant::use_game::<Decisions, _>((), 0, |connection| ExecutionMode::Interactive {
+      connection,
+      policy: Policy,
+    });
+    let proof = Rc::new(Proof { game });
+    View::new()
+      .style(
+        Style::new()
+          .padding(32.px())
+          .background_color(Color::rgb(0.05, 0.07, 0.11))
+          .color(Color::rgb(0.95, 0.95, 1.0)),
+      )
+      .child((
+        Label::new(ls("Queued prompt input")).style(Style::new().font_size(30.px())),
+        Menu(proof.clone()),
+        GameRoot::new(Board),
+      ))
+  }
+}
+
 impl Component for Menu {
   fn render(&self) -> impl Render {
-    let status = reactant::use_game_status::<Decisions>();
-    let prompt = reactant::use_game_prompt::<Decisions>();
+    let status = self.0.game.status();
     let (open, set_open) = reactant::hooks::use_state(false);
     let start = self.0.clone();
-    let answer = self.0.clone();
     let stop = self.0.clone();
     View::new().child((
       Label::new(ls(format!(
@@ -84,22 +84,9 @@ impl Component for Menu {
         self.0.game.accepted_state()
       ))),
       Button::new(ls("Begin prompts")).on_press(move || {
-        if start.game.dispatch(()) == reactant::DispatchResult::Started {
-          assert!(start.consumer.wait_for_output(Duration::from_secs(5)));
-        }
+        start.game.dispatch(());
       }),
-      Button::new(ls("Answer from app")).on_press(move || {
-        if let Some(prompt) = &prompt {
-          let published = answer.consumer.publication_observation().published;
-          let Prompt::Confirm(value) = &prompt.prompt;
-          prompt.handle.submit(value.as_ref(), 1);
-          assert!(
-            answer
-              .consumer
-              .wait_for_publication(Duration::from_secs(5), |o| o.published > published)
-          );
-        }
-      }),
+      GameRoot::new(AnswerFromApp),
       Button::new(ls("Settings")).on_press(move || set_open.set(!open)),
       Button::new(ls("Stop prompts")).on_press(move || stop.game.stop()),
       Label::new(ls(if open {
@@ -108,6 +95,18 @@ impl Component for Menu {
         "Settings closed"
       })),
     ))
+  }
+}
+
+impl Component for AnswerFromApp {
+  fn render(&self) -> impl Render {
+    let prompt = reactant::use_game_prompt::<Decisions>();
+    Button::new(ls("Answer from app")).on_press(move || {
+      if let Some(prompt) = &prompt {
+        let Prompt::Confirm(value) = &prompt.prompt;
+        prompt.handle.submit(value.as_ref(), 1);
+      }
+    })
   }
 }
 
@@ -137,7 +136,6 @@ impl Component for Board {
       },
       prompt.as_ref().map(|prompt| prompt.handle.clone()),
     );
-    let proof = self.0.clone();
     View::new().child((
       Label::new(ls(format!("Rendered choice {state}")))
         .animate(StyleTarget::new().x_value(offset))
@@ -146,14 +144,8 @@ impl Component for Board {
         Button::new(ls("Choose one"))
           .key(prompt.handle.clone())
           .on_press(move || {
-            let published = proof.consumer.publication_observation().published;
             let Prompt::Confirm(value) = &prompt.prompt;
             prompt.handle.submit(value.as_ref(), 1);
-            assert!(
-              proof
-                .consumer
-                .wait_for_publication(Duration::from_secs(5), |o| o.published > published)
-            );
           })
       }),
     ))

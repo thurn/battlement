@@ -8,17 +8,20 @@ use battlement::{
   CameraClearMode, CameraProjection, CameraState, Color, GameObject, GameObjectKind, ParentScene,
   TextureAddress, Vector3,
 };
-use reactant::app::App;
+use reactant::{
+  Application,
+  prelude::{Component, Render},
+};
 
 /// The sample application with component-local display state.
-pub type ReactantEngine = App;
+pub type ReactantApplication = Application;
 
 /// Creates the Reactant sample application.
-pub fn create_engine() -> ReactantEngine {
-  create_engine_with_screen(None)
+pub fn application() -> ReactantApplication {
+  application_with_screen(None)
 }
 
-pub(crate) fn create_engine_with_screen(screen: Option<crate::Screen>) -> ReactantEngine {
+pub(crate) fn application_with_screen(screen: Option<crate::Screen>) -> ReactantApplication {
   animation_validation::fixture_registry()
     .validate()
     .expect("valid animation registry");
@@ -26,16 +29,8 @@ pub(crate) fn create_engine_with_screen(screen: Option<crate::Screen>) -> Reacta
   if let Some(screen) = screen {
     game.screen = screen;
   }
-  let mut app = App::new(CONTENT_SCENE);
-  let overlay = app.create_portal_target();
-  let preview = Preview::new();
-  app
-    .ui(
-      sample_shell::Laboratory::new()
-        .initial(game)
-        .event_overlay(overlay.clone())
-        .preview_resource(preview),
-    )
+  Application::new(CONTENT_SCENE)
+    .child(GalleryRoot { game })
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document
@@ -67,12 +62,25 @@ pub(crate) fn create_engine_with_screen(screen: Option<crate::Screen>) -> Reacta
     )
 }
 
-fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineError> {
-  Ok(
-    std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").map_or_else(
-      |_| create_engine(),
-      |selector| crate::fixture_catalog::build(&selector),
-    ),
+struct GalleryRoot {
+  game: crate::Game,
+}
+
+impl Component for GalleryRoot {
+  fn render(&self) -> impl Render {
+    let overlay = reactant::use_portal_target();
+    let preview = reactant::hooks::use_memo(Preview::new, ());
+    sample_shell::Laboratory::new()
+      .initial(self.game.clone())
+      .event_overlay(overlay)
+      .preview_resource(preview)
+  }
+}
+
+fn exported_application() -> ReactantApplication {
+  std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").map_or_else(
+    |_| application(),
+    |selector| crate::fixture_catalog::build(&selector),
   )
 }
 
@@ -83,12 +91,4 @@ pub fn generated_asset_addresses() -> Vec<TextureAddress> {
     .collect()
 }
 
-battlement_native::export_deterministic_engine!(
-  self::create_native_engine,
-  clock = virtualized,
-  randomness = seeded,
-  external_state = isolated,
-  persistent_state = reset,
-  input = semantic,
-  visible_output = flatbuffers,
-);
+reactant::export_application!(self::exported_application);

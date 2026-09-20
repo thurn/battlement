@@ -18,6 +18,7 @@ use reactant_core::{
 };
 use reactant_rules::{ChoiceOwner, Game, PresentedPrompt, PublicationObservation, RunObservation};
 
+use crate::game_app::ServicesContext;
 use crate::game_session::{GameObservation, GameStatus};
 
 /// A game subtree with a fresh component and native lifetime on replacement.
@@ -113,8 +114,8 @@ pub fn use_game_selector_with<G: Game, V: Clone + 'static>(
   hooks::use_required_context_selector::<ApplicationContext, V>(
     move |application| {
       let context = application
-        .value::<Option<GameRenderContext>>()
-        .and_then(|context| (*context).clone())
+        .value::<ServicesContext>()
+        .and_then(|context| context.game.clone())
         .expect("no game is attached");
       assert!(
         context.game == TypeId::of::<G>(),
@@ -146,6 +147,15 @@ pub fn use_game_prompt<G: Game>() -> Option<Rc<PresentedPrompt<G::Prompt<'static
 /// Subscribes to the attached session's readiness and recovery state.
 pub fn use_game_status<G: Game>() -> GameStatus {
   self::context::<G>().status
+}
+
+/// Reads the typed event attached to the current game publication.
+pub fn use_game_publication<G: Game>() -> Option<Rc<G::StateAnimation>> {
+  self::context::<G>().animation.map(|animation| {
+    animation
+      .downcast::<G::StateAnimation>()
+      .unwrap_or_else(|_| panic!("game publication type mismatch"))
+  })
 }
 
 /// Subscribes to the attached session's worker and publication diagnostics.
@@ -282,6 +292,6 @@ fn context<G: Game>() -> GameRenderContext {
 
 fn attached() -> Option<GameRenderContext> {
   hooks::use_required_context::<ApplicationContext>()
-    .value::<Option<GameRenderContext>>()
-    .and_then(|context| (*context).clone())
+    .value::<ServicesContext>()
+    .and_then(|context| context.game.clone())
 }

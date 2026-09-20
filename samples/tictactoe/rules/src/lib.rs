@@ -3,21 +3,18 @@
 mod board;
 mod rules;
 
-use std::{cell::RefCell, time::Instant};
+use std::time::Instant;
 
 use battlement::{ObjectId, PickingMode, Prop, Vector3, object_id};
-use battlement_native::{
-  Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView, UiEventResult,
-};
 use reactant::{
-  GameConsumer, GameHandle,
-  app::App,
-  prelude::{GameApp, GameRoot},
+  Application,
+  prelude::{Component, GameRoot, Render},
+  rules::DisplayConnection,
 };
 
-pub use rules::{DITTO_SEED, VisualState};
+pub use rules::{DITTO_SEED, TicTacToe, VisualState};
 
-use crate::{board::Board, rules::TicTacToe};
+use crate::board::Board;
 
 /// Address of the sample's content scene.
 pub const CONTENT_SCENE: &str = "tictactoe/content";
@@ -78,103 +75,44 @@ pub const TITLE_ID: ObjectId = object_id!("860e3fa1-d047-45ae-869d-3321e9cd3142"
 
 const ROOT_ID: ObjectId = object_id!("cbb4c265-6d14-42c2-80ae-ef5669b2132c");
 
-/// Reactant engine used by the standalone sample and public display tests.
-pub struct TicTacToeEngine {
+/// Typed root configuration used by tests and semantic fixtures.
+#[derive(Clone, Copy)]
+pub struct TicTacToeConfig {
+  /// Deterministic computer-player seed.
   seed: u64,
+  /// Optional visual-state fixture.
   fixture: Option<VisualState>,
-  app: App<TicTacToeModel>,
 }
 
-/// App-owned access to public worker synchronization.
-pub struct TicTacToeModel {
-  consumer: RefCell<Option<GameConsumer<TicTacToe>>>,
-  game: RefCell<Option<GameHandle<TicTacToe>>>,
+struct TicTacToeRoot {
+  config: TicTacToeConfig,
 }
 
-/// Creates the engine used by the native sample.
-pub fn create_engine() -> Result<TicTacToeEngine, EngineError> {
+/// Creates the application used by the native sample.
+pub fn application() -> Application {
   let fixture = std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE")
     .ok()
     .map(|name| {
       VisualState::semantic_fixture(&name)
         .unwrap_or_else(|| panic!("unknown Tic-Tac-Toe semantic fixture {name:?}"))
     });
-  Ok(TicTacToeEngine::new(DITTO_SEED, fixture))
+  configured_application(TicTacToeConfig {
+    seed: DITTO_SEED,
+    fixture,
+  })
 }
 
-/// Creates a deterministic engine for simulations.
-pub fn create_seeded_engine(seed: u64, _now: impl Fn() -> Instant + 'static) -> TicTacToeEngine {
-  TicTacToeEngine::new(seed, None)
+/// Creates a deterministic application factory value for simulations.
+pub fn create_seeded_application(seed: u64, _now: impl Fn() -> Instant + 'static) -> Application {
+  configured_application(TicTacToeConfig {
+    seed,
+    fixture: None,
+  })
 }
 
-impl TicTacToeEngine {
-  fn new(seed: u64, fixture: Option<VisualState>) -> Self {
-    Self {
-      seed,
-      fixture,
-      app: self::app(seed, fixture),
-    }
-  }
-
-  /// Waits for a rules publication without advancing presentation time or frames.
-  pub fn wait_for_output(&self, timeout: std::time::Duration) -> bool {
-    self.app.model().wait_for_output(timeout)
-  }
-
-  /// Waits for current worker cleanup without advancing presentation time or frames.
-  pub fn wait_for_worker_stopped(&self, timeout: std::time::Duration) -> bool {
-    self.app.model().wait_for_worker_stopped(timeout)
-  }
-
-  /// Returns the current public game readiness state.
-  pub fn game_status(&self) -> reactant::GameStatus {
-    self.app.model().game_status()
-  }
-}
-
-impl TicTacToeModel {
-  fn new() -> Self {
-    Self {
-      consumer: RefCell::new(None),
-      game: RefCell::new(None),
-    }
-  }
-
-  fn consumer(&self) -> std::cell::Ref<'_, GameConsumer<TicTacToe>> {
-    std::cell::Ref::map(self.consumer.borrow(), |consumer| {
-      consumer.as_ref().expect("game consumer is initialized")
-    })
-  }
-
-  fn wait_for_output(&self, timeout: std::time::Duration) -> bool {
-    self.consumer().wait_for_output(timeout)
-  }
-
-  fn wait_for_worker_stopped(&self, timeout: std::time::Duration) -> bool {
-    self.consumer().wait_for_worker_stopped(timeout)
-  }
-
-  fn game_status(&self) -> reactant::GameStatus {
-    self
-      .game
-      .borrow()
-      .as_ref()
-      .expect("game handle is initialized")
-      .status()
-  }
-}
-
-fn app(seed: u64, fixture: Option<VisualState>) -> App<TicTacToeModel> {
-  let mut app = App::with_model(CONTENT_SCENE, TicTacToeModel::new());
-  let game = app.start_game::<TicTacToe>(rules::State::new(seed, fixture), |connection| {
-    rules::Context::new(connection)
-  });
-  let consumer = app.game_consumer::<TicTacToe>();
-  consumer.resume_automatic_submission();
-  app.model().consumer.replace(Some(consumer));
-  app.model().game.replace(Some(game.clone()));
-  app
-    .ui(GameRoot::new(Board::new(game)))
+fn configured_application(config: TicTacToeConfig) -> Application {
+  Application::new(CONTENT_SCENE)
+    .child(TicTacToeRoot { config })
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document.element.picking_mode = Prop::Set(PickingMode::Ignore);
@@ -189,39 +127,15 @@ fn app(seed: u64, fixture: Option<VisualState>) -> App<TicTacToeModel> {
     })
 }
 
-impl Engine for TicTacToeEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
-
-  fn connect(
-    &mut self,
-    message: battlement_native::ConnectView<'_>,
-  ) -> Result<EngineResponse, EngineError> {
-    self.app = self::app(self.seed, self.fixture);
-    Engine::connect(&mut self.app, message)
-  }
-
-  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
-    Engine::submit(&mut self.app, bytes)
-  }
-
-  fn submit_ui_event(
-    &mut self,
-    action: UiEventActionView<'_>,
-  ) -> Result<UiEventResult, EngineError> {
-    Engine::submit_ui_event(&mut self.app, action)
-  }
-
-  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
-    Engine::poll(&mut self.app)
+impl Component for TicTacToeRoot {
+  fn render(&self) -> impl Render {
+    let game = reactant::use_game::<TicTacToe, _>(
+      (),
+      rules::State::new(self.config.seed, self.config.fixture),
+      |connection: DisplayConnection<TicTacToe>| rules::Context::new(connection),
+    );
+    GameRoot::new(Board::new(game))
   }
 }
 
-battlement_native::export_deterministic_engine!(
-  create_engine,
-  clock = virtualized,
-  randomness = seeded,
-  external_state = isolated,
-  persistent_state = reset,
-  input = semantic,
-  visible_output = flatbuffers,
-);
+reactant::export_application!(application);

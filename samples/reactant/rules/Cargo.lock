@@ -159,10 +159,9 @@ version = "0.1.0"
 dependencies = [
  "battlement",
  "battlement-fake",
- "battlement-flatbuffers",
- "battlement-native",
  "futures-channel",
  "reactant",
+ "reactant-testing",
  "ron",
  "serde",
  "serde_json",
@@ -663,9 +662,12 @@ name = "reactant"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-native",
  "reactant-core",
  "reactant-rules",
  "reactant-ui",
+ "serde",
+ "serde_json",
  "taffy",
  "trox",
  "uuid",
@@ -689,6 +691,18 @@ dependencies = [
 [[package]]
 name = "reactant-rules"
 version = "0.1.0"
+
+[[package]]
+name = "reactant-testing"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-fake",
+ "battlement-native",
+ "reactant",
+ "reactant-rules",
+ "uuid",
+]
 
 [[package]]
 name = "reactant-ui"

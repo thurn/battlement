@@ -5,39 +5,52 @@ use std::{rc::Rc, time::Duration};
 use battlement::{ParentScene, Vector3};
 use cozy_chess::{Color, GameStatus};
 use reactant::{
-  DispatchResult, GameApp, GameHandle, GameRoot, GameStatus as RulesStatus,
-  app::App,
+  Application, DispatchResult, GameHandle, GameRoot, GameStatus as RulesStatus, PersistentState,
   prelude::{
-    Button, Component, Display, Either, EventCallback, PickingMode, Position, Render, Style,
+    Button, Component, Display, Either, EventCallback, KeyRenderExt, PickingMode, Position, Render,
+    Style,
   },
-  rules::ExecutionMode,
+  rules::{DisplayConnection, ExecutionMode},
   world,
 };
 use trox::ls;
 
 use crate::{
   chess_board::ChessBoard,
-  chess_ui_state::{AppControl, AppScreen, ChessUiState, UiAction},
+  chess_ui_state::{
+    AppScreen, ChessUiController, ChessUiState, SessionStart, UiAction, use_chess_ui,
+  },
+  persistence::SavedGame,
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
-  reactant_input::ChessModel,
 };
 
+#[derive(Clone)]
+pub(crate) struct ChessConfig {
+  pub(crate) starting_board: cozy_chess::Board,
+  pub(crate) initial_state: Option<ChessState>,
+  pub(crate) visual_state: crate::visual_state::VisualState,
+  pub(crate) origin_saved: bool,
+  pub(crate) think_time: Duration,
+  pub(crate) seed: Option<u64>,
+  pub(crate) load_persistence: bool,
+}
+
 struct ChessApp {
-  game: Option<GameHandle<ChessGame>>,
-  control: AppControl,
-  diagnostics: bool,
+  config: ChessConfig,
 }
 
 struct TitleScreen {
   on_play: EventCallback<()>,
+  control: ChessUiController,
   diagnostics: bool,
 }
 
 struct ChessScreen {
   game: GameHandle<ChessGame>,
-  control: AppControl,
+  control: ChessUiController,
   diagnostics: bool,
+  persistence: PersistentState<SavedGame>,
 }
 
 struct GameStatusView {
@@ -56,43 +69,13 @@ struct TurnCoordinator {
   game: GameHandle<ChessGame>,
 }
 
-pub(crate) fn app(
-  state: Option<ChessState>,
-  visual_state: crate::visual_state::VisualState,
-  origin_saved: bool,
-  think_time: Duration,
-  seed: Option<u64>,
-  diagnostics: bool,
-) -> App<ChessModel> {
-  let mut local = ChessUiState::default();
-  if state.is_some() {
-    local.screen = AppScreen::Game;
-    local.visual_state = visual_state;
-    local.origin_saved = origin_saved;
-  }
-  let mut app = App::with_model(crate::assets::CONTENT, ChessModel::new(local));
-  if let Some(state) = state {
-    let game = app.start_game::<ChessGame>(state, move |connection| {
-      ChessContext::new(
-        ExecutionMode::Interactive {
-          connection,
-          policy: ChessPolicy,
-        },
-        think_time,
-        seed.map_or_else(fastrand::Rng::new, fastrand::Rng::with_seed),
-      )
-    });
-    let consumer = app.game_consumer::<ChessGame>();
-    consumer.resume_automatic_submission();
-    app.model().consumer.replace(Some(consumer));
-    app.model().game.replace(Some(game));
-  }
-  let app = app
-    .root(move |model| ChessApp {
-      game: model.game(),
-      control: model.control.clone(),
-      diagnostics,
-    })
+struct PersistenceCoordinator {
+  persistence: PersistentState<SavedGame>,
+}
+
+pub(crate) fn application(config: ChessConfig) -> Application {
+  let app = Application::new(crate::assets::CONTENT)
+    .child(ChessApp { config })
     .document(|mut document| {
       document.root_id = crate::visual_state::ROOT_ID;
       document.element.picking_mode = battlement::Prop::Set(battlement::PickingMode::Ignore);
@@ -105,40 +88,167 @@ pub(crate) fn app(
         .rotation(crate::CAMERA_ROTATION)
         .into_object(camera.object_id)
     });
-  crate::reactant_input::configure_app(app)
+  crate::reactant_input::configure_application(app)
 }
 
 impl Component for ChessApp {
   fn render(&self) -> impl Render {
-    let local = reactant::hooks::use_external_store(self.control.store());
+    let persistence = reactant::use_persistent_state::<SavedGame>("chess-game.json");
+    let diagnostics = reactant::use_host_module("battlement.diagnostics");
+    let initial_state = reactant::hooks::use_memo(
+      {
+        let configured = self.config.initial_state.clone();
+        let saved = persistence.value().cloned();
+        let load = self.config.load_persistence;
+        move || {
+          if load {
+            saved
+              .and_then(|saved| saved.board())
+              .map(ChessState::resumed)
+              .or(configured)
+          } else {
+            configured
+          }
+        }
+      },
+      (),
+    );
+    let initial_local = reactant::hooks::use_memo(
+      {
+        let state = initial_state.clone();
+        let restored = self.config.load_persistence && persistence.value().is_some();
+        let visual_state = if restored {
+          crate::visual_state::VisualState::Resumed
+        } else {
+          self.config.visual_state
+        };
+        let origin_saved = self.config.origin_saved || restored;
+        move || {
+          let mut local = ChessUiState::default();
+          if state.is_some() {
+            local.screen = AppScreen::Game;
+            local.visual_state = visual_state;
+            local.origin_saved = origin_saved;
+            if visual_state == crate::visual_state::VisualState::Paused {
+              local.overlay = Some(crate::chess_ui_state::Overlay::Pause {
+                confirm_new_game: false,
+              });
+            }
+          }
+          local
+        }
+      },
+      (),
+    );
+    let control = use_chess_ui(initial_local);
+    let local = control.snapshot();
     let screen = match local.screen {
       AppScreen::Title => {
-        let control = self.control.clone();
+        let start = control.clone();
         Either::left(TitleScreen {
-          on_play: EventCallback::new(move |()| control.request_start(false)),
-          diagnostics: self.diagnostics,
+          on_play: EventCallback::new(move |()| start.request_start(false)),
+          control: control.clone(),
+          diagnostics,
         })
       }
-      AppScreen::Game => Either::right(GameRoot::new(ChessScreen {
-        game: self
-          .game
-          .clone()
-          .expect("game screen requires an active chess session"),
-        control: self.control.clone(),
-        diagnostics: self.diagnostics,
-      })),
+      AppScreen::Game => {
+        let state = if local.opening_generation == 0 {
+          initial_state
+            .clone()
+            .unwrap_or_else(|| ChessState::with_generation(self.config.starting_board.clone(), 0))
+        } else {
+          ChessState::with_generation(
+            self.config.starting_board.clone(),
+            u32::try_from(local.opening_generation).expect("chess generation exceeds u32"),
+          )
+        };
+        Either::right(
+          ChessSession {
+            state,
+            generation: local.opening_generation,
+            mode: local.opening,
+            think_time: self.config.think_time,
+            seed: self.config.seed,
+            control: control.clone(),
+            diagnostics,
+            persistence: persistence.clone(),
+          }
+          .key(local.opening_generation),
+        )
+      }
     };
     (
-      crate::reactant_effects::GameEffects::new(self.control.clone(), self.diagnostics),
+      crate::reactant_effects::GameEffects::new(control, diagnostics),
       screen,
     )
   }
 }
 
+struct ChessSession {
+  state: ChessState,
+  generation: u64,
+  mode: Option<SessionStart>,
+  think_time: Duration,
+  seed: Option<u64>,
+  control: ChessUiController,
+  diagnostics: bool,
+  persistence: PersistentState<SavedGame>,
+}
+
+impl Component for ChessSession {
+  fn render(&self) -> impl Render {
+    let think_time = self.think_time;
+    let seed = self.seed;
+    let game = reactant::use_game::<ChessGame, _>(
+      self.generation,
+      self.state.clone(),
+      move |connection: DisplayConnection<ChessGame>| {
+        ChessContext::new(
+          ExecutionMode::Interactive {
+            connection,
+            policy: ChessPolicy,
+          },
+          think_time,
+          seed.map_or_else(fastrand::Rng::new, fastrand::Rng::with_seed),
+        )
+      },
+    );
+    crate::reactant_input::use_chess_input(self.control.clone(), Some(game.clone()));
+    if matches!(
+      self.mode,
+      Some(SessionStart::Restart | SessionStart::Refresh)
+    ) {
+      let persistence = self.persistence.clone();
+      reactant::hooks::use_effect(move || persistence.clear(), ());
+    }
+    let music = self.control.clone();
+    let restart_music = matches!(self.mode, Some(SessionStart::Restart));
+    reactant::hooks::use_effect(
+      move || {
+        if restart_music {
+          music.restart_music();
+        } else {
+          music.start_music();
+        }
+      },
+      (),
+    );
+    let music = self.control.clone();
+    reactant::use_interval(Duration::from_secs(120), move || music.next_music());
+    GameRoot::new(ChessScreen {
+      game,
+      control: self.control.clone(),
+      diagnostics: self.diagnostics,
+      persistence: self.persistence.clone(),
+    })
+  }
+}
+
 impl Component for TitleScreen {
   fn render(&self) -> impl Render {
+    crate::reactant_input::use_chess_input(self.control.clone(), None);
     (
-      status_label(crate::visual_state::VisualState::Title),
+      status_markers(crate::visual_state::VisualState::Title),
       Button::new(ls("Play chess"))
         .host_name("play-chess")
         .style(
@@ -170,7 +280,18 @@ impl Component for TitleScreen {
 
 impl Component for ChessScreen {
   fn render(&self) -> impl Render {
-    let local = reactant::hooks::use_external_store(self.control.store());
+    let local = self.control.snapshot();
+    let state_result = reactant::use_game_selector::<ChessGame, _>(ChessState::result);
+    let publication = reactant::use_game_publication::<ChessGame>();
+    let published_result = publication
+      .as_deref()
+      .map(crate::reactant_game::ChessAnimation::result)
+      .or(state_result);
+    let visual_state = if local.pause_open() || local.selected.is_some() {
+      local.resolved_visual_state()
+    } else {
+      published_result.unwrap_or(local.visual_state)
+    };
     let activate = {
       let control = self.control.clone();
       let game = self.game.clone();
@@ -180,8 +301,7 @@ impl Component for ChessScreen {
       let control = self.control.clone();
       let game = self.game.clone();
       EventCallback::new(move |(from, to)| {
-        control.dispatch(Some(&game), UiAction::Select(from));
-        control.dispatch(Some(&game), UiAction::Activate(to));
+        control.move_piece(&game, from, to);
       })
     };
     let request_new_game = {
@@ -197,33 +317,36 @@ impl Component for ChessScreen {
       })
     };
     let opening_control = self.control.clone();
+    let opening_playbacks =
+      reactant::hooks::use_ref(Vec::<reactant::prelude::AnimationPlayback>::new());
     let on_opening_finished = Rc::new(
       move |playback: reactant::prelude::AnimationPlayback, generation: u64| {
         let completion_control = opening_control.clone();
         playback.on_complete(move || completion_control.finish_opening(generation));
-        opening_control.retain_opening(playback);
+        opening_playbacks.with_mut(|active| active.push(playback));
       },
     );
-    let piece_control = self.control.clone();
-    let on_piece_mounted = Rc::new(move |entity, host| {
-      piece_control.register_piece_host(entity, host);
-    });
     (
+      PersistenceCoordinator {
+        persistence: self.persistence.clone(),
+      },
       TurnCoordinator {
         game: self.game.clone(),
       },
       GameStatusView {
-        visual_state: local.resolved_visual_state(),
+        visual_state,
         origin_saved: local.origin_saved,
         diagnostics: self.diagnostics,
-      },
+      }
+      .key(visual_state.registry_key()),
       ChessBoard {
         ui: local.clone(),
         on_activate: activate,
         on_move: move_piece,
         on_request_new_game: request_new_game.clone(),
         on_opening_finished,
-        on_piece_mounted,
+        game: self.game.clone(),
+        control: self.control.clone(),
       },
       PromotionDialog,
       GameControls {
@@ -232,6 +355,21 @@ impl Component for ChessScreen {
         on_request_new_game: request_new_game,
       },
     )
+  }
+}
+
+impl Component for PersistenceCoordinator {
+  fn render(&self) -> impl Render {
+    let state = reactant::use_game_state::<ChessGame>();
+    let publication = reactant::use_game_publication::<ChessGame>();
+    let board = publication
+      .as_deref()
+      .map(crate::reactant_game::ChessAnimation::accepted_board)
+      .unwrap_or_else(|| state.board());
+    let position = board.to_string();
+    let saved = SavedGame::new(board);
+    let persistence = self.persistence.clone();
+    reactant::hooks::use_effect(move || persistence.update(saved), position);
   }
 }
 
@@ -245,7 +383,7 @@ impl Component for GameStatusView {
     };
     let game_origin = if self.origin_saved { "saved" } else { "new" };
     (
-      status_label(self.visual_state),
+      status_markers(self.visual_state),
       self
         .diagnostics
         .then(|| crate::reactant_effects::diagnostics_view(game_status, game_origin)),
@@ -298,10 +436,14 @@ impl Component for TurnCoordinator {
   }
 }
 
-fn status_label(visual_state: crate::visual_state::VisualState) -> impl Render {
-  reactant::prelude::Label::new(ls(visual_state.label()))
-    .name(visual_state.registry_key())
-    .picking_mode(PickingMode::Ignore)
-    .style(Style::new().display(Display::None))
-    .id(*visual_state.object_id().as_uuid())
+fn status_markers(active: crate::visual_state::VisualState) -> impl Render {
+  crate::visual_state::VisualState::ALL
+    .into_iter()
+    .map(|state| {
+      reactant::prelude::Label::new(ls(if state == active { state.label() } else { "" }))
+        .name(state.registry_key())
+        .picking_mode(PickingMode::Ignore)
+        .style(Style::new().display(Display::None))
+    })
+    .collect::<Vec<_>>()
 }

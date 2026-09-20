@@ -2,7 +2,10 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc, time::Duration};
 
 use battlement::{ClickEvent, Command, CommandBody, ObjectId, UiEvent, WaitPayload};
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{GameConsumer, GameHandle, GameStatus, app::App, host::ButtonHost, prelude::*};
+use reactant::{
+  GameConsumer, GameHandle, GameStatus, host::ButtonHost, prelude::*, testing::App,
+  testing::GameApp,
+};
 use reactant_rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game, PresentedPrompt, PromptData};
 use reactant_testing::Display;
 use trox::ls;

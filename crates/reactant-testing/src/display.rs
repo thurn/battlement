@@ -13,11 +13,69 @@ use battlement_native::Engine;
 ///
 /// Inputs travel through the engine's public submit APIs. Observations come
 /// from the fake host after it applies verified engine responses.
-pub struct Display<E>
+pub struct Display<E = reactant::ApplicationEngine>
 where
   E: Engine,
 {
   client: FakeClient<E>,
+}
+
+impl Display<reactant::ApplicationEngine> {
+  /// Mounts a fresh component-first application in the deterministic display.
+  #[must_use]
+  pub fn mount(
+    factory: impl Fn() -> reactant::Application + 'static,
+    assets: impl Into<Arc<FakeAssetCatalog>>,
+  ) -> Self {
+    let (client, _) = FakeClient::connect_clocked(
+      move |clock| reactant::ApplicationEngine::with_clock(factory, move || clock.now()),
+      assets,
+    );
+    Self { client }
+  }
+
+  /// Mounts an application with explicit deterministic platform metadata.
+  #[must_use]
+  pub fn mount_with(
+    factory: impl Fn() -> reactant::Application + 'static,
+    assets: impl Into<Arc<FakeAssetCatalog>>,
+    connect: Connect,
+  ) -> Self {
+    let (client, _) = FakeClient::connect_with_clocked(
+      move |clock| reactant::ApplicationEngine::with_clock(factory, move || clock.now()),
+      assets,
+      connect,
+    );
+    Self { client }
+  }
+
+  /// Returns the active typed game's readiness.
+  pub fn game_status<G: reactant::rules::Game>(&mut self) -> Option<reactant::GameStatus> {
+    self.with_engine(|engine| engine.game::<G>().map(|game| game.status()))
+  }
+
+  /// Copies the active typed game's accepted state.
+  pub fn game_state<G: reactant::rules::Game>(&mut self) -> Option<G::State> {
+    self.with_engine(|engine| engine.game::<G>().map(|game| game.accepted_state()))
+  }
+
+  /// Waits for one typed rules publication without advancing presentation time.
+  pub fn wait_for_game_output<G: reactant::rules::Game>(&mut self, timeout: Duration) -> bool {
+    self.with_engine(|engine| engine.wait_for_game_output::<G>(timeout))
+  }
+
+  /// Waits for typed rules worker cleanup.
+  pub fn wait_for_game_worker<G: reactant::rules::Game>(&mut self, timeout: Duration) -> bool {
+    self.with_engine(|engine| engine.wait_for_game_worker::<G>(timeout))
+  }
+
+  /// Looks up a committed Reactant presentation identity.
+  pub fn presentation(
+    &mut self,
+    id: uuid::Uuid,
+  ) -> Option<reactant::presentation::PresentationObservation> {
+    self.with_engine(|engine| engine.presentation(id))
+  }
 }
 
 impl<E> Display<E>
@@ -195,6 +253,18 @@ where
     self.client.ui().deliver_event(event);
   }
 
+  /// Opens the fake UI surface for detailed element assertions.
+  #[must_use]
+  pub fn ui(&mut self) -> battlement_fake::client::ui::UiClient<'_, E> {
+    self.client.ui()
+  }
+
+  /// Opens the fake world surface for detailed host assertions.
+  #[must_use]
+  pub fn world(&self) -> &battlement_fake::world::FakeWorld {
+    self.client.world()
+  }
+
   /// Delivers native Motion lifecycle observations without advancing host time.
   pub fn deliver_motion_events(&mut self, events: battlement::MotionEventBatch) {
     self.client.submit_motion(events);
@@ -317,6 +387,7 @@ where
   /// Advances virtual rules and presentation time without rendering a frame.
   pub fn advance_time(&mut self, duration: Duration) {
     self.client.advance_time(duration);
+    self.client.poll();
   }
 
   /// Records one rendered-frame boundary without advancing virtual time.

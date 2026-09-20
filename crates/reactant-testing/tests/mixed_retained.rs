@@ -8,10 +8,10 @@ use std::{
 use battlement::{ParentScene, Vector3};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
-  app::App,
   hooks, native_host,
   portal::{self, PortalTarget},
   prelude::*,
+  testing::App,
 };
 use reactant_testing::Display;
 use trox::ls;

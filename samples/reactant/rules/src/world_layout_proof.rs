@@ -19,9 +19,9 @@ struct WorldLayoutProof {
   request: world::LayoutMeasurement,
 }
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(WorldLayoutProof {
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(WorldLayoutProof {
       measured: world::LayoutDestination::new(*GRID_A.as_uuid()),
       request: world::LayoutMeasurement::identified(*REST_REQUEST.as_uuid()),
     })

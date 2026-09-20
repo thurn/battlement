@@ -87,6 +87,18 @@ impl<P> WorldObject<P> {
     self
   }
 
+  /// Handles the start of this native host's drag gesture.
+  pub fn on_drag_start(mut self, callback: impl Fn() + 'static) -> Self {
+    self.group = self.group.on_drag_start(callback);
+    self
+  }
+
+  /// Handles this native host's completed world-space drop.
+  pub fn on_drag_end(mut self, callback: impl Fn(Vector3) + 'static) -> Self {
+    self.group = self.group.on_drag_end(callback);
+    self
+  }
+
   /// Attaches a reference after the host commits.
   pub fn reference(mut self, reference: ObjectRef) -> Self {
     self.group = self.group.reference(reference);

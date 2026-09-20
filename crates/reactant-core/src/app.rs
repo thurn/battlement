@@ -10,7 +10,7 @@ use battlement::{
 use trox::{Bundle, Localizer, SourceLocale};
 
 use crate::{
-  app_context::{AppQueue, Observations},
+  app_context::{AppQueue, HostEnvironment, Observations},
   app_delivery::Delivery,
   app_output::{DeliveryLimits, OutputDelivery},
   app_root::AppRoot,
@@ -99,6 +99,7 @@ impl<G: 'static> App<G> {
         reduced_motion: Default::default(),
         screen: ScreenSize::new(0, 0),
         remount: 0,
+        host: HostEnvironment::default(),
       })),
       queue: Rc::new(RefCell::new(AppQueue::default())),
       delivery: Delivery::default(),

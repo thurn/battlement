@@ -7,12 +7,10 @@ mod chess_board;
 mod chess_prompt;
 mod chess_ui_state;
 mod cursor;
-mod diagnostics;
 mod motion;
 mod persistence;
 mod position;
 mod promotion_dialog;
-mod reactant_app;
 mod reactant_effects;
 mod reactant_game;
 mod reactant_input;
@@ -20,16 +18,12 @@ mod reactant_view;
 pub mod visual_state;
 
 pub use position::ChessPiece;
-pub use reactant_app::ReactantChessApp;
-/// Compatibility name for the sample's exported Reactant engine.
-pub type ChessEngine = ReactantChessApp;
-
+pub use reactant_game::{ChessGame, ChessState};
 use std::time::Duration;
 
 use battlement::{
   AudioClipAddress, GridLayout, ObjectId, PrefabAddress, Quaternion, Vector3, object_id,
 };
-use battlement_native::EngineError;
 use cozy_chess::{Board, Color, File, Move, Piece, Rank, Square};
 
 use crate::assets::{black, music, white};
@@ -92,38 +86,122 @@ pub const REACTANT_CHESS_ROOT_ID: ObjectId = visual_state::ROOT_ID;
 /// Stable identity of the new-game refresh button.
 pub const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 
-/// Creates the engine used by the native sample.
-pub fn create_engine() -> Result<ReactantChessApp, EngineError> {
+/// Creates the component-first application used by the native sample.
+pub fn application() -> reactant::Application {
   if let Ok(name) = std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE") {
-    return ReactantChessApp::named_review(&name).map_err(EngineError::new);
+    return review_application(&name).unwrap_or_else(|error| panic!("{error}"));
   }
-  if std::env::var("BATTLEMENT_DITTO_ACTIVE").as_deref() == Ok("1") {
-    return Ok(ReactantChessApp::with_think_time(Duration::ZERO));
-  }
-  Ok(ReactantChessApp::new())
+  let think_time = if std::env::var("BATTLEMENT_DITTO_ACTIVE").as_deref() == Ok("1") {
+    Duration::ZERO
+  } else {
+    AI_THINK_TIME
+  };
+  application_with_think_time(think_time)
 }
 
-/// Creates the sample engine with a caller-owned monotonic clock.
-pub fn create_engine_with_clock(now: impl Fn() -> std::time::Instant + 'static) -> ChessEngine {
-  ReactantChessApp::with_think_time_and_clock(AI_THINK_TIME, now)
+/// Creates the sample application with a custom AI budget.
+pub fn application_with_think_time(think_time: Duration) -> reactant::Application {
+  configured_application(
+    Board::default(),
+    None,
+    visual_state::VisualState::Title,
+    false,
+    think_time,
+    Some(43),
+    true,
+  )
 }
 
-/// Creates the sample engine with a custom AI budget.
-pub fn create_engine_with_think_time(think_time: Duration) -> ChessEngine {
-  ReactantChessApp::with_think_time(think_time)
+/// Creates the application with deterministic presentation randomness.
+pub fn seeded_application(seed: u64) -> reactant::Application {
+  configured_application(
+    Board::default(),
+    None,
+    visual_state::VisualState::Title,
+    false,
+    AI_THINK_TIME,
+    Some(seed),
+    true,
+  )
 }
 
-/// Creates the sample engine with deterministic presentation randomness.
-pub fn create_seeded_engine(seed: u64) -> ChessEngine {
-  ReactantChessApp::with_seed(seed)
-}
-
-/// Creates an already-started sample engine from a FEN position.
-pub fn create_engine_with_position(
+/// Creates a title-screen application whose game starts from a FEN position.
+pub fn application_with_position(
   fen: &str,
   think_time: Duration,
-) -> Result<ChessEngine, EngineError> {
-  ReactantChessApp::with_starting_position(fen, think_time).map_err(EngineError::new)
+) -> Result<reactant::Application, String> {
+  let board = fen
+    .parse::<Board>()
+    .map_err(|error| format!("invalid chess position: {error}"))?;
+  Ok(configured_application(
+    board,
+    None,
+    visual_state::VisualState::Title,
+    false,
+    think_time,
+    Some(43),
+    false,
+  ))
+}
+
+/// Creates an already-started application from a FEN position.
+pub fn application_at_position(
+  fen: &str,
+  think_time: Duration,
+) -> Result<reactant::Application, String> {
+  let board = fen
+    .parse::<Board>()
+    .map_err(|error| format!("invalid chess position: {error}"))?;
+  Ok(configured_application(
+    board.clone(),
+    Some(reactant_game::ChessState::new(board)),
+    visual_state::VisualState::Resumed,
+    true,
+    think_time,
+    Some(43),
+    false,
+  ))
+}
+
+fn configured_application(
+  starting_board: Board,
+  initial_state: Option<reactant_game::ChessState>,
+  visual_state: visual_state::VisualState,
+  origin_saved: bool,
+  think_time: Duration,
+  seed: Option<u64>,
+  load_persistence: bool,
+) -> reactant::Application {
+  reactant_view::application(reactant_view::ChessConfig {
+    starting_board,
+    initial_state,
+    visual_state,
+    origin_saved,
+    think_time,
+    seed,
+    load_persistence,
+  })
+}
+
+fn review_application(name: &str) -> Result<reactant::Application, String> {
+  let (board, state) = if name == "paused" {
+    (Board::default(), visual_state::VisualState::Paused)
+  } else {
+    let fixture = visual_state::semantic_fixture(name)
+      .ok_or_else(|| format!("unknown Reactant Chess app fixture {name:?}"))?;
+    (fixture.board, fixture.state)
+  };
+  let initial = (state != visual_state::VisualState::Title)
+    .then(|| reactant_game::ChessState::new(board.clone()));
+  Ok(configured_application(
+    board,
+    initial,
+    state,
+    state == visual_state::VisualState::Resumed,
+    Duration::ZERO,
+    Some(43),
+    false,
+  ))
 }
 
 fn legal_destinations(board: &Board, from: Square) -> Vec<Square> {
@@ -215,12 +293,4 @@ fn address(color: Color, piece: Piece) -> PrefabAddress {
   }
 }
 
-battlement_native::export_deterministic_engine!(
-  create_engine,
-  clock = virtualized,
-  randomness = seeded,
-  external_state = isolated,
-  persistent_state = reset,
-  input = semantic,
-  visible_output = flatbuffers,
-);
+reactant::export_application!(application);

@@ -3,7 +3,6 @@ use battlement::{ObjectId, ParentScene, PickingMode, Position, Prop, Vector3, ob
 use reactant::{
   hooks,
   overlay::{Overlay, OverlayHost},
-  portal::PortalTarget,
   prelude::*,
   world,
 };
@@ -11,15 +10,11 @@ use trox::ls;
 
 const HIT: ObjectId = object_id!("39110000-0000-4000-8000-000000000001");
 const CARD: ObjectId = object_id!("39110000-0000-4000-8000-000000000002");
-struct PointerProof {
-  target: PortalTarget,
-}
+struct PointerProof;
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
-  let target = app.create_portal_target();
-  app = app
-    .ui(PointerProof { target })
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(PointerProof)
     .document(|mut doc| {
       doc.root_id = ROOT_ID;
       doc.element.picking_mode = Prop::Set(PickingMode::Ignore);
@@ -32,12 +27,12 @@ pub(crate) fn app() -> crate::ReactantEngine {
         .background(Color::rgb(0.035, 0.05, 0.08))
         .position(Vector3::new(0.0, 0.0, -10.0))
         .into_object(camera.object_id)
-    });
-  app
+    })
 }
 
 impl Component for PointerProof {
   fn render(&self) -> impl Render {
+    let target = reactant::use_portal_target();
     let (pass, passthrough) = hooks::use_state(false);
     let (moved, reparent) = hooks::use_state(false);
     let (hidden, hide) = hooks::use_state(false);
@@ -155,7 +150,7 @@ impl Component for PointerProof {
                 .child(moved.then_some(card)),
             )),
             outer.then(|| {
-              Overlay::modal(self.target.clone(), ls("Outer pointer scope")).child(
+              Overlay::modal(target.clone(), ls("Outer pointer scope")).child(
                 View::new()
                   .style(
                     Style::new()
@@ -170,7 +165,7 @@ impl Component for PointerProof {
                     Button::new(ls("Close outer modal"))
                       .on_press(outer_set.update_callback(|_| false)),
                     inner.then(|| {
-                      Overlay::modal(self.target.clone(), ls("Inner pointer scope")).child(
+                      Overlay::modal(target.clone(), ls("Inner pointer scope")).child(
                         View::new()
                           .style(
                             Style::new()
@@ -189,14 +184,15 @@ impl Component for PointerProof {
               )
             }),
           )),
-        OverlayHost::new(self.target.clone()),
+        OverlayHost::new(target),
       ))
   }
 }
 
 #[cfg(test)]
 mod tests {
-  use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
+  use battlement_fake::assets::FakeAssetCatalog;
+  use reactant_testing::Display;
   #[test]
   fn pointer_scene_mounts() {
     let mut assets = FakeAssetCatalog::new();
@@ -204,6 +200,6 @@ mod tests {
     assets.add_texture("reactant/assets/texture");
     assets.add_text_mesh_pro_font("reactant/world/font");
     assets.add_textures(crate::generated_asset_addresses());
-    let _ = FakeClient::connect(crate::pointer_proof::app(), assets);
+    let _ = Display::mount(crate::pointer_proof::app, assets);
   }
 }

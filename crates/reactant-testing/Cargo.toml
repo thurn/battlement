@@ -17,9 +17,10 @@ battlement-fake = { path = "../battlement-fake" }
 battlement-native = { path = "../battlement-native" }
 exported-worker-fixture = { package = "battlement-native-export-fixture", path = "../battlement-native/tests/fixtures/exported-engine", optional = true }
 reactant-rules.workspace = true
+reactant.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 battlement-cloud = { path = "../battlement-cloud" }
-reactant.workspace = true
 reactant-core.workspace = true
 trox.workspace = true

@@ -1,6 +1,6 @@
 use crate::DITTO_VISUAL_STATE_REGISTRY;
 
-fn activate(display: &mut battlement_fake::client::FakeClient<crate::ReactantEngine>, label: &str) {
+fn activate(display: &mut reactant_testing::Display, label: &str) {
   let object_id = display
     .accessibility()
     .nodes
@@ -20,8 +20,8 @@ fn activate(display: &mut battlement_fake::client::FakeClient<crate::ReactantEng
   display.poll();
 }
 
-fn contains_named<E: battlement_native::Engine>(
-  ui: &battlement_fake::client::ui::UiClient<'_, E>,
+fn contains_named(
+  ui: &battlement_fake::client::ui::UiClient<'_, reactant::ApplicationEngine>,
   root: battlement::ObjectId,
   expected: &str,
 ) -> bool {
@@ -38,20 +38,18 @@ fn contains_named<E: battlement_native::Engine>(
 
 #[test]
 fn effect_occurrence_fixture_connects_through_the_public_display() {
-  let app = crate::effect_occurrence_proof::app();
   let mut assets = battlement_fake::assets::FakeAssetCatalog::new();
   assets.add_scene(crate::CONTENT_SCENE);
   assets.add_texture("reactant/assets/texture");
   assets.add_textures(crate::generated_asset_addresses());
   assets.add_audio_clip("reactant/assets/clock-pulse");
   assets.add_particle_effect("reactant/effect-burst");
-  let mut display = battlement_fake::client::FakeClient::connect(app, assets);
+  let mut display = reactant_testing::Display::mount(crate::effect_occurrence_proof::app, assets);
   display.poll();
 }
 
 #[test]
 fn effect_exit_retention_fixture_connects_through_the_public_display() {
-  let app = crate::effect_exit_retention_proof::app();
   let mut assets = battlement_fake::assets::FakeAssetCatalog::new();
   assets.add_scene(crate::CONTENT_SCENE);
   assets.add_texture("reactant/assets/texture");
@@ -61,7 +59,8 @@ fn effect_exit_retention_fixture_connects_through_the_public_display() {
     [battlement::MaterialParameter::<f64>::new("_Clip").value(0.0)],
   );
   assets.add_text_mesh_pro_font("reactant/world/font");
-  let mut display = battlement_fake::client::FakeClient::connect(app, assets);
+  let mut display =
+    reactant_testing::Display::mount(crate::effect_exit_retention_proof::app, assets);
   display.poll();
 }
 
@@ -99,8 +98,7 @@ fn presentation_inspector_stays_open_as_the_game_advances() {
   assets.add_scene(crate::CONTENT_SCENE);
   assets.add_material(crate::MOTION_MATERIAL);
   assets.add_textures(crate::generated_asset_addresses());
-  let mut display =
-    battlement_fake::client::FakeClient::connect(crate::batch_proof::inspector_app(), assets);
+  let mut display = reactant_testing::Display::mount(crate::batch_proof::inspector_app, assets);
   display.poll();
   for _ in 0..8 {
     display.poll();

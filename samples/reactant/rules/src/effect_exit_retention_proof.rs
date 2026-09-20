@@ -18,9 +18,9 @@ struct Card {
   set_status: StateSetter<u8>,
 }
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(EffectExitRetentionProof)
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(EffectExitRetentionProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document

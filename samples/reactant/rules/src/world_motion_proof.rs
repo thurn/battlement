@@ -16,9 +16,9 @@ enum Pose {
 const HIT: ObjectId = object_id!("38210000-0000-4000-8000-000000000002");
 struct MotionProof;
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(MotionProof)
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(MotionProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document.element.picking_mode = Prop::Set(PickingMode::Ignore);

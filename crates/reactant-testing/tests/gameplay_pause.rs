@@ -5,11 +5,12 @@ use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
   GameConsumer, GameHandle, GamePresentation,
   animation_controls::{AnimationSequence, MotionSelector},
-  app::App,
-  app_output::DeliveryLimits,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, DisplayConnection, ExecutionMode, Game},
+  testing::App,
+  testing::GameApp,
 };
+use reactant_core::app_output::DeliveryLimits;
 use reactant_testing::Display;
 use trox::ls;
 

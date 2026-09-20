@@ -6,7 +6,7 @@ use std::{
 
 use battlement::{ClickEvent, ObjectId, ParentScene, UiEvent};
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{app::App, element_ref, hooks, host::ButtonHost, prelude::*};
+use reactant::{element_ref, hooks, host::ButtonHost, prelude::*, testing::App};
 use reactant_testing::Display;
 use trox::ls;
 

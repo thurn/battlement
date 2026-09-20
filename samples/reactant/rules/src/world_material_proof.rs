@@ -14,9 +14,9 @@ const WARP: MaterialParameter<MaterialVector> = MaterialParameter::new("_Warp");
 const MATERIAL: &str = "reactant/world/card-material";
 
 struct MaterialProof;
-pub(crate) fn app() -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(MaterialProof)
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(MaterialProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document

@@ -1,8 +1,4 @@
-use std::{
-  fs,
-  path::PathBuf,
-  time::{Duration, Instant},
-};
+use std::{fs, path::PathBuf, time::Duration};
 
 use battlement::{
   CommandBody, Connect, ControllerButton, ControllerDirection, DragMode, PanelPoint, PhysicalKey,
@@ -10,10 +6,8 @@ use battlement::{
 };
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use battlement_fake::client::PointerInput;
-use battlement_fake::time::ManualClock;
 use battlement_rules::{
-  MUSIC_TRACKS, PIECE_PREFABS, PIECE_SPAWN_SEQUENCE_DURATION_MS, REACTANT_CHESS_ROOT_ID,
-  ReactantChessApp,
+  ChessGame, MUSIC_TRACKS, PIECE_PREFABS, PIECE_SPAWN_SEQUENCE_DURATION_MS, REACTANT_CHESS_ROOT_ID,
   assets::{self, effects, sfx},
   audio::SOUND_EFFECTS,
   visual_state::VisualState,
@@ -24,22 +18,18 @@ use reactant_testing::Display;
 
 macro_rules! accepted {
   ($display:expr) => {
-    $display.with_engine(|app| app.accepted_state().expect("active chess session"))
+    $display
+      .game_state::<ChessGame>()
+      .expect("active chess session")
   };
 }
 
 #[test]
 fn default_factory_exports_the_complete_reactant_app() {
-  let mut display = Display::connect(
-    battlement_rules::create_engine().expect("chess engine should initialize"),
-    catalog(),
-  );
+  let mut display = Display::mount(battlement_rules::application, catalog());
   initial_ready(&mut display);
-  assert!(display.with_engine(|app| app.accepted_state()).is_none());
-  assert_eq!(
-    display.with_engine(|app| app.visual_state()),
-    VisualState::Title
-  );
+  assert!(display.game_state::<ChessGame>().is_none());
+  assert_eq!(visual_state(&display), VisualState::Title);
   let marker = display.find_ui(REACTANT_CHESS_ROOT_ID, "screen.title");
   assert_eq!(
     display.ui_element(marker).style().display,
@@ -51,17 +41,19 @@ fn default_factory_exports_the_complete_reactant_app() {
 #[test]
 fn positioned_compatibility_factory_preserves_the_title_screen_contract() {
   let fen = "8/8/8/8/8/5kq1/8/7K b - - 0 1";
-  let mut display = Display::connect(
-    battlement_rules::create_engine_with_position(fen, Duration::ZERO)
-      .expect("valid chess test position"),
+  let mut display = Display::mount(
+    move || {
+      battlement_rules::application_with_position(fen, Duration::ZERO)
+        .expect("valid chess test position")
+    },
     catalog(),
   );
   initial_ready(&mut display);
-  assert!(display.with_engine(|app| app.accepted_state()).is_none());
+  assert!(display.game_state::<ChessGame>().is_none());
   let play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
   display.click_ui(play);
   ready(&mut display);
-  assert!(display.with_engine(|app| app.accepted_state()).is_some());
+  assert!(display.game_state::<ChessGame>().is_some());
 }
 
 #[test]
@@ -77,7 +69,7 @@ fn opening_uses_accessible_play_and_shared_spawn_checkpoints() {
   let play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
   display.click_ui(play);
   ready(&mut display);
-  assert!(display.with_engine(|app| app.accepted_state()).is_some());
+  assert!(display.game_state::<ChessGame>().is_some());
   assert!(
     display
       .audio_occurrences()
@@ -96,6 +88,8 @@ fn opening_uses_accessible_play_and_shared_spawn_checkpoints() {
       .iter()
       .all(|scale| *scale == Vector3::ZERO)
   );
+  let pawn = piece(&mut display, Square::E2);
+  assert_eq!(display.object(pawn).unwrap().drag_mode(), None);
   for key in [
     PhysicalKey::Enter,
     PhysicalKey::ArrowUp,
@@ -120,6 +114,7 @@ fn opening_uses_accessible_play_and_shared_spawn_checkpoints() {
   let scales = piece_scales(&mut display);
   assert!(scales.iter().any(|scale| *scale != Vector3::ZERO));
   assert!(scales.contains(&Vector3::ZERO));
+  assert_eq!(display.object(pawn).unwrap().drag_mode(), None);
   for _ in 0..7 {
     display.advance_time(Duration::from_millis(570));
   }
@@ -132,6 +127,11 @@ fn opening_uses_accessible_play_and_shared_spawn_checkpoints() {
   assert!(
     scales.iter().all(|scale| *scale == Vector3::ONE),
     "opening completed with piece scales {scales:?}"
+  );
+  let pawn = piece(&mut display, Square::E2);
+  assert_eq!(
+    display.object(pawn).unwrap().drag_mode(),
+    Some(DragMode::SnapToPointer)
   );
   assert!(display.presentation_time() >= Duration::from_millis(PIECE_SPAWN_SEQUENCE_DURATION_MS));
 }
@@ -159,10 +159,7 @@ fn pause_menu_accessible_reset_confirms_without_replaying_spawn_beats() {
   display.click_ui(reset);
   ready(&mut display);
 
-  assert_eq!(
-    display.with_engine(|app| app.visual_state()),
-    VisualState::Refreshed
-  );
+  assert_eq!(visual_state(&display), VisualState::Refreshed);
   display.advance_time(Duration::from_secs(2));
   assert_eq!(display.particle_occurrences().len(), spawn_count);
   assert!(
@@ -175,21 +172,20 @@ fn pause_menu_accessible_reset_confirms_without_replaying_spawn_beats() {
 
 #[test]
 fn music_uses_the_app_clock_and_crossfades_in_playlist_order() {
-  let clock = ManualClock::new(Instant::now());
-  let engine_clock = clock.clone();
-  let engine =
-    ReactantChessApp::with_think_time_and_clock(Duration::ZERO, move || engine_clock.now());
-  let mut display = Display::connect(engine, catalog());
+  let mut display = Display::mount(
+    || battlement_rules::application_with_think_time(Duration::ZERO),
+    catalog(),
+  );
   initial_ready(&mut display);
   let play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
   display.click_ui(play);
   ready(&mut display);
   display.poll();
 
-  clock.advance(Duration::from_secs(119));
+  display.advance_time(Duration::from_secs(119));
   display.poll();
   assert_eq!(played_music(&display), vec![(MUSIC_TRACKS[0].as_str(), 0)]);
-  clock.advance(Duration::from_secs(1));
+  display.advance_time(Duration::from_secs(1));
   for _ in 0..8 {
     display.poll();
   }
@@ -219,10 +215,10 @@ fn music_uses_the_app_clock_and_crossfades_in_playlist_order() {
   display.click_ui(confirm);
   ready(&mut display);
 
-  clock.advance(Duration::from_secs(119));
+  display.advance_time(Duration::from_secs(119));
   display.poll();
   assert_eq!(played_music(&display).len(), 2);
-  clock.advance(Duration::from_secs(1));
+  display.advance_time(Duration::from_secs(1));
   for _ in 0..8 {
     display.poll();
   }
@@ -231,17 +227,17 @@ fn music_uses_the_app_clock_and_crossfades_in_playlist_order() {
     Some(&(MUSIC_TRACKS[2].as_str(), 5_000))
   );
 
-  display.with_engine(|app| app.restart());
+  restart(&mut display);
   ready(&mut display);
   assert_eq!(
     played_music(&display).last(),
     Some(&(MUSIC_TRACKS[0].as_str(), 5_000))
   );
   let after_restart = played_music(&display).len();
-  clock.advance(Duration::from_secs(119));
+  display.advance_time(Duration::from_secs(119));
   display.poll();
   assert_eq!(played_music(&display).len(), after_restart);
-  clock.advance(Duration::from_secs(1));
+  display.advance_time(Duration::from_secs(1));
   for _ in 0..8 {
     display.poll();
   }
@@ -257,7 +253,7 @@ fn keyboard_and_controller_follow_the_unfocused_global_chess_input_path() {
   keyboard.key_down(PhysicalKey::Enter);
   keyboard.key_up(PhysicalKey::Enter);
   ready(&mut keyboard);
-  assert!(keyboard.with_engine(|app| app.accepted_state()).is_some());
+  assert!(keyboard.game_state::<ChessGame>().is_some());
   keyboard.settle();
   for _ in 0..4 {
     keyboard.poll();
@@ -285,7 +281,7 @@ fn keyboard_and_controller_follow_the_unfocused_global_chess_input_path() {
   controller.controller_button_down(0, ControllerButton::South);
   controller.controller_button_up(0, ControllerButton::South);
   ready(&mut controller);
-  assert!(controller.with_engine(|app| app.accepted_state()).is_some());
+  assert!(controller.game_state::<ChessGame>().is_some());
   controller.settle();
   for _ in 0..4 {
     controller.poll();
@@ -305,7 +301,7 @@ fn keyboard_and_controller_follow_the_unfocused_global_chess_input_path() {
 fn native_drag_follows_the_pointer_and_commits_the_drop() {
   let mut drag = position(&Board::default().to_string(), Duration::ZERO);
   let pawn = piece(&mut drag, Square::E2);
-  assert_eq!(drag.with_engine(|app| app.status()), GameStatus::Ready);
+  assert_eq!(drag.game_status::<ChessGame>(), Some(GameStatus::Ready));
   assert!(matches!(
     drag.object(pawn).expect("piece host exists").kind(),
     battlement::GameObjectKind::BoxHitRegion { .. }
@@ -327,14 +323,11 @@ fn native_drag_follows_the_pointer_and_commits_the_drop() {
   drag.drag_start(pawn, input);
   for _ in 0..8 {
     drag.poll();
-    if drag.with_engine(|app| app.visual_state()) == VisualState::Selected {
+    if visual_state(&drag) == VisualState::Selected {
       break;
     }
   }
-  assert_eq!(
-    drag.with_engine(|app| app.visual_state()),
-    VisualState::Selected
-  );
+  assert_eq!(visual_state(&drag), VisualState::Selected);
   let _ = drag.find_ui(REACTANT_CHESS_ROOT_ID, "selection.legal-targets");
   drag.drag_end(pawn, input, square(Square::E4));
   ready(&mut drag);
@@ -355,10 +348,7 @@ fn dropping_outside_the_board_restores_the_piece_without_selecting_the_edge_rook
     display.poll();
   }
   assert_eq!(accepted!(display).board(), &Board::default());
-  assert_ne!(
-    display.with_engine(|app| app.visual_state()),
-    VisualState::Selected
-  );
+  assert_ne!(visual_state(&display), VisualState::Selected);
   assert_eq!(display.world_point(pawn, Vector3::ZERO), square(Square::E2));
 }
 
@@ -374,10 +364,7 @@ fn dropping_on_an_illegal_square_restores_the_piece() {
     display.poll();
   }
   assert_eq!(accepted!(display).board(), &Board::default());
-  assert_ne!(
-    display.with_engine(|app| app.visual_state()),
-    VisualState::Selected
-  );
+  assert_ne!(visual_state(&display), VisualState::Selected);
   assert_eq!(display.world_point(pawn, Vector3::ZERO), square(Square::E2));
   assert_eq!(
     display.audio_occurrences().last().unwrap().address,
@@ -409,10 +396,7 @@ fn computer_checkmate_reaches_the_terminal_state_through_polling() {
   ready(&mut display);
   let accepted = accepted!(display);
   assert_eq!(accepted.board().status(), cozy_chess::GameStatus::Won);
-  assert_eq!(
-    display.with_engine(|app| app.visual_state()),
-    VisualState::ComputerWin
-  );
+  assert_eq!(visual_state(&display), VisualState::ComputerWin);
 }
 
 #[test]
@@ -486,10 +470,7 @@ fn en_passant_and_promotion_update_the_visible_piece_tree() {
   );
   let accepted = accepted!(en_passant);
   assert!(accepted.piece(Square::D5).is_none());
-  assert_eq!(
-    en_passant.with_engine(|app| app.visual_state()),
-    VisualState::EnPassant
-  );
+  assert_eq!(visual_state(&en_passant), VisualState::EnPassant);
   assert!(matches!(
     en_passant.particle_occurrences()[0].location,
     battlement::ParticleSpawnLocation::WorldPosition(position) if position == square(Square::D5)
@@ -500,7 +481,7 @@ fn en_passant_and_promotion_update_the_visible_piece_tree() {
   let pawn = piece(&mut promotion, Square::A7);
   let victim = piece(&mut promotion, Square::B8);
   move_by_activation(&mut promotion, Square::A7, Square::B8);
-  assert!(promotion.with_engine(|app| app.wait_for_output(Duration::from_secs(1))));
+  assert!(promotion.wait_for_game_output::<ChessGame>(Duration::from_secs(1)));
   for _ in 0..4 {
     promotion.poll();
   }
@@ -524,13 +505,10 @@ fn en_passant_and_promotion_update_the_visible_piece_tree() {
       && matches!(
         object.kind(),
         battlement::GameObjectKind::Prefab { address, .. }
-          if address == &assets::white::KNIGHT
+          if *address == assets::white::KNIGHT
       )
   }));
-  assert_eq!(
-    promotion.with_engine(|app| app.visual_state()),
-    VisualState::Promotion
-  );
+  assert_eq!(visual_state(&promotion), VisualState::Promotion);
 }
 
 #[test]
@@ -542,12 +520,9 @@ fn restart_replaces_busy_rules_and_required_presentation_without_stale_results()
   display.settle();
   display.poll();
   let previous_spawns = display.particle_occurrences().len();
-  display.with_engine(|app| app.restart());
+  restart(&mut display);
   ready(&mut display);
-  assert_eq!(
-    display.with_engine(|app| app.visual_state()),
-    VisualState::Restarted
-  );
+  assert_eq!(visual_state(&display), VisualState::Restarted);
   display.advance_time(Duration::from_millis(80));
   assert_eq!(display.particle_occurrences().len(), previous_spawns + 4);
   display.settle();
@@ -558,8 +533,8 @@ fn restart_replaces_busy_rules_and_required_presentation_without_stale_results()
   display.poll();
   let target = highlight(&display, Square::E4);
   display.activate(target);
-  assert_eq!(display.with_engine(|app| app.status()), GameStatus::Busy);
-  display.with_engine(|app| app.restart());
+  assert_eq!(display.game_status::<ChessGame>(), Some(GameStatus::Busy));
+  restart(&mut display);
   ready(&mut display);
   assert_eq!(accepted!(display).board(), &Board::default());
   display.advance_time(Duration::from_secs(2));
@@ -584,22 +559,23 @@ fn restart_replaces_busy_rules_and_required_presentation_without_stale_results()
 fn accepted_state_drives_save_reload_and_survives_save_failure() {
   let directory = temporary("save");
   let connect = connection().persistent_data_path(directory.to_string_lossy());
-  let mut display = Display::connect_with(ReactantChessApp::new(), catalog(), connect.clone());
+  let mut display = Display::mount_with(battlement_rules::application, catalog(), connect.clone());
   initial_ready(&mut display);
   let play = display.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
   display.click_ui(play);
   ready(&mut display);
   assert!(directory.join("chess-game.json").is_file());
 
-  let mut restored = Display::connect_with(ReactantChessApp::new(), catalog(), connect);
+  let mut restored = Display::mount_with(battlement_rules::application, catalog(), connect);
   initial_ready(&mut restored);
-  assert!(restored.with_engine(|app| app.accepted_state()).is_some());
+  assert!(restored.game_state::<ChessGame>().is_some());
+  assert_eq!(visual_state(&restored), VisualState::Resumed);
   fs::remove_dir_all(&directory).expect("temporary save directory cleanup");
 
   let blocked = temporary("blocked");
   fs::write(&blocked, b"not a directory").expect("temporary blocked path");
-  let mut failed = Display::connect_with(
-    ReactantChessApp::new(),
+  let mut failed = Display::mount_with(
+    battlement_rules::application,
     catalog(),
     connection().persistent_data_path(blocked.to_string_lossy()),
   );
@@ -607,8 +583,7 @@ fn accepted_state_drives_save_reload_and_survives_save_failure() {
   let play = failed.find_ui(REACTANT_CHESS_ROOT_ID, "play-chess");
   failed.click_ui(play);
   ready(&mut failed);
-  assert!(failed.with_engine(|app| app.accepted_state()).is_some());
-  assert!(failed.with_engine(|app| app.persistence_error().is_some()));
+  assert!(failed.game_state::<ChessGame>().is_some());
   fs::remove_file(blocked).expect("temporary blocked path cleanup");
 }
 
@@ -616,8 +591,8 @@ fn accepted_state_drives_save_reload_and_survives_save_failure() {
 fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
   let directory = temporary("save-before-ai");
   let connect = connection().persistent_data_path(directory.to_string_lossy());
-  let mut display = Display::connect_with(
-    ReactantChessApp::with_think_time(Duration::from_secs(1)),
+  let mut display = Display::mount_with(
+    || battlement_rules::application_with_think_time(Duration::from_secs(1)),
     catalog(),
     connect.clone(),
   );
@@ -646,7 +621,7 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
     if accepted.board().side_to_move() == cozy_chess::Color::Black {
       break;
     }
-    let _ = display.with_engine(|app| app.wait_for_output(Duration::from_millis(50)));
+    let _ = display.wait_for_game_output::<ChessGame>(Duration::from_millis(50));
   }
   let accepted = accepted!(display);
   assert_eq!(accepted.board().side_to_move(), cozy_chess::Color::Black);
@@ -654,12 +629,19 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
   assert!(directory.join("chess-game.json").is_file());
   drop(display);
 
-  let mut restored = Display::connect_with(
-    ReactantChessApp::with_think_time(Duration::ZERO),
+  let mut restored = Display::mount_with(
+    || battlement_rules::application_with_think_time(Duration::ZERO),
     catalog(),
     connect,
   );
   initial_ready(&mut restored);
+  for _ in 0..128 {
+    restored.poll();
+    if accepted!(restored).board().side_to_move() == cozy_chess::Color::White {
+      break;
+    }
+    let _ = restored.wait_for_game_output::<ChessGame>(Duration::from_millis(50));
+  }
   assert_eq!(
     accepted!(restored).board().side_to_move(),
     cozy_chess::Color::White
@@ -671,7 +653,7 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
 fn diagnostics_metadata_is_emitted_only_when_the_module_is_selected() {
   let mut connect = connection();
   connect.modules.push("battlement.diagnostics".to_owned());
-  let mut display = Display::connect_with(ReactantChessApp::new(), catalog(), connect);
+  let mut display = Display::mount_with(battlement_rules::application, catalog(), connect);
   initial_ready(&mut display);
   for _ in 0..4 {
     display.poll();
@@ -692,30 +674,39 @@ fn diagnostics_metadata_is_emitted_only_when_the_module_is_selected() {
   assert!(metadata.contains(&("chess.game_origin", Some("new"))));
 }
 
-fn title() -> Display<ReactantChessApp> {
-  let mut display = Display::connect(ReactantChessApp::with_think_time(Duration::ZERO), catalog());
-  initial_ready(&mut display);
-  display
-}
-
-fn position(fen: &str, think_time: Duration) -> Display<ReactantChessApp> {
-  let mut display = Display::connect(
-    ReactantChessApp::with_position(fen, think_time).expect("valid chess test position"),
+fn title() -> Display {
+  let mut display = Display::mount(
+    || battlement_rules::application_with_think_time(Duration::ZERO),
     catalog(),
   );
   initial_ready(&mut display);
   display
 }
 
-fn initial_ready(display: &mut Display<ReactantChessApp>) {
-  ready(display);
+fn position(fen: &str, think_time: Duration) -> Display {
+  let fen = fen.to_owned();
+  let mut display = Display::mount(
+    move || {
+      battlement_rules::application_at_position(&fen, think_time)
+        .expect("valid chess test position")
+    },
+    catalog(),
+  );
+  initial_ready(&mut display);
+  display
 }
 
-fn ready(display: &mut Display<ReactantChessApp>) {
+fn initial_ready(display: &mut Display) {
+  for _ in 0..4 {
+    display.poll();
+  }
+}
+
+fn ready(display: &mut Display) {
   let mut observed_ready = false;
   for _ in 0..128 {
     display.poll();
-    if display.with_engine(|app| app.status()) == GameStatus::Ready {
+    if display.game_status::<ChessGame>() == Some(GameStatus::Ready) {
       if observed_ready {
         return;
       }
@@ -723,23 +714,59 @@ fn ready(display: &mut Display<ReactantChessApp>) {
     } else {
       observed_ready = false;
     }
-    let _ = display.with_engine(|app| app.wait_for_output(Duration::from_millis(100)));
+    let _ = display.wait_for_game_output::<ChessGame>(Duration::from_millis(100));
   }
   panic!("Reactant chess output did not reach ready");
 }
 
-fn wait_for_visual(display: &mut Display<ReactantChessApp>, expected: VisualState) {
+fn wait_for_visual(display: &mut Display, expected: VisualState) {
   for _ in 0..128 {
     display.poll();
-    if display.with_engine(|app| app.visual_state()) == expected {
+    if visual_state(display) == expected {
       return;
     }
-    let _ = display.with_engine(|app| app.wait_for_output(Duration::from_millis(100)));
+    let _ = display.wait_for_game_output::<ChessGame>(Duration::from_millis(100));
   }
   panic!("Reactant chess did not reach {expected:?}");
 }
 
-fn move_by_activation(display: &mut Display<ReactantChessApp>, from: Square, to: Square) {
+fn visual_state(display: &Display) -> VisualState {
+  VisualState::ALL
+    .into_iter()
+    .find(|state| active_named_marker(display, state.registry_key()))
+    .expect("one semantic visual-state marker is mounted")
+}
+
+fn active_named_marker(display: &Display, expected: &str) -> bool {
+  let mut pending = vec![REACTANT_CHESS_ROOT_ID];
+  while let Some(id) = pending.pop() {
+    let element = display.ui_element(id);
+    if element.name() == Some(expected) {
+      return element.text().is_some_and(|text| !text.is_empty());
+    }
+    pending.extend(element.children());
+  }
+  false
+}
+
+fn restart(display: &mut Display) {
+  for key in [
+    PhysicalKey::ControlLeft,
+    PhysicalKey::ShiftLeft,
+    PhysicalKey::KeyR,
+  ] {
+    display.key_down(key);
+  }
+  for key in [
+    PhysicalKey::KeyR,
+    PhysicalKey::ShiftLeft,
+    PhysicalKey::ControlLeft,
+  ] {
+    display.key_up(key);
+  }
+}
+
+fn move_by_activation(display: &mut Display, from: Square, to: Square) {
   select_by_pointer(display, from);
   for _ in 0..8 {
     display.poll();
@@ -748,20 +775,17 @@ fn move_by_activation(display: &mut Display<ReactantChessApp>, from: Square, to:
   display.activate(target);
 }
 
-fn select_by_pointer(display: &mut Display<ReactantChessApp>, square: Square) {
+fn select_by_pointer(display: &mut Display, square: Square) {
   let piece = piece(display, square);
   let input = pointer_input(0);
   display.drag_start(piece, input);
   for _ in 0..8 {
     display.poll();
-    if display.with_engine(|app| app.visual_state()) == VisualState::Selected {
+    if visual_state(display) == VisualState::Selected {
       break;
     }
   }
-  assert_eq!(
-    display.with_engine(|app| app.visual_state()),
-    VisualState::Selected
-  );
+  assert_eq!(visual_state(display), VisualState::Selected);
   display.drag_end(piece, input, self::square(square));
   display.poll();
   display.poll();
@@ -776,31 +800,33 @@ fn pointer_input(pointer_id: i32) -> PointerInput {
   }
 }
 
-fn piece_scales(display: &mut Display<ReactantChessApp>) -> Vec<Vector3> {
+fn piece_scales(display: &mut Display) -> Vec<Vector3> {
   let state = accepted!(display);
   Square::ALL
     .into_iter()
     .filter_map(|square| state.piece(square))
     .map(|piece| {
       let native = display
-        .with_engine(|app| app.native_piece(piece.entity_id))
+        .presentation(*piece.entity_id.as_uuid())
+        .and_then(|presentation| presentation.native_objects.first().copied())
         .expect("piece has native host");
       display.object(native).unwrap().local_transform().scale
     })
     .collect()
 }
 
-fn piece(display: &mut Display<ReactantChessApp>, square: Square) -> battlement::ObjectId {
+fn piece(display: &mut Display, square: Square) -> battlement::ObjectId {
   let identity = accepted!(display)
     .piece(square)
     .expect("piece exists")
     .entity_id;
   display
-    .with_engine(|app| app.native_piece(identity))
+    .presentation(*identity.as_uuid())
+    .and_then(|presentation| presentation.native_objects.first().copied())
     .expect("piece has native host")
 }
 
-fn highlight(display: &Display<ReactantChessApp>, square: Square) -> battlement::ObjectId {
+fn highlight(display: &Display, square: Square) -> battlement::ObjectId {
   let expected = self::square(square);
   display
     .objects()
@@ -859,7 +885,7 @@ fn connection() -> Connect {
   Connect::new("test", "test", ScreenSize::new(1_920, 1_080))
 }
 
-fn played_music(display: &Display<ReactantChessApp>) -> Vec<(&str, u64)> {
+fn played_music(display: &Display) -> Vec<(&str, u64)> {
   display
     .commands()
     .iter()

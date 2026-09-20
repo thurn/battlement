@@ -16,20 +16,9 @@ struct MixedCounter(PortalTarget);
 struct Visual(Callback<()>);
 struct Details(Callback<()>);
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
-  let target = app.create_portal_target();
-  app
-    .ui((
-      MixedCounter(target.clone()),
-      View::new().portal_target(target).style(
-        Style::new()
-          .width(420.px())
-          .padding(32.px())
-          .color(Color::WHITE)
-          .background_color(Color::rgb(0.06, 0.09, 0.15)),
-      ),
-    ))
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(MixedRoot)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document
@@ -44,6 +33,24 @@ pub(crate) fn app() -> crate::ReactantEngine {
       .parent_scene(ParentScene::Persistent)
       .position(Vector3::new(0.0, 0.0, -10.0))
     })
+}
+
+struct MixedRoot;
+
+impl Component for MixedRoot {
+  fn render(&self) -> impl Render {
+    let target = reactant::use_portal_target();
+    (
+      MixedCounter(target.clone()),
+      View::new().portal_target(target.clone()).style(
+        Style::new()
+          .width(420.px())
+          .padding(32.px())
+          .color(Color::WHITE)
+          .background_color(Color::rgb(0.06, 0.09, 0.15)),
+      ),
+    )
+  }
 }
 
 impl Component for MixedCounter {

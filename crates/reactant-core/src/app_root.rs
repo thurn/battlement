@@ -49,23 +49,28 @@ impl<G: 'static> AppRoot<G> {
     let observations = Rc::clone(observations);
     let queue = Rc::clone(queue);
     let view = Rc::clone(&self.view);
+    let portals = runtime.portal_allocator();
     runtime.register_root(self.document.clone(), move |model| {
       let observed = observations.borrow();
       application::provider(observed.application).child(
         motion_config::preference_provider(observed.reduced_motion).child(
           ContextProvider::new().context(observed.screen).child(
-            ContextProvider::new()
-              .context(AppHandle::new(&queue))
-              .child(
-                ContextProvider::new()
-                  .context(IdentityLifetime(observed.remount))
-                  .child(
-                    orchestration
-                      .borrow()
-                      .provide(view(model))
-                      .key(observed.remount),
-                  ),
-              ),
+            ContextProvider::new().context(observed.host.clone()).child(
+              ContextProvider::new()
+                .context(AppHandle::new(&queue))
+                .child(
+                  ContextProvider::new()
+                    .context(IdentityLifetime(observed.remount))
+                    .child(
+                      ContextProvider::new().context(portals.clone()).child(
+                        orchestration
+                          .borrow()
+                          .provide(view(model))
+                          .key(observed.remount),
+                      ),
+                    ),
+                ),
+            ),
           ),
         ),
       )

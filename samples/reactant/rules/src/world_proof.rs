@@ -6,9 +6,9 @@ use crate::ROOT_ID;
 
 struct WorldProof;
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(WorldProof)
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(WorldProof)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document

@@ -7,7 +7,7 @@ use std::{
 };
 
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{app::App, prelude::*};
+use reactant::{prelude::*, testing::App};
 use reactant_testing::Display;
 use trox::ls;
 

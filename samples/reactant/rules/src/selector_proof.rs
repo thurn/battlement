@@ -28,9 +28,9 @@ struct PropsReader;
 #[derive(PartialEq)]
 struct Settings(DisplayStore<Values>);
 
-pub(crate) fn app(props: bool) -> crate::ReactantEngine {
-  reactant::app::App::new(crate::CONTENT_SCENE)
-    .ui(Screen {
+pub(crate) fn app(props: bool) -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(Screen {
       left: DisplayStore::new(Values {
         score: 1,
         settings: 0,

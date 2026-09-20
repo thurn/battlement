@@ -84,7 +84,6 @@ dependencies = [
  "battlement",
  "battlement-cloud",
  "battlement-fake",
- "battlement-native",
  "cozy-chess",
  "fastrand",
  "rayon",
@@ -144,7 +143,6 @@ dependencies = [
  "battlement",
  "battlement-flatbuffers",
  "color-backtrace",
- "rayon",
  "serde",
  "serde_json",
  "tracing",
@@ -724,9 +722,12 @@ name = "reactant"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-native",
  "reactant-core",
  "reactant-rules",
  "reactant-ui",
+ "serde",
+ "serde_json",
  "taffy",
  "trox",
  "uuid",
@@ -758,7 +759,9 @@ dependencies = [
  "battlement",
  "battlement-fake",
  "battlement-native",
+ "reactant",
  "reactant-rules",
+ "uuid",
 ]
 
 [[package]]

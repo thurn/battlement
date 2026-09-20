@@ -42,6 +42,14 @@ pub struct NativeHost<A: HostAdapter> {
 #[derive(Clone)]
 pub struct ObjectRef(ElementRef);
 
+impl PartialEq for ObjectRef {
+  fn eq(&self, other: &Self) -> bool {
+    self.0 == other.0
+  }
+}
+
+impl Eq for ObjectRef {}
+
 /// Returns a stable object reference for the mounted component.
 pub fn use_object_ref() -> ObjectRef {
   ObjectRef(element_ref::use_element_ref())

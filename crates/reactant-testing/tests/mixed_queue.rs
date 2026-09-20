@@ -3,12 +3,13 @@ use std::{cell::RefCell, rc::Rc, time::Duration};
 use battlement::{Command, CommandBody, ParentScene, Vector3, WaitPayload};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
-  app::App,
   app_context, hooks,
   host::ButtonHost,
   native_host,
   portal::{self, PortalTarget},
   prelude::*,
+  testing::App,
+  testing::GameApp,
 };
 use reactant_rules::{ChoiceOwner, ChoicePolicy, DisplayConnection, ExecutionMode, Game};
 use reactant_testing::Display;

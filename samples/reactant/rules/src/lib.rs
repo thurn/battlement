@@ -48,7 +48,7 @@ mod tests;
 mod values_time_controls;
 mod variants_orchestration;
 
-pub use app_setup::{ReactantEngine, create_engine, generated_asset_addresses};
+pub use app_setup::{ReactantApplication, application, generated_asset_addresses};
 pub(crate) use controls::{control_state, interactive_button};
 pub(crate) use model::Game;
 pub(crate) use model::{Control, Interaction};

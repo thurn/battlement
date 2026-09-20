@@ -38,6 +38,10 @@ pub enum ChessAnimation {
     sound: AudioClipAddress,
     /// Check or terminal sound scheduled after arrival.
     final_sound: Option<AudioClipAddress>,
+    /// Semantic classification recorded with this accepted move.
+    result: crate::visual_state::VisualState,
+    /// Post-move position available before any following rules action.
+    accepted_board: Board,
   },
 }
 
@@ -45,11 +49,12 @@ pub enum ChessAnimation {
 #[derive(Clone)]
 pub struct ChessState {
   position: ChessPosition,
+  result: Option<crate::visual_state::VisualState>,
 }
 
-pub(crate) struct ChessGame;
+pub struct ChessGame;
 pub(crate) struct ChessPolicy;
-pub(crate) struct ChessContext {
+pub struct ChessContext {
   execution: ExecutionMode<ChessGame, ChessPolicy>,
   think_time: Duration,
   rng: Rng,
@@ -64,6 +69,7 @@ impl ChessState {
   pub(crate) fn with_generation(board: Board, generation: u32) -> Self {
     Self {
       position: ChessPosition::from_board(board, generation),
+      result: None,
     }
   }
 
@@ -84,6 +90,25 @@ impl ChessState {
 
   pub(crate) fn legal_moves(&self, from: Square, to: Square) -> Vec<Move> {
     self.position.legal_moves(from, to)
+  }
+
+  /// Returns the semantic outcome recorded with the most recent accepted move.
+  pub const fn result(&self) -> Option<crate::visual_state::VisualState> {
+    self.result
+  }
+}
+
+impl ChessAnimation {
+  pub(crate) const fn result(&self) -> crate::visual_state::VisualState {
+    match self {
+      Self::Movement { result, .. } => *result,
+    }
+  }
+
+  pub(crate) fn accepted_board(&self) -> &Board {
+    match self {
+      Self::Movement { accepted_board, .. } => accepted_board,
+    }
   }
 }
 
@@ -135,13 +160,22 @@ impl ChessContext {
       movement: description,
       sound,
       final_sound,
+      result: crate::visual_state::after_move(
+        &state.position.board,
+        &board_after,
+        movement,
+        moving.color,
+      ),
+      accepted_board: board_after,
     }
   }
 
   fn apply_move(&mut self, state: &mut ChessState, movement: Move) {
     let animation = self.movement(state, movement);
+    let result = animation.result();
     self.execution.present(state, || animation);
     state.position.apply(movement);
+    state.result = Some(result);
   }
 }
 

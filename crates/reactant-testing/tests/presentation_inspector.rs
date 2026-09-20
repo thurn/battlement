@@ -13,8 +13,8 @@ use battlement::{
 };
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
-  DispatchResult, GameConsumer, GameStatus, InspectorObject, PresentationInspector, app::App,
-  prelude::*,
+  DispatchResult, GameConsumer, GameStatus, InspectorObject, PresentationInspector, prelude::*,
+  testing::App, testing::GameApp,
 };
 use reactant_testing::Display;
 use session_game::{Action, Context, Counter, Probe};

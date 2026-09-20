@@ -10,7 +10,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 battlement = { path = "../../../crates/battlement" }
-battlement-native = { path = "../../../crates/battlement-native" }
 reactant = { path = "../../../crates/reactant" }
 fastrand = "2.3.0"
 

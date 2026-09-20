@@ -2349,9 +2349,12 @@ name = "reactant"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-native",
  "reactant-core",
  "reactant-rules",
  "reactant-ui",
+ "serde",
+ "serde_json",
  "taffy",
  "trox",
  "uuid",
@@ -2390,6 +2393,7 @@ dependencies = [
  "reactant-core",
  "reactant-rules",
  "trox",
+ "uuid",
 ]
 
 [[package]]

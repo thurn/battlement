@@ -18,7 +18,7 @@ pub(crate) enum Outcome {
 }
 
 #[derive(Clone)]
-pub(crate) struct State {
+pub struct State {
   pub(crate) round: u32,
   pub(crate) board: [Option<Mark>; 9],
   pub(crate) outcome: Outcome,
@@ -27,21 +27,21 @@ pub(crate) struct State {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) enum Action {
+pub enum Action {
   Cell(usize),
   Reset,
 }
 
 #[derive(Clone, Copy)]
-pub(crate) enum Animation {
+pub enum Animation {
   HumanMove,
   PlayerFinished,
   AiResponse,
 }
 
-pub(crate) struct TicTacToe;
+pub struct TicTacToe;
 pub(crate) struct Policy;
-pub(crate) struct Context(ExecutionMode<TicTacToe, Policy>);
+pub struct Context(ExecutionMode<TicTacToe, Policy>);
 
 /// Finite user-visible states recognized by the Tic-Tac-Toe engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

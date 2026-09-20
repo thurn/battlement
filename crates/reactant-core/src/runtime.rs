@@ -36,7 +36,7 @@ use crate::{
   localization,
   motion_value_runtime::{self, MotionValueRuntime},
   overlay,
-  portal::{self, PortalTarget},
+  portal::{self, PortalAllocator, PortalTarget},
   reconcile,
   render::{Render, RenderTree},
   render_tree::LocalRenderTransaction,
@@ -152,7 +152,7 @@ pub struct Reactant<G: 'static> {
   element_refs: Rc<RefCell<ElementRefRuntime>>,
   motion_values: Rc<RefCell<MotionValueRuntime>>,
   geometry: Rc<RefCell<GeometryRuntime>>,
-  next_portal_target: u64,
+  portal_allocator: PortalAllocator,
   external_portals: ExternalPortalRegistry,
   committed_portals: Option<portal::PortalLayout>,
   retained_ui_budget: RetainedUiBudget,
@@ -186,7 +186,7 @@ impl<G: 'static> Reactant<G> {
       motion_values: MotionValueRuntime::new(runtime_id, &element_refs),
       element_refs,
       geometry: GeometryRuntime::new(runtime_id),
-      next_portal_target: 0,
+      portal_allocator: PortalAllocator::new(runtime_id),
       external_portals: ExternalPortalRegistry::new(),
       committed_portals: None,
       retained_ui_budget: RetainedUiBudget::default(),
@@ -251,23 +251,20 @@ impl<G: 'static> Reactant<G> {
   /// Creates one internal portal target while registration is open.
   pub fn create_portal_target(&mut self) -> PortalTarget {
     self.require_registering();
-    let target = PortalTarget::new(self.runtime_id, self.next_portal_target);
-    self.next_portal_target = self
-      .next_portal_target
-      .checked_add(1)
-      .expect("Reactant portal target identity overflow");
-    target
+    self.portal_allocator.allocate()
+  }
+
+  /// Returns the allocator supplied to application component roots.
+  #[doc(hidden)]
+  pub fn portal_allocator(&self) -> PortalAllocator {
+    self.portal_allocator.clone()
   }
 
   /// Registers one caller-owned portal container while registration is open.
   pub fn register_external_container(&mut self, id: ObjectId) -> PortalTarget {
     self.require_registering();
-    let target = PortalTarget::new(self.runtime_id, self.next_portal_target);
+    let target = self.portal_allocator.allocate();
     self.external_portals.register(target.clone(), id);
-    self.next_portal_target = self
-      .next_portal_target
-      .checked_add(1)
-      .expect("Reactant portal target identity overflow");
     target
   }
 

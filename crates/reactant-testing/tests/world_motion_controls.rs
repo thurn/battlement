@@ -6,7 +6,7 @@ use std::{
 
 use battlement::{FloatValue, ObjectId, ParentScene, Prop, StyleValue, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{animation_controls, app::App, host::ButtonHost, prelude::*, world};
+use reactant::{animation_controls, host::ButtonHost, prelude::*, testing::App, world};
 use reactant_testing::Display;
 use trox::ls;
 

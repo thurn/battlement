@@ -175,6 +175,19 @@ where
     (client, clock)
   }
 
+  /// Connects an engine factory and explicit metadata to a manually controlled clock.
+  #[must_use]
+  pub fn connect_with_clocked(
+    make_engine: impl FnOnce(ManualClock) -> E,
+    assets: impl Into<Arc<FakeAssetCatalog>>,
+    connect: Connect,
+  ) -> (Self, ManualClock) {
+    let clock = ManualClock::new(std::time::Instant::now());
+    let mut client = Self::connect_with(make_engine(clock.clone()), assets, connect);
+    client.clock = Some(clock.clone());
+    (client, clock)
+  }
+
   /// Connects an engine with explicit connection metadata.
   #[must_use]
   pub fn connect_with(

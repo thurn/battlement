@@ -1,17 +1,10 @@
 //! App-local reducer state shared by every chess input source.
 
-use std::{
-  cell::{Cell, RefCell},
-  collections::{HashMap, HashSet},
-  rc::Rc,
-};
+use std::{cell::Cell, collections::HashSet, rc::Rc};
 
 use battlement::{DebugUiSurface, ObjectId, PhysicalKey};
 use cozy_chess::{Color, GameStatus, Square};
-use reactant::{
-  DispatchResult, GameHandle, GameStatus as RulesStatus,
-  prelude::{AnimationPlayback, DisplayStore, ExternalStore},
-};
+use reactant::{DispatchResult, GameHandle, GameStatus as RulesStatus};
 
 use crate::{
   MUSIC_TRACKS,
@@ -92,20 +85,11 @@ pub(crate) struct ChessUiState {
 }
 
 #[derive(Clone)]
-pub(crate) struct AppControl(Rc<AppControlState>);
-
-struct AppControlState {
-  local: DisplayStore<ChessUiState>,
-  replacement: RefCell<Option<ReplacementRequest>>,
-  opening_playbacks: RefCell<Vec<AnimationPlayback>>,
-  piece_hosts: RefCell<HashMap<ObjectId, ObjectId>>,
-  sound_cursor: Cell<usize>,
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct ReplacementRequest {
-  pub(crate) mode: SessionStart,
-  pub(crate) cursor_visible: bool,
+pub(crate) struct ChessUiController {
+  local: ChessUiState,
+  current: reactant::hooks::Ref<ChessUiState>,
+  dispatch: reactant::hooks::ReducerDispatch<ChessUiState>,
+  sound_cursor: Rc<Cell<usize>>,
 }
 
 impl Default for ChessUiState {
@@ -158,38 +142,40 @@ impl ChessUiState {
   }
 }
 
-impl AppControl {
-  pub(crate) fn new(local: ChessUiState) -> Self {
-    Self(Rc::new(AppControlState {
-      local: DisplayStore::new(local),
-      replacement: RefCell::new(None),
-      opening_playbacks: RefCell::new(Vec::new()),
-      piece_hosts: RefCell::new(HashMap::new()),
-      sound_cursor: Cell::new(0),
-    }))
+pub(crate) fn use_chess_ui(initial: ChessUiState) -> ChessUiController {
+  let (local, dispatch) = reactant::hooks::use_reducer(|_, next| next, initial);
+  let current = reactant::hooks::use_ref(local.clone());
+  let committed = current.clone();
+  let next = local.clone();
+  reactant::hooks::use_commit_effect(
+    move || {
+      committed.replace(next);
+    },
+    local.clone(),
+  );
+  let sound_cursor = reactant::hooks::use_memo(|| Rc::new(Cell::new(0)), ());
+  ChessUiController {
+    local,
+    current,
+    dispatch,
+    sound_cursor,
   }
+}
 
-  pub(crate) fn store(&self) -> DisplayStore<ChessUiState> {
-    self.0.local.clone()
-  }
-
+impl ChessUiController {
   pub(crate) fn snapshot(&self) -> ChessUiState {
-    self.0.local.snapshot()
+    self.local.clone()
   }
 
-  pub(crate) fn prepare_review(&self, state: crate::visual_state::VisualState) {
-    if state == crate::visual_state::VisualState::Paused {
-      self.0.local.update(|local| {
-        local.screen = AppScreen::Game;
-        local.overlay = Some(Overlay::Pause {
-          confirm_new_game: false,
-        });
-      });
-    }
+  pub(crate) fn current(&self) -> ChessUiState {
+    self.current.get()
   }
 
-  pub(crate) fn visual_state(&self) -> crate::visual_state::VisualState {
-    self.snapshot().resolved_visual_state()
+  fn update(&self, update: impl FnOnce(&mut ChessUiState)) {
+    let mut local = self.current();
+    update(&mut local);
+    self.current.replace(local.clone());
+    self.dispatch.send(local);
   }
 
   pub(crate) fn dispatch(&self, game: Option<&GameHandle<ChessGame>>, action: UiAction) {
@@ -205,55 +191,35 @@ impl AppControl {
       }
       UiAction::TogglePause => self.toggle_pause(),
       UiAction::RequestNewGame { cursor_visible } => self.request_new_game(cursor_visible),
-      UiAction::DismissNewGameConfirmation => self.0.local.update(|local| {
+      UiAction::DismissNewGameConfirmation => self.update(|local| {
         local.overlay = Some(Overlay::Pause {
           confirm_new_game: false,
         });
       }),
       UiAction::SetVolume(volume) => self.set_volume(volume),
       UiAction::KeyDown(key) => {
-        self.0.local.update(|local| {
+        self.update(|local| {
           local.held.insert(key);
         });
       }
       UiAction::KeyUp(key) => {
-        self.0.local.update(|local| {
+        self.update(|local| {
           local.held.remove(&key);
         });
       }
-      UiAction::ShowDebug(surface) => self
-        .0
-        .local
-        .update(|local| Self::effect(local, LocalEffect::ShowDebug(surface))),
+      UiAction::ShowDebug(surface) => {
+        self.update(|local| Self::effect(local, LocalEffect::ShowDebug(surface)))
+      }
     }
   }
 
-  pub(crate) fn request_restart(&self) {
-    self.0.replacement.replace(Some(ReplacementRequest {
-      mode: SessionStart::Restart,
-      cursor_visible: true,
-    }));
-  }
-
-  pub(crate) fn request_start(&self, cursor_visible: bool) {
-    self.0.replacement.replace(Some(ReplacementRequest {
-      mode: SessionStart::Fresh,
-      cursor_visible,
-    }));
-  }
-
-  pub(crate) fn take_replacement(&self) -> Option<ReplacementRequest> {
-    self.0.replacement.borrow_mut().take()
-  }
-
   pub(crate) fn begin_session(&self, mode: SessionStart, cursor_visible: bool, origin_saved: bool) {
-    self.0.piece_hosts.borrow_mut().clear();
-    let previous = self.snapshot();
+    let previous = self.current();
     let opening_generation = previous
       .opening_generation
       .checked_add(1)
       .expect("opening generation overflow");
-    self.0.local.set(ChessUiState {
+    let next = ChessUiState {
       screen: AppScreen::Game,
       visual_state: match mode {
         SessionStart::Fresh => crate::visual_state::VisualState::Initial,
@@ -269,46 +235,29 @@ impl AppControl {
       music_generation: previous.music_generation,
       music_track: previous.music_track,
       ..ChessUiState::default()
-    });
+    };
+    self.current.replace(next.clone());
+    self.dispatch.send(next);
+  }
+
+  pub(crate) fn request_restart(&self) {
+    self.begin_session(SessionStart::Restart, true, false);
+  }
+
+  pub(crate) fn request_start(&self, cursor_visible: bool) {
+    self.begin_session(SessionStart::Fresh, cursor_visible, false);
   }
 
   pub(crate) fn finish_opening(&self, generation: u64) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       if local.opening_generation == generation {
         local.spawning = false;
       }
     });
   }
 
-  pub(crate) fn retain_opening(&self, playback: AnimationPlayback) {
-    self.0.opening_playbacks.borrow_mut().push(playback);
-  }
-
-  pub(crate) fn register_piece_host(&self, entity: ObjectId, host: ObjectId) {
-    self.0.piece_hosts.borrow_mut().insert(entity, host);
-  }
-
-  pub(crate) fn native_piece(&self, entity: ObjectId) -> Option<ObjectId> {
-    self.0.piece_hosts.borrow().get(&entity).copied()
-  }
-
-  pub(crate) fn cancel_opening(&self) {
-    self.0.local.update(|local| {
-      local.opening_generation = local
-        .opening_generation
-        .checked_add(1)
-        .expect("opening generation overflow");
-      local.opening = None;
-      local.spawning = false;
-    });
-  }
-
-  pub(crate) fn observe_visual_state(&self, state: crate::visual_state::VisualState) {
-    self.0.local.update(|local| local.visual_state = state);
-  }
-
   pub(crate) fn next_music(&self) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       local.music_track = (local.music_track + 1) % MUSIC_TRACKS.len();
       local.music_generation = local
         .music_generation
@@ -318,7 +267,7 @@ impl AppControl {
   }
 
   pub(crate) fn start_music(&self) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       if local.music_generation == 0 {
         local.music_generation = 1;
         local.music_track = 0;
@@ -327,7 +276,7 @@ impl AppControl {
   }
 
   pub(crate) fn restart_music(&self) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       local.music_track = 0;
       local.music_generation = local
         .music_generation
@@ -341,16 +290,16 @@ impl AppControl {
       || state.board().status() != GameStatus::Ongoing
       || state.board().color_on(square) != Some(Color::White)
     {
-      self.0.local.update(|local| {
+      self.update(|local| {
         local.cursor = square;
         local.selected = None;
       });
       return;
     }
     let sounds = crate::audio::PICKUP_SOUNDS;
-    let index = self.0.sound_cursor.get() % sounds.len();
-    self.0.sound_cursor.set(index + 1);
-    self.0.local.update(|local| {
+    let index = self.sound_cursor.get() % sounds.len();
+    self.sound_cursor.set(index + 1);
+    self.update(|local| {
       local.cursor = square;
       local.selected = Some(square);
       Self::effect(local, LocalEffect::Sound(sounds[index].clone()));
@@ -358,7 +307,7 @@ impl AppControl {
   }
 
   fn activate_square(&self, game: &GameHandle<ChessGame>, target: Square) {
-    if game.status() != RulesStatus::Ready || self.snapshot().spawning {
+    if game.status() != RulesStatus::Ready || self.current().spawning {
       return;
     }
     let state = game.accepted_state();
@@ -366,20 +315,40 @@ impl AppControl {
       self.dispatch(Some(game), UiAction::Select(target));
       return;
     }
-    let local = self.snapshot();
+    let local = self.current();
     let Some(from) = local.selected else {
-      self.0.local.update(|value| value.cursor = target);
+      self.update(|value| value.cursor = target);
       return;
     };
     if state.legal_moves(from, target).is_empty() {
-      self.0.local.update(|value| {
+      self.update(|value| {
         value.cursor = target;
         Self::effect(value, LocalEffect::Invalid);
       });
       return;
     }
     if game.dispatch(ChessAction::MoveTo { from, to: target }) == DispatchResult::Started {
-      self.0.local.update(|value| {
+      self.update(|value| {
+        value.cursor = target;
+        value.selected = None;
+      });
+    }
+  }
+
+  pub(crate) fn move_piece(&self, game: &GameHandle<ChessGame>, from: Square, target: Square) {
+    if game.status() != RulesStatus::Ready || self.current().spawning {
+      return;
+    }
+    let state = game.accepted_state();
+    if state.legal_moves(from, target).is_empty() {
+      self.update(|value| {
+        value.cursor = target;
+        Self::effect(value, LocalEffect::Invalid);
+      });
+      return;
+    }
+    if game.dispatch(ChessAction::MoveTo { from, to: target }) == DispatchResult::Started {
+      self.update(|value| {
         value.cursor = target;
         value.selected = None;
       });
@@ -387,12 +356,11 @@ impl AppControl {
   }
 
   fn drag_start(&self, game: &GameHandle<ChessGame>, piece: ObjectId) {
-    if game.status() != RulesStatus::Ready || self.snapshot().spawning {
+    if game.status() != RulesStatus::Ready || self.current().spawning {
       return;
     }
     let state = game.accepted_state();
-    let entity = self.piece_entity(piece);
-    if let Some(square) = piece_square(&state, entity)
+    if let Some(square) = piece_square(&state, piece)
       && state.board().color_on(square) == Some(Color::White)
     {
       self.dispatch(Some(game), UiAction::Select(square));
@@ -401,29 +369,25 @@ impl AppControl {
 
   fn drag_end(&self, game: &GameHandle<ChessGame>, piece: ObjectId, target: Option<Square>) {
     let state = game.accepted_state();
-    let entity = self.piece_entity(piece);
-    let Some(from) = piece_square(&state, entity) else {
-      self
-        .0
-        .local
-        .update(|local| Self::effect(local, LocalEffect::Invalid));
+    let Some(from) = piece_square(&state, piece) else {
+      self.update(|local| Self::effect(local, LocalEffect::Invalid));
       return;
     };
     let Some(target) = target.filter(|_| game.status() == RulesStatus::Ready) else {
-      self.restore_drag(entity, from, false);
+      self.restore_drag(piece, from, false);
       return;
     };
     if target == from {
       self.select(&state, from);
     } else if state.legal_moves(from, target).is_empty() {
-      self.restore_drag(entity, from, true);
+      self.restore_drag(piece, from, true);
     } else {
       self.activate_square(game, target);
     }
   }
 
   fn restore_drag(&self, entity: ObjectId, square: Square, invalid: bool) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       local.drag_restore = Some((entity, square));
       local.drag_restore_generation = local
         .drag_restore_generation
@@ -438,18 +402,8 @@ impl AppControl {
     });
   }
 
-  fn piece_entity(&self, host: ObjectId) -> ObjectId {
-    self
-      .0
-      .piece_hosts
-      .borrow()
-      .iter()
-      .find_map(|(entity, value)| (*value == host).then_some(*entity))
-      .unwrap_or(host)
-  }
-
   fn cancel_selection(&self) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       if let Some(selected) = local.selected.take() {
         local.cursor = selected;
       }
@@ -458,14 +412,14 @@ impl AppControl {
   }
 
   fn move_cursor(&self, square: Square) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       local.cursor = square;
       local.cursor_visible = true;
     });
   }
 
   fn cycle_cursor(&self, state: &ChessState, forward: bool) {
-    let local = self.snapshot();
+    let local = self.current();
     let candidates = if let Some(selected) = local.selected {
       crate::legal_destinations(state.board(), selected)
     } else {
@@ -491,7 +445,7 @@ impl AppControl {
   }
 
   fn toggle_pause(&self) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       local.overlay = if local.pause_open() {
         None
       } else {
@@ -503,14 +457,11 @@ impl AppControl {
   }
 
   fn request_new_game(&self, cursor_visible: bool) {
-    if self.snapshot().confirm_new_game() {
-      self.0.replacement.replace(Some(ReplacementRequest {
-        mode: SessionStart::Refresh,
-        cursor_visible,
-      }));
+    if self.current().confirm_new_game() {
+      self.begin_session(SessionStart::Refresh, cursor_visible, false);
       return;
     }
-    self.0.local.update(|value| {
+    self.update(|value| {
       value.overlay = Some(Overlay::Pause {
         confirm_new_game: true,
       });
@@ -519,7 +470,7 @@ impl AppControl {
   }
 
   fn set_volume(&self, volume: f64) {
-    self.0.local.update(|local| {
+    self.update(|local| {
       let increased = volume > local.volume;
       local.volume = volume.clamp(0.0, 1.0);
       Self::effect(

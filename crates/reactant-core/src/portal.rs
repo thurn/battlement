@@ -4,7 +4,9 @@
 
 use std::{
   any::TypeId,
+  cell::Cell,
   collections::{HashMap, HashSet},
+  rc::Rc,
 };
 
 use battlement::{
@@ -25,6 +27,20 @@ use crate::{
 pub struct PortalTarget {
   runtime_id: u64,
   target_id: u64,
+}
+
+/// Allocates portal identities for one Reactant runtime.
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct PortalAllocator {
+  runtime_id: u64,
+  next: Rc<Cell<u64>>,
+}
+
+impl PartialEq for PortalAllocator {
+  fn eq(&self, other: &Self) -> bool {
+    self.runtime_id == other.runtime_id && Rc::ptr_eq(&self.next, &other.next)
+  }
 }
 
 /// Renders a logical child beneath a separate physical container.
@@ -48,6 +64,26 @@ impl PortalTarget {
 
   pub(crate) const fn belongs_to(&self, runtime_id: u64) -> bool {
     self.runtime_id == runtime_id
+  }
+}
+
+impl PortalAllocator {
+  pub(crate) fn new(runtime_id: u64) -> Self {
+    Self {
+      runtime_id,
+      next: Rc::new(Cell::new(0)),
+    }
+  }
+
+  /// Allocates a target without requiring mutable access to the renderer.
+  pub fn allocate(&self) -> PortalTarget {
+    let target_id = self.next.get();
+    self.next.set(
+      target_id
+        .checked_add(1)
+        .expect("Reactant portal target identity overflow"),
+    );
+    PortalTarget::new(self.runtime_id, target_id)
   }
 }
 

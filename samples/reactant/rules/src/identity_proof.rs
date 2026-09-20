@@ -29,25 +29,30 @@ struct IdentityRoot {
   portal: PortalTarget,
 }
 
+#[derive(Clone)]
 struct DestinationRoot {
   location: DisplayStore<u8>,
-  portal: PortalTarget,
+  portal: DisplayStore<Option<PortalTarget>>,
 }
 
-pub(crate) fn app() -> crate::ReactantEngine {
+struct IdentityApplication {
+  location: DisplayStore<u8>,
+  portal: DisplayStore<Option<PortalTarget>>,
+}
+
+pub(crate) fn app() -> crate::ReactantApplication {
   app_with_projection(CameraProjection::Orthographic)
 }
 
-pub(crate) fn perspective_app() -> crate::ReactantEngine {
+pub(crate) fn perspective_app() -> crate::ReactantApplication {
   app_with_projection(CameraProjection::Perspective)
 }
 
-fn app_with_projection(camera_projection: CameraProjection) -> crate::ReactantEngine {
-  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
-  let portal = app.create_portal_target();
+fn app_with_projection(camera_projection: CameraProjection) -> crate::ReactantApplication {
   let location = DisplayStore::new(0_u8);
-  app
-    .ui(IdentityRoot {
+  let portal = DisplayStore::new(None::<PortalTarget>);
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(IdentityApplication {
       location: location.clone(),
       portal: portal.clone(),
     })
@@ -55,12 +60,9 @@ fn app_with_projection(camera_projection: CameraProjection) -> crate::ReactantEn
       document.root_id = ROOT_ID;
       document
     })
-    .additional_root(
+    .additional_document(
       UiDocument::new(SECOND_ROOT).style(Style::new().left(470.px()).width(410.px())),
-      move |_| DestinationRoot {
-        location: location.clone(),
-        portal: portal.clone(),
-      },
+      DestinationRoot { location, portal },
     )
     .camera(|camera| {
       GameObject::new(
@@ -73,6 +75,19 @@ fn app_with_projection(camera_projection: CameraProjection) -> crate::ReactantEn
       .parent_scene(ParentScene::Persistent)
       .position(Vector3::new(0.0, 0.0, -10.0))
     })
+}
+
+impl Component for IdentityApplication {
+  fn render(&self) -> impl Render {
+    let target = reactant::use_portal_target();
+    let portal = self.portal.clone();
+    let committed = target.clone();
+    hooks::use_effect(move || portal.set(Some(committed)), ());
+    IdentityRoot {
+      location: self.location.clone(),
+      portal: target,
+    }
+  }
 }
 
 impl Component for IdentityRoot {
@@ -94,10 +109,11 @@ impl Component for IdentityRoot {
 impl Component for DestinationRoot {
   fn render(&self) -> impl Render {
     let location = use_external_store(self.location.clone());
+    let portal = use_external_store(self.portal.clone());
     View::new().style(self::panel()).child((
       Heading::new(ls("Destination root"), 1),
       (location == 1).then(|| self::card("Destination", None)),
-      View::new().portal_target(self.portal.clone()),
+      portal.map(|target| View::new().portal_target(target)),
     ))
   }
 }

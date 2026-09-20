@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc, time::Duration};
 
 use battlement::{Command, CommandBody, WaitPayload};
 use battlement_fake::assets::FakeAssetCatalog;
-use reactant::{app::App, app_context, hooks, host::ButtonHost, prelude::*};
+use reactant::{app_context, hooks, host::ButtonHost, prelude::*, testing::App, testing::GameApp};
 use reactant_rules::{ChoiceOwner, ChoicePolicy, DisplayConnection, ExecutionMode, Game};
 use reactant_testing::Display;
 use trox::ls;

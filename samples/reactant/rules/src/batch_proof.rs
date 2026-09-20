@@ -1,11 +1,11 @@
-use std::{rc::Rc, time::Duration};
+use std::rc::Rc;
 
 use battlement::{
   Command, CommandBody, GameObject, GameObjectKind, MaterialAssignment, ObjectId, ParentScene,
   PropertyCommand, Tween, TweenPositionPayload, Vector3, object_id,
 };
 use reactant::{
-  GameConsumer, GameHandle, animation_controls,
+  GameHandle, animation_controls,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame},
 };
@@ -20,8 +20,11 @@ struct QueueGame;
 struct Policy;
 struct Proof {
   game: GameHandle<QueueGame>,
-  consumer: GameConsumer<QueueGame>,
   automatic: bool,
+}
+struct Root {
+  automatic: bool,
+  inspector: bool,
 }
 struct Menu(Rc<Proof>);
 struct Board {
@@ -31,47 +34,24 @@ struct InspectorBoard;
 struct StandardBoard;
 struct SnapshotAnimationBoard;
 
-pub(crate) fn app() -> crate::ReactantEngine {
+pub(crate) fn app() -> crate::ReactantApplication {
   self::build(false, false)
 }
 
-pub(crate) fn automatic_app() -> crate::ReactantEngine {
+pub(crate) fn automatic_app() -> crate::ReactantApplication {
   self::build(true, false)
 }
 
-pub(crate) fn inspector_app() -> crate::ReactantEngine {
+pub(crate) fn inspector_app() -> crate::ReactantApplication {
   self::build(false, true)
 }
 
-fn build(automatic: bool, inspector: bool) -> crate::ReactantEngine {
-  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
-  let game = app.start_game::<QueueGame>(0, |connection| ExecutionMode::Interactive {
-    connection,
-    policy: Policy,
-  });
-  let consumer = app.game_consumer::<QueueGame>();
-  consumer.resume_automatic_submission();
-  let proof = Rc::new(Proof {
-    game,
-    consumer,
-    automatic,
-  });
-  let mut app = app
-    .ui(
-      View::new()
-        .style(
-          Style::new()
-            .padding(32.px())
-            .background_color(Color::rgb(0.05, 0.07, 0.11))
-            .color(Color::rgb(0.95, 0.95, 1.0)),
-        )
-        .child((
-          Label::new(ls("Ordered game output")).style(Style::new().font_size(30.px())),
-          Menu(proof),
-          GameRoot::new(Board { automatic }),
-          inspector.then_some(InspectorBoard),
-        )),
-    )
+fn build(automatic: bool, inspector: bool) -> crate::ReactantApplication {
+  let mut app = reactant::Application::new(crate::CONTENT_SCENE)
+    .child(Root {
+      automatic,
+      inspector,
+    })
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document
@@ -101,9 +81,39 @@ fn build(automatic: bool, inspector: bool) -> crate::ReactantEngine {
   )
 }
 
+impl Component for Root {
+  fn render(&self) -> impl Render {
+    let game = reactant::use_game::<QueueGame, _>((), 0, |connection| ExecutionMode::Interactive {
+      connection,
+      policy: Policy,
+    });
+    let proof = Rc::new(Proof {
+      game,
+      automatic: self.automatic,
+    });
+    View::new()
+      .style(
+        Style::new()
+          .padding(32.px())
+          .background_color(Color::rgb(0.05, 0.07, 0.11))
+          .color(Color::rgb(0.95, 0.95, 1.0)),
+      )
+      .child((
+        Label::new(ls("Ordered game output")).style(Style::new().font_size(30.px())),
+        Menu(proof),
+        GameRoot::new((
+          Board {
+            automatic: self.automatic,
+          },
+          self.inspector.then_some(InspectorBoard),
+        )),
+      ))
+  }
+}
+
 impl Component for Menu {
   fn render(&self) -> impl Render {
-    let status = reactant::use_game_status::<QueueGame>();
+    let status = self.0.game.status();
     let accepted = self.0.game.accepted_state();
     let automatic = self.0.automatic;
     let automatic_start = self.0.clone();
@@ -130,12 +140,6 @@ impl Component for Menu {
       .name("queue-acceptance"),
       Button::new(ls("Begin ordered game")).on_press(move || {
         if start.game.dispatch(()) == reactant::DispatchResult::Started {
-          assert!(
-            start
-              .consumer
-              .wait_for_worker_stopped(Duration::from_secs(5)),
-            "fixture worker timed out"
-          );
           app.send(self::movement(MENU_CUBE, -3.0, 4000).nonblocking());
         }
       }),

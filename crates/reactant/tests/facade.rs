@@ -1,8 +1,8 @@
-use reactant::{app::App, host::View};
+use reactant::{Application, host::View};
 
 #[test]
 fn ui_only_app_needs_no_game_state_or_rules_session() {
-  let _app: App = App::new("ui-only/content").ui(View::new());
+  let _app = Application::new("ui-only/content").child(View::new());
 }
 
 #[test]

@@ -1,15 +1,12 @@
-//! Native input normalization into the shared chess UI action vocabulary.
+//! Global input normalization into the shared chess UI action vocabulary.
 
-use std::{cell::RefCell, collections::HashSet};
+use std::collections::HashSet;
 
-use battlement::{
-  ControllerButton, ControllerInputSettings, DebugUiSurface, ObjectId, PhysicalKey, Vector3,
-};
-use battlement_native::CoreActionBodyView;
-use reactant::{GameConsumer, GameHandle, app::App};
+use battlement::{ControllerButton, ControllerInputSettings, DebugUiSurface, PhysicalKey};
+use reactant::{Application, GameHandle, GlobalInput};
 
 use crate::{
-  chess_ui_state::{AppControl, ChessUiState, UiAction},
+  chess_ui_state::{ChessUiController, UiAction},
   reactant_game::ChessGame,
 };
 
@@ -42,172 +39,124 @@ const CONTROLLER_BUTTONS: [ControllerButton; 5] = [
   ControllerButton::Start,
 ];
 
-/// App-owned handles consumed by the rendered component tree and native input.
-pub(crate) struct ChessModel {
-  pub(crate) control: AppControl,
-  pub(crate) consumer: RefCell<Option<GameConsumer<ChessGame>>>,
-  pub(crate) game: RefCell<Option<GameHandle<ChessGame>>>,
+pub(crate) fn configure_application(application: Application) -> Application {
+  application.global_keys(GLOBAL_KEYS).controller_input(
+    ControllerInputSettings::new()
+      .buttons(CONTROLLER_BUTTONS)
+      .stick_dead_zone(0.35)
+      .repeat_timing_ms(275, 125),
+  )
 }
 
-impl ChessModel {
-  pub(crate) fn new(local: ChessUiState) -> Self {
-    Self {
-      control: AppControl::new(local),
-      consumer: RefCell::new(None),
-      game: RefCell::new(None),
-    }
-  }
-
-  pub(crate) fn game(&self) -> Option<GameHandle<ChessGame>> {
-    self.game.borrow().clone()
-  }
-
-  fn handle_core(&mut self, body: CoreActionBodyView<'_>) {
-    let game = self.game();
-    match body {
-      CoreActionBodyView::KeyDown(value) => self.key_down(game.as_ref(), value.physical_key()),
-      CoreActionBodyView::KeyUp(value) => {
-        self
-          .control
-          .dispatch(game.as_ref(), UiAction::KeyUp(value.physical_key()));
-      }
-      CoreActionBodyView::ControllerButtonDown(value) => {
-        self.controller_button(game.as_ref(), value.controller_button());
-      }
-      CoreActionBodyView::ControllerNavigate(value) if game.is_some() => {
-        self.control.dispatch(
+pub(crate) fn use_chess_input(control: ChessUiController, game: Option<GameHandle<ChessGame>>) {
+  reactant::use_global_input(move |input| match input {
+    GlobalInput::KeyDown(key) => key_down(&control, game.as_ref(), key),
+    GlobalInput::KeyUp(key) => control.dispatch(game.as_ref(), UiAction::KeyUp(key)),
+    GlobalInput::ControllerButtonDown(button) => controller_button(&control, game.as_ref(), button),
+    GlobalInput::ControllerNavigate(direction) => {
+      if game.is_some() {
+        control.dispatch(
           game.as_ref(),
           UiAction::MoveCursor(crate::cursor::moved_in_direction(
-            self.control.snapshot().cursor,
-            value.controller_direction(),
+            control.current().cursor,
+            direction,
           )),
         );
       }
-      CoreActionBodyView::DragStart(value) if game.is_some() => {
-        let piece = ObjectId::from_bytes(value.object_id()).expect("validated drag object");
-        self
-          .control
-          .dispatch(game.as_ref(), UiAction::BeginDrag(piece));
-      }
-      CoreActionBodyView::DragEnd(value) if game.is_some() => {
-        let piece = ObjectId::from_bytes(value.object_id()).expect("validated drag object");
-        let [x, y, z] = value.world_position();
-        self.control.dispatch(
-          game.as_ref(),
-          UiAction::EndDrag(piece, crate::square_at(Vector3::new(x, y, z))),
-        );
-      }
-      _ => {}
     }
-  }
+    GlobalInput::ControllerButtonUp(_) => {}
+  });
+}
 
-  fn key_down(&self, game: Option<&GameHandle<ChessGame>>, key: PhysicalKey) {
-    self.control.dispatch(game, UiAction::KeyDown(key));
-    let held = self.control.snapshot().held;
-    if restart_shortcut(&held) {
-      self.control.request_restart();
-      return;
-    }
-    match key {
-      PhysicalKey::KeyL => self
-        .control
-        .dispatch(game, UiAction::ShowDebug(DebugUiSurface::LogViewer)),
-      PhysicalKey::ArrowLeft
-      | PhysicalKey::ArrowRight
-      | PhysicalKey::ArrowUp
-      | PhysicalKey::ArrowDown
-        if game.is_some() =>
-      {
-        self.control.dispatch(
-          game,
-          UiAction::MoveCursor(crate::cursor::moved(self.control.snapshot().cursor, key)),
-        );
-      }
-      PhysicalKey::Escape if self.control.snapshot().selected.is_some() => {
-        self.control.dispatch(game, UiAction::CancelSelection);
-      }
-      PhysicalKey::Escape if game.is_some() => {
-        self.control.dispatch(game, UiAction::TogglePause);
-      }
-      PhysicalKey::Equal => self.adjust_volume(game, 0.1),
-      PhysicalKey::Minus => self.adjust_volume(game, -0.1),
-      PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space if game.is_none() => {
-        self.control.request_start(true);
-      }
-      PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space => {
-        self.activate_cursor(game.expect("active session checked above"));
-      }
-      _ => {}
-    }
+fn key_down(control: &ChessUiController, game: Option<&GameHandle<ChessGame>>, key: PhysicalKey) {
+  let mut held = control.current().held;
+  held.insert(key);
+  if restart_shortcut(&held) {
+    control.request_restart();
+    return;
   }
-
-  fn controller_button(&self, game: Option<&GameHandle<ChessGame>>, button: ControllerButton) {
-    let local = self.control.snapshot();
-    match button {
-      ControllerButton::Start if game.is_some() => {
-        self.control.dispatch(game, UiAction::TogglePause);
-      }
-      ControllerButton::South if local.pause_open() => self.control.dispatch(
+  control.dispatch(game, UiAction::KeyDown(key));
+  match key {
+    PhysicalKey::KeyL => control.dispatch(game, UiAction::ShowDebug(DebugUiSurface::LogViewer)),
+    PhysicalKey::ArrowLeft
+    | PhysicalKey::ArrowRight
+    | PhysicalKey::ArrowUp
+    | PhysicalKey::ArrowDown
+      if game.is_some() =>
+    {
+      control.dispatch(
         game,
-        UiAction::RequestNewGame {
-          cursor_visible: true,
-        },
-      ),
-      ControllerButton::East if local.confirm_new_game() => self
-        .control
-        .dispatch(game, UiAction::DismissNewGameConfirmation),
-      ControllerButton::East if local.pause_open() => {
-        self.control.dispatch(game, UiAction::TogglePause);
-      }
-      ControllerButton::LeftShoulder if local.pause_open() => self.adjust_volume(game, -0.1),
-      ControllerButton::RightShoulder if local.pause_open() => self.adjust_volume(game, 0.1),
-      ControllerButton::LeftShoulder if game.is_some() => {
-        self.control.dispatch(game, UiAction::CycleCursor(false));
-      }
-      ControllerButton::RightShoulder if game.is_some() => {
-        self.control.dispatch(game, UiAction::CycleCursor(true));
-      }
-      ControllerButton::South if game.is_some() => self.activate_cursor(game.unwrap()),
-      ControllerButton::East if game.is_some() => {
-        self.control.dispatch(game, UiAction::CancelSelection);
-      }
-      ControllerButton::South => {
-        self.control.request_start(true);
-      }
-      _ => {}
+        UiAction::MoveCursor(crate::cursor::moved(control.current().cursor, key)),
+      );
     }
-  }
-
-  fn activate_cursor(&self, game: &GameHandle<ChessGame>) {
-    let local = self.control.snapshot();
-    self.control.dispatch(
-      Some(game),
-      if local.selected == Some(local.cursor) {
-        UiAction::CancelSelection
-      } else {
-        UiAction::Activate(local.cursor)
-      },
-    );
-  }
-
-  fn adjust_volume(&self, game: Option<&GameHandle<ChessGame>>, delta: f64) {
-    self.control.dispatch(
-      game,
-      UiAction::SetVolume((self.control.snapshot().volume + delta).clamp(0.0, 1.0)),
-    );
+    PhysicalKey::Escape if control.current().selected.is_some() => {
+      control.dispatch(game, UiAction::CancelSelection);
+    }
+    PhysicalKey::Escape if game.is_some() => control.dispatch(game, UiAction::TogglePause),
+    PhysicalKey::Equal => adjust_volume(control, game, 0.1),
+    PhysicalKey::Minus => adjust_volume(control, game, -0.1),
+    PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space if game.is_none() => {
+      control.request_start(true);
+    }
+    PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space => {
+      activate_cursor(control, game.expect("active session checked above"));
+    }
+    _ => {}
   }
 }
 
-pub(crate) fn configure_app(app: App<ChessModel>) -> App<ChessModel> {
-  app
-    .global_keys(GLOBAL_KEYS)
-    .controller_input(
-      ControllerInputSettings::new()
-        .buttons(CONTROLLER_BUTTONS)
-        .stick_dead_zone(0.35)
-        .repeat_timing_ms(275, 125),
-    )
-    .on_core_action(|model, body| model.handle_core(body))
+fn controller_button(
+  control: &ChessUiController,
+  game: Option<&GameHandle<ChessGame>>,
+  button: ControllerButton,
+) {
+  let local = control.current();
+  match button {
+    ControllerButton::Start if game.is_some() => control.dispatch(game, UiAction::TogglePause),
+    ControllerButton::South if local.pause_open() => control.dispatch(
+      game,
+      UiAction::RequestNewGame {
+        cursor_visible: true,
+      },
+    ),
+    ControllerButton::East if local.confirm_new_game() => {
+      control.dispatch(game, UiAction::DismissNewGameConfirmation);
+    }
+    ControllerButton::East if local.pause_open() => control.dispatch(game, UiAction::TogglePause),
+    ControllerButton::LeftShoulder if local.pause_open() => adjust_volume(control, game, -0.1),
+    ControllerButton::RightShoulder if local.pause_open() => adjust_volume(control, game, 0.1),
+    ControllerButton::LeftShoulder if game.is_some() => {
+      control.dispatch(game, UiAction::CycleCursor(false));
+    }
+    ControllerButton::RightShoulder if game.is_some() => {
+      control.dispatch(game, UiAction::CycleCursor(true));
+    }
+    ControllerButton::South if game.is_some() => {
+      activate_cursor(control, game.expect("active game"));
+    }
+    ControllerButton::East if game.is_some() => control.dispatch(game, UiAction::CancelSelection),
+    ControllerButton::South => control.request_start(true),
+    _ => {}
+  }
+}
+
+fn activate_cursor(control: &ChessUiController, game: &GameHandle<ChessGame>) {
+  let local = control.current();
+  control.dispatch(
+    Some(game),
+    if local.selected == Some(local.cursor) {
+      UiAction::CancelSelection
+    } else {
+      UiAction::Activate(local.cursor)
+    },
+  );
+}
+
+fn adjust_volume(control: &ChessUiController, game: Option<&GameHandle<ChessGame>>, delta: f64) {
+  control.dispatch(
+    game,
+    UiAction::SetVolume((control.current().volume + delta).clamp(0.0, 1.0)),
+  );
 }
 
 fn restart_shortcut(held: &HashSet<PhysicalKey>) -> bool {

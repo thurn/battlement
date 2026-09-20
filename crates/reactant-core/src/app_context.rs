@@ -2,6 +2,7 @@
 
 use std::{
   cell::RefCell,
+  path::PathBuf,
   rc::{Rc, Weak},
 };
 
@@ -52,6 +53,16 @@ pub fn use_viewport_size() -> ScreenSize {
       (geometry.viewport.height / scale).round() as u32,
     )
   })
+}
+
+/// Connection capabilities supplied to component-first application services.
+#[doc(hidden)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HostEnvironment {
+  /// Selected native host modules.
+  pub modules: Vec<String>,
+  /// Per-application persistent storage directory.
+  pub persistent_data_path: Option<PathBuf>,
 }
 
 impl AppHandle {
@@ -143,6 +154,7 @@ pub(crate) struct Observations {
   pub(crate) reduced_motion: ReducedMotionPreference,
   pub(crate) screen: ScreenSize,
   pub(crate) remount: u64,
+  pub(crate) host: HostEnvironment,
 }
 
 pub(crate) struct QueuedCommand {

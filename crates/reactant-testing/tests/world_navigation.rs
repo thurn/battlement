@@ -4,12 +4,12 @@ use battlement::{
 };
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{
-  app::App,
   callback::IntoCallback,
   event::ReactantEvent,
   host::ButtonHost,
   overlay::{Overlay, OverlayHost},
   prelude::*,
+  testing::App,
   world,
 };
 use reactant_testing::Display;

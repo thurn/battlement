@@ -275,11 +275,11 @@ source = "b772ef6d622e4d6789b856fcbe65f188de07ef0934734362f4225ccf97db41df"
 profile = "macos"
 scenario = "presentation inspector"
 checkpoint = "blocked-worker"
-sha256 = "3d83cdc59dfda23178e6baeddfdf8a9dd9089e565e496a6e9f3baebed3db0acf"
+sha256 = "22145a546ad0272849aa88e5ca68c39f111e3ed5509d1a7f00c454178d45c1e1"
 width = 1280
 height = 720
-size_bytes = 91306
-source = "8bbff7b4bb06dbcf0ded353e401188a643ebfb1c80b79599692f0e028c0747c8"
+size_bytes = 97020
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"
@@ -415,91 +415,81 @@ source = "f1693fe53a3cd310320e8eea3fe687680a5135343536cc0868d6aa415fb1da17"
 profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "accepted-before-playback"
-sha256 = "8e19699a4cbcf42b651f981e652593b04b51e3403a031f3220b29d0dfc66608f"
+sha256 = "767005b76c450f1798f43b9a52944ac9ee1d2506bbbc21d686e640bbca91d0ef"
 width = 1280
 height = 720
-size_bytes = 44761
-source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+size_bytes = 44816
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "first-prompt"
-sha256 = "e54084365af78c5bd51c58b82f5b3c845a2a9e374cf304b93cd89d2414754c7a"
+sha256 = "0f0e8149dfb843596c3691a1f2d4f2c0f17b46a54a0c17e5820824aee4b97847"
 width = 1280
 height = 720
 size_bytes = 45335
-source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "second-prompt"
-sha256 = "6b28125789e2826fe6f69294b1b8c77499f3012dcb4415e3ef610468ab99ae57"
+sha256 = "1e6d44fc0fe3a3fd73e22e4dfdb01c1b21d20d5bfd7412e6a45f023028afe595"
 width = 1280
 height = 720
-size_bytes = 44581
-source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+size_bytes = 44585
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "stale-prompt-menu"
-sha256 = "bb99b2bf54523957eb0c54e2cf28ce12159672a21b37d40f392b99ee695f0b25"
+sha256 = "24fa556d003a35d6b80dc50cedf5c6f595a809992217ee2720ac70dbf52ea51c"
 width = 1280
 height = 720
-size_bytes = 45099
-source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+size_bytes = 45104
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "stopped-menu"
-sha256 = "1fc244d7e575138e03955f9b6e70f2476da92a78bd4fabcf7006ad6f9381cd20"
+sha256 = "8bef7f1e6d2a003885a5e8b3c2884ea60b41956eaaddf8771ada05d87e8a5212"
 width = 1280
 height = 720
-size_bytes = 38652
-source = "3054bbb46b03f35d6f772860c71bf7397f73d65bc01b5be8d0f8373bfa02454a"
+size_bytes = 36429
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"
 scenario = "rules session acceptance"
 checkpoint = "accepted-ready"
-sha256 = "ffd3d3bdc2b449e793c2f7d09785973147092f69d0108ddec33b3258caf580c9"
+sha256 = "3bb2a7fce072ea5bb62248c3878d6b43e3244383f28d81abfd6c3dcd1d8f37c9"
 width = 1280
 height = 720
-size_bytes = 41416
-source = "d31c9498c42695776aa08d0bee5763f905a8260a29c0fa2ff147215a5bd893d0"
+size_bytes = 39812
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"
 scenario = "rules session acceptance"
 checkpoint = "failed-recovery-menu"
-sha256 = "6306399f803fde34c155c2be66f2bec10039498b7aae71079135f455cf6b87cc"
+sha256 = "37a3988ba9fc9ef28cf43cf48f97ba1b378ce331f7465602d54600e7bbe72870"
 width = 1280
 height = 720
-size_bytes = 46866
-source = "d31c9498c42695776aa08d0bee5763f905a8260a29c0fa2ff147215a5bd893d0"
-
-[[baselines]]
-profile = "macos"
-scenario = "rules session acceptance"
-checkpoint = "held-final-output"
-sha256 = "8e6750da0a636ef6f0b5c21482a96090bbd67fb8f99255538a65ea48f4e23a4a"
-width = 1280
-height = 720
-size_bytes = 41080
-source = "d31c9498c42695776aa08d0bee5763f905a8260a29c0fa2ff147215a5bd893d0"
+size_bytes = 45295
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"
 scenario = "rules session acceptance"
 checkpoint = "human-wait-menu"
-sha256 = "c7c5c4249e1a95c3dfcbaa20e0443451c1c8e1968882a696b1807deb4a69c62f"
+sha256 = "7a501b9ab57793bae1202485c0f3a866f5cd4fa1b299a4a7068bc7da6fac0a33"
 width = 1280
 height = 720
-size_bytes = 42519
-source = "d31c9498c42695776aa08d0bee5763f905a8260a29c0fa2ff147215a5bd893d0"
+size_bytes = 40962
+source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 
 [[baselines]]
 profile = "macos"

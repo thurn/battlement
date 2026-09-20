@@ -2,7 +2,7 @@ use std::{rc::Rc, time::Duration};
 
 use battlement::{ObjectId, ParentScene, Vector3, object_id};
 use reactant::{
-  GameConsumer, GameHandle,
+  GameHandle,
   animation_controls::{AnimationSequence, MotionSelector},
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame},
@@ -18,8 +18,8 @@ struct Policy;
 struct Context(ExecutionMode<PausableGame, Policy>);
 struct Proof {
   game: GameHandle<PausableGame>,
-  consumer: GameConsumer<PausableGame>,
 }
+struct Root;
 struct Menu(Rc<Proof>);
 struct Board;
 
@@ -29,32 +29,9 @@ enum Animation {
   Hold,
 }
 
-pub(crate) fn app() -> crate::ReactantEngine {
-  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
-  let game = app.start_game::<PausableGame>(0, |connection| {
-    Context(ExecutionMode::Interactive {
-      connection,
-      policy: Policy,
-    })
-  });
-  let consumer = app.game_consumer::<PausableGame>();
-  consumer.resume_automatic_submission();
-  let proof = Rc::new(Proof { game, consumer });
-  app
-    .ui(
-      View::new()
-        .style(
-          Style::new()
-            .padding(32.px())
-            .background_color(Color::rgb(0.04, 0.07, 0.12))
-            .color(Color::WHITE),
-        )
-        .child((
-          Heading::new(ls("Gameplay presentation pause"), 1),
-          Menu(proof),
-          GameRoot::new(Board),
-        )),
-    )
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(Root)
     .document(|mut document| {
       document.root_id = ROOT_ID;
       document
@@ -69,20 +46,37 @@ pub(crate) fn app() -> crate::ReactantEngine {
     })
 }
 
+impl Component for Root {
+  fn render(&self) -> impl Render {
+    let game = reactant::use_game::<PausableGame, _>((), 0, |connection| {
+      Context(ExecutionMode::Interactive {
+        connection,
+        policy: Policy,
+      })
+    });
+    let proof = Rc::new(Proof { game });
+    View::new()
+      .style(
+        Style::new()
+          .padding(32.px())
+          .background_color(Color::rgb(0.04, 0.07, 0.12))
+          .color(Color::WHITE),
+      )
+      .child((
+        Heading::new(ls("Gameplay presentation pause"), 1),
+        Menu(proof),
+        GameRoot::new(Board),
+      ))
+  }
+}
+
 impl Component for Menu {
   fn render(&self) -> impl Render {
     let (open, set_open) = reactant::hooks::use_state(false);
     let begin = self.0.clone();
     View::new().child((
       Button::new(ls("Begin paused game")).on_press(move || {
-        if begin.game.dispatch(()) == reactant::DispatchResult::Started {
-          assert!(
-            begin
-              .consumer
-              .wait_for_worker_stopped(Duration::from_secs(5)),
-            "pause proof worker timed out"
-          );
-        }
+        begin.game.dispatch(());
       }),
       Button::new(ls("Settings")).on_press(move || set_open.set(!open)),
       Heading::new(

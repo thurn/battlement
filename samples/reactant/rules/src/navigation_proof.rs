@@ -3,20 +3,15 @@ use battlement::{ParentScene, PickingMode, Prop, Vector3};
 use reactant::{
   hooks,
   overlay::{Overlay, OverlayHost},
-  portal::PortalTarget,
   prelude::*,
   world,
 };
 use trox::ls;
 
-struct NavigationProof {
-  target: PortalTarget,
-}
-pub(crate) fn app() -> crate::ReactantEngine {
-  let mut app = reactant::app::App::new(crate::CONTENT_SCENE);
-  let target = app.create_portal_target();
-  app = app
-    .ui(NavigationProof { target })
+struct NavigationProof;
+pub(crate) fn app() -> crate::ReactantApplication {
+  reactant::Application::new(crate::CONTENT_SCENE)
+    .child(NavigationProof)
     .document(|mut doc| {
       doc.root_id = ROOT_ID;
       doc.element.picking_mode = Prop::Set(PickingMode::Ignore);
@@ -29,11 +24,11 @@ pub(crate) fn app() -> crate::ReactantEngine {
         .background(Color::rgb(0.035, 0.05, 0.08))
         .position(Vector3::new(0.0, 0.0, -10.0))
         .into_object(camera.object_id)
-    });
-  app
+    })
 }
 impl Component for NavigationProof {
   fn render(&self) -> impl Render {
+    let target = reactant::use_portal_target();
     let (focused, focus) = hooks::use_state(None::<usize>);
     let (modal, show) = hooks::use_state(false);
     let (removed, remove) = hooks::use_state(false);
@@ -65,17 +60,18 @@ impl Component for NavigationProof {
                 .on_pointer_capture_out(move |event:reactant::event::ReactantEvent<battlement::PointerCaptureEvent>| {let id=event.payload().pointer_id;capture_off.update(move |v|v.iter().copied().filter(|value|*value!=id).collect());})),
           ))
         }).collect::<Vec<_>>()),
-        modal.then(||Overlay::modal(self.target.clone(),ls("World menu")).on_dismiss(close.update_callback(|_|false))
+        modal.then(||Overlay::modal(target.clone(),ls("World menu")).on_dismiss(close.update_callback(|_|false))
           .child(View::new().style(Style::new().width(420.px()).padding(24.px()).background_color(Color::rgb(0.08,0.14,0.22)).color(Color::WHITE))
             .child((Heading::new(ls("World menu"),1),Label::new(ls("Escape / B returns focus to the same world control.")),Button::new(ls("Close menu")).on_press(show.update_callback(|_|false))))))
       )),
-      OverlayHost::new(self.target.clone()),
+      OverlayHost::new(target),
     ))
   }
 }
 #[cfg(test)]
 mod tests {
-  use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
+  use battlement_fake::assets::FakeAssetCatalog;
+  use reactant_testing::Display;
   #[test]
   fn navigation_scene_mounts() {
     let mut assets = FakeAssetCatalog::new();
@@ -83,6 +79,6 @@ mod tests {
     assets.add_texture("reactant/assets/texture");
     assets.add_text_mesh_pro_font("reactant/world/font");
     assets.add_textures(crate::generated_asset_addresses());
-    let _ = FakeClient::connect(crate::navigation_proof::app(), assets);
+    let _ = Display::mount(crate::navigation_proof::app, assets);
   }
 }

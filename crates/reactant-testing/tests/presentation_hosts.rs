@@ -1,9 +1,9 @@
 use battlement::{ObjectId, ParentScene, Vector3};
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use reactant::{
-  app::App,
   host::{ButtonHost, ToggleButtonGroup},
   prelude::*,
+  testing::App,
 };
 use reactant_testing::Display;
 use trox::ls;

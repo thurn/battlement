@@ -2,12 +2,8 @@ use std::time::Duration;
 
 use battlement::{GameObjectKind, ImageFit, ImageState, ObjectId, PanelPoint, Vector3};
 use battlement_fake::assets::FakeAssetCatalog;
-use battlement_native::{
-  ConnectInput, ConnectView, Engine, NativeReducedMotionPreference, ResponseView, write_connect,
-};
 use battlement_rules::{
-  BOARD_TEXTURE, CONTENT_SCENE, DITTO_SEED, FONT, O_TEXTURE, TicTacToeEngine, VisualState,
-  X_TEXTURE,
+  BOARD_TEXTURE, CONTENT_SCENE, DITTO_SEED, FONT, O_TEXTURE, VisualState, X_TEXTURE,
 };
 use reactant_testing::Display;
 
@@ -16,28 +12,9 @@ const CELL_SIZE: f64 = 1.92;
 const TIMEOUT: Duration = Duration::from_secs(5);
 
 #[test]
-fn exported_connect_constructs_a_verified_snapshot_directly() {
-  let request = write_connect(&ConnectInput {
-    platform: "test",
-    unity_version: "test",
-    screen_width: 1280,
-    screen_height: 720,
-    focused: true,
-    paused: false,
-    reduced_motion_preference: NativeReducedMotionPreference::Unavailable,
-    custom_command_types: &[],
-    modules: &[],
-    persistent_data_path: None,
-    streaming_assets_path: None,
-  })
-  .unwrap();
-  let mut engine = battlement_rules::create_engine().unwrap();
-  let response =
-    Engine::connect(&mut engine, ConnectView::read(request.as_bytes()).unwrap()).unwrap();
-  let view = ResponseView::read(response.as_bytes()).unwrap();
-
-  assert_eq!(view.session_id(), response.session_id());
-  assert!(view.message_count() >= 1);
+fn exported_application_mounts_a_snapshot() {
+  let display = Display::mount(battlement_rules::application, self::asset_catalog());
+  assert!(display.objects().count() >= 1);
 }
 
 #[test]
@@ -234,9 +211,9 @@ fn reconnect_resets_round_state_and_deterministic_visual_registry_is_complete() 
   );
 }
 
-fn display(seed: u64) -> Display<TicTacToeEngine> {
-  Display::connect(
-    battlement_rules::create_seeded_engine(seed, std::time::Instant::now),
+fn display(seed: u64) -> Display {
+  Display::mount(
+    move || battlement_rules::create_seeded_application(seed, std::time::Instant::now),
     self::asset_catalog(),
   )
 }
@@ -249,10 +226,10 @@ fn asset_catalog() -> FakeAssetCatalog {
   assets
 }
 
-fn synchronize_initial(display: &mut Display<TicTacToeEngine>) {
+fn synchronize_initial(display: &mut Display) {
   display.poll();
   for _ in 0..4 {
-    if display.with_engine(|engine| engine.game_status()) == reactant::GameStatus::Ready {
+    if display.game_status::<battlement_rules::TicTacToe>() == Some(reactant::GameStatus::Ready) {
       return;
     }
     display.poll();
@@ -260,32 +237,32 @@ fn synchronize_initial(display: &mut Display<TicTacToeEngine>) {
   panic!("initial game presentation did not become ready");
 }
 
-fn wait_for_human_move(display: &mut Display<TicTacToeEngine>, cell: usize) -> ObjectId {
+fn wait_for_human_move(display: &mut Display, cell: usize) -> ObjectId {
   for _ in 0..4 {
     if let Some(marker) = self::mark_at(display, cell, X_TEXTURE)
       && self::status_text(display) == "Computer thinking…"
     {
       return marker;
     }
-    assert!(display.with_engine(|engine| engine.wait_for_output(TIMEOUT)));
+    assert!(display.wait_for_game_output::<battlement_rules::TicTacToe>(TIMEOUT));
     display.poll();
   }
   panic!("human checkpoint did not become visible");
 }
 
-fn synchronize_action(display: &mut Display<TicTacToeEngine>) {
+fn synchronize_action(display: &mut Display) {
   for _ in 0..8 {
-    if display.with_engine(|engine| engine.game_status()) == reactant::GameStatus::Ready {
-      assert!(display.with_engine(|engine| engine.wait_for_worker_stopped(TIMEOUT)));
+    if display.game_status::<battlement_rules::TicTacToe>() == Some(reactant::GameStatus::Ready) {
+      assert!(display.wait_for_game_worker::<battlement_rules::TicTacToe>(TIMEOUT));
       return;
     }
-    assert!(display.with_engine(|engine| engine.wait_for_output(TIMEOUT)));
+    assert!(display.wait_for_game_output::<battlement_rules::TicTacToe>(TIMEOUT));
     display.poll();
   }
   panic!("game output did not reach the completed-action boundary");
 }
 
-fn play_turn(display: &mut Display<TicTacToeEngine>, cell: usize) {
+fn play_turn(display: &mut Display, cell: usize) {
   self::click_cell(display, cell);
   self::wait_for_human_move(display, cell);
   self::synchronize_action(display);
@@ -293,7 +270,7 @@ fn play_turn(display: &mut Display<TicTacToeEngine>, cell: usize) {
   display.advance_frame();
 }
 
-fn play_round(display: &mut Display<TicTacToeEngine>, cells: &[usize]) {
+fn play_round(display: &mut Display, cells: &[usize]) {
   for cell in cells {
     if self::terminal(display) {
       return;
@@ -307,16 +284,16 @@ fn play_round(display: &mut Display<TicTacToeEngine>, cells: &[usize]) {
   }
 }
 
-fn terminal(display: &Display<TicTacToeEngine>) -> bool {
+fn terminal(display: &Display) -> bool {
   let status = self::status_text(display);
   status.contains("win") || status.contains("Draw")
 }
 
-fn click_cell(display: &mut Display<TicTacToeEngine>, index: usize) {
+fn click_cell(display: &mut Display, index: usize) {
   self::click_world(display, self::cell_position(index, 0.0));
 }
 
-fn click_world(display: &mut Display<TicTacToeEngine>, position: Vector3) {
+fn click_world(display: &mut Display, position: Vector3) {
   let pixels_per_world_unit = 1080.0 / 11.2;
   display.click_at(PanelPoint::new(
     960.0 + position.x * pixels_per_world_unit,
@@ -334,7 +311,7 @@ fn cell_position(index: usize, z: f64) -> Vector3 {
   )
 }
 
-fn assert_text(display: &Display<TicTacToeEngine>, expected: &str) {
+fn assert_text(display: &Display, expected: &str) {
   let y = if expected.starts_with("TIC TAC TOE") {
     4.7
   } else {
@@ -343,11 +320,11 @@ fn assert_text(display: &Display<TicTacToeEngine>, expected: &str) {
   assert_eq!(self::text_at(display, y), expected);
 }
 
-fn status_text(display: &Display<TicTacToeEngine>) -> &str {
+fn status_text(display: &Display) -> &str {
   self::text_at(display, 3.75)
 }
 
-fn text_at(display: &Display<TicTacToeEngine>, y: f64) -> &str {
+fn text_at(display: &Display, y: f64) -> &str {
   display
     .texts()
     .filter(|(object, _)| {
@@ -359,21 +336,21 @@ fn text_at(display: &Display<TicTacToeEngine>, y: f64) -> &str {
     .expect("positioned text")
 }
 
-fn image_ids(display: &Display<TicTacToeEngine>, texture: &str) -> Vec<ObjectId> {
+fn image_ids(display: &Display, texture: &str) -> Vec<ObjectId> {
   display
     .images()
     .filter_map(|(object, image)| (image.texture.as_str() == texture).then_some(object.id()))
     .collect()
 }
 
-fn mark_at(display: &Display<TicTacToeEngine>, index: usize, texture: &str) -> Option<ObjectId> {
+fn mark_at(display: &Display, index: usize, texture: &str) -> Option<ObjectId> {
   let expected = self::cell_position(index, -0.05);
   self::image_ids(display, texture)
     .into_iter()
     .find(|id| self::near(display.world_point(*id, Vector3::ZERO), expected))
 }
 
-fn hit_region_at(display: &Display<TicTacToeEngine>, expected: Vector3) -> ObjectId {
+fn hit_region_at(display: &Display, expected: Vector3) -> ObjectId {
   display
     .objects()
     .filter(|object| matches!(object.kind(), GameObjectKind::BoxHitRegion { .. }))
@@ -382,20 +359,20 @@ fn hit_region_at(display: &Display<TicTacToeEngine>, expected: Vector3) -> Objec
     .expect("row-major hit region")
 }
 
-fn assert_mark(display: &Display<TicTacToeEngine>, id: ObjectId, texture: &str) {
+fn assert_mark(display: &Display, id: ObjectId, texture: &str) {
   let GameObjectKind::Image { image } = display.object(id).expect("mark object").kind() else {
     panic!("mark is not an image")
   };
   assert_eq!(
-    image,
-    &ImageState {
+    *image,
+    ImageState {
       fit: ImageFit::Contain,
       ..ImageState::new(texture, 2.25, 2.25)
     }
   );
 }
 
-fn assert_position(display: &Display<TicTacToeEngine>, id: ObjectId, expected: Vector3) {
+fn assert_position(display: &Display, id: ObjectId, expected: Vector3) {
   assert!(self::near(display.world_point(id, Vector3::ZERO), expected));
 }
 
@@ -405,7 +382,7 @@ fn near(actual: Vector3, expected: Vector3) -> bool {
     && (actual.z - expected.z).abs() < 1e-9
 }
 
-fn mark_ids(display: &Display<TicTacToeEngine>) -> Vec<ObjectId> {
+fn mark_ids(display: &Display) -> Vec<ObjectId> {
   self::image_ids(display, X_TEXTURE)
     .into_iter()
     .chain(self::image_ids(display, O_TEXTURE))
