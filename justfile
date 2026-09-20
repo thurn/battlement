@@ -12,6 +12,9 @@ rt *args:
 chess *args:
     cargo run --quiet -p rt -- run --project samples/chess "$@"
 
+clear-chess:
+    rm ~/Library/Application\ Support/com.battlement.ditto.shell/chess-game.json
+
 # Build and run the Reactant chess UI sample; append flags such as `--web`.
 chess-ui *args:
     cargo run --quiet -p rt -- run --project samples/chess-ui "$@"
