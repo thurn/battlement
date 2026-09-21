@@ -400,6 +400,17 @@ where
     }
   }
 
+  /// Advances to the next finite presentation event, if one exists.
+  #[must_use]
+  pub fn advance_to_next_presentation_event(&mut self) -> bool {
+    self.pump_presentation();
+    let Some(deadline) = self.next_deadline() else {
+      return false;
+    };
+    self.advance_presentation_to(deadline);
+    true
+  }
+
   /// Returns elapsed fake presentation time.
   #[must_use]
   pub fn presentation_time(&self) -> Duration {

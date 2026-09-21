@@ -68,7 +68,7 @@ fn player_move_is_immediate_and_ai_move_follows_after_thinking() {
 
   self::synchronize_action(&mut display);
   assert!(self::image_ids(&display, O_TEXTURE).is_empty());
-  display.settle();
+  self::finish_computer_turn(&mut display);
   let ai = self::image_ids(&display, O_TEXTURE);
   assert_eq!(ai.len(), 1);
   self::assert_mark(&display, ai[0], O_TEXTURE);
@@ -258,7 +258,7 @@ fn play_turn(display: &mut Display, cell: usize) {
   self::click_cell(display, cell);
   self::wait_for_human_move(display, cell);
   self::synchronize_action(display);
-  display.settle();
+  self::finish_computer_turn(display);
 }
 
 fn play_round(display: &mut Display, cells: &[usize]) {
@@ -269,7 +269,7 @@ fn play_round(display: &mut Display, cells: &[usize]) {
     self::click_cell(display, *cell);
     self::synchronize_action(display);
     if self::status_text(display) == "Computer thinking…" {
-      display.settle();
+      self::finish_computer_turn(display);
     }
   }
 }
@@ -277,6 +277,10 @@ fn play_round(display: &mut Display, cells: &[usize]) {
 fn terminal(display: &Display) -> bool {
   let status = self::status_text(display);
   status.contains("win") || status.contains("Draw")
+}
+
+fn finish_computer_turn(display: &mut Display) {
+  display.until_presented(|display| self::status_text(display) != "Computer thinking…");
 }
 
 fn click_cell(display: &mut Display, index: usize) {

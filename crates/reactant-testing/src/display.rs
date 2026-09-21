@@ -88,6 +88,18 @@ impl Display<reactant::ApplicationEngine> {
     self.drive_game::<G>(timeout, Some(completed))
   }
 
+  /// Runs a game action and advances presentation until its observable result appears.
+  pub fn game_action_presented<G: reactant::rules::Game>(
+    &mut self,
+    timeout: Duration,
+    operation: impl FnOnce(&mut Self),
+    presented: impl Fn(&Self) -> bool,
+  ) -> GameActionResult {
+    let result = self.game_action::<G>(timeout, operation);
+    self.until_presented(presented);
+    result
+  }
+
   /// Synchronously presents game work until it is ready or asks for human input.
   pub fn settle_game<G: reactant::rules::Game>(&mut self, timeout: Duration) -> GameActionResult {
     self.flush();
@@ -520,9 +532,28 @@ where
     self.client.advance_frame();
   }
 
-  /// Advances all finite presentation work and leaves cosmetic loops running.
+  /// Advances all finite presentation work, including later automatic actions.
+  /// Use [`Self::until_presented`] to stop at a particular visible result.
   pub fn settle(&mut self) {
     self.client.settle();
+  }
+
+  /// Advances scheduled presentation events until the requested state is visible.
+  pub fn until_presented(&mut self, observed: impl Fn(&Self) -> bool) {
+    self.flush();
+    for _ in 0..10_000 {
+      if observed(self) {
+        return;
+      }
+      assert!(
+        self.client.advance_to_next_presentation_event(),
+        "observable result was not reached and no finite presentation event remains"
+      );
+    }
+    assert!(
+      observed(self),
+      "observable result was not reached after 10,000 presentation events"
+    );
   }
 
   /// Returns elapsed virtual presentation time.

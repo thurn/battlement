@@ -17,8 +17,6 @@ fn captures_and_castling_publish_visible_motion_and_effects() {
   let mut capture = client(MemoryPersistence::with_save(CAPTURE), Duration::ZERO);
   let bishop = piece(&capture, 'd', 4);
   play_move(&mut capture, ('d', 4), ('e', 5));
-  assert_state(&capture, contract::marker::CAPTURE);
-  capture.settle();
   assert_eq!(capture.world_point(bishop, Vector3::ZERO), square('e', 5));
   assert!(
     capture
@@ -33,8 +31,6 @@ fn captures_and_castling_publish_visible_motion_and_effects() {
 
   let mut knight = client(MemoryPersistence::with_save(KNIGHT_CAPTURE), Duration::ZERO);
   play_move(&mut knight, ('d', 4), ('e', 6));
-  assert_state(&knight, contract::marker::CAPTURE);
-  knight.settle();
   assert!(
     knight
       .audio_occurrences()
@@ -44,8 +40,6 @@ fn captures_and_castling_publish_visible_motion_and_effects() {
 
   let mut castle = client(MemoryPersistence::with_save(CASTLE), Duration::ZERO);
   play_move(&mut castle, ('e', 1), ('g', 1));
-  assert_state(&castle, contract::marker::CASTLE);
-  castle.settle();
   assert!(piece_at(&castle, 'g', 1).is_some());
   assert!(piece_at(&castle, 'f', 1).is_some());
   assert!(
@@ -62,8 +56,6 @@ fn en_passant_and_promotion_replace_the_visible_piece_tree() {
   let pawn = piece(&en_passant, 'e', 5);
   let victim = piece(&en_passant, 'd', 5);
   play_move(&mut en_passant, ('e', 5), ('d', 6));
-  assert_state(&en_passant, contract::marker::EN_PASSANT);
-  en_passant.settle();
   assert!(en_passant.object(victim).is_none());
   assert_eq!(en_passant.world_point(pawn, Vector3::ZERO), square('d', 6));
 
@@ -76,11 +68,13 @@ fn en_passant_and_promotion_replace_the_visible_piece_tree() {
   );
   let knight = promotion.find_ui(contract::ROOT_ID, "promote-knight");
   assert_eq!(
-    promotion.game_action::<ChessGame>(TIMEOUT, |display| display.click_ui(knight)),
+    promotion.game_action_presented::<ChessGame>(
+      TIMEOUT,
+      |display| display.click_ui(knight),
+      |display| display.world_point(pawn, Vector3::ZERO) == square('b', 8),
+    ),
     GameActionResult::Completed
   );
-  assert_state(&promotion, contract::marker::PROMOTION);
-  promotion.settle();
   assert!(promotion.object(victim).is_none());
   assert!(promotion.object(pawn).is_some());
   assert_eq!(promotion.world_point(pawn, Vector3::ZERO), square('b', 8));

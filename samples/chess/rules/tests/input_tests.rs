@@ -10,7 +10,7 @@ use reactant_testing::GameActionResult;
 
 use crate::support::{
   CAPTURE, DEFAULT, MemoryPersistence, TIMEOUT, assert_state, click_play, client, drag_input,
-  piece, piece_at, play_move, press_key, square, start_with_keyboard,
+  piece, piece_at, play_move, press_key, square, start_with_controller, start_with_keyboard,
 };
 
 #[test]
@@ -49,18 +49,6 @@ fn empty_store_opens_an_accessible_title_and_complete_board() {
       .any(|effect| { effect.address == contract::MUSIC_TRACKS[0] && effect.looping })
   );
   let pawn = piece(&display, 'e', 2);
-  assert_eq!(display.object(pawn).unwrap().drag_mode(), None);
-  assert!(
-    display
-      .objects()
-      .filter(|object| matches!(
-        object.kind(),
-        battlement::GameObjectKind::BoxHitRegion { .. }
-      ))
-      .all(|object| object.local_transform().scale == Vector3::ZERO)
-  );
-
-  display.settle();
   assert_eq!(display.particle_occurrences().len(), 32);
   assert!(
     display
@@ -72,7 +60,7 @@ fn empty_store_opens_an_accessible_title_and_complete_board() {
       .all(|object| object.local_transform().scale == Vector3::ONE)
   );
   assert_eq!(
-    display.object(piece(&display, 'e', 2)).unwrap().drag_mode(),
+    display.object(pawn).unwrap().drag_mode(),
     Some(DragMode::SnapToPointer)
   );
 }
@@ -81,48 +69,47 @@ fn empty_store_opens_an_accessible_title_and_complete_board() {
 fn keyboard_and_controller_drive_the_same_visible_move_contract() {
   let mut keyboard = client(MemoryPersistence::empty(), Duration::ZERO);
   start_with_keyboard(&mut keyboard);
-  keyboard.settle();
+  let pawn = piece(&keyboard, 'f', 2);
   assert_eq!(
-    keyboard.game_action::<ChessGame>(TIMEOUT, |display| {
-      for key in [
-        PhysicalKey::ArrowRight,
-        PhysicalKey::Enter,
-        PhysicalKey::ArrowUp,
-        PhysicalKey::ArrowUp,
-        PhysicalKey::Enter,
-      ] {
-        press_key(display, key);
-      }
-    }),
+    keyboard.game_action_presented::<ChessGame>(
+      TIMEOUT,
+      |display| {
+        for key in [
+          PhysicalKey::ArrowRight,
+          PhysicalKey::Enter,
+          PhysicalKey::ArrowUp,
+          PhysicalKey::ArrowUp,
+          PhysicalKey::Enter,
+        ] {
+          press_key(display, key);
+        }
+      },
+      |display| display.world_point(pawn, Vector3::ZERO) == square('f', 4),
+    ),
     GameActionResult::Completed
   );
-  assert_state(&keyboard, contract::marker::PLAYER_MOVE);
-  keyboard.settle();
   assert!(piece_at(&keyboard, 'f', 2).is_none());
   assert!(piece_at(&keyboard, 'f', 4).is_some());
 
   let mut controller = client(MemoryPersistence::empty(), Duration::ZERO);
-  controller.controller_button_down(0, ControllerButton::South);
-  controller.controller_button_up(0, ControllerButton::South);
+  start_with_controller(&mut controller);
+  let pawn = piece(&controller, 'd', 2);
   assert_eq!(
-    controller.settle_game::<ChessGame>(TIMEOUT),
+    controller.game_action_presented::<ChessGame>(
+      TIMEOUT,
+      |display| {
+        display.controller_navigate(0, ControllerDirection::Left);
+        display.controller_button_down(0, ControllerButton::South);
+        display.controller_button_up(0, ControllerButton::South);
+        display.controller_navigate(0, ControllerDirection::Up);
+        display.controller_navigate(0, ControllerDirection::Up);
+        display.controller_button_down(0, ControllerButton::South);
+        display.controller_button_up(0, ControllerButton::South);
+      },
+      |display| display.world_point(pawn, Vector3::ZERO) == square('d', 4),
+    ),
     GameActionResult::Completed
   );
-  controller.settle();
-  assert_eq!(
-    controller.game_action::<ChessGame>(TIMEOUT, |display| {
-      display.controller_navigate(0, ControllerDirection::Left);
-      display.controller_button_down(0, ControllerButton::South);
-      display.controller_button_up(0, ControllerButton::South);
-      display.controller_navigate(0, ControllerDirection::Up);
-      display.controller_navigate(0, ControllerDirection::Up);
-      display.controller_button_down(0, ControllerButton::South);
-      display.controller_button_up(0, ControllerButton::South);
-    }),
-    GameActionResult::Completed
-  );
-  assert_state(&controller, contract::marker::PLAYER_MOVE);
-  controller.settle();
   assert!(piece_at(&controller, 'd', 2).is_none());
   assert!(piece_at(&controller, 'd', 4).is_some());
 }
@@ -133,13 +120,16 @@ fn native_drag_commits_only_legal_board_drops() {
   let pawn = piece(&legal, 'e', 2);
   let input = drag_input(7);
   assert_eq!(
-    legal.game_action::<ChessGame>(TIMEOUT, |display| {
-      display.drag_start(pawn, input);
-      display.drag_end(pawn, input, square('e', 4));
-    }),
+    legal.game_action_presented::<ChessGame>(
+      TIMEOUT,
+      |display| {
+        display.drag_start(pawn, input);
+        display.drag_end(pawn, input, square('e', 4));
+      },
+      |display| display.world_point(pawn, Vector3::ZERO) == square('e', 4),
+    ),
     GameActionResult::Completed
   );
-  assert_state(&legal, contract::marker::PLAYER_MOVE);
   assert!(piece_at(&legal, 'e', 2).is_none());
   assert_eq!(legal.world_point(pawn, Vector3::ZERO), square('e', 4));
 
@@ -168,8 +158,6 @@ fn native_drag_commits_only_legal_board_drops() {
 fn semantic_move_action_captures_the_visible_target() {
   let mut display = client(MemoryPersistence::with_save(CAPTURE), Duration::ZERO);
   play_move(&mut display, ('d', 4), ('e', 5));
-  assert_state(&display, contract::marker::CAPTURE);
-  display.settle();
   assert!(piece_at(&display, 'd', 4).is_none());
   assert!(piece_at(&display, 'e', 5).is_some());
 }

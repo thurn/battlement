@@ -16,7 +16,6 @@ fn accepted_move_is_observable_after_an_opaque_engine_reload() {
   let persistence = MemoryPersistence::empty();
   let mut first = client(persistence.clone(), Duration::from_secs(1));
   click_play(&mut first);
-  first.settle();
   assert_eq!(
     first.game_action::<ChessGame>(TIMEOUT, |display| {
       for key in [
@@ -109,7 +108,6 @@ fn diagnostics_metadata_exists_only_for_the_selected_host_module() {
 fn music_crossfades_and_reset_does_not_replay_completed_opening_beats() {
   let mut display = client(MemoryPersistence::empty(), Duration::ZERO);
   click_play(&mut display);
-  display.settle();
   let spawn_count = display.particle_occurrences().len();
 
   display.until_timer(|display| {
@@ -149,7 +147,6 @@ fn music_crossfades_and_reset_does_not_replay_completed_opening_beats() {
     GameActionResult::Completed
   );
   assert_state(&display, contract::marker::REFRESHED);
-  display.settle();
   assert_eq!(display.particle_occurrences().len(), spawn_count);
   assert!(
     display

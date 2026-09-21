@@ -9,8 +9,8 @@ use std::{
 };
 
 use battlement::{
-  Connect, GameObjectKind, ObjectId, PhysicalKey, PointerButton, ScreenPosition, ScreenSize,
-  Vector3,
+  Connect, ControllerButton, GameObjectKind, ObjectId, PhysicalKey, PointerButton, ScreenPosition,
+  ScreenSize, Vector3,
 };
 use battlement_fake::{
   assets::{FakeAssetCatalog, FakePrefab},
@@ -126,7 +126,19 @@ pub fn piece_at(display: &Display, file: char, rank: u8) -> Option<ObjectId> {
 }
 
 pub fn play_move(display: &mut Display, from: (char, u8), to: (char, u8)) {
-  assert_eq!(request_move(display, from, to), GameActionResult::Completed);
+  let moving = piece(display, from.0, from.1);
+  let action = display.find_ui(
+    contract::ROOT_ID,
+    &format!("move-{}{}-{}{}", from.0, from.1, to.0, to.1),
+  );
+  assert_eq!(
+    display.game_action_presented::<ChessGame>(
+      TIMEOUT,
+      |display| display.click_ui(action),
+      |display| display.world_point(moving, Vector3::ZERO) == square(to.0, to.1),
+    ),
+    GameActionResult::Completed
+  );
 }
 
 pub fn request_move(display: &mut Display, from: (char, u8), to: (char, u8)) -> GameActionResult {
@@ -161,6 +173,17 @@ pub fn start_with_keyboard(display: &mut Display) {
     display.settle_game::<ChessGame>(TIMEOUT),
     GameActionResult::Completed
   );
+  opening_presented(display);
+}
+
+pub fn start_with_controller(display: &mut Display) {
+  display.controller_button_down(0, ControllerButton::South);
+  display.controller_button_up(0, ControllerButton::South);
+  assert_eq!(
+    display.settle_game::<ChessGame>(TIMEOUT),
+    GameActionResult::Completed
+  );
+  opening_presented(display);
 }
 
 pub fn click_play(display: &mut Display) {
@@ -170,6 +193,17 @@ pub fn click_play(display: &mut Display) {
     display.settle_game::<ChessGame>(TIMEOUT),
     GameActionResult::Completed
   );
+  opening_presented(display);
+}
+
+fn opening_presented(display: &mut Display) {
+  display.until_presented(|display| {
+    display.particle_occurrences().len() == 32
+      && display
+        .objects()
+        .filter(|object| matches!(object.kind(), GameObjectKind::BoxHitRegion { .. }))
+        .all(|object| object.local_transform().scale == Vector3::ONE)
+  });
 }
 
 impl MemoryPersistence {
