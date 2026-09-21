@@ -390,6 +390,16 @@ impl Coordinator {
     self.timers.borrow_mut().remove(identity);
   }
 
+  pub(crate) fn next_timer_due_in(&self) -> Option<Duration> {
+    let now = (self.now.borrow())();
+    self
+      .timers
+      .borrow()
+      .values()
+      .map(|timer| timer.due.saturating_duration_since(now))
+      .min()
+  }
+
   fn poll_timers(&self) -> bool {
     let now = (self.now.borrow())();
     let due = self

@@ -3,7 +3,7 @@ use std::{cell::Cell, rc::Rc, time::Duration};
 use battlement::{FloatValue, ObjectId, ParentScene, Prop, StyleValue, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{prelude::*, testing::App, world};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 
 const WORLD: ObjectId = object_id!("321a0000-0000-4000-8000-000000000001");
 
@@ -43,7 +43,7 @@ fn ui_and_world_sample_the_same_clock_without_rendering_rules_or_frames() {
   let frame = display.frame();
   for expected in [0.0, 0.25, 0.5, 0.75, 1.0] {
     if expected > 0.0 {
-      display.advance_time(Duration::from_millis(250));
+      Clock::advance(&mut display, Duration::from_millis(250));
     }
     assert_eq!(
       display.ui_element(opacity).style().opacity,
@@ -150,15 +150,15 @@ fn assert_pair(display: &Display<App>, opacity: ObjectId, expected: f32) {
 #[test]
 fn pause_resume_speed_and_completion_share_the_existing_temporal_driver() {
   let (mut display, opacity, probe) = controlled();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   probe.command(battlement::MotionPlaybackCommand::Pause);
   display.poll();
-  display.advance_time(Duration::from_millis(400));
+  Clock::advance(&mut display, Duration::from_millis(400));
   assert_pair(&display, opacity, 0.25);
   probe.command(battlement::MotionPlaybackCommand::SetSpeed { value: 2.0 });
   probe.command(battlement::MotionPlaybackCommand::Play);
   display.poll();
-  display.advance_time(Duration::from_millis(125));
+  Clock::advance(&mut display, Duration::from_millis(125));
   assert_pair(&display, opacity, 0.5);
   probe.command(battlement::MotionPlaybackCommand::Play);
   display.poll();
@@ -172,12 +172,12 @@ fn pause_resume_speed_and_completion_share_the_existing_temporal_driver() {
 #[test]
 fn stopped_slots_hold_the_displayed_pose_and_emit_only_one_terminal_boundary() {
   let (mut display, opacity, probe) = controlled();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   probe.command(battlement::MotionPlaybackCommand::Stop);
   display.poll();
   display.settle();
   assert_eq!(display.presentation_time(), Duration::from_millis(250));
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   probe.command(battlement::MotionPlaybackCommand::Complete);
   display.poll();
   assert_pair(&display, opacity, 0.25);
@@ -188,7 +188,7 @@ fn stopped_slots_hold_the_displayed_pose_and_emit_only_one_terminal_boundary() {
 #[test]
 fn explicit_completion_applies_the_target_after_an_intermediate_sample() {
   let (mut display, opacity, probe) = controlled();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   probe.command(battlement::MotionPlaybackCommand::Complete);
   display.poll();
   assert_pair(&display, opacity, 1.0);
@@ -199,16 +199,16 @@ fn explicit_completion_applies_the_target_after_an_intermediate_sample() {
 #[test]
 fn reconnect_preserves_paused_motion_and_its_original_origin() {
   let (mut display, opacity, probe) = controlled();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   probe.command(battlement::MotionPlaybackCommand::Pause);
   display.poll();
   display.reconnect();
   assert_pair(&display, opacity, 0.25);
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert_pair(&display, opacity, 0.25);
   probe.command(battlement::MotionPlaybackCommand::Play);
   display.poll();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   assert_pair(&display, opacity, 0.5);
   display.settle();
   assert_pair(&display, opacity, 1.0);
@@ -242,19 +242,19 @@ fn geometric_hover_composes_with_moving_placement_and_releases_to_the_latest_bas
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("motion/scene");
   let mut display = Display::connect(app, assets);
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   display.pointer_move(0, battlement::PanelPoint::new(960.0, 540.0), false);
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   let pose = display.object(WORLD).unwrap().local_transform().position;
   assert!((pose.x - 3.0).abs() < 0.00001, "{pose:?}");
   assert!((pose.y - 0.175).abs() < 0.00001, "{pose:?}");
   display.pointer_move(0, battlement::PanelPoint::new(1.0, 1.0), false);
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   let pose = display.object(WORLD).unwrap().local_transform().position;
   assert!((pose.x - 4.0).abs() < 0.00001, "{pose:?}");
   assert!((pose.y - 0.18125).abs() < 0.00001, "{pose:?}");
   display.reconnect();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   let pose = display.object(WORLD).unwrap().local_transform().position;
   assert!((pose.y - 0.1875).abs() < 0.00001, "{pose:?}");
   display.settle();
@@ -312,11 +312,11 @@ fn a_stationary_pointer_is_repicked_as_a_target_crosses_its_screen_position() {
   let stationary = battlement::PanelPoint::new(960.0, 540.0);
   display.pointer_move(0, stationary, false);
   assert_eq!(display.with_engine(|app| *app.model()), (0, 0));
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   assert_eq!(display.with_engine(|app| *app.model()), (1, 0));
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert!(display.object(WORLD).unwrap().local_transform().position.y > 0.0);
-  display.advance_time(Duration::from_millis(300));
+  Clock::advance(&mut display, Duration::from_millis(300));
   assert_eq!(display.with_engine(|app| *app.model()), (1, 1));
   display.settle();
   let pose = display.object(WORLD).unwrap().local_transform().position;
@@ -359,7 +359,7 @@ fn native_only_hover_does_not_evaluate_rust() {
   let mut display = Display::connect(app, assets);
   let render_count = renders.get();
   display.pointer_move(0, battlement::PanelPoint::new(960.0, 540.0), false);
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   assert!(display.object(WORLD).unwrap().local_transform().position.y > 0.0);
   assert_eq!(renders.get(), render_count);
 }
@@ -391,13 +391,13 @@ fn a_retarget_uses_the_presented_pose_and_keeps_spring_velocity() {
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("motion/scene");
   let mut display = Display::connect(app, assets);
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   let before = display.object(WORLD).unwrap().local_transform().position.x;
   assert!((0.3..0.4).contains(&before));
   display.click_ui(display.find_ui(root, "retarget"));
   let replaced = display.object(WORLD).unwrap().local_transform().position.x;
   assert!((before - replaced).abs() < 0.00001);
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   let moving = display.object(WORLD).unwrap().local_transform().position.x;
   assert!(
     moving > before,
@@ -448,7 +448,7 @@ fn controlled_motion_does_not_charge_virtual_time_or_frames() {
   let opacity = display.find_ui(root, "opacity");
   display.settle();
   assert_eq!(display.presentation_time(), Duration::ZERO);
-  display.advance_time(Duration::from_secs(2));
+  Clock::advance(&mut display, Duration::from_secs(2));
   display.advance_frame();
   assert_pair(&display, opacity, 0.0);
   clock
@@ -476,7 +476,7 @@ fn inherited_reduced_motion_snaps_world_placement_and_preserves_opacity_timing()
     display.object(WORLD).unwrap().local_transform().position.x,
     1.0
   );
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   assert_eq!(
     display.object(WORLD).unwrap().local_transform().position.x,
     1.0
@@ -513,7 +513,7 @@ fn a_world_exit_keeps_the_visual_until_the_sampled_motion_finishes() {
   let mut display = Display::connect(app, assets);
   display.click_ui(display.find_ui(root, "remove"));
   assert!(display.object(WORLD).is_some());
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert!((display.object(WORLD).unwrap().local_transform().position.x - 0.5).abs() < 0.00001);
   display.settle();
   assert!(display.object(WORLD).is_none());

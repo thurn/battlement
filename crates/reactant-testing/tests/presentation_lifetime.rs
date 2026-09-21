@@ -7,7 +7,7 @@ use std::{
 use battlement::{ClickEvent, ObjectId, ParentScene, UiEvent};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{element_ref, hooks, host::ButtonHost, prelude::*, testing::App};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 #[derive(Clone, Default)]
@@ -102,7 +102,7 @@ fn committed_absence_ends_logical_lifetime_before_the_exit_visual() {
   );
   assert_eq!(display.ui_element(counter).text(), Some("Count 1"));
   assert_eq!(display.presentation_time(), Duration::ZERO);
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert_eq!(display.ui_element(visual).name(), Some("visual"));
   assert_eq!(probe.active.get(), 0);
 }
@@ -164,7 +164,7 @@ fn hidden_children_keep_state_refs_and_native_handles_across_rapid_show() {
     display.ui_element(visual).style().display,
     Prop::Set(battlement::StyleValue::Value(battlement::Display::None))
   );
-  display.advance_time(Duration::from_millis(50));
+  Clock::advance(&mut display, Duration::from_millis(50));
   display.click_ui(display.find_ui(root, "toggle"));
   assert!(
     display

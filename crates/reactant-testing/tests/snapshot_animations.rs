@@ -11,7 +11,7 @@ use reactant::{
   testing::GameApp,
   world,
 };
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -239,20 +239,20 @@ fn snapshot_events_submit_once_with_blocking_parallel_motion_waits_and_nonblocki
   assert_eq!(game.accepted_state(), 2);
   assert_eq!(text(&display, root, "stage"), "1");
 
-  display.advance_time(Duration::from_millis(50));
+  Clock::advance(&mut display, Duration::from_millis(50));
   assert_eq!(x(&display, root, "short"), 5.0);
   assert_eq!(x(&display, root, "long"), 5.0);
   display.click_ui(display.find_ui(root, "local-rerender"));
 
-  display.advance_time(Duration::from_millis(149));
+  Clock::advance(&mut display, Duration::from_millis(149));
   assert_eq!(text(&display, root, "stage"), "1");
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert_eq!(x(&display, root, "short"), -20.0);
   assert_eq!(x(&display, root, "long"), 20.0);
   assert_eq!(text(&display, root, "stage"), "1");
-  display.advance_time(Duration::from_millis(99));
+  Clock::advance(&mut display, Duration::from_millis(99));
   assert_eq!(text(&display, root, "stage"), "1");
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert_eq!(text(&display, root, "stage"), "2");
   assert_eq!(display.frame(), 0);
 
@@ -262,10 +262,10 @@ fn snapshot_events_submit_once_with_blocking_parallel_motion_waits_and_nonblocki
   assert_eq!(game.accepted_state(), 4);
   assert_eq!(text(&display, root, "stage"), "4");
   assert_eq!(x(&display, root, "short"), -20.0);
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   assert_eq!(x(&display, root, "short"), 5.0);
   assert_eq!(text(&display, root, "stage"), "4");
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   assert_eq!(x(&display, root, "short"), 30.0);
   assert_eq!(display.frame(), 0);
 
@@ -275,9 +275,9 @@ fn snapshot_events_submit_once_with_blocking_parallel_motion_waits_and_nonblocki
   submit_all(&mut display, &game, &consumer);
   assert_eq!(game.accepted_state(), 6);
   assert_eq!(text(&display, root, "stage"), "5");
-  display.advance_time(Duration::from_millis(199));
+  Clock::advance(&mut display, Duration::from_millis(199));
   assert_eq!(text(&display, root, "stage"), "5");
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert_eq!(text(&display, root, "stage"), "6");
   assert_eq!(display.frame(), 0);
 }
@@ -288,7 +288,7 @@ fn reconnect_does_not_replay_a_consumed_snapshot_event() {
   game.dispatch(Action::Gameplay);
   assert!(consumer.wait_for_worker_stopped(TIMEOUT));
   submit_all(&mut display, &game, &consumer);
-  display.advance_time(Duration::from_millis(300));
+  Clock::advance(&mut display, Duration::from_millis(300));
   assert_eq!(text(&display, root, "stage"), "2");
 
   display.reconnect();

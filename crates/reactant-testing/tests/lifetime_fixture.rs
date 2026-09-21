@@ -45,7 +45,7 @@ fn native_fixture_shared_holds_survive_stale_callback_and_ancestor_updates() {
     .parent_id()
     .unwrap();
   self::click(&mut display, "Destroy card");
-  display.advance_time(std::time::Duration::from_millis(400));
+  display.settle();
   display.poll();
   assert!(!display.contains_ui(card));
   self::click(&mut display, "Increment held");

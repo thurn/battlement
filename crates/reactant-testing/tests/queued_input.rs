@@ -7,7 +7,7 @@ use reactant::{
   testing::GameApp,
 };
 use reactant_rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game, PresentedPrompt, PromptData};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -177,7 +177,7 @@ fn request_keys_keep_old_pointer_and_navigation_targets_out_of_new_prompt() {
     );
     assert_eq!(display.presentation_time(), time);
     assert_eq!(display.frame(), 0);
-    display.advance_time(Duration::from_secs(1));
+    Clock::advance(&mut display, Duration::from_secs(1));
     let second = display.find_ui(root, "answer");
     assert_ne!(first, second);
     assert_eq!(
@@ -235,7 +235,7 @@ fn replacement_discards_queued_prompt_hosts_and_delayed_input_without_remounting
   assert!(consumer.wait_for_worker_stopped(TIMEOUT));
   display.deliver_ui_event(UiEvent::click(old_target, ClickEvent::NavigationSubmit));
   old.handle.submit(value.as_ref(), 999);
-  display.advance_time(Duration::from_secs(30));
+  Clock::advance(&mut display, Duration::from_secs(30));
   assert_eq!(game.status(), GameStatus::Stopped);
   assert_eq!(replacement.status(), GameStatus::Ready);
   assert_eq!(replacement.accepted_state(), 17);

@@ -9,7 +9,7 @@ use battlement::{
 };
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use reactant::{hooks, host::ButtonHost, prelude::*, testing::App, world};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 const MATERIAL: ObjectId = object_id!("321b0000-0000-4000-8000-000000000001");
@@ -66,7 +66,7 @@ fn assets() -> FakeAssetCatalog {
 fn continuous_world_parameters_share_motion_sampling_and_remain_instance_local() {
   let app = App::new("motion/scene").ui(ParameterScene);
   let mut display = Display::connect(app, assets());
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
 
   let Some(MaterialValue::Float(material)) = display
     .object(MATERIAL)
@@ -138,7 +138,7 @@ fn audio_volume_targets_one_live_playback_without_a_second_scheduler() {
   let button = display.find_ui(root, "start-audio");
   display.click_ui(play);
   display.click_ui(button);
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   let audio = display
     .audio(battlement::CommandId::from_uuid(*AUDIO.as_uuid()).unwrap())
     .unwrap();

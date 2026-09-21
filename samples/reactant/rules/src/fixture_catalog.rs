@@ -216,7 +216,7 @@ mod tests {
 
     let mut display = Display::mount(|| build("draw-reflow"), catalog());
     display.poll();
-    display.advance_time(Duration::from_millis(250));
+    display.settle();
     display.poll();
     drop(display);
 

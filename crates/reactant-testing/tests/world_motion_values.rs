@@ -8,7 +8,7 @@ use std::{
 use battlement::{FloatValue, ObjectId, ParentScene, Prop, StyleValue, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{prelude::*, testing::App, world};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 
 const WORLD: ObjectId = object_id!("321a0000-0000-4000-8000-000000000021");
 
@@ -78,11 +78,11 @@ fn value_playback_samples_both_adapters_and_obeys_pause_speed_and_completion() {
   let counter = completed.clone();
   playback.on_complete(move || counter.set(counter.get() + 1));
   display.poll();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   presented(&display, root, 0.25);
   playback.pause();
   display.poll();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   presented(&display, root, 0.25);
   assert_eq!(probe.renders.get(), renders);
   playback.set_speed(2.0);
@@ -105,18 +105,18 @@ fn value_retarget_and_stop_report_one_terminal_outcome_from_the_presented_pose()
   let counter = cancelled.clone();
   first.on_cancel(move || counter.set(counter.get() + 1));
   display.poll();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   let second = value.animate(0.0, linear());
   let counter = stopped.clone();
   second.on_stop(move || counter.set(counter.get() + 1));
   display.poll();
   presented(&display, root, 0.25);
   assert_eq!(cancelled.get(), 1);
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   presented(&display, root, 0.125);
   second.stop();
   display.poll();
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   presented(&display, root, 0.125);
   assert_eq!(stopped.get(), 1);
   assert_eq!(cancelled.get(), 1);
@@ -135,11 +135,11 @@ fn value_failure_keeps_finite_presentation_and_reports_failed_once() {
   let counter = failed.clone();
   playback.on_failed(move || counter.set(counter.get() + 1));
   display.poll();
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert_eq!(failed.get(), 0);
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert_eq!(failed.get(), 1);
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   assert_eq!(failed.get(), 1);
   assert!(
     display
@@ -170,7 +170,7 @@ fn snapshot_cancels_session_owned_value_playback_and_retains_its_presented_value
     .unwrap()
     .animate(1.0, linear());
   display.poll();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   playback.pause();
   display.poll();
   let cancelled = Rc::new(Cell::new(0));
@@ -178,11 +178,11 @@ fn snapshot_cancels_session_owned_value_playback_and_retains_its_presented_value
   playback.on_cancel(move || counter.set(counter.get() + 1));
   display.reconnect();
   presented(&display, root, 0.25);
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   presented(&display, root, 0.25);
   playback.play();
   display.poll();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   presented(&display, root, 0.25);
   assert_eq!(cancelled.get(), 1);
   let next = probe
@@ -192,7 +192,7 @@ fn snapshot_cancels_session_owned_value_playback_and_retains_its_presented_value
     .unwrap()
     .animate(1.0, linear());
   display.poll();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   presented(&display, root, 0.4375);
   next.stop();
   display.poll();
@@ -250,7 +250,7 @@ fn derived_graph_bindings_update_without_synthesizing_animation_frames() {
     .unwrap()
     .animate(1.0, linear());
   display.poll();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   presented(&display, root, 0.25);
   assert_eq!(frames.borrow().len(), frame_count);
   display.advance_frame();
@@ -288,7 +288,7 @@ fn time_graph_reads_virtual_time_without_creating_a_second_clock() {
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("motion/scene");
   let mut display = Display::connect(app, assets);
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   presented(&display, root, 0.25);
   display.advance_frame();
   display.advance_frame();
@@ -332,13 +332,13 @@ fn value_operations_preserve_command_blocking_flags_in_verified_batches() {
     ));
     display.with_engine(|engine| engine.queue(vec![vec![command], vec![next]]));
     display.poll();
-    display.advance_time(Duration::from_millis(500));
+    Clock::advance(&mut display, Duration::from_millis(500));
     assert_eq!(display.object(marker).is_some(), !blocking);
     assert_eq!(
       display.object(WORLD).unwrap().local_transform().position.x,
       0.5
     );
-    display.advance_time(Duration::from_millis(500));
+    Clock::advance(&mut display, Duration::from_millis(500));
     assert!(display.object(marker).is_some());
     display.with_engine(|engine| assert!(engine.failures.is_empty()));
     assert_eq!(display.frame(), 0);
@@ -374,7 +374,7 @@ fn a_passive_spring_settles_through_existing_time_and_keeps_its_phase_across_rec
   let mut display = Display::connect(app, assets);
   probe.value.borrow().as_ref().unwrap().set(1.0);
   display.poll();
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   let before = display.object(WORLD).unwrap().local_transform().position.x;
   assert!(before > 0.0 && before < 1.0);
   display.reconnect();
@@ -418,7 +418,7 @@ fn removing_a_scale_contribution_restores_the_uncomposed_track() {
   assets.add_scene("motion/scene");
   let mut display = Display::connect(app, assets);
   let scale = display.find_ui(root, "scale");
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   assert_eq!(
     display.ui_element(scale).style().scale,
     Prop::Set(StyleValue::Value(battlement::Scale::uniform(4.0)))
@@ -428,7 +428,7 @@ fn removing_a_scale_contribution_restores_the_uncomposed_track() {
     display.ui_element(scale).style().scale,
     Prop::Set(StyleValue::Value(battlement::Scale::uniform(2.0)))
   );
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   assert_eq!(
     display.ui_element(scale).style().scale,
     Prop::Set(StyleValue::Value(battlement::Scale::uniform(2.5)))

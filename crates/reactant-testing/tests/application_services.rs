@@ -9,7 +9,7 @@ use std::{
 use battlement::{Connect, DragMode, ObjectId, ParentScene, ScreenSize, Vector3, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{Application, host::ButtonHost, prelude::*, world::BoxHitRegion};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 const ROOT: ObjectId = object_id!("7d75c092-7143-49cc-adbd-8b9090194a02");
@@ -60,10 +60,10 @@ fn changing_a_timeout_reschedules_its_deadline() {
   let button = display.find_ui(ROOT, "reschedule");
   display.click_ui(button);
   display.poll();
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   display.poll();
   let _ = display.find_ui(ROOT, "waiting");
-  display.advance_time(Duration::from_secs(9));
+  Clock::advance(&mut display, Duration::from_secs(9));
   display.poll();
   let _ = display.find_ui(ROOT, "fired");
 }
@@ -84,10 +84,10 @@ impl Component for MissedInterval {
 fn a_missed_interval_runs_at_most_once_per_poll() {
   let mut display = Display::mount(|| application(MissedInterval), catalog());
   display.poll();
-  display.advance_time(Duration::from_secs(35));
+  Clock::advance(&mut display, Duration::from_secs(35));
   display.poll();
   let _ = display.find_ui(ROOT, "count-1");
-  display.advance_time(Duration::from_secs(10));
+  Clock::advance(&mut display, Duration::from_secs(10));
   display.poll();
   let _ = display.find_ui(ROOT, "count-2");
 }

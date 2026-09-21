@@ -17,7 +17,7 @@ use reactant::{
   testing::App,
   world,
 };
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 
 const WORLD: ObjectId = object_id!("321a0000-0000-4000-8000-000000000031");
 const OUTSIDE: ObjectId = object_id!("321a0000-0000-4000-8000-000000000032");
@@ -110,9 +110,9 @@ fn sequence_effect_occurrences_preserve_order_deduplicate_delivery_and_capture_p
   display.poll();
   display.poll();
   assert!(display.audio_occurrences().is_empty());
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   assert!(display.audio_occurrences().is_empty());
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert_eq!(display.audio_occurrences().len(), 2);
   assert_ne!(
     display.audio_occurrences()[0].command_id,
@@ -184,12 +184,12 @@ fn scoped_ui_and_world_targets_select_only_their_own_descendants_and_share_playb
     playback.on_complete(move || counter.set(counter.get() + 1));
   }
   display.poll();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   presented(&display, root, 0.25);
   ui_playback.pause();
   world_playback.pause();
   display.poll();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   presented(&display, root, 0.25);
   ui_playback.play();
   world_playback.play();
@@ -220,12 +220,12 @@ fn scoped_set_and_stop_use_the_current_host_selection() {
     playback.on_stop(move || counter.set(counter.get() + 1));
   }
   display.poll();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   presented(&display, root, 0.75);
   ui.stop(MotionSelector::Descendants);
   world.stop(MotionSelector::Descendants);
   display.poll();
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   presented(&display, root, 0.75);
   assert_eq!(stopped.get(), 2);
 }
@@ -265,18 +265,18 @@ fn sequence_labels_follow_actual_completion_and_keep_declaration_order() {
   let terminal = events.clone();
   playback.on_complete(move || terminal.borrow_mut().push("complete"));
   display.poll();
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert_eq!(&*events.borrow(), &["same-time-a", "same-time-b"]);
 
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   playback.pause();
   display.poll();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   assert_eq!(&*events.borrow(), &["same-time-a", "same-time-b"]);
 
   playback.play();
   display.poll();
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   assert_eq!(
     &*events.borrow(),
     &["same-time-a", "same-time-b", "arrived", "complete"]
@@ -306,8 +306,8 @@ fn explicit_sequence_replacement_preserves_unrelated_property_motion() {
   let terminal = completed.clone();
   playback.on_complete(move || terminal.set(true));
   display.poll();
-  display.advance_time(Duration::from_millis(200));
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(100));
   let subject = display.ui_element(display.find_ui(root, "opacity"));
   assert_eq!(
     subject.style().opacity,
@@ -319,7 +319,7 @@ fn explicit_sequence_replacement_preserves_unrelated_property_motion() {
   assert_eq!(translate.x, battlement::Length::Px(3.0));
   assert!(!completed.get());
 
-  display.advance_time(Duration::from_millis(700));
+  Clock::advance(&mut display, Duration::from_millis(700));
   let Prop::Set(StyleValue::Value(translate)) = display
     .ui_element(display.find_ui(root, "opacity"))
     .style()

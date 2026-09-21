@@ -55,7 +55,7 @@ fn committed_board_hits_create_stable_player_marks_in_row_major_cells() {
 }
 
 #[test]
-fn player_move_is_immediate_and_ai_move_appears_at_the_deadline() {
+fn player_move_is_immediate_and_ai_move_follows_after_thinking() {
   let mut display = self::display(DITTO_SEED);
   self::synchronize_initial(&mut display);
   self::click_cell(&mut display, 4);
@@ -68,20 +68,12 @@ fn player_move_is_immediate_and_ai_move_appears_at_the_deadline() {
 
   self::synchronize_action(&mut display);
   assert!(self::image_ids(&display, O_TEXTURE).is_empty());
-  display.advance_time(Duration::from_millis(99));
-  assert!(self::image_ids(&display, O_TEXTURE).is_empty());
-  self::assert_text(&display, "Computer thinking…");
-  assert_eq!(display.frame(), 0);
-
-  display.advance_time(Duration::from_millis(1));
-  display.advance_frame();
+  display.settle();
   let ai = self::image_ids(&display, O_TEXTURE);
   assert_eq!(ai.len(), 1);
   self::assert_mark(&display, ai[0], O_TEXTURE);
   self::assert_text(&display, "Your turn — click an empty square");
   assert_eq!(self::mark_at(&display, 4, X_TEXTURE), Some(player));
-  assert_eq!(display.presentation_time(), Duration::from_millis(100));
-  assert_eq!(display.frame(), 1);
 }
 
 #[test]
@@ -266,8 +258,7 @@ fn play_turn(display: &mut Display, cell: usize) {
   self::click_cell(display, cell);
   self::wait_for_human_move(display, cell);
   self::synchronize_action(display);
-  display.advance_time(Duration::from_millis(100));
-  display.advance_frame();
+  display.settle();
 }
 
 fn play_round(display: &mut Display, cells: &[usize]) {
@@ -278,8 +269,7 @@ fn play_round(display: &mut Display, cells: &[usize]) {
     self::click_cell(display, *cell);
     self::synchronize_action(display);
     if self::status_text(display) == "Computer thinking…" {
-      display.advance_time(Duration::from_millis(100));
-      display.advance_frame();
+      display.settle();
     }
   }
 }

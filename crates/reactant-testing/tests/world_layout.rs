@@ -12,7 +12,7 @@ use battlement::{
 };
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{animation_controls, prelude::*, testing::App, world};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 
 const FIRST: ObjectId = object_id!("323a0000-0000-4000-8000-000000000001");
 const SECOND: ObjectId = object_id!("323a0000-0000-4000-8000-000000000002");
@@ -309,7 +309,7 @@ fn public_display_keeps_nested_targets_stable_while_visual_scale_animates() {
   );
 
   let first_pose = display.object(FIRST).unwrap().local_transform();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   close(
     display.object(VISUAL).unwrap().local_transform().scale.x,
     1.5,
@@ -379,7 +379,7 @@ fn default_layout_movement_retargets_from_the_displayed_pose_without_a_jump() {
     display.object(FIRST).unwrap().local_transform().position.x,
     2.0,
   );
-  display.advance_time(Duration::from_millis(80));
+  Clock::advance(&mut display, Duration::from_millis(80));
   let before_retarget = display.object(FIRST).unwrap().local_transform().position.x;
   assert!((2.0..5.0).contains(&before_retarget));
 
@@ -411,7 +411,7 @@ fn inherited_movement_transition_overrides_the_engine_spring() {
 
   width.set(10.0);
   display.poll();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   close(
     display.object(FIRST).unwrap().local_transform().position.x,
     3.5,
@@ -460,7 +460,7 @@ fn object_movement_transition_overrides_its_layout_ancestor() {
 
   width.set(10.0);
   display.poll();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   close(
     display.object(FIRST).unwrap().local_transform().position.x,
     3.5,
@@ -523,7 +523,7 @@ fn moving_between_world_layout_parents_preserves_the_displayed_world_pose() {
     display.world_point(FIRST, Vector3::ZERO),
     Vector3::new(-4.0, 1.0, 0.0)
   );
-  display.advance_time(Duration::from_secs(2));
+  Clock::advance(&mut display, Duration::from_secs(2));
   let point = display.world_point(FIRST, Vector3::ZERO);
   close(point.x, 6.0);
   close(point.y, 1.0);
@@ -598,7 +598,7 @@ fn sequence_keeps_its_anchor_while_layout_reflows_then_arrives_at_the_live_desti
   playback.on_complete(move || count.set(count.get() + 1));
   display.poll();
 
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   close(
     display.object(FIRST).unwrap().local_transform().position.x,
     -1.0,
@@ -609,13 +609,13 @@ fn sequence_keeps_its_anchor_while_layout_reflows_then_arrives_at_the_live_desti
     display.object(FIRST).unwrap().local_transform().position.x,
     -1.0,
   );
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   close(
     display.object(FIRST).unwrap().local_transform().position.x,
     -4.0,
   );
 
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   close(
     display.object(FIRST).unwrap().local_transform().position.x,
     2.0,
@@ -627,15 +627,15 @@ fn sequence_keeps_its_anchor_while_layout_reflows_then_arrives_at_the_live_desti
     2.0,
   );
   assert_eq!(completed.get(), 0);
-  display.advance_time(Duration::from_millis(999));
+  Clock::advance(&mut display, Duration::from_millis(999));
   assert_eq!(completed.get(), 0);
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   close(
     display.object(FIRST).unwrap().local_transform().position.x,
     10.0,
   );
   assert_eq!(completed.get(), 1);
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   close(
     display.object(FIRST).unwrap().local_transform().position.x,
     10.0,
@@ -729,7 +729,7 @@ fn public_display_caches_identified_rest_measurements_and_rejects_stale_results(
   );
 
   let held = display.object(SECOND).unwrap().local_transform();
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   close(
     display.object(VISUAL).unwrap().local_transform().scale.x,
     1.5,

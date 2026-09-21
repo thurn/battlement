@@ -12,7 +12,7 @@ use reactant::{
   testing::GameApp,
 };
 use reactant_rules::{ChoiceOwner, ChoicePolicy, DisplayConnection, ExecutionMode, Game};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -149,7 +149,7 @@ fn mixed_batches_render_ahead_without_menu_overtaking_and_cancel_owned_objects()
     display.object(native).unwrap().local_transform().position.x,
     1.0
   );
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   assert_eq!(display.ui_element(stage).text(), Some("2"));
   assert_eq!(
     display.object(native).unwrap().local_transform().position.x,
@@ -241,7 +241,7 @@ fn rendered_ahead_absence_detaches_logical_ref_but_preserves_queued_movement() {
     1.5
   );
   assert_eq!(display.presentation_time(), Duration::ZERO);
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   assert_eq!(
     display.object(native).unwrap().local_transform().position.x,
     2.0
@@ -250,7 +250,7 @@ fn rendered_ahead_absence_detaches_logical_ref_but_preserves_queued_movement() {
     display.world_point(anchor.object_id(), anchor.offset()).x,
     2.5
   );
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   assert!(display.object(native).is_none());
   assert_eq!(anchor.object_id(), native);
   let replacement = display.with_engine(|app| app.start_game::<Queue>(0, self::context));

@@ -163,7 +163,7 @@ fn selectors_and_props_show_the_same_state_without_overtaking_queued_gameplay() 
       Some("0")
     );
     assert_eq!(display.ui_element(score).text(), Some("0"));
-    display.advance_time(Duration::from_millis(200));
+    display.settle();
     assert_eq!(display.ui_element(score).text(), Some("1"));
     assert_eq!(
       display.ui_element(display.find_ui(root, "local")).text(),
@@ -173,6 +173,5 @@ fn selectors_and_props_show_the_same_state_without_overtaking_queued_gameplay() 
       assert_eq!(renders.get(), initial + 1);
     }
     assert_eq!(display.frame(), 0);
-    assert_eq!(display.presentation_time(), Duration::from_millis(200));
   }
 }

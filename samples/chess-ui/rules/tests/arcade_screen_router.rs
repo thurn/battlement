@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use battlement::{
   AudioClipAddress, CheckedState, CommandBody, GameObjectKind, KeyEvent, KeyModifiers,
   NavigationEvent, ObjectId, PhysicalKey, Prop, SemanticRole, StyleValue, UiAccessibilityAction,
@@ -145,7 +143,7 @@ fn play_and_quit_reach_terminal_black() {
     for action in ["PLAY", "QUIT"] {
       let mut client = self::client();
       self::click_semantic(&mut client, SemanticRole::Button, action);
-      client.advance_time(Duration::from_millis(620));
+      client.settle();
       client.poll();
       self::semantic(&client, SemanticRole::Region, "Dismissed arcade stage");
     }

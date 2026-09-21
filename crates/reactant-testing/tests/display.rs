@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant_core::{app::App, host::ButtonHost, prelude::*};
-use reactant_testing::{Display, WorkerDisplay};
+use reactant_testing::{Display, WorkerDisplay, temporal::Clock};
 use trox::ls;
 
 #[test]
@@ -25,7 +25,7 @@ fn public_ui_input_updates_a_visible_app_observation() {
 
   let count = display.find_ui(root, "count");
   assert_eq!(display.ui_element(count).text(), Some("1"));
-  display.advance_time(Duration::from_millis(125));
+  Clock::advance(&mut display, Duration::from_millis(125));
   assert_eq!(display.frame(), 0);
   display.advance_frame();
   assert_eq!(display.presentation_time(), Duration::from_millis(125));

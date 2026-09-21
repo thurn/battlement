@@ -13,7 +13,7 @@ use reactant::{
 };
 use reactant_core::app_output::DeliveryLimits;
 use reactant_rules::{ChoiceOwner, ChoicePolicy, DisplayConnection, ExecutionMode, Game};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -164,9 +164,9 @@ fn rust_submits_all_snapshots_and_accepts_before_host_time_or_frames_advance() {
   assert_eq!(self::stage(&display, root), 1);
   assert_eq!(display.presentation_time(), Duration::ZERO);
   assert_eq!(display.frame(), 0);
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   assert_eq!(self::stage(&display, root), 2);
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   assert_eq!(self::stage(&display, root), 3);
   display.settle();
   assert_eq!(display.with_engine(|app| app.retained_gameplay_bytes()), 0);
@@ -253,7 +253,7 @@ fn capacity_release_resumes_each_snapshot_once_and_oversized_output_fails_locall
       display.poll();
     }
     assert_eq!(self::stage(&display, root), expected);
-    display.advance_time(Duration::from_millis(200));
+    Clock::advance(&mut display, Duration::from_millis(200));
   }
   self::submit_all(&mut display, &game, &consumer);
   assert_eq!(game.accepted_state(), 3);
@@ -307,7 +307,7 @@ fn host_failure_after_acceptance_keeps_recoverable_rules_and_persistent_menu() {
   assert_eq!(game.status(), GameStatus::Ready);
   assert_eq!(game.accepted_state(), usize::MAX - 1);
   assert_eq!(self::stage(&display, root), 1);
-  display.advance_time(Duration::from_millis(200));
+  Clock::advance(&mut display, Duration::from_millis(200));
   assert_eq!(game.status(), GameStatus::Failed);
   assert_eq!(game.accepted_state(), usize::MAX - 1);
   assert!(game.diagnostic().unwrap().contains("Diagnostics"));

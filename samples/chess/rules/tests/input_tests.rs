@@ -97,7 +97,7 @@ fn keyboard_and_controller_drive_the_same_visible_move_contract() {
     GameActionResult::Completed
   );
   assert_state(&keyboard, contract::marker::PLAYER_MOVE);
-  keyboard.advance_time(Duration::from_millis(300));
+  keyboard.settle();
   assert!(piece_at(&keyboard, 'f', 2).is_none());
   assert!(piece_at(&keyboard, 'f', 4).is_some());
 
@@ -122,7 +122,7 @@ fn keyboard_and_controller_drive_the_same_visible_move_contract() {
     GameActionResult::Completed
   );
   assert_state(&controller, contract::marker::PLAYER_MOVE);
-  controller.advance_time(Duration::from_millis(300));
+  controller.settle();
   assert!(piece_at(&controller, 'd', 2).is_none());
   assert!(piece_at(&controller, 'd', 4).is_some());
 }
@@ -169,7 +169,7 @@ fn semantic_move_action_captures_the_visible_target() {
   let mut display = client(MemoryPersistence::with_save(CAPTURE), Duration::ZERO);
   play_move(&mut display, ('d', 4), ('e', 5));
   assert_state(&display, contract::marker::CAPTURE);
-  display.advance_time(Duration::from_millis(300));
+  display.settle();
   assert!(piece_at(&display, 'd', 4).is_none());
   assert!(piece_at(&display, 'e', 5).is_some());
 }

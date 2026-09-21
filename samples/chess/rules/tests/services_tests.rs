@@ -112,7 +112,14 @@ fn music_crossfades_and_reset_does_not_replay_completed_opening_beats() {
   display.settle();
   let spawn_count = display.particle_occurrences().len();
 
-  display.advance_time(Duration::from_secs(120));
+  display.until_timer(|display| {
+    display
+      .audio_occurrences()
+      .iter()
+      .filter(|effect| contract::MUSIC_TRACKS.contains(&effect.address))
+      .count()
+      == 2
+  });
   let played = display
     .audio_occurrences()
     .iter()
@@ -142,7 +149,7 @@ fn music_crossfades_and_reset_does_not_replay_completed_opening_beats() {
     GameActionResult::Completed
   );
   assert_state(&display, contract::marker::REFRESHED);
-  display.advance_time(Duration::from_secs(2));
+  display.settle();
   assert_eq!(display.particle_occurrences().len(), spawn_count);
   assert!(
     display

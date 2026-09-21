@@ -8,6 +8,7 @@
 
 mod display;
 mod publications;
+pub mod temporal;
 #[cfg(feature = "worker-fixture")]
 mod worker;
 

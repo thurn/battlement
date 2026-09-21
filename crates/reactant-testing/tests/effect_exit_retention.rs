@@ -15,7 +15,7 @@ use reactant::{
   testing::App,
   world,
 };
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 #[derive(Clone, Default)]
@@ -128,14 +128,14 @@ fn final_effect_use_retains_the_original_anchor_after_logical_unmount() {
   assert!(!probe.target.borrow().as_ref().unwrap().is_attached());
   assert!(display.object(target_id).is_some());
 
-  display.advance_time(Duration::from_millis(400));
+  Clock::advance(&mut display, Duration::from_millis(400));
   assert!(
     display.object(target_id).is_some(),
     "first effect released anchor"
   );
-  display.advance_time(Duration::from_millis(699));
+  Clock::advance(&mut display, Duration::from_millis(699));
   assert!(display.object(target_id).is_some());
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert!(display.object(target_id).is_none());
   assert_eq!(probe.active.get(), 0);
   assert_eq!(display.frame(), 0);
@@ -157,9 +157,9 @@ fn named_selector_retains_the_exact_snapshotted_target_after_logical_unmount() {
   display.click_ui(display.find_ui(root, "destroy"));
   display.poll();
   assert!(display.object(target_id).is_some());
-  display.advance_time(Duration::from_millis(399));
+  Clock::advance(&mut display, Duration::from_millis(399));
   assert!(display.object(target_id).is_some());
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert!(display.object(target_id).is_none());
 }
 
@@ -195,13 +195,13 @@ fn public_scope_api_keeps_cosmetic_sequences_nonblocking_and_gameplay_sequences_
   display.clear_commands();
   scope.start(sequence());
   display.poll();
-  display.advance_time(Duration::from_millis(10));
+  Clock::advance(&mut display, Duration::from_millis(10));
   assert_scope_command_blocking(&display, false);
 
   display.clear_commands();
   scope.start_blocking(sequence());
   display.poll();
-  display.advance_time(Duration::from_millis(10));
+  Clock::advance(&mut display, Duration::from_millis(10));
   assert_scope_command_blocking(&display, true);
 }
 
@@ -230,7 +230,7 @@ fn reset_reconnect_releases_playback_identity_leases() {
   display.reconnect();
   display.poll();
   assert!(display.object(target_id).is_none());
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   assert!(display.object(target_id).is_none());
 }
 

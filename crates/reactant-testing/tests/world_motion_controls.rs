@@ -7,7 +7,7 @@ use std::{
 use battlement::{FloatValue, ObjectId, ParentScene, Prop, StyleValue, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{animation_controls, host::ButtonHost, prelude::*, testing::App, world};
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 const WORLD: ObjectId = object_id!("321a0000-0000-4000-8000-000000000011");
@@ -159,13 +159,13 @@ fn position(display: &Display<App>, root: ObjectId, x: f64, y: f64) {
 #[test]
 fn typed_controls_pause_and_complete_across_hosts_without_restarting_disjoint_placement() {
   let (mut display, root, probe) = fixture();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   display.click_ui(display.find_ui(root, "start"));
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   position(&display, root, 0.25, 2.0);
   probe.playback.borrow().as_ref().unwrap().pause();
   display.poll();
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   position(&display, root, 0.25, 3.0);
   probe.playback.borrow().as_ref().unwrap().set_speed(2.0);
   probe.playback.borrow().as_ref().unwrap().play();
@@ -182,13 +182,13 @@ fn typed_controls_pause_and_complete_across_hosts_without_restarting_disjoint_pl
 fn a_new_control_start_interrupts_from_the_actual_pose_and_reports_the_old_outcome_once() {
   let (mut display, root, probe) = fixture();
   display.click_ui(display.find_ui(root, "start"));
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   position(&display, root, 0.25, 1.0);
   let _previous = probe.playback.borrow().as_ref().unwrap().clone();
   display.click_ui(display.find_ui(root, "back"));
   position(&display, root, 0.25, 1.0);
   assert_eq!(probe.cancelled.get(), 1);
-  display.advance_time(Duration::from_millis(500));
+  Clock::advance(&mut display, Duration::from_millis(500));
   position(&display, root, 0.125, 3.0);
   display.settle();
   position(&display, root, 0.0, 4.0);
@@ -234,11 +234,11 @@ fn command_blocking_flags_control_later_groups_while_nonblocking_motion_keeps_ru
     display.with_engine(|engine| engine.queue(vec![vec![start], vec![show_marker]]));
     display.poll();
     assert_eq!(display.object(marker).is_some(), !blocking);
-    display.advance_time(Duration::from_millis(500));
+    Clock::advance(&mut display, Duration::from_millis(500));
     assert_eq!(display.object(marker).is_some(), !blocking);
     let x = display.object(WORLD).unwrap().local_transform().position.x;
     assert!((x - 0.5).abs() < 0.00001);
-    display.advance_time(Duration::from_millis(500));
+    Clock::advance(&mut display, Duration::from_millis(500));
     assert!(display.object(marker).is_some());
     assert_eq!(
       display.object(WORLD).unwrap().local_transform().position.x,
@@ -252,13 +252,13 @@ fn command_blocking_flags_control_later_groups_while_nonblocking_motion_keeps_ru
 fn a_sampler_failure_reports_one_failed_outcome_and_releases_its_command_operation() {
   let (mut display, root, probe) = fixture();
   display.click_ui(display.find_ui(root, "overflow"));
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert_eq!(probe.failed.get(), 0);
-  display.advance_time(Duration::from_millis(100));
+  Clock::advance(&mut display, Duration::from_millis(100));
   assert_eq!(probe.failed.get(), 1);
   assert_eq!(probe.completed.get(), 0);
   assert_eq!(probe.cancelled.get(), 0);
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   assert_eq!(probe.failed.get(), 1);
   assert!(
     display
@@ -315,10 +315,10 @@ fn failed_motion_cancels_blocked_groups_and_reports_nonblocking_failures_after_c
     display.with_engine(|engine| engine.queue(vec![vec![start], vec![show_marker]]));
     display.poll();
     assert_eq!(display.object(marker).is_some(), !blocking);
-    display.advance_time(Duration::from_millis(200));
+    Clock::advance(&mut display, Duration::from_millis(200));
     assert_eq!(display.object(marker).is_some(), !blocking);
     display.with_engine(|engine| assert_eq!(engine.failures, vec![(blocking, command_id)]));
-    display.advance_time(Duration::from_secs(1));
+    Clock::advance(&mut display, Duration::from_secs(1));
     display.with_engine(|engine| assert_eq!(engine.failures.len(), 1));
     assert_eq!(display.frame(), 0);
   }
@@ -328,7 +328,7 @@ fn failed_motion_cancels_blocked_groups_and_reports_nonblocking_failures_after_c
 fn replacing_one_imperative_property_preserves_the_other_tracks_original_timeline() {
   let (mut display, root, probe) = fixture();
   display.click_ui(display.find_ui(root, "start"));
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   let previous = probe.playback.borrow().as_ref().unwrap().clone();
   display.click_ui(display.find_ui(root, "back"));
   for expected in [1.0, 2.0, 3.0, 4.0] {
@@ -345,7 +345,7 @@ fn replacing_one_imperative_property_preserves_the_other_tracks_original_timelin
         (1.0 + expected / 4.0) as f32
       )))
     );
-    display.advance_time(Duration::from_millis(250));
+    Clock::advance(&mut display, Duration::from_millis(250));
   }
   assert_eq!(probe.cancelled.get(), 1);
   drop(previous);
@@ -355,16 +355,16 @@ fn replacing_one_imperative_property_preserves_the_other_tracks_original_timelin
 fn retargeting_all_tracks_keeps_disjoint_transition_end_on_its_original_clock() {
   let (mut display, root, _) = fixture();
   display.click_ui(display.find_ui(root, "finish-only"));
-  display.advance_time(Duration::from_millis(250));
+  Clock::advance(&mut display, Duration::from_millis(250));
   display.click_ui(display.find_ui(root, "back"));
   for elapsed in [250, 250, 249] {
-    display.advance_time(Duration::from_millis(elapsed));
+    Clock::advance(&mut display, Duration::from_millis(elapsed));
     assert_eq!(
       display.object(WORLD).unwrap().local_transform().position.z,
       0.0
     );
   }
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert_eq!(
     display.object(WORLD).unwrap().local_transform().position.z,
     4.0

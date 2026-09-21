@@ -29,7 +29,7 @@ pub struct Display<E = reactant::ApplicationEngine>
 where
   E: Engine,
 {
-  client: FakeClient<E>,
+  pub(crate) client: FakeClient<E>,
 }
 
 impl Display<reactant::ApplicationEngine> {
@@ -92,6 +92,27 @@ impl Display<reactant::ApplicationEngine> {
   pub fn settle_game<G: reactant::rules::Game>(&mut self, timeout: Duration) -> GameActionResult {
     self.flush();
     self.drive_game::<G>(timeout, None)
+  }
+
+  /// Drives scheduled application timers until an observable result appears.
+  ///
+  /// Finite presentation work can be completed separately with [`Self::settle`].
+  pub fn until_timer(&mut self, observed: impl Fn(&Self) -> bool) {
+    self.flush();
+    for _ in 0..1_000 {
+      if observed(self) {
+        return;
+      }
+      let delay = self
+        .with_engine(|engine| engine.next_timer_due_in())
+        .expect("observable result was not reached and no application timer remains");
+      self.client.advance_time(delay);
+      self.flush();
+    }
+    assert!(
+      observed(self),
+      "observable result was not reached after 1,000 application timer events"
+    );
   }
 
   /// Waits for one typed rules publication without advancing presentation time.
@@ -492,12 +513,6 @@ where
   #[must_use]
   pub fn world_point(&self, object_id: ObjectId, offset: Vector3) -> Vector3 {
     self.client.world().world_point(object_id, offset)
-  }
-
-  /// Advances virtual rules and presentation time without rendering a frame.
-  pub fn advance_time(&mut self, duration: Duration) {
-    self.client.advance_time(duration);
-    self.flush();
   }
 
   /// Records one rendered-frame boundary without advancing virtual time.

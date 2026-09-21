@@ -192,6 +192,12 @@ impl ApplicationEngine {
     self.coordinator.as_ref()?.game::<G>()
   }
 
+  /// Reports the next application timer deadline for deterministic test hosts.
+  #[doc(hidden)]
+  pub fn next_timer_due_in(&self) -> Option<std::time::Duration> {
+    self.coordinator.as_ref()?.next_timer_due_in()
+  }
+
   /// Waits for the active game's next rules publication.
   pub fn wait_for_game_output<G: reactant_rules::Game>(
     &self,

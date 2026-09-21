@@ -11,7 +11,7 @@ use reactant::{
   testing::GameApp,
 };
 use reactant_core::app_output::DeliveryLimits;
-use reactant_testing::Display;
+use reactant_testing::{Display, temporal::Clock};
 use trox::ls;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -204,28 +204,28 @@ fn pause_freezes_motion_and_wait_while_menu_and_workers_continue() {
   assert_eq!(game.accepted_state(), 3);
   assert_eq!(text(&display, root, "stage"), "1");
 
-  display.advance_time(Duration::from_millis(50));
+  Clock::advance(&mut display, Duration::from_millis(50));
   assert_eq!(x(&display, root), 5.0);
   display.click_ui(display.find_ui(root, "pause-first"));
   display.click_ui(display.find_ui(root, "pause-second"));
-  display.advance_time(Duration::from_secs(5));
+  Clock::advance(&mut display, Duration::from_secs(5));
   assert_eq!(x(&display, root), 5.0);
   assert_eq!(text(&display, root, "stage"), "1");
 
   display.click_ui(display.find_ui(root, "menu"));
   assert_eq!(text(&display, root, "menu-count"), "1");
   display.click_ui(display.find_ui(root, "resume-first"));
-  display.advance_time(Duration::from_secs(1));
+  Clock::advance(&mut display, Duration::from_secs(1));
   assert_eq!(x(&display, root), 5.0);
   display.click_ui(display.find_ui(root, "resume-second"));
-  display.advance_time(Duration::from_millis(149));
+  Clock::advance(&mut display, Duration::from_millis(149));
   assert_eq!(text(&display, root, "stage"), "1");
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert_eq!(x(&display, root), 20.0);
   assert_eq!(text(&display, root, "stage"), "2");
-  display.advance_time(Duration::from_millis(199));
+  Clock::advance(&mut display, Duration::from_millis(199));
   assert_eq!(text(&display, root, "stage"), "2");
-  display.advance_time(Duration::from_millis(1));
+  Clock::advance(&mut display, Duration::from_millis(1));
   assert_eq!(text(&display, root, "stage"), "3");
   assert_eq!(display.frame(), 0);
 }
@@ -253,7 +253,7 @@ fn paused_budget_backpressures_and_old_owner_cannot_resume_replacement() {
   old_owner.resume();
   display.poll();
   for _ in 0..45 {
-    display.advance_time(Duration::from_millis(200));
+    Clock::advance(&mut display, Duration::from_millis(200));
     display.poll();
     if game.status() == GameStatus::Ready {
       break;
