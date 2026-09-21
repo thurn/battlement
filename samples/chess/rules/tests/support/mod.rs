@@ -16,9 +16,7 @@ use battlement_fake::{
   assets::{FakeAssetCatalog, FakePrefab},
   client::PointerInput,
 };
-use battlement_rules::{
-  ChessGame, EngineDependencies, PersistenceBackend, contract, create_engine,
-};
+use chess_rules::{ChessGame, EngineDependencies, PersistenceBackend, contract, create_engine};
 use reactant_testing::{Display, GameActionResult};
 
 pub const DEFAULT: &[u8] = include_bytes!("../fixtures/default.json");

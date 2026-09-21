@@ -3,7 +3,7 @@ mod support;
 use std::time::Duration;
 
 use battlement::{GameObjectKind, Vector3};
-use battlement_rules::{ChessGame, contract};
+use chess_rules::{ChessGame, contract};
 use reactant_testing::{Display, GameActionResult};
 
 use crate::support::{

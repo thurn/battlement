@@ -696,6 +696,8 @@ fn resolve_rules(
       if !output.status.success() {
         return Ok(Err(failed(pending, "rules", &output, now)?));
       }
+      let library_name = crate::plugin_build::rules_library_name(Some(&request.rust_manifest))?;
+      let artifact = crate::plugin_build::native_artifact_name(&library_name);
       let plugin = target_directory
         .join(target)
         .join(if request.release_rules {
@@ -703,12 +705,12 @@ fn resolve_rules(
         } else {
           "debug"
         })
-        .join(RULES_ARTIFACT);
+        .join(&artifact);
       if !plugin.is_file() {
         return Ok(Err(failed_message(
           pending,
           "rules",
-          "Rust build omitted libbattlement_rules.dylib",
+          &format!("Rust build omitted {artifact}"),
           now,
         )?));
       }

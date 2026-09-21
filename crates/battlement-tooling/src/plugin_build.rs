@@ -11,7 +11,6 @@ use anyhow::{Context, Result, bail};
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
 #[cfg(windows)]
 const PLUGIN_NAME: &str = "battlement_rules.dll";
-const WEB_PLUGIN_NAME: &str = "libbattlement_rules.a";
 const WEB_TARGET: &str = "wasm32-unknown-emscripten";
 const RELEASE_DEBUG_CONFIG: &str = "profile.release.debug=\"line-tables-only\"";
 const RELEASE_SPLIT_DEBUG_CONFIG: &str = "profile.release.split-debuginfo=\"off\"";
@@ -25,6 +24,7 @@ pub fn rules_plugin(
   manifest_path: Option<&Path>,
 ) -> Result<PathBuf> {
   let target_directory = self::target_directory(package)?;
+  let library_name = self::rules_library_name(manifest_path)?;
   let profile = if release { "release" } else { "debug" };
   let mut libraries = Vec::with_capacity(architectures.len());
   for architecture in architectures {
@@ -33,12 +33,9 @@ pub fn rules_plugin(
     let library = target_directory
       .join(target)
       .join(profile)
-      .join(PLUGIN_NAME);
+      .join(self::native_artifact_name(&library_name));
     if !library.is_file() {
-      bail!(
-        "package {package} did not produce {}; its cdylib target must be named battlement_rules",
-        library.display()
-      );
+      bail!("package {package} did not produce {}", library.display());
     }
     libraries.push(library);
   }
@@ -148,7 +145,8 @@ pub fn web_rules_plugin(
     );
   }
 
-  let plugin = self::web_plugin_path(&target_directory, release);
+  let library_name = self::rules_library_name(Some(manifest_path))?;
+  let plugin = self::web_plugin_path(&target_directory, release, &library_name);
   if !plugin.is_file() {
     bail!("Rust WebAssembly build omitted {}", plugin.display());
   }
@@ -162,6 +160,37 @@ fn target_directory(package: &str) -> Result<PathBuf> {
       .join("target/battlement-plugin")
       .join(package),
   )
+}
+
+pub(crate) fn rules_library_name(manifest_path: Option<&Path>) -> Result<String> {
+  let Some(manifest_path) = manifest_path else {
+    return Ok("battlement_rules".to_owned());
+  };
+  let source = fs::read_to_string(manifest_path)
+    .with_context(|| format!("failed to read {}", manifest_path.display()))?;
+  let manifest: toml::Value = toml::from_str(&source)
+    .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
+  if let Some(name) = manifest
+    .get("lib")
+    .and_then(|lib| lib.get("name"))
+    .and_then(toml::Value::as_str)
+  {
+    return Ok(name.to_owned());
+  }
+  let package = manifest
+    .get("package")
+    .and_then(|package| package.get("name"))
+    .and_then(toml::Value::as_str)
+    .context("rules manifest has no package name")?;
+  Ok(package.replace('-', "_"))
+}
+
+pub(crate) fn native_artifact_name(library_name: &str) -> String {
+  if cfg!(windows) {
+    format!("{library_name}.dll")
+  } else {
+    format!("lib{library_name}.dylib")
+  }
 }
 
 fn web_cargo_command(
@@ -187,11 +216,11 @@ fn web_cargo_command(
   command
 }
 
-fn web_plugin_path(target_directory: &Path, release: bool) -> PathBuf {
+fn web_plugin_path(target_directory: &Path, release: bool, library_name: &str) -> PathBuf {
   target_directory
     .join(WEB_TARGET)
     .join(if release { "release" } else { "debug" })
-    .join(WEB_PLUGIN_NAME)
+    .join(format!("lib{library_name}.a"))
 }
 
 fn build_slice(
@@ -362,12 +391,28 @@ mod tests {
   #[test]
   fn web_build_uses_cargo_static_library_artifact() {
     assert_eq!(
-      web_plugin_path(Path::new("target/web"), false),
+      web_plugin_path(Path::new("target/web"), false, "chess_rules"),
+      Path::new("target/web/wasm32-unknown-emscripten/debug/libchess_rules.a")
+    );
+    assert_eq!(
+      web_plugin_path(Path::new("target/web"), false, "battlement_rules"),
       Path::new("target/web/wasm32-unknown-emscripten/debug/libbattlement_rules.a")
     );
     assert_eq!(
-      web_plugin_path(Path::new("target/web"), true),
+      web_plugin_path(Path::new("target/web"), true, "battlement_rules"),
       Path::new("target/web/wasm32-unknown-emscripten/release/libbattlement_rules.a")
     );
+  }
+
+  #[test]
+  fn chess_library_keeps_its_cargo_name() {
+    let manifest =
+      Path::new(env!("CARGO_MANIFEST_DIR")).join("../../samples/chess/rules/Cargo.toml");
+    let name = rules_library_name(Some(&manifest)).unwrap();
+    assert_eq!(name, "chess_rules");
+    #[cfg(target_os = "macos")]
+    assert_eq!(native_artifact_name(&name), "libchess_rules.dylib");
+    #[cfg(windows)]
+    assert_eq!(native_artifact_name(&name), "chess_rules.dll");
   }
 }

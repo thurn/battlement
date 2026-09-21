@@ -294,14 +294,17 @@ fn build_pending(
   if !cargo_output.status.success() {
     return self::failed(pending, "rust", &cargo_output, now);
   }
+  let library_name = crate::plugin_build::rules_library_name(Some(&request.rust_manifest))?;
+  let artifact = format!("lib{library_name}.a");
   let plugin = target_directory
     .join(target)
-    .join("release/libbattlement_rules.a");
+    .join("release")
+    .join(&artifact);
   if !plugin.is_file() {
     return self::failed_message(
       pending,
       "rust",
-      "Rust build omitted libbattlement_rules.a",
+      &format!("Rust build omitted {artifact}"),
       now,
     );
   }

@@ -5,7 +5,7 @@ use std::time::Duration;
 use battlement::{
   ControllerButton, ControllerDirection, DragMode, PhysicalKey, SemanticRole, Vector3,
 };
-use battlement_rules::{ChessGame, contract};
+use chess_rules::{ChessGame, contract};
 use reactant_testing::GameActionResult;
 
 use crate::support::{
