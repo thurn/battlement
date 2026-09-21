@@ -1110,6 +1110,10 @@ def run_ci(
             ],
         )
     run_step(
+        "Check chess rules Stylon formatting",
+        [sys.executable, "scripts/stylon_validation.py"],
+    )
+    run_step(
         "Lint Rust workspaces",
         function=lambda: lint_rust_workspaces(rust_selection, ci_cache),
     )

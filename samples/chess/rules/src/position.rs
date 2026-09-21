@@ -2,6 +2,7 @@
 
 use battlement::ObjectId;
 use cozy_chess::{Board, Color, File, Move, Piece, Rank, Square};
+use fastrand::Rng;
 
 /// Stable object identity paired with its explicit board reference slot.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -97,7 +98,7 @@ impl ChessPosition {
   /// Object IDs and reference slots are separate concerns: the former identifies
   /// host objects while the latter selects the matching hook-backed reference.
   pub fn from_board(board: Board, generation: u64) -> Self {
-    let mut identities = fastrand::Rng::with_seed(generation ^ 0xA599_7560_9834_72D1);
+    let mut identities = Rng::with_seed(generation ^ 0xA599_7560_9834_72D1);
     let pieces = std::array::from_fn(|index| {
       let square = Square::index(index);
       let object_id = piece_id(&mut identities);
@@ -263,7 +264,7 @@ impl ChessPosition {
 }
 
 /// Generates an opaque, deterministic host identity for a piece slot.
-fn piece_id(rng: &mut fastrand::Rng) -> ObjectId {
+fn piece_id(rng: &mut Rng) -> ObjectId {
   let mut bytes = [0; 16];
   bytes[..8].copy_from_slice(&rng.u64(..).to_be_bytes());
   bytes[8..].copy_from_slice(&rng.u64(..).to_be_bytes());

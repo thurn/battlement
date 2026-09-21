@@ -11,7 +11,6 @@ use reactant::{
     Style,
   },
   rules::{DisplayConnection, ExecutionMode},
-  world,
 };
 use trox::ls;
 
@@ -24,10 +23,17 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
 };
+use battlement::ImageFit;
+use battlement::Prop;
+use cozy_chess::Board;
+use reactant::hooks;
+use reactant::prelude::AnimationPlayback;
+use reactant::prelude::Label;
+use reactant::world::Camera;
+use reactant::world::SceneRoot;
+use reactant::world::Sprite;
 
 const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
-pub(super) const CAMERA_ROTATION: Quaternion =
-  Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
 #[derive(Clone)]
 /// Typed inputs used to assemble every chess application variant.
@@ -37,7 +43,7 @@ pub(super) const CAMERA_ROTATION: Quaternion =
 /// inside Reactant components.
 pub struct ChessConfig {
   /// Board used when a new rules session has no supplied or restored state.
-  pub starting_board: cozy_chess::Board,
+  pub starting_board: Board,
   /// Optional state that mounts directly into an active session.
   pub initial_state: Option<ChessState>,
   /// Initial semantic marker exposed by the view.
@@ -51,6 +57,31 @@ pub struct ChessConfig {
   /// Whether host persistence may replace the configured initial state.
   pub load_persistence: bool,
 }
+
+/// Assembles the Reactant application, document, camera, and global input policy.
+///
+/// The application owns host setup once; components below it remain declarative
+/// and can focus on state, events, and effects.
+pub fn application(config: ChessConfig) -> Application {
+  let app = Application::new(crate::assets::CONTENT)
+    .child(ChessApp { config })
+    .document(|mut document| {
+      document.root_id = crate::visual_state::ROOT_ID;
+      document.element.picking_mode = Prop::Set(battlement::PickingMode::Ignore);
+      document
+    })
+    .camera(|camera| {
+      Camera::new()
+        .perspective(60.0)
+        .position(Vector3::new(0.0, 8.0, -3.75))
+        .rotation(CAMERA_ROTATION)
+        .into_object(camera.object_id)
+    });
+  crate::reactant_input::configure_application(app)
+}
+
+pub(super) const CAMERA_ROTATION: Quaternion =
+  Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
 /// Root component that chooses the title or active-session subtree.
 struct ChessApp {
@@ -96,28 +127,6 @@ struct PersistenceCoordinator {
   persistence: PersistentState<SavedGame>,
 }
 
-/// Assembles the Reactant application, document, camera, and global input policy.
-///
-/// The application owns host setup once; components below it remain declarative
-/// and can focus on state, events, and effects.
-pub fn application(config: ChessConfig) -> Application {
-  let app = Application::new(crate::assets::CONTENT)
-    .child(ChessApp { config })
-    .document(|mut document| {
-      document.root_id = crate::visual_state::ROOT_ID;
-      document.element.picking_mode = battlement::Prop::Set(battlement::PickingMode::Ignore);
-      document
-    })
-    .camera(|camera| {
-      world::Camera::new()
-        .perspective(60.0)
-        .position(Vector3::new(0.0, 8.0, -3.75))
-        .rotation(CAMERA_ROTATION)
-        .into_object(camera.object_id)
-    });
-  crate::reactant_input::configure_application(app)
-}
-
 impl Component for ChessApp {
   /// Restores persistent state once, creates app-local state, and selects a screen.
   ///
@@ -129,7 +138,7 @@ impl Component for ChessApp {
     let diagnostics = reactant::use_host_module("battlement.diagnostics");
     // Persistence is an input to initial assembly, not an ongoing competing
     // source of truth. Once mounted, the rules session owns the logical state.
-    let initial_state = reactant::hooks::use_memo(
+    let initial_state = hooks::use_memo(
       {
         let configured = self.config.initial_state.clone();
         let saved = persistence.value().cloned();
@@ -147,7 +156,7 @@ impl Component for ChessApp {
       },
       (),
     );
-    let initial_local = reactant::hooks::use_memo(
+    let initial_local = hooks::use_memo(
       {
         let state = initial_state.clone();
         let restored = self.config.load_persistence && persistence.value().is_some();
@@ -254,11 +263,11 @@ impl Component for ChessSession {
       Some(SessionStart::Restart | SessionStart::Refresh)
     ) {
       let persistence = self.persistence.clone();
-      reactant::hooks::use_effect(move || persistence.clear(), ());
+      hooks::use_effect(move || persistence.clear(), ());
     }
     let music = self.control.clone();
     let restart_music = matches!(self.mode, Some(SessionStart::Restart));
-    reactant::hooks::use_effect(
+    hooks::use_effect(
       move || {
         if restart_music {
           music.restart_music();
@@ -300,12 +309,12 @@ impl Component for TitleScreen {
             .opacity(0.0),
         )
         .on_press(self.on_play.clone()),
-      world::SceneRoot::new(ParentScene::PrimaryScene).child(
-        world::Sprite::new()
+      SceneRoot::new(ParentScene::PrimaryScene).child(
+        Sprite::new()
           .id(*PLAY_BUTTON_ID.as_uuid())
           .texture(crate::assets::PLAY_BUTTON)
           .size(0.8, 0.24)
-          .fit(battlement::ImageFit::Stretch)
+          .fit(ImageFit::Stretch)
           .position(Vector3::new(0.0, 6.38, -3.86))
           .rotation(CAMERA_ROTATION)
           .on_click(self.on_play.clone()),
@@ -360,15 +369,12 @@ impl Component for ChessScreen {
       })
     };
     let opening_control = self.control.clone();
-    let opening_playbacks =
-      reactant::hooks::use_ref(Vec::<reactant::prelude::AnimationPlayback>::new());
-    let on_opening_finished = Rc::new(
-      move |playback: reactant::prelude::AnimationPlayback, generation: u64| {
-        let completion_control = opening_control.clone();
-        playback.on_complete(move || completion_control.finish_opening(generation));
-        opening_playbacks.with_mut(|active| active.push(playback));
-      },
-    );
+    let opening_playbacks = hooks::use_ref(Vec::<AnimationPlayback>::new());
+    let on_opening_finished = Rc::new(move |playback: AnimationPlayback, generation: u64| {
+      let completion_control = opening_control.clone();
+      playback.on_complete(move || completion_control.finish_opening(generation));
+      opening_playbacks.with_mut(|active| active.push(playback));
+    });
     (
       PersistenceCoordinator {
         persistence: self.persistence.clone(),
@@ -417,7 +423,7 @@ impl Component for PersistenceCoordinator {
     let position = board.to_string();
     let saved = SavedGame::new(board);
     let persistence = self.persistence.clone();
-    reactant::hooks::use_effect(move || persistence.update(saved), position);
+    hooks::use_effect(move || persistence.update(saved), position);
   }
 }
 
@@ -477,7 +483,7 @@ impl Component for TurnCoordinator {
       && state.board().status() == GameStatus::Ongoing
       && state.board().side_to_move() == Color::Black;
     let game = self.game.clone();
-    reactant::hooks::use_effect(
+    hooks::use_effect(
       move || {
         if ready {
           assert_eq!(
@@ -499,7 +505,7 @@ fn status_markers(active: crate::visual_state::VisualState) -> impl Render {
   crate::visual_state::VisualState::ALL
     .into_iter()
     .map(|state| {
-      reactant::prelude::Label::new(ls(if state == active { state.label() } else { "" }))
+      Label::new(ls(if state == active { state.label() } else { "" }))
         .name(state.registry_key())
         .picking_mode(PickingMode::Ignore)
         .style(Style::new().display(Display::None))

@@ -9,12 +9,14 @@ use crate::{
   reactant_game::ChessGame,
   visual_state::{ROOT_ID as REACTANT_CHESS_ROOT_ID, VisualState},
 };
+use battlement::ObjectId;
 use battlement::{
   CommandBody, Connect, ControllerButton, ControllerDirection, DragMode, PanelPoint, PhysicalKey,
   PointerButton, Quaternion, ScreenPosition, ScreenSize, Vector3,
 };
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use battlement_fake::client::PointerInput;
+use cozy_chess::Color;
 use cozy_chess::{Board, Square};
 use reactant::GameStatus;
 use reactant_testing::Display;
@@ -628,7 +630,7 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
   for _ in 0..128 {
     display.poll();
     let accepted = accepted!(display);
-    if accepted.board().side_to_move() == cozy_chess::Color::Black {
+    if accepted.board().side_to_move() == Color::Black {
       break;
     }
     let _ = display.wait_for_game_output::<ChessGame>(Duration::from_millis(50));
@@ -647,7 +649,7 @@ fn player_move_is_saved_before_ai_and_a_black_turn_resumes_the_reply() {
   initial_ready(&mut restored);
   for _ in 0..128 {
     restored.poll();
-    if accepted!(restored).board().side_to_move() == cozy_chess::Color::White {
+    if accepted!(restored).board().side_to_move() == Color::White {
       break;
     }
     let _ = restored.wait_for_game_output::<ChessGame>(Duration::from_millis(50));
@@ -822,7 +824,7 @@ fn piece_scales(display: &mut Display) -> Vec<Vector3> {
     .collect()
 }
 
-fn piece(display: &mut Display, square: Square) -> battlement::ObjectId {
+fn piece(display: &mut Display, square: Square) -> ObjectId {
   let identity = accepted!(display)
     .piece(square)
     .expect("piece exists")
@@ -834,7 +836,7 @@ fn piece(display: &mut Display, square: Square) -> battlement::ObjectId {
     .expect("piece has native host")
 }
 
-fn highlight(display: &Display, square: Square) -> battlement::ObjectId {
+fn highlight(display: &Display, square: Square) -> ObjectId {
   let expected = self::square(square);
   display
     .objects()

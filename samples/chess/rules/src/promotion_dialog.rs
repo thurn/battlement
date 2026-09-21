@@ -14,6 +14,7 @@ use crate::{
   chess_prompt::{ChessPrompt, PromotionPrompt},
   reactant_game::ChessGame,
 };
+use reactant::prelude::Label;
 
 /// Prompt-aware component that appears only while promotion awaits a response.
 pub struct PromotionDialog;
@@ -60,7 +61,7 @@ impl Component for PromotionChoices {
           .border_radius(8),
       )
       .child((
-        reactant::prelude::Label::new(ls(format!(
+        Label::new(ls(format!(
           "Promote {} to {}",
           self.data.from, self.data.to
         )))

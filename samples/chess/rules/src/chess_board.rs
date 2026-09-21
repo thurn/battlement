@@ -15,7 +15,6 @@ use reactant::{
     MotionComponentExt, MotionProps, Position, Render, Style, StyleTarget, Transition,
     use_object_ref,
   },
-  world,
 };
 use trox::ls;
 
@@ -25,6 +24,17 @@ use crate::{
   position::{ChessPiece, Movement, PieceIdentity},
   reactant_game::{ChessAnimation, ChessGame},
 };
+use battlement::ImageFit;
+use reactant::animation_controls;
+use reactant::app_context;
+use reactant::hooks;
+use reactant::prelude::ObjectRef;
+use reactant::world::BoxHitRegion;
+use reactant::world::Group;
+use reactant::world::Plane;
+use reactant::world::Prefab;
+use reactant::world::SceneRoot;
+use reactant::world::Sprite;
 
 const CAMERA_BUTTON_DEPTH: f64 = 1.5;
 const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
@@ -37,9 +47,6 @@ const PIECE_SPAWN_EFFECT_LIFETIME_MS: u64 = 1_000;
 const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 const REFRESH_BUTTON_MARGIN: f64 = 0.12;
 const REFRESH_BUTTON_SIZE: f64 = 0.16;
-pub(super) const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = CRITICAL_FIRST_BEAT_OFFSET_MS
-  + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS
-  + PIECE_SPAWN_EFFECT_LIFETIME_MS;
 
 /// Declarative world-space board composed from rules state and app-local UI state.
 ///
@@ -63,12 +70,27 @@ pub struct ChessBoard {
   pub control: ChessUiController,
 }
 
+pub(super) const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = CRITICAL_FIRST_BEAT_OFFSET_MS
+  + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS
+  + PIECE_SPAWN_EFFECT_LIFETIME_MS;
+
+pub(super) fn square_position(square: Square) -> Vector3 {
+  GridLayout::centered(
+    Vector3::ZERO,
+    8,
+    8,
+    Vector3::new(1.0, 0.0, 0.0),
+    Vector3::new(0.0, 0.0, 1.0),
+  )
+  .position(square.file() as u32, square.rank() as u32)
+}
+
 /// One board cell, including its interaction surface and optional piece.
 struct ChessSquare {
   square: Square,
   legal_target: bool,
   piece: Option<ChessPiece>,
-  piece_reference: reactant::prelude::ObjectRef,
+  piece_reference: ObjectRef,
   on_activate: EventCallback<Square>,
   spawning: bool,
   game: reactant::GameHandle<ChessGame>,
@@ -80,7 +102,7 @@ struct ChessSquare {
 struct ChessPieceView {
   piece: ChessPiece,
   square: Square,
-  reference: reactant::prelude::ObjectRef,
+  reference: ObjectRef,
   on_activate: EventCallback<Square>,
   spawning: bool,
   game: reactant::GameHandle<ChessGame>,
@@ -96,13 +118,13 @@ impl Component for ChessBoard {
   fn render(&self) -> impl Render {
     let state = reactant::use_game_state::<ChessGame>();
     let status = reactant::use_game_status::<ChessGame>();
-    let screen = reactant::app_context::use_viewport_size();
+    let screen = app_context::use_viewport_size();
     let local = &self.ui;
-    let scope = reactant::animation_controls::use_animation_scope();
+    let scope = animation_controls::use_animation_scope();
     let event_scope = scope.clone();
     // Reserve one hook-backed reference per original piece slot. Piece identities
     // retain that slot across moves, so animations never depend on tree position.
-    let references: [reactant::prelude::ObjectRef; 64] = std::array::from_fn(|_| use_object_ref());
+    let references: [ObjectRef; 64] = std::array::from_fn(|_| use_object_ref());
     let event_references = references.clone();
     reactant::use_animate::<ChessGame>(move |animation| {
       Some(SnapshotAnimation::sequence(
@@ -122,7 +144,7 @@ impl Component for ChessBoard {
       .collect::<Vec<_>>();
     // Starting Motion after commit guarantees all newly mounted piece references
     // are attached before the sequence tries to animate them.
-    reactant::hooks::use_commit_effect(
+    hooks::use_commit_effect(
       move || {
         if let Some(mode) = opening {
           let playback = opening_scope.start_blocking(opening_sequence(
@@ -142,7 +164,7 @@ impl Component for ChessBoard {
     let restore_references = references.clone();
     let restore_state = state.clone();
     let drag_restore = local.drag_restore;
-    reactant::hooks::use_commit_effect(
+    hooks::use_commit_effect(
       move || {
         if let Some((piece, square)) = drag_restore
           && let Some(piece) = restore_state.piece_with_id(piece)
@@ -225,12 +247,12 @@ impl Component for ChessBoard {
     } else {
       1.0
     };
-    let cursor = world::Group::new()
+    let cursor = Group::new()
       .id(*crate::cursor::EFFECT_ID.as_uuid())
       .position(square_position(local.cursor))
       .scale(Vector3::new(cursor_scale, cursor_scale, cursor_scale))
       .active(cursor_active)
-      .child(world::Prefab::at(crate::assets::effects::PIECE_SELECTED));
+      .child(Prefab::at(crate::assets::effects::PIECE_SELECTED));
     let refresh = local.pause_open().then(|| {
       let aspect = if screen.height == 0 {
         1.0
@@ -240,11 +262,11 @@ impl Component for ChessBoard {
       let half_height = CAMERA_BUTTON_DEPTH * (CAMERA_VERTICAL_FOV_RADIANS / 2.0).tan();
       let right = half_height * aspect - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
       let up = half_height - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
-      world::Sprite::new()
+      Sprite::new()
         .id(*REFRESH_BUTTON_ID.as_uuid())
         .texture(crate::assets::REFRESH_BUTTON)
         .size(REFRESH_BUTTON_SIZE, REFRESH_BUTTON_SIZE)
-        .fit(battlement::ImageFit::Stretch)
+        .fit(ImageFit::Stretch)
         .position(Vector3::new(
           right,
           8.0 - 0.946201 * CAMERA_BUTTON_DEPTH + 0.323579 * up,
@@ -255,8 +277,8 @@ impl Component for ChessBoard {
     });
 
     (
-      world::SceneRoot::new(ParentScene::PrimaryScene).child(
-        world::Group::new()
+      SceneRoot::new(ParentScene::PrimaryScene).child(
+        Group::new()
           .child((squares, cursor, refresh))
           .motion(MotionProps::new().animation_scope(scope)),
       ),
@@ -271,7 +293,7 @@ impl Component for ChessSquare {
     let square = self.square;
     let mut position = square_position(square);
     position.y = HIGHLIGHT_HEIGHT;
-    let surface = world::Plane::new()
+    let surface = Plane::new()
       .position(position)
       .scale(Vector3::new(HIGHLIGHT_SCALE, 1.0, HIGHLIGHT_SCALE))
       .active(self.legal_target && self.interactive)
@@ -297,7 +319,7 @@ impl Component for ChessPieceView {
   /// Renders one stable hit region and chooses interaction by piece ownership.
   fn render(&self) -> impl Render {
     let square = self.square;
-    let hit = world::BoxHitRegion::new()
+    let hit = BoxHitRegion::new()
       .size(Vector3::new(0.9, 1.5, 0.9))
       .position(square_position(self.square))
       .scale(if self.spawning {
@@ -334,10 +356,7 @@ impl Component for ChessPieceView {
       hit
     };
     hit
-      .child(world::Prefab::at(address(
-        self.piece.color,
-        self.piece.kind,
-      )))
+      .child(Prefab::at(address(self.piece.color, self.piece.kind)))
       .motion(MotionProps::new().motion_name("chess-piece"))
       .key(self.spawning)
   }
@@ -347,10 +366,7 @@ impl Component for ChessPieceView {
 ///
 /// Motion owns spatial composition; this board-level adapter owns sounds because
 /// it can schedule them against the same sequence clock delivered to the host.
-fn sequence(
-  animation: &ChessAnimation,
-  references: &[reactant::prelude::ObjectRef; 64],
-) -> AnimationSequence {
+fn sequence(animation: &ChessAnimation, references: &[ObjectRef; 64]) -> AnimationSequence {
   match animation {
     ChessAnimation::Movement {
       movement,
@@ -388,7 +404,7 @@ fn sequence(
 fn opening_sequence(
   mode: SessionStart,
   pieces: &[ChessPiece],
-  references: &[reactant::prelude::ObjectRef; 64],
+  references: &[ObjectRef; 64],
 ) -> AnimationSequence {
   let sound = if mode == SessionStart::Fresh {
     crate::audio::START_SOUND
@@ -455,10 +471,7 @@ fn opening_sequence(
 }
 
 /// Resolves a piece's explicit reference slot into the board's hook-backed reference.
-fn piece_reference(
-  references: &[reactant::prelude::ObjectRef; 64],
-  piece: PieceIdentity,
-) -> reactant::prelude::ObjectRef {
+fn piece_reference(references: &[ObjectRef; 64], piece: PieceIdentity) -> ObjectRef {
   references[piece.reference_slot].clone()
 }
 
@@ -469,17 +482,6 @@ fn square_at(position: Vector3) -> Option<Square> {
   let file = (position.x + 3.5).round() as usize;
   let rank = (position.z + 3.5).round() as usize;
   Some(Square::new(File::index(file), Rank::index(rank)))
-}
-
-pub(super) fn square_position(square: Square) -> Vector3 {
-  GridLayout::centered(
-    Vector3::ZERO,
-    8,
-    8,
-    Vector3::new(1.0, 0.0, 0.0),
-    Vector3::new(0.0, 0.0, 1.0),
-  )
-  .position(square.file() as u32, square.rank() as u32)
 }
 
 fn address(color: Color, piece: Piece) -> PrefabAddress {

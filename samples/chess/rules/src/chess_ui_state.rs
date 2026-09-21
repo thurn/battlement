@@ -7,6 +7,8 @@ use cozy_chess::{Color, GameStatus, Square};
 use reactant::{DispatchResult, GameHandle, GameStatus as RulesStatus};
 
 use crate::reactant_game::{ChessAction, ChessGame, ChessState};
+use battlement::AudioClipAddress;
+use reactant::hooks;
 
 const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 
@@ -77,7 +79,7 @@ pub enum SessionStart {
 #[derive(Clone, Debug, PartialEq)]
 pub enum LocalEffect {
   /// Plays one sound without changing logical rules state.
-  Sound(battlement::AudioClipAddress),
+  Sound(AudioClipAddress),
   /// Plays invalid-action feedback and vibrates the controller.
   Invalid,
   /// Opens a host-provided debug surface.
@@ -138,6 +140,31 @@ pub struct ChessUiController {
   sound_cursor: Rc<Cell<usize>>,
 }
 
+/// Creates app-local reducer state and a controller safe for event closures.
+///
+/// Reactant's reducer snapshot updates on render. The companion ref is updated
+/// both eagerly by events and after commit, so several events arriving before a
+/// rerender still reduce from the latest value rather than a captured snapshot.
+pub fn use_chess_ui(initial: ChessUiState) -> ChessUiController {
+  let (local, dispatch) = hooks::use_reducer(|_, next| next, initial);
+  let current = hooks::use_ref(local.clone());
+  let committed = current.clone();
+  let next = local.clone();
+  hooks::use_commit_effect(
+    move || {
+      committed.replace(next);
+    },
+    local.clone(),
+  );
+  let sound_cursor = hooks::use_memo(|| Rc::new(Cell::new(0)), ());
+  ChessUiController {
+    local,
+    current,
+    dispatch,
+    sound_cursor,
+  }
+}
+
 impl Default for ChessUiState {
   /// Starts on the title screen with no transient interaction or host effects.
   fn default() -> Self {
@@ -189,31 +216,6 @@ impl ChessUiState {
         confirm_new_game: true
       })
     )
-  }
-}
-
-/// Creates app-local reducer state and a controller safe for event closures.
-///
-/// Reactant's reducer snapshot updates on render. The companion ref is updated
-/// both eagerly by events and after commit, so several events arriving before a
-/// rerender still reduce from the latest value rather than a captured snapshot.
-pub fn use_chess_ui(initial: ChessUiState) -> ChessUiController {
-  let (local, dispatch) = reactant::hooks::use_reducer(|_, next| next, initial);
-  let current = reactant::hooks::use_ref(local.clone());
-  let committed = current.clone();
-  let next = local.clone();
-  reactant::hooks::use_commit_effect(
-    move || {
-      committed.replace(next);
-    },
-    local.clone(),
-  );
-  let sound_cursor = reactant::hooks::use_memo(|| Rc::new(Cell::new(0)), ());
-  ChessUiController {
-    local,
-    current,
-    dispatch,
-    sound_cursor,
   }
 }
 

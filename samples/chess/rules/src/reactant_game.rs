@@ -12,6 +12,7 @@ use crate::{
   chess_prompt::{ChessPrompt, PromotionPrompt},
   position::{ChessPiece, ChessPosition, Movement},
 };
+use battlement::ObjectId;
 
 /// One complete user action admitted to the bounded rules worker.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -54,8 +55,10 @@ pub struct ChessState {
 
 /// Type-level description connecting chess state, actions, prompts, and animations.
 pub struct ChessGame;
+
 /// Choice policy used when rules execution encounters a typed prompt.
 pub struct ChessPolicy;
+
 /// Mutable services available only while the bounded rules worker executes.
 ///
 /// Keeping presentation randomness and the display connection here avoids putting
@@ -96,7 +99,7 @@ impl ChessState {
   }
 
   /// Finds a piece by its host object identity.
-  pub fn piece_with_id(&self, object_id: battlement::ObjectId) -> Option<ChessPiece> {
+  pub fn piece_with_id(&self, object_id: ObjectId) -> Option<ChessPiece> {
     self.position.piece_with_id(object_id)
   }
 

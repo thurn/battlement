@@ -15,8 +15,40 @@ use crate::{
   assets::music,
   chess_ui_state::{ChessUiController, LocalEffect},
 };
+use reactant::app_context;
 
 const MUSIC_CROSSFADE: Duration = Duration::from_secs(5);
+
+/// Component that interprets app-local effect state at the host boundary.
+///
+/// Keeping effects in a leaf component separates idempotent rendering from
+/// imperative audio, vibration, debug UI, and diagnostics commands.
+pub struct GameEffects {
+  control: ChessUiController,
+  diagnostics: bool,
+}
+
+/// Publishes game metadata only when the optional diagnostics host module exists.
+///
+/// This helper returns renderable effect work, letting callers colocate metadata
+/// with the component that derives it while Reactant schedules the host command.
+pub fn diagnostics_view(status: &'static str, origin: &'static str) -> impl Render {
+  let app = app_context::use_app();
+  hooks::use_effect(
+    move || {
+      for (key, value) in [("chess.game_status", status), ("chess.game_origin", origin)] {
+        app.send(Command::diagnostics(DiagnosticsCommand::SetMetadata(
+          DiagnosticsMetadata {
+            key: key.to_owned(),
+            value: Some(value.to_owned()),
+          },
+        )));
+      }
+    },
+    (status, origin),
+  );
+}
+
 pub(super) const MUSIC_TRACKS: [AudioClipAddress; 4] = [
   music::CRITICAL,
   music::SWITCH_WITH_ME,
@@ -26,15 +58,6 @@ pub(super) const MUSIC_TRACKS: [AudioClipAddress; 4] = [
 
 pub(super) fn music_track_count() -> usize {
   MUSIC_TRACKS.len()
-}
-
-/// Component that interprets app-local effect state at the host boundary.
-///
-/// Keeping effects in a leaf component separates idempotent rendering from
-/// imperative audio, vibration, debug UI, and diagnostics commands.
-pub struct GameEffects {
-  control: ChessUiController,
-  diagnostics: bool,
 }
 
 impl GameEffects {
@@ -55,7 +78,7 @@ impl Component for GameEffects {
   /// ordinary rerenders from replaying host commands.
   fn render(&self) -> impl Render {
     let local = self.control.snapshot();
-    let app = reactant::app_context::use_app();
+    let app = app_context::use_app();
     let previous_music = hooks::use_ref(None::<(u64, usize, AudioPlayback)>);
     // Retain the playback handle outside render so track changes can crossfade
     // the previous host-owned audio instance instead of starting duplicates.
@@ -154,25 +177,4 @@ impl Component for GameEffects {
       );
     }
   }
-}
-
-/// Publishes game metadata only when the optional diagnostics host module exists.
-///
-/// This helper returns renderable effect work, letting callers colocate metadata
-/// with the component that derives it while Reactant schedules the host command.
-pub fn diagnostics_view(status: &'static str, origin: &'static str) -> impl Render {
-  let app = reactant::app_context::use_app();
-  hooks::use_effect(
-    move || {
-      for (key, value) in [("chess.game_status", status), ("chess.game_origin", origin)] {
-        app.send(Command::diagnostics(DiagnosticsCommand::SetMetadata(
-          DiagnosticsMetadata {
-            key: key.to_owned(),
-            value: Some(value.to_owned()),
-          },
-        )));
-      }
-    },
-    (status, origin),
-  );
 }

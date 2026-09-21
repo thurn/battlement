@@ -10,6 +10,7 @@ use reactant::{
 };
 
 use crate::position::{Movement, PieceIdentity};
+use reactant::prelude::ObjectRef;
 
 const MOVE_DURATION: Duration = Duration::from_millis(300);
 const KNIGHT_FIRST_LEG: Duration = Duration::from_millis(200);
@@ -40,10 +41,7 @@ pub const fn arrival_duration(movement: &Movement) -> Duration {
 /// module decides *how* that event is animated. That separation is idiomatic in
 /// Reactant because the rules worker remains deterministic while the component
 /// tree owns effects and host object references.
-pub fn sequence(
-  movement: &Movement,
-  references: &[reactant::prelude::ObjectRef; 64],
-) -> AnimationSequence {
+pub fn sequence(movement: &Movement, references: &[ObjectRef; 64]) -> AnimationSequence {
   match *movement {
     Movement::Move { piece, to } => move_step(references, piece, to, MOVE_DURATION),
     Movement::Knight { piece, corner, to } => knight_steps(references, piece, corner, to),
@@ -98,9 +96,18 @@ pub fn sequence(
   }
 }
 
+/// Creates the Motion target corresponding to the center of a chess square.
+pub fn position_target(square: Square) -> StyleTarget {
+  let position = crate::chess_board::square_position(square);
+  StyleTarget::new()
+    .local_position_x(position.x as f32)
+    .local_position_y(position.y as f32)
+    .local_position_z(position.z as f32)
+}
+
 /// Builds the common single-segment translation used by most pieces.
 fn move_step(
-  references: &[reactant::prelude::ObjectRef; 64],
+  references: &[ObjectRef; 64],
   piece: PieceIdentity,
   to: Square,
   duration: Duration,
@@ -114,7 +121,7 @@ fn move_step(
 
 /// Animates a knight through an L-shaped corner so its path reads clearly in 3D.
 fn knight_steps(
-  references: &[reactant::prelude::ObjectRef; 64],
+  references: &[ObjectRef; 64],
   piece: PieceIdentity,
   corner: Square,
   to: Square,
@@ -127,10 +134,7 @@ fn knight_steps(
 }
 
 /// Resolves a piece's explicit reference slot into the object reference captured by the board.
-fn piece_reference(
-  references: &[reactant::prelude::ObjectRef; 64],
-  piece: PieceIdentity,
-) -> reactant::prelude::ObjectRef {
+fn piece_reference(references: &[ObjectRef; 64], piece: PieceIdentity) -> ObjectRef {
   references
     .get(piece.reference_slot)
     .unwrap_or_else(|| {
@@ -140,15 +144,6 @@ fn piece_reference(
       )
     })
     .clone()
-}
-
-/// Creates the Motion target corresponding to the center of a chess square.
-pub fn position_target(square: Square) -> StyleTarget {
-  let position = crate::chess_board::square_position(square);
-  StyleTarget::new()
-    .local_position_x(position.x as f32)
-    .local_position_y(position.y as f32)
-    .local_position_z(position.z as f32)
 }
 
 /// Uses one easing curve for every board translation so composed moves feel coherent.
