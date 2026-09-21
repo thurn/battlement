@@ -3,13 +3,13 @@
 use std::time::Duration;
 
 use cozy_chess::Board;
+use reactant::Application;
 
 use crate::{
   reactant_game::ChessState,
   reactant_view::{self, ChessConfig},
   visual_state::{self, VisualState},
 };
-use reactant::Application;
 
 const AI_THINK_TIME: Duration = Duration::from_secs(2);
 
@@ -31,6 +31,46 @@ pub fn application() -> Application {
     think_time,
     Some(43),
     true,
+  )
+}
+
+fn configured_application(
+  starting_board: Board,
+  initial_state: Option<ChessState>,
+  visual_state: VisualState,
+  origin_saved: bool,
+  think_time: Duration,
+  seed: Option<u64>,
+  load_persistence: bool,
+) -> Application {
+  reactant_view::application(ChessConfig {
+    starting_board,
+    initial_state,
+    visual_state,
+    origin_saved,
+    think_time,
+    seed,
+    load_persistence,
+  })
+}
+
+fn review_application(name: &str) -> Application {
+  let (board, state) = if name == "paused" {
+    (Board::default(), VisualState::Paused)
+  } else {
+    let fixture = visual_state::semantic_fixture(name)
+      .unwrap_or_else(|| panic!("unknown Reactant Chess app fixture {name:?}"));
+    (fixture.board, fixture.state)
+  };
+  let initial = (state != VisualState::Title).then(|| ChessState::new(board.clone()));
+  configured_application(
+    board,
+    initial,
+    state,
+    state == VisualState::Resumed,
+    Duration::ZERO,
+    Some(43),
+    false,
   )
 }
 
@@ -73,46 +113,6 @@ pub(super) fn application_at_position(fen: &str, think_time: Duration) -> Applic
     VisualState::Resumed,
     true,
     think_time,
-    Some(43),
-    false,
-  )
-}
-
-fn configured_application(
-  starting_board: Board,
-  initial_state: Option<ChessState>,
-  visual_state: VisualState,
-  origin_saved: bool,
-  think_time: Duration,
-  seed: Option<u64>,
-  load_persistence: bool,
-) -> Application {
-  reactant_view::application(ChessConfig {
-    starting_board,
-    initial_state,
-    visual_state,
-    origin_saved,
-    think_time,
-    seed,
-    load_persistence,
-  })
-}
-
-fn review_application(name: &str) -> Application {
-  let (board, state) = if name == "paused" {
-    (Board::default(), VisualState::Paused)
-  } else {
-    let fixture = visual_state::semantic_fixture(name)
-      .unwrap_or_else(|| panic!("unknown Reactant Chess app fixture {name:?}"));
-    (fixture.board, fixture.state)
-  };
-  let initial = (state != VisualState::Title).then(|| ChessState::new(board.clone()));
-  configured_application(
-    board,
-    initial,
-    state,
-    state == VisualState::Resumed,
-    Duration::ZERO,
     Some(43),
     false,
   )

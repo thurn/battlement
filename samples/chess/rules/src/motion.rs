@@ -6,11 +6,10 @@ use battlement::Vector3;
 use cozy_chess::Square;
 use reactant::{
   animation_controls::{AnimationSequence, MotionSelector, SequencePosition},
-  prelude::{Easing, StyleTarget, Transition},
+  prelude::{Easing, ObjectRef, StyleTarget, Transition},
 };
 
 use crate::position::{Movement, PieceIdentity};
-use reactant::prelude::ObjectRef;
 
 const MOVE_DURATION: Duration = Duration::from_millis(300);
 const KNIGHT_FIRST_LEG: Duration = Duration::from_millis(200);

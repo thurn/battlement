@@ -2,15 +2,17 @@
 
 use std::{rc::Rc, time::Duration};
 
-use battlement::{ObjectId, ParentScene, Quaternion, Vector3, object_id};
-use cozy_chess::{Color, GameStatus};
+use battlement::{ImageFit, ObjectId, ParentScene, Prop, Quaternion, Vector3, object_id};
+use cozy_chess::{Board, Color, GameStatus};
 use reactant::{
   Application, DispatchResult, GameHandle, GameRoot, GameStatus as RulesStatus, PersistentState,
+  hooks,
   prelude::{
-    Button, Component, Display, Either, EventCallback, KeyRenderExt, PickingMode, Position, Render,
-    Style,
+    AnimationPlayback, Button, Component, Display, Either, EventCallback, KeyRenderExt, Label,
+    PickingMode, Position, Render, Style,
   },
   rules::{DisplayConnection, ExecutionMode},
+  world::{Camera, SceneRoot, Sprite},
 };
 use trox::ls;
 
@@ -23,17 +25,10 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
 };
-use battlement::ImageFit;
-use battlement::Prop;
-use cozy_chess::Board;
-use reactant::hooks;
-use reactant::prelude::AnimationPlayback;
-use reactant::prelude::Label;
-use reactant::world::Camera;
-use reactant::world::SceneRoot;
-use reactant::world::Sprite;
 
 const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
+pub(super) const CAMERA_ROTATION: Quaternion =
+  Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
 #[derive(Clone)]
 /// Typed inputs used to assemble every chess application variant.
@@ -79,9 +74,6 @@ pub fn application(config: ChessConfig) -> Application {
     });
   crate::reactant_input::configure_application(app)
 }
-
-pub(super) const CAMERA_ROTATION: Quaternion =
-  Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
 /// Root component that chooses the title or active-session subtree.
 struct ChessApp {

@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use battlement::AudioClipAddress;
+use battlement::{AudioClipAddress, ObjectId};
 use cozy_chess::{Board, Color, GameStatus, Move, Square};
 use fastrand::Rng;
 use reactant::rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game};
@@ -12,7 +12,6 @@ use crate::{
   chess_prompt::{ChessPrompt, PromotionPrompt},
   position::{ChessPiece, ChessPosition, Movement},
 };
-use battlement::ObjectId;
 
 /// One complete user action admitted to the bounded rules worker.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

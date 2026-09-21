@@ -17,9 +17,10 @@ mod reactant_effects;
 mod reactant_game;
 mod reactant_input;
 mod reactant_view;
-#[cfg(test)]
-mod tests_tests;
 mod visual_state;
+
+#[cfg(test)]
+mod tests;
 
 pub use app::application;
 

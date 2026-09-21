@@ -3,8 +3,8 @@
 use cozy_chess::Piece;
 use reactant::{
   prelude::{
-    Align, Button, Color, Component, FlexDirection, Justify, KeyRenderExt, Position, Render, Style,
-    View,
+    Align, Button, Color, Component, FlexDirection, Justify, KeyRenderExt, Label, Position, Render,
+    Style, View,
   },
   rules::ResponseHandle,
 };
@@ -14,7 +14,6 @@ use crate::{
   chess_prompt::{ChessPrompt, PromotionPrompt},
   reactant_game::ChessGame,
 };
-use reactant::prelude::Label;
 
 /// Prompt-aware component that appears only while promotion awaits a response.
 pub struct PromotionDialog;

@@ -2,13 +2,11 @@
 
 use std::{cell::Cell, collections::HashSet, rc::Rc};
 
-use battlement::{DebugUiSurface, ObjectId, PhysicalKey};
+use battlement::{AudioClipAddress, DebugUiSurface, ObjectId, PhysicalKey};
 use cozy_chess::{Color, GameStatus, Square};
-use reactant::{DispatchResult, GameHandle, GameStatus as RulesStatus};
+use reactant::{DispatchResult, GameHandle, GameStatus as RulesStatus, hooks};
 
 use crate::reactant_game::{ChessAction, ChessGame, ChessState};
-use battlement::AudioClipAddress;
-use reactant::hooks;
 
 const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 

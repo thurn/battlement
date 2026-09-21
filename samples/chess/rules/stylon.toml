@@ -1,2 +1,5 @@
 version = 1
 exclude = ["src/assets.rs"]
+
+[rules]
+"tests.no-inline-module" = false

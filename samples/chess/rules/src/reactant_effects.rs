@@ -7,7 +7,7 @@ use battlement::{
 };
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use reactant::{
-  hooks,
+  app_context, hooks,
   prelude::{AudioPlayback, AudioPlaybackOptions, Component, Render},
 };
 
@@ -15,9 +15,14 @@ use crate::{
   assets::music,
   chess_ui_state::{ChessUiController, LocalEffect},
 };
-use reactant::app_context;
 
 const MUSIC_CROSSFADE: Duration = Duration::from_secs(5);
+pub(super) const MUSIC_TRACKS: [AudioClipAddress; 4] = [
+  music::CRITICAL,
+  music::SWITCH_WITH_ME,
+  music::BREAKBEAT_CHIPS,
+  music::DRAG_AND_DREAD,
+];
 
 /// Component that interprets app-local effect state at the host boundary.
 ///
@@ -48,13 +53,6 @@ pub fn diagnostics_view(status: &'static str, origin: &'static str) -> impl Rend
     (status, origin),
   );
 }
-
-pub(super) const MUSIC_TRACKS: [AudioClipAddress; 4] = [
-  music::CRITICAL,
-  music::SWITCH_WITH_ME,
-  music::BREAKBEAT_CHIPS,
-  music::DRAG_AND_DREAD,
-];
 
 pub(super) fn music_track_count() -> usize {
   MUSIC_TRACKS.len()

@@ -3,18 +3,20 @@
 use std::time::Duration;
 
 use battlement::{
-  DragMode, GridLayout, MaterialAssignment, ObjectId, ParentScene, PrefabAddress, Quaternion,
-  Vector3, object_id,
+  DragMode, GridLayout, ImageFit, MaterialAssignment, ObjectId, ParentScene, PrefabAddress,
+  Quaternion, Vector3, object_id,
 };
 use cozy_chess::{Color, File, GameStatus, Piece, Rank, Square};
 use reactant::{
   GameStatus as RulesStatus, SnapshotAnimation,
-  animation_controls::{AnimationSequence, MotionSelector, SequencePosition},
+  animation_controls::{self, AnimationSequence, MotionSelector, SequencePosition},
+  app_context, hooks,
   prelude::{
     AnimationPlayback, Button, Component, Easing, EventCallback, IdentityRenderExt, KeyRenderExt,
-    MotionComponentExt, MotionProps, Position, Render, Style, StyleTarget, Transition,
+    MotionComponentExt, MotionProps, ObjectRef, Position, Render, Style, StyleTarget, Transition,
     use_object_ref,
   },
+  world::{BoxHitRegion, Group, Plane, Prefab, SceneRoot, Sprite},
 };
 use trox::ls;
 
@@ -24,17 +26,6 @@ use crate::{
   position::{ChessPiece, Movement, PieceIdentity},
   reactant_game::{ChessAnimation, ChessGame},
 };
-use battlement::ImageFit;
-use reactant::animation_controls;
-use reactant::app_context;
-use reactant::hooks;
-use reactant::prelude::ObjectRef;
-use reactant::world::BoxHitRegion;
-use reactant::world::Group;
-use reactant::world::Plane;
-use reactant::world::Prefab;
-use reactant::world::SceneRoot;
-use reactant::world::Sprite;
 
 const CAMERA_BUTTON_DEPTH: f64 = 1.5;
 const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
@@ -47,6 +38,9 @@ const PIECE_SPAWN_EFFECT_LIFETIME_MS: u64 = 1_000;
 const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 const REFRESH_BUTTON_MARGIN: f64 = 0.12;
 const REFRESH_BUTTON_SIZE: f64 = 0.16;
+pub(super) const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = CRITICAL_FIRST_BEAT_OFFSET_MS
+  + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS
+  + PIECE_SPAWN_EFFECT_LIFETIME_MS;
 
 /// Declarative world-space board composed from rules state and app-local UI state.
 ///
@@ -68,21 +62,6 @@ pub struct ChessBoard {
   pub game: reactant::GameHandle<ChessGame>,
   /// Reducer-style controller shared with other input paths.
   pub control: ChessUiController,
-}
-
-pub(super) const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = CRITICAL_FIRST_BEAT_OFFSET_MS
-  + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS
-  + PIECE_SPAWN_EFFECT_LIFETIME_MS;
-
-pub(super) fn square_position(square: Square) -> Vector3 {
-  GridLayout::centered(
-    Vector3::ZERO,
-    8,
-    8,
-    Vector3::new(1.0, 0.0, 0.0),
-    Vector3::new(0.0, 0.0, 1.0),
-  )
-  .position(square.file() as u32, square.rank() as u32)
 }
 
 /// One board cell, including its interaction surface and optional piece.
@@ -482,6 +461,17 @@ fn square_at(position: Vector3) -> Option<Square> {
   let file = (position.x + 3.5).round() as usize;
   let rank = (position.z + 3.5).round() as usize;
   Some(Square::new(File::index(file), Rank::index(rank)))
+}
+
+pub(super) fn square_position(square: Square) -> Vector3 {
+  GridLayout::centered(
+    Vector3::ZERO,
+    8,
+    8,
+    Vector3::new(1.0, 0.0, 0.0),
+    Vector3::new(0.0, 0.0, 1.0),
+  )
+  .position(square.file() as u32, square.rank() as u32)
 }
 
 fn address(color: Color, piece: Piece) -> PrefabAddress {

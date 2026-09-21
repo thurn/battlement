@@ -9,15 +9,13 @@ use crate::{
   reactant_game::ChessGame,
   visual_state::{ROOT_ID as REACTANT_CHESS_ROOT_ID, VisualState},
 };
-use battlement::ObjectId;
 use battlement::{
-  CommandBody, Connect, ControllerButton, ControllerDirection, DragMode, PanelPoint, PhysicalKey,
-  PointerButton, Quaternion, ScreenPosition, ScreenSize, Vector3,
+  CommandBody, Connect, ControllerButton, ControllerDirection, DragMode, ObjectId, PanelPoint,
+  PhysicalKey, PointerButton, Quaternion, ScreenPosition, ScreenSize, Vector3,
 };
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use battlement_fake::client::PointerInput;
-use cozy_chess::Color;
-use cozy_chess::{Board, Square};
+use cozy_chess::{Board, Color, Square};
 use reactant::GameStatus;
 use reactant_testing::Display;
 
