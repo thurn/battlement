@@ -14,11 +14,12 @@ use battlement::{
 };
 use battlement_fake::{
   assets::{FakeAssetCatalog, FakePrefab},
-  client::{FakeClient, PointerInput},
+  client::PointerInput,
 };
 use battlement_rules::{
-  Engine as PublicEngine, EngineDependencies, PersistenceBackend, contract, create_engine,
+  ChessGame, EngineDependencies, PersistenceBackend, contract, create_engine,
 };
+use reactant_testing::{Display, GameActionResult};
 
 pub const DEFAULT: &[u8] = include_bytes!("../fixtures/default.json");
 pub const CAPTURE: &[u8] = include_bytes!("../fixtures/capture.json");
@@ -31,6 +32,7 @@ pub const AI_TURN: &[u8] = include_bytes!("../fixtures/ai-turn.json");
 pub const CHECK: &[u8] = include_bytes!("../fixtures/check.json");
 pub const PLAYER_WIN: &[u8] = include_bytes!("../fixtures/player-win.json");
 pub const DRAW: &[u8] = include_bytes!("../fixtures/draw.json");
+pub const TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Default)]
 pub struct MemoryPersistence {
@@ -40,10 +42,7 @@ pub struct MemoryPersistence {
   fail_remove: Cell<bool>,
 }
 
-pub fn client(
-  persistence: Rc<MemoryPersistence>,
-  think_time: Duration,
-) -> FakeClient<impl PublicEngine> {
+pub fn client(persistence: Rc<MemoryPersistence>, think_time: Duration) -> Display {
   client_with_modules(persistence, think_time, &[])
 }
 
@@ -51,11 +50,11 @@ pub fn client_with_modules(
   persistence: Rc<MemoryPersistence>,
   think_time: Duration,
   modules: &[&str],
-) -> FakeClient<impl PublicEngine> {
+) -> Display {
   let mut connect =
     Connect::new("test", "test", ScreenSize::new(1_920, 1_080)).persistent_data_path("memory");
   connect.modules = modules.iter().map(|module| (*module).to_owned()).collect();
-  let (mut client, _) = FakeClient::connect_with_clocked(
+  let mut display = Display::connect_with_clocked(
     move |clock| {
       create_engine(EngineDependencies {
         persistence,
@@ -67,11 +66,13 @@ pub fn client_with_modules(
     catalog(),
     connect,
   );
-  for _ in 0..8 {
-    client.poll();
-    std::thread::sleep(Duration::from_millis(1));
+  if display.game_status::<ChessGame>().is_some() {
+    assert_eq!(
+      display.settle_game::<ChessGame>(TIMEOUT),
+      GameActionResult::Completed
+    );
   }
-  client
+  display
 }
 
 pub fn catalog() -> FakeAssetCatalog {
@@ -103,84 +104,39 @@ pub fn catalog() -> FakeAssetCatalog {
   catalog
 }
 
-pub fn wait_for_marker<E: PublicEngine>(client: &mut FakeClient<E>, marker: &str) {
-  for _ in 0..2_000 {
-    client.poll();
-    if marker_active(client, marker) {
-      return;
-    }
-    std::thread::sleep(Duration::from_millis(1));
-  }
-  panic!("Unity state did not reach marker {marker:?}");
+pub fn assert_state(display: &Display, marker: &str) {
+  let element = display.ui_element(display.find_ui(contract::ROOT_ID, marker));
+  assert!(
+    element.text().is_some_and(|text| !text.is_empty()),
+    "expected visible chess state {marker:?}"
+  );
 }
 
-pub fn marker_active<E: PublicEngine>(client: &FakeClient<E>, marker: &str) -> bool {
-  let mut pending = vec![contract::ROOT_ID];
-  while let Some(id) = pending.pop() {
-    let Some(element) = client.ui_world().element(id) else {
-      return false;
-    };
-    if element.name() == Some(marker) {
-      return element.text().is_some_and(|text| !text.is_empty());
-    }
-    pending.extend(element.children());
-  }
-  false
+pub fn piece(display: &Display, file: char, rank: u8) -> ObjectId {
+  piece_at(display, file, rank).unwrap_or_else(|| panic!("missing presented piece at {file}{rank}"))
 }
 
-pub fn find_ui<E: PublicEngine>(client: &FakeClient<E>, name: &str) -> Option<ObjectId> {
-  let mut pending = vec![contract::ROOT_ID];
-  while let Some(id) = pending.pop() {
-    let element = client.ui_world().element(id)?;
-    if element.name() == Some(name) {
-      return Some(id);
-    }
-    pending.extend(element.children());
-  }
-  None
-}
-
-pub fn piece<E: PublicEngine>(client: &FakeClient<E>, file: char, rank: u8) -> ObjectId {
-  piece_at(client, file, rank).unwrap_or_else(|| panic!("missing presented piece at {file}{rank}"))
-}
-
-pub fn piece_at<E: PublicEngine>(client: &FakeClient<E>, file: char, rank: u8) -> Option<ObjectId> {
+pub fn piece_at(display: &Display, file: char, rank: u8) -> Option<ObjectId> {
   let expected = square(file, rank);
-  client
-    .world()
+  display
     .objects()
     .find(|object| {
       matches!(object.kind(), GameObjectKind::BoxHitRegion { .. })
-        && client.world().world_point(object.id(), Vector3::ZERO) == expected
+        && display.world_point(object.id(), Vector3::ZERO) == expected
     })
     .map(|object| object.id())
 }
 
-pub fn highlight<E: PublicEngine>(client: &FakeClient<E>, file: char, rank: u8) -> ObjectId {
-  let expected = square(file, rank);
-  client
-    .world()
-    .objects()
-    .find(|object| {
-      object.active_self()
-        && object.local_transform().position.x == expected.x
-        && object.local_transform().position.z == expected.z
-        && matches!(object.kind(), GameObjectKind::Plane { .. })
-    })
-    .unwrap_or_else(|| panic!("missing legal target at {file}{rank}"))
-    .id()
+pub fn play_move(display: &mut Display, from: (char, u8), to: (char, u8)) {
+  assert_eq!(request_move(display, from, to), GameActionResult::Completed);
 }
 
-pub fn move_piece<E: PublicEngine>(client: &mut FakeClient<E>, from: (char, u8), to: (char, u8)) {
-  let source = piece(client, from.0, from.1);
-  let input = drag_input(0);
-  client.drag_start(source, input);
-  wait_for_marker(client, contract::marker::SELECTED);
-  client.drag_end(source, input, square(from.0, from.1));
-  client.poll();
-  client.poll();
-  let target = highlight(client, to.0, to.1);
-  client.activate(target);
+pub fn request_move(display: &mut Display, from: (char, u8), to: (char, u8)) -> GameActionResult {
+  let action = display.find_ui(
+    contract::ROOT_ID,
+    &format!("move-{}{}-{}{}", from.0, from.1, to.0, to.1),
+  );
+  display.game_action::<ChessGame>(TIMEOUT, |display| display.click_ui(action))
 }
 
 pub fn drag_input(pointer_id: i32) -> PointerInput {
@@ -196,21 +152,26 @@ pub fn square(file: char, rank: u8) -> Vector3 {
   Vector3::new((file as u8 - b'a') as f64 - 3.5, 0.0, rank as f64 - 4.5)
 }
 
-pub fn start_with_keyboard<E: PublicEngine>(client: &mut FakeClient<E>) {
-  wait_for_marker(client, contract::marker::TITLE);
-  client.key_down(PhysicalKey::Enter);
-  client.key_up(PhysicalKey::Enter);
-  wait_for_marker(client, contract::marker::INITIAL);
+pub fn press_key(display: &mut Display, key: PhysicalKey) {
+  display.key_down(key);
+  display.key_up(key);
 }
 
-pub fn click_play<E: PublicEngine>(client: &mut FakeClient<E>) {
-  let play = find_ui(client, "play-chess").expect("Play chess UI action");
-  client.ui().click(play);
-  wait_for_marker(client, contract::marker::INITIAL);
-  for _ in 0..8 {
-    client.poll();
-    std::thread::sleep(Duration::from_millis(1));
-  }
+pub fn start_with_keyboard(display: &mut Display) {
+  press_key(display, PhysicalKey::Enter);
+  assert_eq!(
+    display.settle_game::<ChessGame>(TIMEOUT),
+    GameActionResult::Completed
+  );
+}
+
+pub fn click_play(display: &mut Display) {
+  let play = display.find_ui(contract::ROOT_ID, "play-chess");
+  display.click_ui(play);
+  assert_eq!(
+    display.settle_game::<ChessGame>(TIMEOUT),
+    GameActionResult::Completed
+  );
 }
 
 impl MemoryPersistence {

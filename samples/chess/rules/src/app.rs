@@ -13,7 +13,7 @@ use crate::{
   reactant_view::{self, ChessConfig},
   visual_state::{self, VisualState},
 };
-use reactant::{ApplicationEngine, Engine as RulesEngine, PersistenceBackend};
+use reactant::{ApplicationEngine, PersistenceBackend};
 
 const AI_THINK_TIME: Duration = Duration::from_secs(2);
 
@@ -30,7 +30,7 @@ pub struct EngineDependencies {
 }
 
 /// Creates the opaque engine used by black-box hosts.
-pub fn create_engine(dependencies: EngineDependencies) -> impl RulesEngine {
+pub fn create_engine(dependencies: EngineDependencies) -> ApplicationEngine {
   let now = dependencies.now.clone();
   let persistence = dependencies.persistence.clone();
   let think_time = dependencies.think_time;

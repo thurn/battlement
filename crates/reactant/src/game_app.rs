@@ -230,6 +230,7 @@ impl Coordinator {
         rendered,
         prompt: None,
         sequence: 1,
+        completed_actions: 0,
         diagnostic: None,
       }),
     });

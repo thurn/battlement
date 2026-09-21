@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+  sync::Arc,
+  time::{Duration, Instant},
+};
 
 use battlement::{CommandId, Connect, ObjectId, Vector3};
 use battlement_fake::{
@@ -8,6 +11,15 @@ use battlement_fake::{
   world::{FakeAudio, FakeObject},
 };
 use battlement_native::Engine;
+
+/// Stable boundary reached after synchronously driving one game action.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GameActionResult {
+  /// The action's final publication was accepted and rendered.
+  Completed,
+  /// The action presented a human-owned prompt and is waiting for a response.
+  AwaitingInput,
+}
 
 /// A real engine connected to the deterministic in-memory display host.
 ///
@@ -59,6 +71,29 @@ impl Display<reactant::ApplicationEngine> {
     self.with_engine(|engine| engine.game::<G>().map(|game| game.accepted_state()))
   }
 
+  /// Runs one input operation and synchronously presents that game action's result.
+  ///
+  /// Worker waits use Reactant's notification sidechannel rather than sleeping
+  /// or advancing virtual presentation time. The result identifies the action's
+  /// completion or its human-owned prompt, not any subsequent automatic action.
+  pub fn game_action<G: reactant::rules::Game>(
+    &mut self,
+    timeout: Duration,
+    operation: impl FnOnce(&mut Self),
+  ) -> GameActionResult {
+    let completed = self
+      .with_engine(|engine| engine.game::<G>().map(|game| game.completed_actions()))
+      .expect("no game of the requested type is attached");
+    operation(self);
+    self.drive_game::<G>(timeout, Some(completed))
+  }
+
+  /// Synchronously presents game work until it is ready or asks for human input.
+  pub fn settle_game<G: reactant::rules::Game>(&mut self, timeout: Duration) -> GameActionResult {
+    self.flush();
+    self.drive_game::<G>(timeout, None)
+  }
+
   /// Waits for one typed rules publication without advancing presentation time.
   pub fn wait_for_game_output<G: reactant::rules::Game>(&mut self, timeout: Duration) -> bool {
     self.with_engine(|engine| engine.wait_for_game_output::<G>(timeout))
@@ -75,6 +110,57 @@ impl Display<reactant::ApplicationEngine> {
     id: uuid::Uuid,
   ) -> Option<reactant::presentation::PresentationObservation> {
     self.with_engine(|engine| engine.presentation(id))
+  }
+
+  fn drive_game<G: reactant::rules::Game>(
+    &mut self,
+    timeout: Duration,
+    completed_before: Option<u64>,
+  ) -> GameActionResult {
+    let deadline = Instant::now() + timeout;
+    loop {
+      let (status, completed, waiting, diagnostic) = self.with_engine(|engine| {
+        let game = engine
+          .game::<G>()
+          .expect("no game of the requested type is attached");
+        (
+          game.status(),
+          game.completed_actions(),
+          game.waiting_for_input(),
+          game.diagnostic(),
+        )
+      });
+      if completed_before.is_some_and(|before| completed > before) {
+        self.flush();
+        return GameActionResult::Completed;
+      }
+      if waiting {
+        return GameActionResult::AwaitingInput;
+      }
+      match status {
+        reactant::GameStatus::Ready if completed_before.is_none() => {
+          return GameActionResult::Completed;
+        }
+        reactant::GameStatus::Failed => {
+          panic!(
+            "game failed while synchronizing: {}",
+            diagnostic.as_deref().unwrap_or("no diagnostic")
+          )
+        }
+        reactant::GameStatus::Stopped => panic!("game stopped while synchronizing"),
+        reactant::GameStatus::Ready | reactant::GameStatus::Busy => {}
+      }
+      let remaining = deadline.saturating_duration_since(Instant::now());
+      assert!(
+        !remaining.is_zero(),
+        "game synchronization timed out after {timeout:?}"
+      );
+      assert!(
+        self.wait_for_game_output::<G>(remaining),
+        "game synchronization timed out after {timeout:?}"
+      );
+      self.client.poll();
+    }
   }
 }
 
@@ -102,6 +188,19 @@ where
     }
   }
 
+  /// Connects an engine factory to the display's deterministic manual clock.
+  #[must_use]
+  pub fn connect_with_clocked(
+    make_engine: impl FnOnce(battlement_fake::time::ManualClock) -> E,
+    assets: impl Into<Arc<FakeAssetCatalog>>,
+    connect: Connect,
+  ) -> Self {
+    let (client, _) = FakeClient::connect_with_clocked(make_engine, assets, connect);
+    let mut display = Self { client };
+    display.flush();
+    display
+  }
+
   /// Runs a public app operation without polling, advancing time, or a frame.
   pub fn with_engine<R>(&mut self, operation: impl FnOnce(&mut E) -> R) -> R {
     operation(self.client.engine_mut())
@@ -118,6 +217,11 @@ where
   /// presentation time or record a rendered frame.
   pub fn poll(&mut self) {
     self.client.poll();
+  }
+
+  /// Applies all engine work already available without waiting or advancing time.
+  pub fn flush(&mut self) {
+    while self.client.poll_available() {}
   }
 
   /// Presses a geometric primary pointer in upper-left screen pixels; advances no clock or frame.
@@ -378,6 +482,12 @@ where
     self.client.world().controller_input()
   }
 
+  /// Returns the deterministic Diagnostics module exposed by the fake host.
+  #[must_use]
+  pub fn diagnostics(&self) -> &battlement_cloud_fake::diagnostics::DiagnosticsFake {
+    self.client.diagnostics()
+  }
+
   /// Observes a presented local point without advancing time, work, or frames.
   #[must_use]
   pub fn world_point(&self, object_id: ObjectId, offset: Vector3) -> Vector3 {
@@ -387,7 +497,7 @@ where
   /// Advances virtual rules and presentation time without rendering a frame.
   pub fn advance_time(&mut self, duration: Duration) {
     self.client.advance_time(duration);
-    self.client.poll();
+    self.flush();
   }
 
   /// Records one rendered-frame boundary without advancing virtual time.

@@ -684,6 +684,7 @@ name = "reactant-testing"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-cloud-fake",
  "battlement-fake",
  "battlement-native",
  "reactant",

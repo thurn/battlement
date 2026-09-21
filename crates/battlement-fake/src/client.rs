@@ -346,12 +346,21 @@ where
 
   /// Applies exactly one queued engine response, when one is available.
   pub fn poll(&mut self) {
+    self.poll_available();
+  }
+
+  /// Applies one queued response and reports whether one was available.
+  #[doc(hidden)]
+  pub fn poll_available(&mut self) -> bool {
     let response = self
       .engine
       .poll()
       .unwrap_or_else(|error| panic!("poll failed for session {}: {error}", self.session_id));
     if let Some(response) = response {
       self.apply_response_bytes(response, ResponseMode::Existing);
+      true
+    } else {
+      false
     }
   }
 

@@ -13,6 +13,7 @@ worker-fixture = ["dep:exported-worker-fixture"]
 
 [dependencies]
 battlement = { path = "../battlement" }
+battlement-cloud-fake = { path = "../battlement-cloud-fake" }
 battlement-fake = { path = "../battlement-fake" }
 battlement-native = { path = "../battlement-native" }
 exported-worker-fixture = { package = "battlement-native-export-fixture", path = "../battlement-native/tests/fixtures/exported-engine", optional = true }

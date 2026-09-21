@@ -22,6 +22,7 @@ trox = "0.2.1"
 
 [dev-dependencies]
 battlement-fake = { path = "../../../crates/battlement-fake" }
+reactant-testing = { path = "../../../crates/reactant-testing", default-features = false }
 
 [workspace]
 

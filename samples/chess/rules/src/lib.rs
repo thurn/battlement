@@ -23,5 +23,6 @@ pub mod contract;
 
 pub use app::{EngineDependencies, create_engine};
 pub use reactant::{Engine, PersistenceBackend};
+pub use reactant_game::ChessGame;
 
 reactant::export_application!(app::application);

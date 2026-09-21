@@ -67,6 +67,7 @@ pub(crate) struct SessionData<G: Game> {
   pub(crate) rendered: Rc<G::State>,
   pub(crate) prompt: Option<Rc<PresentedPrompt<G::Prompt<'static>>>>,
   pub(crate) sequence: u64,
+  pub(crate) completed_actions: u64,
   pub(crate) diagnostic: Option<String>,
 }
 
@@ -131,6 +132,24 @@ impl<G: Game> GameHandle<G> {
   pub fn diagnostic(&self) -> Option<String> {
     self.session.refresh();
     self.session.data.borrow().diagnostic.clone()
+  }
+
+  /// Returns the number of rules actions accepted by the current session.
+  #[doc(hidden)]
+  pub fn completed_actions(&self) -> u64 {
+    self.session.data.borrow().completed_actions
+  }
+
+  /// Reports whether the current rules action is waiting for visible human input.
+  #[doc(hidden)]
+  pub fn waiting_for_input(&self) -> bool {
+    self
+      .session
+      .data
+      .borrow()
+      .prompt
+      .as_ref()
+      .is_some_and(|prompt| prompt.handle.is_waiting_for_human())
   }
 }
 

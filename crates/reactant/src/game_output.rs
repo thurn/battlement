@@ -191,6 +191,10 @@ impl<G: Game> GameOutput<G> {
         .as_mut()
         .expect("active session context")
         .accept(completion);
+      data.completed_actions = data
+        .completed_actions
+        .checked_add(1)
+        .expect("completed game action count overflow");
       data.status = GameStatus::Ready;
     } else if !data.initial_submitted {
       data.initial_submitted = true;
