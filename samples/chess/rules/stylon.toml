@@ -2,4 +2,5 @@ version = 1
 exclude = ["src/assets.rs"]
 
 [rules]
+"tests.integration-only" = true
 "visibility.no-restricted" = false
