@@ -7,41 +7,8 @@
 use crate::assets::sfx;
 use battlement::AudioClipAddress;
 
-/// Variants rotated through when the player selects a piece.
-pub const PICKUP_SOUNDS: [AudioClipAddress; 4] =
-  [sfx::CLICK, sfx::CLICK_2, sfx::CLICK_3, sfx::CLICK_4];
-/// Variants selected for captures so repeated moves sound less mechanical.
-pub const CAPTURE_SOUNDS: [AudioClipAddress; 4] =
-  [sfx::ATTACK_A, sfx::ATTACK_B, sfx::ATTACK_C, sfx::ATTACK_D];
-/// Variants selected when an ordinary move reaches its destination.
-pub const DROP_SOUNDS: [AudioClipAddress; 4] =
-  [sfx::BOUNCE_0, sfx::BOUNCE_1, sfx::BOUNCE_2, sfx::BOUNCE_3];
-/// Feedback for an illegal move or a rejected drag.
-pub const INVALID_DROP_SOUND: AudioClipAddress = sfx::ERROR;
-/// Arrival sound for castling.
-pub const CASTLE_SOUND: AudioClipAddress = sfx::POWERUP_A;
-/// Arrival sound for promotion.
-pub const PROMOTION_SOUND: AudioClipAddress = sfx::POWERUP_B;
-/// Follow-up sound when a move leaves the opponent in check.
-pub const CHECK_SOUND: AudioClipAddress = sfx::ALARM;
-/// Sound that begins a fresh-game opening sequence.
-pub const START_SOUND: AudioClipAddress = sfx::ACCEPT;
-/// Sound that accompanies a board reset.
-pub const RESET_SOUND: AudioClipAddress = sfx::SCENE_TRANSITION;
-/// Feedback for increasing music volume.
-pub const VOLUME_UP_SOUND: AudioClipAddress = sfx::CHIRP_A;
-/// Feedback for decreasing music volume.
-pub const VOLUME_DOWN_SOUND: AudioClipAddress = sfx::CHIRP_CRUNCH;
-/// Terminal sound when the human player wins.
-pub const PLAYER_WIN_SOUND: AudioClipAddress = sfx::LAP_COMPLETE;
-/// Terminal sound when the computer wins.
-pub const PLAYER_LOSS_SOUND: AudioClipAddress = sfx::FALL_AND_DIE;
-/// Terminal sound for stalemate or another drawn position.
-pub const DRAW_SOUND: AudioClipAddress = sfx::WOBBLE_FALLING_TONE;
-
 /// Addresses of NotJam's sound-effect collection.
-#[cfg(test)]
-pub const SOUND_EFFECTS: [AudioClipAddress; 41] = [
+pub(super) const SOUND_EFFECTS: [AudioClipAddress; 41] = [
   sfx::ACCEPT,
   sfx::ALARM,
   sfx::ATTACK_A,
@@ -84,3 +51,35 @@ pub const SOUND_EFFECTS: [AudioClipAddress; 41] = [
   sfx::SWIPE_METALLIC,
   sfx::WOBBLE_FALLING_TONE,
 ];
+/// Variants rotated through when the player selects a piece.
+pub const PICKUP_SOUNDS: [AudioClipAddress; 4] =
+  [sfx::CLICK, sfx::CLICK_2, sfx::CLICK_3, sfx::CLICK_4];
+/// Variants selected for captures so repeated moves sound less mechanical.
+pub const CAPTURE_SOUNDS: [AudioClipAddress; 4] =
+  [sfx::ATTACK_A, sfx::ATTACK_B, sfx::ATTACK_C, sfx::ATTACK_D];
+/// Variants selected when an ordinary move reaches its destination.
+pub const DROP_SOUNDS: [AudioClipAddress; 4] =
+  [sfx::BOUNCE_0, sfx::BOUNCE_1, sfx::BOUNCE_2, sfx::BOUNCE_3];
+/// Feedback for an illegal move or a rejected drag.
+pub const INVALID_DROP_SOUND: AudioClipAddress = sfx::ERROR;
+/// Arrival sound for castling.
+pub const CASTLE_SOUND: AudioClipAddress = sfx::POWERUP_A;
+/// Arrival sound for promotion.
+pub const PROMOTION_SOUND: AudioClipAddress = sfx::POWERUP_B;
+/// Follow-up sound when a move leaves the opponent in check.
+pub const CHECK_SOUND: AudioClipAddress = sfx::ALARM;
+/// Sound that begins a fresh-game opening sequence.
+pub const START_SOUND: AudioClipAddress = sfx::ACCEPT;
+/// Sound that accompanies a board reset.
+pub const RESET_SOUND: AudioClipAddress = sfx::SCENE_TRANSITION;
+/// Feedback for increasing music volume.
+pub const VOLUME_UP_SOUND: AudioClipAddress = sfx::CHIRP_A;
+/// Feedback for decreasing music volume.
+pub const VOLUME_DOWN_SOUND: AudioClipAddress = sfx::CHIRP_CRUNCH;
+/// Terminal sound when the human player wins.
+pub const PLAYER_WIN_SOUND: AudioClipAddress = sfx::LAP_COMPLETE;
+/// Terminal sound when the computer wins.
+pub const PLAYER_LOSS_SOUND: AudioClipAddress = sfx::FALL_AND_DIE;
+
+/// Terminal sound for stalemate or another drawn position.
+pub const DRAW_SOUND: AudioClipAddress = sfx::WOBBLE_FALLING_TONE;

@@ -88,7 +88,6 @@ dependencies = [
  "fastrand",
  "rayon",
  "reactant",
- "reactant-testing",
  "serde",
  "serde_json",
  "tracing",
@@ -751,18 +750,6 @@ dependencies = [
 [[package]]
 name = "reactant-rules"
 version = "0.1.0"
-
-[[package]]
-name = "reactant-testing"
-version = "0.1.0"
-dependencies = [
- "battlement",
- "battlement-fake",
- "battlement-native",
- "reactant",
- "reactant-rules",
- "uuid",
-]
 
 [[package]]
 name = "reactant-ui"

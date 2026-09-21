@@ -3,14 +3,11 @@
 //! These names describe user-visible outcomes rather than component internals.
 //! That makes automated scenarios durable even when the visual tree is refactored.
 
-use battlement::{ObjectId, object_id};
+use battlement::ObjectId;
 use cozy_chess::{Board, Color as PieceColor, GameStatus, Move, Piece};
 
-#[cfg(test)]
-const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
-
 /// Stable identity of the Reactant document root inspected by native scenarios.
-pub const ROOT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000002");
+pub const ROOT_ID: ObjectId = crate::contract::ROOT_ID;
 
 /// Finite user-visible presentation families recognized by the Chess engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -125,23 +122,23 @@ impl VisualState {
   /// Returns the canonical Ditto registry key.
   pub const fn registry_key(self) -> &'static str {
     match self {
-      Self::Title => "screen.title",
-      Self::Initial => "board.initial",
-      Self::Selected => "selection.legal-targets",
-      Self::PlayerMove => "move.committed",
-      Self::AiResponse => "turn.ai-response",
-      Self::Capture => "move.capture",
-      Self::Castle => "special.castle",
-      Self::EnPassant => "special.en-passant",
-      Self::Promotion => "special.promotion",
-      Self::Check => "feedback.check",
-      Self::PlayerWin => "terminal.player-win",
-      Self::ComputerWin => "terminal.computer-win",
-      Self::Draw => "terminal.draw",
-      Self::Paused => "menu.paused",
-      Self::Refreshed => "board.refreshed",
-      Self::Restarted => "board.restarted",
-      Self::Resumed => "board.resumed",
+      Self::Title => crate::contract::marker::TITLE,
+      Self::Initial => crate::contract::marker::INITIAL,
+      Self::Selected => crate::contract::marker::SELECTED,
+      Self::PlayerMove => crate::contract::marker::PLAYER_MOVE,
+      Self::AiResponse => crate::contract::marker::AI_RESPONSE,
+      Self::Capture => crate::contract::marker::CAPTURE,
+      Self::Castle => crate::contract::marker::CASTLE,
+      Self::EnPassant => crate::contract::marker::EN_PASSANT,
+      Self::Promotion => crate::contract::marker::PROMOTION,
+      Self::Check => crate::contract::marker::CHECK,
+      Self::PlayerWin => crate::contract::marker::PLAYER_WIN,
+      Self::ComputerWin => crate::contract::marker::COMPUTER_WIN,
+      Self::Draw => crate::contract::marker::DRAW,
+      Self::Paused => crate::contract::marker::PAUSED,
+      Self::Refreshed => crate::contract::marker::REFRESHED,
+      Self::Restarted => crate::contract::marker::RESTARTED,
+      Self::Resumed => crate::contract::marker::RESUMED,
     }
   }
 
@@ -182,97 +179,4 @@ fn is_en_passant(board: &Board, mv: Move) -> bool {
   board.piece_on(mv.from) == Some(Piece::Pawn)
     && mv.from.file() != mv.to.file()
     && board.piece_on(mv.to).is_none()
-}
-
-#[cfg(test)]
-mod tests {
-  use crate::visual_state::{
-    DITTO_VISUAL_STATE_REGISTRY, VisualState, after_move, semantic_fixture,
-  };
-  use cozy_chess::{Board, Color, Move, Piece, Square};
-
-  #[test]
-  /// Keeps the semantic registry synchronized with deterministic review fixtures.
-  fn deterministic_visual_states_and_semantic_fixtures_are_registered() {
-    assert_eq!(VisualState::ALL.len(), 17);
-    let deterministic_states = [
-      VisualState::Title,
-      VisualState::ComputerWin,
-      VisualState::Resumed,
-    ];
-    assert_eq!(
-      DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      deterministic_states.len()
-    );
-    for state in deterministic_states {
-      assert!(!state.registry_key().is_empty());
-      assert!(
-        DITTO_VISUAL_STATE_REGISTRY.contains(&format!("key = \"{}\"", state.registry_key())),
-        "registry is missing {}",
-        state.registry_key()
-      );
-    }
-    for name in [
-      "capture",
-      "castling",
-      "en passant",
-      "promotion",
-      "check",
-      "player win",
-      "computer win",
-      "draw",
-      "resumed board",
-    ] {
-      assert!(semantic_fixture(name).is_some(), "missing fixture {name}");
-    }
-  }
-
-  #[test]
-  /// Distinguishes equivalent quiet moves by which side committed them.
-  fn normal_moves_distinguish_player_commit_from_ai_response() {
-    let mut board = Board::default();
-    let player_move = Move {
-      from: Square::E2,
-      to: Square::E4,
-      promotion: None,
-    };
-    let before_player = board.clone();
-    board.play(player_move);
-    assert_eq!(
-      after_move(&before_player, &board, player_move, Color::White),
-      VisualState::PlayerMove
-    );
-
-    let ai_move = Move {
-      from: Square::E7,
-      to: Square::E5,
-      promotion: None,
-    };
-    let before_ai = board.clone();
-    board.play(ai_move);
-    assert_eq!(
-      after_move(&before_ai, &board, ai_move, Color::Black),
-      VisualState::AiResponse
-    );
-  }
-
-  #[test]
-  /// Proves the draw fixture reaches the intended stalemate through legal play.
-  fn draw_fixture_reaches_stalemate_through_a_legal_move() {
-    let mut board = semantic_fixture("draw").unwrap().board;
-    let mv = Move {
-      from: Square::C7,
-      to: Square::B6,
-      promotion: None,
-    };
-    assert!(board.is_legal(mv));
-    let before = board.clone();
-    board.play(mv);
-    assert_eq!(
-      after_move(&before, &board, mv, Color::White),
-      VisualState::Draw
-    );
-    assert_eq!(board.status(), cozy_chess::GameStatus::Drawn);
-    assert_eq!(board.piece_on(Square::B6), Some(Piece::Queen));
-  }
 }

@@ -1,6 +1,9 @@
 //! Application assembly and scenario configuration.
 
-use std::time::Duration;
+use std::{
+  rc::Rc,
+  time::{Duration, Instant},
+};
 
 use cozy_chess::Board;
 use reactant::Application;
@@ -10,11 +13,46 @@ use crate::{
   reactant_view::{self, ChessConfig},
   visual_state::{self, VisualState},
 };
+use reactant::{ApplicationEngine, Engine as RulesEngine, PersistenceBackend};
 
 const AI_THINK_TIME: Duration = Duration::from_secs(2);
 
+/// External services used to construct an opaque chess engine.
+pub struct EngineDependencies {
+  /// Raw saved-game storage.
+  pub persistence: Rc<dyn PersistenceBackend>,
+  /// Monotonic time observed by Reactant timers and rules work.
+  pub now: Rc<dyn Fn() -> Instant>,
+  /// Optional deterministic presentation-randomness seed.
+  pub rng_seed: Option<u64>,
+  /// Maximum computer search duration.
+  pub think_time: Duration,
+}
+
+/// Creates the opaque engine used by black-box hosts.
+pub fn create_engine(dependencies: EngineDependencies) -> impl RulesEngine {
+  let now = dependencies.now.clone();
+  let persistence = dependencies.persistence.clone();
+  let think_time = dependencies.think_time;
+  let seed = dependencies.rng_seed;
+  ApplicationEngine::with_clock(
+    move || {
+      configured_application(
+        Board::default(),
+        None,
+        VisualState::Title,
+        think_time,
+        seed,
+        true,
+        persistence.clone(),
+      )
+    },
+    move || now(),
+  )
+}
+
 /// Creates the component-first application used by the native sample.
-pub fn application() -> Application {
+pub(crate) fn application() -> Application {
   if let Ok(name) = std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE") {
     return review_application(&name);
   }
@@ -27,10 +65,10 @@ pub fn application() -> Application {
     Board::default(),
     None,
     VisualState::Title,
-    false,
     think_time,
     Some(43),
     true,
+    Rc::new(reactant::FilePersistenceBackend),
   )
 }
 
@@ -38,11 +76,12 @@ fn configured_application(
   starting_board: Board,
   initial_state: Option<ChessState>,
   visual_state: VisualState,
-  origin_saved: bool,
   think_time: Duration,
   seed: Option<u64>,
   load_persistence: bool,
+  persistence: Rc<dyn PersistenceBackend>,
 ) -> Application {
+  let origin_saved = visual_state == VisualState::Resumed;
   reactant_view::application(ChessConfig {
     starting_board,
     initial_state,
@@ -51,6 +90,7 @@ fn configured_application(
     think_time,
     seed,
     load_persistence,
+    persistence,
   })
 }
 
@@ -67,53 +107,9 @@ fn review_application(name: &str) -> Application {
     board,
     initial,
     state,
-    state == VisualState::Resumed,
     Duration::ZERO,
     Some(43),
     false,
-  )
-}
-
-#[cfg(test)]
-pub(super) fn application_with_think_time(think_time: Duration) -> Application {
-  configured_application(
-    Board::default(),
-    None,
-    VisualState::Title,
-    false,
-    think_time,
-    Some(43),
-    true,
-  )
-}
-
-#[cfg(test)]
-pub(super) fn application_with_position(fen: &str, think_time: Duration) -> Application {
-  configured_application(
-    fen
-      .parse::<Board>()
-      .unwrap_or_else(|error| panic!("invalid chess position: {error}")),
-    None,
-    VisualState::Title,
-    false,
-    think_time,
-    Some(43),
-    false,
-  )
-}
-
-#[cfg(test)]
-pub(super) fn application_at_position(fen: &str, think_time: Duration) -> Application {
-  let board = fen
-    .parse::<Board>()
-    .unwrap_or_else(|error| panic!("invalid chess position: {error}"));
-  configured_application(
-    board.clone(),
-    Some(ChessState::new(board)),
-    VisualState::Resumed,
-    true,
-    think_time,
-    Some(43),
-    false,
+    Rc::new(reactant::FilePersistenceBackend),
   )
 }

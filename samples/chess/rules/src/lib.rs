@@ -19,9 +19,9 @@ mod reactant_input;
 mod reactant_view;
 mod visual_state;
 
-#[cfg(test)]
-mod tests;
+pub mod contract;
 
-pub use app::application;
+pub use app::{EngineDependencies, create_engine};
+pub use reactant::{Engine, PersistenceBackend};
 
-reactant::export_application!(application);
+reactant::export_application!(app::application);

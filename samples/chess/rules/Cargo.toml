@@ -22,6 +22,17 @@ trox = "0.2.1"
 
 [dev-dependencies]
 battlement-fake = { path = "../../../crates/battlement-fake" }
-reactant-testing = { path = "../../../crates/reactant-testing", default-features = false }
 
 [workspace]
+
+[[test]]
+name = "black_box_input"
+path = "tests/black_box_input_tests.rs"
+
+[[test]]
+name = "black_box_outcomes"
+path = "tests/black_box_outcomes_tests.rs"
+
+[[test]]
+name = "black_box_services"
+path = "tests/black_box_services_tests.rs"

@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use battlement::{
-  DragMode, GridLayout, ImageFit, MaterialAssignment, ObjectId, ParentScene, PrefabAddress,
-  Quaternion, Vector3, object_id,
+  DragMode, GridLayout, ImageFit, MaterialAssignment, ParentScene, PrefabAddress, Quaternion,
+  Vector3,
 };
 use cozy_chess::{Color, File, GameStatus, Piece, Rank, Square};
 use reactant::{
@@ -35,12 +35,8 @@ const HIGHLIGHT_HEIGHT: f64 = 0.02;
 const HIGHLIGHT_SCALE: f64 = 0.09;
 const PIECE_SPAWN_BEAT_COUNT: usize = 8;
 const PIECE_SPAWN_EFFECT_LIFETIME_MS: u64 = 1_000;
-const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 const REFRESH_BUTTON_MARGIN: f64 = 0.12;
 const REFRESH_BUTTON_SIZE: f64 = 0.16;
-pub(super) const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = CRITICAL_FIRST_BEAT_OFFSET_MS
-  + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS
-  + PIECE_SPAWN_EFFECT_LIFETIME_MS;
 
 /// Declarative world-space board composed from rules state and app-local UI state.
 ///
@@ -242,7 +238,7 @@ impl Component for ChessBoard {
       let right = half_height * aspect - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
       let up = half_height - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
       Sprite::new()
-        .id(*REFRESH_BUTTON_ID.as_uuid())
+        .id(*crate::contract::REFRESH_BUTTON_ID.as_uuid())
         .texture(crate::assets::REFRESH_BUTTON)
         .size(REFRESH_BUTTON_SIZE, REFRESH_BUTTON_SIZE)
         .fit(ImageFit::Stretch)
@@ -443,7 +439,7 @@ fn opening_sequence(
       MotionSelector::ScopeRoot,
       StyleTarget::new().local_scale_factor_x(1.0),
       Transition::tween()
-        .duration_secs(PIECE_SPAWN_SEQUENCE_DURATION_MS as f64 / 1_000.0)
+        .duration_secs(crate::contract::PIECE_SPAWN_SEQUENCE_DURATION_MS as f64 / 1_000.0)
         .ease(Easing::Linear),
     )
     .at(SequencePosition::Absolute(Duration::ZERO))

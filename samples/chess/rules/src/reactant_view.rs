@@ -2,7 +2,7 @@
 
 use std::{rc::Rc, time::Duration};
 
-use battlement::{ImageFit, ObjectId, ParentScene, Prop, Quaternion, Vector3, object_id};
+use battlement::{ImageFit, ParentScene, Prop, Quaternion, Vector3};
 use cozy_chess::{Board, Color, GameStatus};
 use reactant::{
   Application, DispatchResult, GameHandle, GameRoot, GameStatus as RulesStatus, PersistentState,
@@ -25,8 +25,8 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
 };
+use reactant::PersistenceBackend;
 
-const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 pub(super) const CAMERA_ROTATION: Quaternion =
   Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
@@ -51,6 +51,8 @@ pub struct ChessConfig {
   pub seed: Option<u64>,
   /// Whether host persistence may replace the configured initial state.
   pub load_persistence: bool,
+  /// Raw storage used for the saved game.
+  pub persistence: Rc<dyn PersistenceBackend>,
 }
 
 /// Assembles the Reactant application, document, camera, and global input policy.
@@ -126,7 +128,10 @@ impl Component for ChessApp {
   /// behavior is expressed by rendering keyed child components, which preserves
   /// Reactant's hook ordering and gives each rules-session generation a lifecycle.
   fn render(&self) -> impl Render {
-    let persistence = reactant::use_persistent_state::<SavedGame>("chess-game.json");
+    let persistence = reactant::use_persistent_state_with::<SavedGame>(
+      crate::contract::SAVE_FILE_NAME,
+      self.config.persistence.clone(),
+    );
     let diagnostics = reactant::use_host_module("battlement.diagnostics");
     // Persistence is an input to initial assembly, not an ongoing competing
     // source of truth. Once mounted, the rules session owns the logical state.
@@ -303,7 +308,7 @@ impl Component for TitleScreen {
         .on_press(self.on_play.clone()),
       SceneRoot::new(ParentScene::PrimaryScene).child(
         Sprite::new()
-          .id(*PLAY_BUTTON_ID.as_uuid())
+          .id(*crate::contract::PLAY_BUTTON_ID.as_uuid())
           .texture(crate::assets::PLAY_BUTTON)
           .size(0.8, 0.24)
           .fit(ImageFit::Stretch)

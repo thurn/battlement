@@ -1,6 +1,12 @@
-use std::time::Duration;
+use std::{
+  cell::{Cell, RefCell},
+  collections::BTreeMap,
+  path::{Path, PathBuf},
+  rc::Rc,
+  time::Duration,
+};
 
-use battlement::{DragMode, ObjectId, ParentScene, Vector3, object_id};
+use battlement::{Connect, DragMode, ObjectId, ParentScene, ScreenSize, Vector3, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
 use reactant::{Application, host::ButtonHost, prelude::*, world::BoxHitRegion};
 use reactant_testing::Display;
@@ -137,4 +143,126 @@ fn persistence_file_names_are_mount_stable() {
   let mut display = Display::mount(|| application(ChangedPersistenceFile), catalog());
   let button = display.find_ui(ROOT, "change-persistence-file");
   display.click_ui(button);
+}
+
+#[derive(Default)]
+struct MemoryPersistence {
+  values: RefCell<BTreeMap<PathBuf, Vec<u8>>>,
+  fail: Cell<bool>,
+}
+
+impl reactant::PersistenceBackend for MemoryPersistence {
+  fn load(&self, path: &Path) -> Result<Option<Vec<u8>>, String> {
+    if self.fail.get() {
+      return Err("injected failure".to_owned());
+    }
+    Ok(self.values.borrow().get(path).cloned())
+  }
+
+  fn store(&self, path: &Path, bytes: &[u8]) -> Result<(), String> {
+    if self.fail.get() {
+      return Err("injected failure".to_owned());
+    }
+    self
+      .values
+      .borrow_mut()
+      .insert(path.to_owned(), bytes.to_vec());
+    Ok(())
+  }
+
+  fn remove(&self, path: &Path) -> Result<(), String> {
+    if self.fail.get() {
+      return Err("injected failure".to_owned());
+    }
+    self.values.borrow_mut().remove(path);
+    Ok(())
+  }
+}
+
+struct PersistenceControls {
+  backend: Rc<MemoryPersistence>,
+}
+
+impl Component for PersistenceControls {
+  fn render(&self) -> impl Render {
+    let state = reactant::use_persistent_state_with::<u32>("value.json", self.backend.clone());
+    let update = state.clone();
+    let clear = state.clone();
+    (
+      View::new().name(match (state.value(), state.error()) {
+        (Some(value), _) => format!("value-{value}"),
+        (None, Some(_)) => "error".to_owned(),
+        (None, None) => "absent".to_owned(),
+      }),
+      ButtonHost::new(ls("Store"))
+        .name("store")
+        .on_click(move || update.update(7)),
+      ButtonHost::new(ls("Remove"))
+        .name("remove")
+        .on_click(move || clear.clear()),
+    )
+  }
+}
+
+#[test]
+fn injected_persistence_reports_absence_updates_removes_and_errors() {
+  let backend = Rc::new(MemoryPersistence::default());
+  let component_backend = backend.clone();
+  let mut display = Display::mount_with(
+    move || {
+      application(PersistenceControls {
+        backend: component_backend.clone(),
+      })
+    },
+    catalog(),
+    Connect::new("test", "test", ScreenSize::new(1_920, 1_080)).persistent_data_path("memory"),
+  );
+  let _ = display.find_ui(ROOT, "absent");
+  let store = display.find_ui(ROOT, "store");
+  display.click_ui(store);
+  let _ = display.find_ui(ROOT, "value-7");
+  let remove = display.find_ui(ROOT, "remove");
+  display.click_ui(remove);
+  let _ = display.find_ui(ROOT, "absent");
+  backend.fail.set(true);
+  display.click_ui(store);
+  let _ = display.find_ui(ROOT, "error");
+}
+
+struct FilesystemPersistence;
+
+impl Component for FilesystemPersistence {
+  fn render(&self) -> impl Render {
+    let state = reactant::use_persistent_state::<u32>("value.json");
+    let update = state.clone();
+    (
+      View::new().name(match state.value() {
+        Some(value) => format!("value-{value}"),
+        None => "absent".to_owned(),
+      }),
+      ButtonHost::new(ls("Store"))
+        .name("store")
+        .on_click(move || update.update(11)),
+    )
+  }
+}
+
+#[test]
+fn default_persistence_backend_remains_filesystem_backed() {
+  let directory = std::env::temp_dir().join(format!("reactant-persistence-{}", ObjectId::new_v4()));
+  let connect = Connect::new("test", "test", ScreenSize::new(1_920, 1_080))
+    .persistent_data_path(directory.to_string_lossy());
+  let mut first = Display::mount_with(
+    || application(FilesystemPersistence),
+    catalog(),
+    connect.clone(),
+  );
+  let store = first.find_ui(ROOT, "store");
+  first.click_ui(store);
+  let _ = first.find_ui(ROOT, "value-11");
+  drop(first);
+
+  let restored = Display::mount_with(|| application(FilesystemPersistence), catalog(), connect);
+  let _ = restored.find_ui(ROOT, "value-11");
+  std::fs::remove_dir_all(directory).expect("temporary persistence cleanup");
 }

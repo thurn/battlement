@@ -30,6 +30,7 @@ mod world_view;
 mod world_visuals;
 
 pub use application_shell::{Application, ApplicationEngine, use_portal_target};
+pub use battlement_native::Engine;
 pub use game_app::use_game;
 pub use game_hooks::{
   GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_observation,
@@ -39,7 +40,10 @@ pub use game_hooks::{
 pub use game_output::{GameConsumer, GameOutput};
 pub use game_session::{DispatchResult, GameHandle, GameObservation, GameStatus};
 pub use input::{GlobalInput, use_global_input};
-pub use persistence::{PersistentState, use_host_module, use_persistent_state};
+pub use persistence::{
+  FilePersistenceBackend, PersistenceBackend, PersistentState, use_host_module,
+  use_persistent_state, use_persistent_state_with,
+};
 pub use presentation_inspector::{InspectorObject, PresentationInspector};
 pub use reactant_core::{
   __register_generated_asset, animation_controls, announcement, app_context, application,

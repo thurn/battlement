@@ -10,7 +10,10 @@ pub use crate::{
   },
   game_session::{DispatchResult, GameHandle, GameObservation, GameStatus},
   input::{GlobalInput, use_global_input},
-  persistence::{PersistentState, use_host_module, use_persistent_state},
+  persistence::{
+    FilePersistenceBackend, PersistenceBackend, PersistentState, use_host_module,
+    use_persistent_state, use_persistent_state_with,
+  },
   presentation_inspector::{InspectorObject, PresentationInspector},
   timers::{use_interval, use_timeout},
 };
