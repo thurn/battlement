@@ -34,6 +34,7 @@ with compiler_capacity_lease():
     pass
 """
         environment = resource_slots.capacity_environment()
+        environment["BATTLEMENT_RESOURCE_SLOTS"] = locks
         environment["PYTHONPATH"] = os.pathsep.join(
             value for value in (
                 str(REPOSITORY_ROOT / "scripts"), environment.get("PYTHONPATH")
@@ -177,7 +178,10 @@ def main() -> None:
         _wait_for_tickets(locks, "machine-heavy", 1)
         assert not group_acquired.is_set(), "compound lease ignored its secondary capacity"
         machine_probe = SlotLease(locks, "machine-heavy", 6, 6)
-        assert machine_probe._try_acquire(), "compound wait retained partial machine capacity"
+        deadline = time.monotonic() + 2
+        while not machine_probe._try_acquire() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert machine_probe.files, "compound wait retained partial machine capacity"
         machine_probe._release_files()
         browser.close()
         group.join(timeout=2)

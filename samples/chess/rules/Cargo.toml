@@ -26,13 +26,13 @@ battlement-fake = { path = "../../../crates/battlement-fake" }
 [workspace]
 
 [[test]]
-name = "black_box_input"
-path = "tests/black_box_input_tests.rs"
+name = "input"
+path = "tests/input_tests.rs"
 
 [[test]]
-name = "black_box_outcomes"
-path = "tests/black_box_outcomes_tests.rs"
+name = "outcomes"
+path = "tests/outcomes_tests.rs"
 
 [[test]]
-name = "black_box_services"
-path = "tests/black_box_services_tests.rs"
+name = "services"
+path = "tests/services_tests.rs"
