@@ -2,17 +2,21 @@
 
 Replace the chess sample's ordinary tests with deterministic scenarios that
 construct a position in memory, operate the visible UI, and inspect the
-simulated
-Unity host. In an optimized build, require p95 below 1 ms for a complete
-scenario,
-including construction, presentation, assertions, and destruction. Report worst
-samples separately; this is a performance target, not a real-time guarantee.
+simulated Unity host. In an optimized build, require p95 below 1 ms for a
+complete scenario, including construction, presentation, assertions, and
+destruction. Report worst samples separately; this is a performance target, not
+a real-time guarantee.
 
 **Reactant** is the Rust component and rules layer that produces Unity commands.
 **The simulated host** is Battlement's in-memory execution of those commands,
 including object transforms, UI elements, input picking, and animation events.
 Tests must exercise both layers. Inspecting the chess rules board alone does not
 prove that a piece moved on screen.
+
+Preserve the current synchronous game execution model. Make tests fast by
+injecting inline execution and scripted services, while reusing real UI input,
+rules, rendering, and simulated command execution. Actual choice-dialog
+interaction remains in a separate integration suite.
 
 This document proposes changes; it does not report an implemented harness or a
 measured performance improvement. Its audience is the engineer changing chess
@@ -116,7 +120,7 @@ assertions in focused adapter tests where they represent intentional behavior.
 
 ## Scenario interface and fixtures
 
-A **scenario** owns one fresh application, its deterministic executor, services,
+A **scenario** owns one fresh application, its inline rules runner, services,
 and simulated host. Its public interface speaks in chess positions and user
 intent. These examples specify the intended API shape, not existing APIs.
 
@@ -147,9 +151,10 @@ the fixture; the assertion helper must not run the move rules to discover them.
   persists a FEN position, not interaction state or a complete repetition log.
 
 Application dependencies must accept an explicit initial position, persistence
-mode, execution driver, and opponent service. Production startup continues to
-load saved data. Ordinary scenarios select persistence disabled: no load hook,
-save encoding, path construction, or removal callback runs in that mode.
+mode, inline test behavior, and synchronous opponent dependencies. Production
+startup continues to load saved data. Ordinary scenarios select persistence
+disabled: no load hook, save encoding, path construction, or removal callback
+runs in that mode.
 
 A persistence test uses the same application with an in-memory byte store and
 persistence enabled. This preserves real save/reload coverage without making
@@ -175,11 +180,11 @@ drag handling, and callback dispatch.
   not assume a fixed screen coordinate or directly supply a target object ID.
 - Let overlays and disabled input block gestures normally. `try_move` returns
   `NoAction` for a rejected move after display-local effects finish.
-  `move_piece`
-  uses the same gesture but requires an admitted action, returning `Completed`
-  or `AwaitingInput`; rejection is an immediate helper failure.
-- Use visible dialog buttons for promotion and menu helpers. Fail immediately
-  when a requested visible control is absent or ambiguous.
+  `move_piece` uses the same gesture but requires an admitted action, returning
+  `Completed`; rejection is an immediate helper failure.
+- Use visible controls for menu helpers and focused dialog interaction tests.
+  Fail immediately when a requested visible control is absent or ambiguous.
+  Ordinary promotion helpers inject the answer before the visible board input.
 - Keep separate input-method tests for clicks, keyboard, controller, off-board
   drops, drag cancellation, accessibility, and modal interception.
 
@@ -215,169 +220,187 @@ position. Do not add a hidden marker or invent a new product UI solely to make
 an assertion convenient. Native checks establish that the selected feedback is
 perceivable in Unity.
 
-## Shared execution without engine polling
+## Synchronous execution with injected test behavior
 
-The recommended shared change is resumable rules execution using Rust futures.
-An action must suspend without blocking an OS thread when it needs a human
-answer or publication capacity. Production and tests execute the same future.
+Keep `Game::execute`, `ExecutionMode::present`, and `ExecutionMode::choose`
+synchronous with their existing signatures. Games retain their current control
+flow, contexts, and choice policies. Production keeps its current worker,
+blocking human choices, bounded publication queue, and native delivery behavior.
+Do not introduce futures, continuations, coroutines, or a different game API.
 
-This is necessary because the existing synchronous `choose` waits inside the
-rules call stack, while publication capacity can also block. Merely replacing
-thread creation with an inline call would deadlock promotion or a full queue.
-
-The important API change is to make execution and its suspension points
-awaitable:
+The fast harness injects three narrow behaviors at application construction:
+inline action execution, immediate scripted human choices, and a publication
+queue that collects a complete action without waiting for a consumer. Ordinary
+chess code still calls the same rules functions through the same UI callbacks.
 
 ```rust
-fn execute<'a>(context: &'a mut Self::Context,
-               state: &'a mut Self::State,
-               action: Self::Action)
-  -> impl Future<Output = ()> + Send + 'a;
-// Within the same chess action used in production and tests:
-let promotion = context.execution.choose(state, prompt).await;
+fn execute(context: &mut Self::Context,
+           state: &mut Self::State, action: Self::Action);
+// Existing game code remains synchronous:
+let promotion = context.execution.choose(state, prompt);
 let movement = candidates.into_iter()
   .find(|m| m.promotion == Some(promotion)).unwrap();
-context.apply_move(state, movement).await;
+context.apply_move(state, movement);
 ```
 
-The action task owns private state and context; its outer future borrows them
-while executing and returns them in the final publication. No task borrows the
-scenario, renderer, or a stack frame that can end before execution finishes.
+These are testing dependencies, not branches in individual game actions. Select
+execution behavior once through application assembly and pass it to the existing
+coordinator and rules context. The normal constructor defaults to the existing
+worker behavior; the test constructor explicitly selects inline behavior.
 
-- Make interactive `choose` a one-shot response future. Register its wakeup when
-  returning pending; accepting a valid reply wakes it exactly once.
-- Make publication reservation awaitable. Freeing capacity wakes the producer;
-  state cloning and animation construction occur only after reservation.
-- Preserve publication ordering and independent logical snapshots. Final-state
-  acceptance means that the application installs the final private state and
-  context only after its matching output is successfully submitted, exactly
-  once.
-  Preserve response validation and cancellation semantics.
-- Keep direct rules simulation available with policy answers and skipped
-  presentation; it is not the execution mode of these UI behavior tests.
-- Production drives tasks on the rules worker and may park that worker while no
-  task is ready. Real AI computation remains off the presentation thread.
-- Fast scenarios drive ready tasks on their current thread and never create,
-  park, join, or await an OS worker. Runtime-owned await points register task
-  dependencies as prompt, service, or publication capacity before suspending;
-  wakeup or cancellation clears them. Empty ready work with a pending task and
-  no registered dependency fails immediately. Capacity waits require a
-  registered
-  consumer; declared prompts and manual services may return control to the test.
+### Inline execution and publication buffering
 
-A wake-driven executor calls `Future::poll` only for a newly runnable task. This
-is Rust's continuation mechanism; it must never call `Engine::poll`, repeatedly
-probe readiness, or retry a pending future without a wakeup. The existing
-cooperative executor is a useful implementation reference, not a sufficient
-replacement for the blocking rules pipeline.
+Extract the common action body from `RulesRun::spawn`: execute against private
+state/context, capture each existing presentation checkpoint, and append the
+final checkpoint containing `CompletedAction`. The worker and inline paths call
+this same body. Neither path installs the final rules state directly.
 
-### Deliver concrete work instead of discovering it repeatedly
+- Preserve legality validation before cloning, independent snapshots, context
+  transfer, publication ordering, and lazy animation construction.
+- Add an internal run-backing choice for worker execution or inline completion.
+  The inline branch invokes the common body exactly once and returns a run whose
+  FIFO is already complete. It never starts, joins, or waits for a worker.
+- Use the existing publication storage with an injected capacity behavior:
+  production retains its bounded wait; inline tests append to a growable FIFO.
+  Keep existing safe ownership and uncontended synchronization initially.
+- In inline mode, capacity reservation never waits and publication does not send
+  worker notifications. Appending beyond the production queue capacity is valid.
+  Test this explicitly; changing the buffer to a larger fixed bound is not a
+  fix.
+- Drain and release snapshots as they are presented. Peak memory is one action's
+  output, so this path is appropriate for finite test actions, not arbitrarily
+  long streaming rules work. Backpressure stays covered on the real worker.
+- Retain `GameOutput::submitted` and `RulesContext::accept`: accepted state and
+  reusable context change only after successful submission of final output.
+- Preserve panic/failure handling and cleanup. Inline failure marks the session
+  failed and abandons unpublished work; it does not accept partial private
+  state. Do not fabricate worker-start or worker-stop events for an inline run.
 
-The in-process application driver needs explicit notifications for input,
-publication availability, render invalidation, response delivery, timer expiry,
-and presentation completion. Each notification schedules a concrete work item.
+`GameHandle::dispatch` currently holds a mutable session borrow while starting
+work. Inline execution must only write to its private state and publication
+storage. It must not recursively render the application, invoke test gestures,
+or run a host callback from inside `execute`. Drain publications only after the
+input callback has returned and the session borrow has been released.
 
-Extract ready-work processing from the existing engine adapter. The production
-polling adapter may call that shared processing function. The fast driver
-invokes it only for queued work and receives responses directly; it cannot wrap
-the existing polling method under a different name.
+This avoids duplicating chess rules and does not require the shared runtime to
+support suspending an inline game. Direct rules simulation remains unchanged;
+its existing suppression of presentation makes it unsuitable for these tests.
 
-- Maintain a FIFO ready queue with deduplicated task wakeups and stable enqueue
-  order. Do not repeatedly scan all sessions or timers for changes.
-- Route response delivery through the existing response encoding, validation,
-  decoding, and fake command execution. Performance does not justify replacing
-  the host with a mirror of rules state or unverified predicted commands.
-- Retain each response buffer until decoding and host consumption finish; no
-  borrowed command data may outlive its response lease or escape into later
-  work.
-- Reuse input decoding, callback dispatch, reconciliation, and host command
-  execution. Keep transport-adapter behavior covered separately where the
-  in-process driver no longer exercises native polling.
-- On cancellation, invalidate the exact session's tasks, publications, prompts,
-  and scheduled presentation work. Drop suspended futures and their private
-  state; stale UI responses cannot resume a replacement session.
+### Script choices before executing the action
 
-This driver is a shared application capability, not a chess-only copy of the
-engine. No changes to gameplay assertions should be required when the executor
-or wire transport is refactored.
+Install a typed choice resolver on the rules display connection for inline
+tests. `ExecutionMode::Interactive` remains in use so `present` still publishes
+real animation checkpoints. Override only the human-answer branch; normal
+policy-owned choices continue using the game's existing policy.
 
-## Completion and virtual presentation time
+The resolver receives the prompt through `G::Prompt<'_>` and returns its
+selected option index. Convert the index with the existing `select_response`
+validation, including `PromptData::is_valid_response`. No test writes a raw
+board mutation or bypasses the rules' choice handling.
 
-An **action boundary** is completion of one submitted user intent and its finite
-presentation work, or presentation of a prompt that needs another user action.
-It is separate from the whole application's becoming idle: looping music and
-future opponent turns may remain active.
-
-Each input owns a completion group. Producer tokens account for rules work,
-publications, render batches, and finite presentation callbacks. Acquire a child
-token before enqueueing work; release it on completion or cancellation. An
-active
-producer retains a token while it can create more work, including suspension.
-
-- A render batch coalescing work from multiple groups retains one child token
-  from each contributor until its finite presentation finishes.
-- A prompt response joins its original action group. Restart creates a new
-  group,
-  cancels the old group and its tokens, and invalidates old prompt handles.
-- Runtime tokens propagate internally; tests never use their IDs. Groups end as
-  completed or cancelled. Cancellation cannot appear as successful completion.
-- A looping sound's start may belong to a group; its infinite lifetime cannot.
-  Finite capture effects, movement completion, and removal callbacks do belong.
-
-The driver consumes concrete ready work, then advances virtual time only when
-finite presentation work remains for the requested group:
-
-- Process the earliest global scheduled deadline up to the group's next
-  deadline,
-  with stable enqueue order for ties. Run callbacks at their actual virtual due
-  times and include newly scheduled intervening events before advancing again.
-- Stop advancing after the requested boundary is reached. Future ambient timers
-  and infinite audio cannot extend it. Never test an assertion predicate to
-  decide whether more work should run.
-- Return `Completed` after final-state acceptance and release of all group
-  tokens.
-  Return `NoAction` when the input admitted no rules action and its effects
-  finish.
-- Return `AwaitingInput` after the prompt publication is accepted, its visible
-  UI
-  is applied, and all preceding finite presentation finishes. Only the suspended
-  action's continuation token remains; it resumes on the next valid response.
-- Assertions are valid after all three return values. A wrong destination still
-  completes; the subsequent assertion fails. An unfinished group with neither
-  ready work, scheduled events, nor a registered dependency fails immediately.
-
-An opponent request is detached at registration into a service-owned dependency,
-after the production turn coordinator issues it. Registration finishes before
-the
-player's helper returns. `reply_with` creates a new group for the service
-result,
-computer action, and presentation. An unanswered request owns no player-group
-token; cancellation still follows the originating session.
-
-Use a ceiling of 100,000 concrete work items per helper call to diagnose cycles,
-not to retry idle work. A task that never yields cannot be preempted by this
-driver; the outer process supervisor handles hangs outside the scenario API.
-Timing tests can advance a specified virtual duration. Ordinary tests need no
-animation durations, timeouts, or predicate-based settling helpers.
-
-## Promotion and opponent services
-
-Promotion must remain interactive, including cancellation and stale responses.
-The scenario returns control to the test with a visible dialog; it does not
-preselect an answer through a rules policy.
+- Consume answers in order. A chess answer matches prompt kind, source, target,
+  and desired piece; derive the index from actual prompt options, not an ordinal
+  hardcoded in the test.
+- Fail immediately on a missing answer, mismatched prompt, or invalid response.
+  Verify that answers attached to a helper were consumed when that helper
+  returns.
+- In the injected branch, return the answer directly without creating a blocking
+  request or publishing an unanswered human prompt. Record a diagnostic choice
+  transcript if useful, but never use it as proof of rendered UI.
+- Do not change `ChessPolicy` globally to claim human choices are policy-owned.
+  The override belongs to test dependencies, and production choice ownership
+  remains unchanged.
 
 ```rust
 let mut game = ChessScenario::at(positions::promotion_capture());
-game.move_piece(A7, B8).expect_awaiting_input();
-game.expect_promotion_choices();
-game.choose_promotion(Knight);
+game.move_piece_with_promotion(A7, B8, Knight);
 game.expect_piece(B8, White, Knight);
 game.expect_empty(A7);
 ```
 
-The opponent is a separate service dependency. Production automatically requests
-a real AI move. Fast scenarios use a manually completed deterministic service.
-The same turn coordinator must issue the request in both configurations.
+The helper supplies a matching answer, then drives the normal visible board
+drag. This tests promotion rules and rendered results, not the promotion dialog.
+There is no `AwaitingInput` return in the fast runner. Dialog appearance, button
+wiring, invalid responses, and restart while awaiting a choice retain focused
+real-worker and native tests. Those tests are outside the sub-millisecond suite.
+
+### Consume known output without engine polling
+
+Inline execution removes worker synchronization, but `Display::flush` would
+still violate the no-polling requirement. Add a narrow synchronous
+output-driving interface to the application/test adapter, reusing existing
+rendering and response delivery. Do not build a general scheduler or replace the
+native loop.
+
+- After an input callback returns, consume its already-completed run FIFO
+  through the existing `GameConsumer` and publication acceptance path. Render
+  and submit one known publication at a time; apply it to the fake host in the
+  same order.
+- Extract submission of an already available publication from the native polling
+  entry point. The test path passes concrete work to that shared function; it
+  does not call `Engine::poll` or probe the engine until a desired status
+  appears.
+- Drive a context refresh directly for a known change. Factor current change
+  application out of `AppRuntime::poll`; do not call it merely under a new name.
+  Only explicit input, consumed publication, due timer, or presentation callback
+  can request a refresh on this path.
+- Preserve response encoding, validation, decoding, delivery budgets, and fake
+  command execution. Apply and release each response before requesting the next;
+  retain its buffer until all borrowed command data has been consumed.
+- If output admission is blocked, release host-owned responses first. If
+  delivery still cannot progress, fail immediately with the retained output
+  information. Do not relax the production delivery budget or spin waiting for
+  capacity.
+- After a presentation callback or due timer, directly process its known output
+  and any complete inline action it caused. An undeclared external dependency is
+  unsupported in the fast runner and fails immediately.
+
+Draining a finite FIFO of known checkpoints is ordinary work, not engine
+polling. A callback may append more concrete work, but an empty worklist is
+never retried. Reuse the production render and delivery functions; do not create
+a test renderer that predicts commands from the rules board.
+
+## Completion and virtual presentation time
+
+An ordinary helper handles one player input operation, all publications from its
+inline action, and their finite presentation events. Automatic opponent dispatch
+is held by an injected chess turn policy, described below. No cross-thread
+action tracking or reference-counted producer-token system is needed.
+
+- Consume the returned FIFO through its final publication, preserving existing
+  host blocking-batch ordering and presentation completion callbacks.
+- Advance to actual finite presentation deadlines, not frame-by-frame. Process
+  intervening global deadlines chronologically, with stable ordering for ties;
+  include newly scheduled events before moving to a later virtual time.
+- Presentation callbacks deliver inputs synchronously and their resulting output
+  is consumed before advancing again. Finish finite transients and object
+  destruction as well as spatial movement.
+- Do not settle unrelated future app timers. Apply ambient events crossed while
+  advancing presentation, but looping audio and future music transitions cannot
+  extend the helper. Timing tests explicitly advance their chosen timers.
+- Return `Completed` after final output is accepted and finite presentation
+  ends. Return `NoAction` after a rejected input's display-local effects finish.
+  Startup and menu helpers similarly consume their concrete output to
+  completion.
+- Never use the asserted position as the stopping condition. A wrong destination
+  still completes normally and fails the subsequent independent assertion.
+
+Reuse the existing fake host's finite-event machinery. Expose the concrete next
+event and its callback output where necessary to remove indirect polling; do not
+add a new event engine. Restrict the ordinary suite to self-contained finite
+presentation, with no unrelated perpetual animation in its fixture.
+
+Use a ceiling of 100,000 concrete work items per helper to diagnose scheduled
+cycles, not to retry idle work. A synchronous game action that never returns
+cannot be interrupted inline; the outer test process supervisor handles hangs.
+The scenario itself has no timeout, busy wait, worker wait, or engine polling.
+
+## Explicit opponent replies with synchronous services
+
+Keep the synchronous `ComputerMove` action. Inject its move-selection
+dependency: production calls the existing AI, while tests return a scripted
+legal move. Separately inject when the turn coordinator permits automatic
+dispatch.
 
 ```rust
 game.move_piece(E2, E4);
@@ -386,16 +409,26 @@ game.reply_with(E7, E5);
 game.expect_piece(E5, Black, Pawn);
 ```
 
-`reply_with` completes an already pending opponent request. It fails immediately
-if there is none, the side to move is wrong, or the supplied move is illegal.
-The selected move follows the normal rules publication and animation path. It
-cannot mutate the board directly or manufacture the missing service request.
+- Production turn dispatch remains automatic. Ordinary scenarios begin with
+  computer turns held, so the player's completed position is observable.
+- `reply_with` supplies one move and releases one turn permit through app-owned
+  configuration. Refresh the real turn coordinator so it dispatches the normal
+  computer action; the helper must not call `GameHandle::dispatch` itself.
+- Include the permit's revision in that coordinator's effect dependencies so a
+  held turn is reconsidered when the permit changes. Consume the permit once.
+- The synchronous selector validates the scripted move against the real board
+  and returns it to the unchanged move-application path. There is no pending
+  service future or asynchronous reply protocol.
+- Fail immediately if the side is wrong, the game is terminal, the reply is
+  illegal, or the coordinator did not consume the permit and answer. This makes
+  missing automatic-turn wiring observable without polling it.
+- Reset clears held answers and permits. Real AI legality, deterministic
+  fallback, background execution, and cancellation remain separate integration
+  coverage.
 
-An unanswered opponent request does not extend the player's action boundary.
-Replacing the game invalidates it. Ordinary setup on Black's turn returns with a
-pending request; scenarios explicitly supply the reply they want to inspect.
-Keep real AI legality, deterministic fallback, and background execution checks
-separate from the sub-millisecond behavior suite.
+These are the only chess-specific execution seams: initial position/persistence,
+human answer injection, opponent selection, and opponent dispatch permission.
+Game action signatures and the structure of their rules remain synchronous.
 
 ## Coverage replacement and naming cleanup
 
@@ -413,7 +446,8 @@ cause and makes each benchmark correspond to a small scenario.
 - **Both capture styles and castling:** mover identity by color/type, victim
   removal, rook and king destinations; check exact effects separately.
 - **En passant and promotion:** piece type/color/count, both source removals,
-  dialog choice, cancellation, and rejected stale replies.
+  scripted promotion results in the fast suite; actual dialog choices,
+  cancellation, and rejected stale replies in focused integration tests.
 - **Check, draw, and either winner:** expected displayed positions plus actual
   feedback; remove hidden-marker assertions.
 - **AI determinism:** real AI test with complete typed board observations.
@@ -424,7 +458,8 @@ cause and makes each benchmark correspond to a small scenario.
 - **Music, reset, and opening effects:** virtual-time presentation tests, plus
   behavior tests for reset and title-to-board interaction.
 - **Restart during pending work:** deterministic cancellation checks; retain a
-  separate real-worker test for thread cleanup and interruption.
+  separate real-worker test for in-flight interruption and thread cleanup. The
+  inline suite cannot interrupt rules in the middle of a synchronous call.
 
 Delete the public testing-constants module exported by the chess library entry
 point. Remove its basename, plural form, and all case variants from filenames,
@@ -434,11 +469,12 @@ persistence, durations to presentation, and UI identities to their elements.
 Remove unused hidden markers and migrate consumers to actual host observations.
 Preserve valid accessibility functionality; introduce no replacement umbrella.
 
-The shared execution API change requires updating its callers and fixtures,
-including worker tests. Preserve their behavioral coverage while replacing the
-blocking suspension API. Do not keep a second chess rules implementation for the
-fast suite. Replacement is complete only when ordinary chess tests use no worker
-wait, engine poll, hidden-marker assertion, or persistence fixture route.
+Existing games retain their execution APIs and production behavior. Add tests
+for the injected runner and the small shared submission extraction; do not
+migrate every game to a new abstraction. Replacement is complete when ordinary
+chess tests use no worker wait, engine poll, hidden-marker assertion, or
+persistence fixture route, and the retained integration suite still covers real
+human prompts, worker cleanup, backpressure, and native rendering.
 
 ## Performance and correctness acceptance
 
@@ -477,9 +513,18 @@ wait immediately rather than silently switching to the slow harness.
 
 Test the test interface with representative deliberate defects: disconnect a
 board input callback, leave a captured prefab alive, render a wrong-color piece,
-misplace a piece, block it with a modal overlay, and suppress a prompt. Each
-must fail the relevant scenario without modifying its expected state. Check that
-changing object IDs or adding a harmless transform wrapper does not break it.
+misplace a piece, or block it with a modal overlay. Each must fail the relevant
+fast scenario without changing expected state. Suppressing the promotion dialog
+must fail its separate interaction test; scripted choices cannot detect it.
+Changing object IDs or adding a harmless transform wrapper must not break
+ordinary gameplay assertions.
+
+Validate the inline backend against the worker using a deterministic fixture
+that publishes more than 32 checkpoints, then compare every snapshot and final
+accepted state. Also cover missing, mismatched, invalid, and unused scripted
+answers; failed output submission; reset with queued presentation; and automatic
+opponent dispatch consuming exactly one permit. These are infrastructure checks,
+not dependencies of each chess test.
 
 Compare the in-process and production adapters on the same small deterministic
 interaction: drag a pawn two squares and inspect the resulting host board.
