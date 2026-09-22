@@ -13,6 +13,7 @@ use crate::{
   reactant_view::{self, ChessConfig},
   visual_state::{self, VisualState},
 };
+use reactant::rules::RulesWorker;
 use reactant::{ApplicationEngine, PersistenceBackend};
 
 const AI_THINK_TIME: Duration = Duration::from_secs(2);
@@ -20,32 +21,34 @@ const AI_THINK_TIME: Duration = Duration::from_secs(2);
 /// External services used to construct an opaque chess engine.
 pub struct EngineDependencies {
   /// Raw saved-game storage.
-  pub persistence: Rc<dyn PersistenceBackend>,
+  pub persistence: Option<Rc<dyn PersistenceBackend>>,
+  /// Logical position mounted directly; None opens the title screen.
+  pub position: Option<Board>,
+  /// Rules runner; native applications use its default worker.
+  pub rules_worker: RulesWorker,
   /// Monotonic time observed by Reactant timers and rules work.
   pub now: Rc<dyn Fn() -> Instant>,
   /// Optional deterministic presentation-randomness seed.
   pub rng_seed: Option<u64>,
-  /// Maximum computer search duration.
-  pub think_time: Duration,
+  /// Computer turn admission and move selection.
+  pub opponent: crate::opponent::Opponent,
 }
 
 /// Creates the opaque engine used by black-box hosts.
 pub fn create_engine(dependencies: EngineDependencies) -> ApplicationEngine {
   let now = dependencies.now.clone();
-  let persistence = dependencies.persistence.clone();
-  let think_time = dependencies.think_time;
-  let seed = dependencies.rng_seed;
   ApplicationEngine::with_clock(
     move || {
-      configured_application(
-        Board::default(),
-        None,
-        VisualState::Title,
-        think_time,
-        seed,
-        true,
-        persistence.clone(),
-      )
+      reactant_view::application(ChessConfig {
+        starting_board: Board::default(),
+        initial_state: dependencies.position.clone().map(ChessState::new),
+        visual_state: VisualState::Initial,
+        origin_saved: false,
+        opponent: dependencies.opponent.clone(),
+        seed: dependencies.rng_seed,
+        persistence: dependencies.persistence.clone(),
+      })
+      .rules_worker(dependencies.rules_worker.clone())
     },
     move || now(),
   )
@@ -87,10 +90,9 @@ fn configured_application(
     initial_state,
     visual_state,
     origin_saved,
-    think_time,
+    opponent: crate::opponent::Opponent::search(think_time),
     seed,
-    load_persistence,
-    persistence,
+    persistence: load_persistence.then_some(persistence),
   })
 }
 

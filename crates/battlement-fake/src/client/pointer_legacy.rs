@@ -23,6 +23,14 @@ struct Drag {
 }
 
 impl<E: Engine> FakeClient<E> {
+  pub(super) fn has_legacy_drag(&self, id: i32) -> bool {
+    self
+      .pointers
+      .legacy
+      .get(&id)
+      .is_some_and(|state| state.drag.is_some())
+  }
+
   pub(super) fn sample_legacy_pointer(
     &mut self,
     id: i32,

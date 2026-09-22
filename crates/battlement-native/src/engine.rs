@@ -155,7 +155,7 @@ pub struct UiEventResult {
 /// A rules engine whose exported path constructs finished FlatBuffers directly.
 pub trait Engine {
   /// NUL-terminated SHA-256 digest of the complete build-composed wire contract.
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65];
+  const WIRE_DIGEST_C: &'static [u8; 65];
 
   /// Starts a new session and returns its finished initial response.
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError>;

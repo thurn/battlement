@@ -3,6 +3,9 @@
 use cozy_chess::Board;
 use serde::{Deserialize, Serialize};
 
+/// Storage name used by the persistence boundary.
+pub const SAVE_FILE_NAME: &str = "chess-game.json";
+
 /// Serialized game data stored by Reactant's host-backed persistence hook.
 ///
 /// The sample stores FEN rather than presentation state. Stable piece identities,

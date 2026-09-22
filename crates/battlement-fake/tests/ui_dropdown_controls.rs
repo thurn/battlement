@@ -21,7 +21,7 @@ struct DropdownEngine {
 }
 
 impl Engine for DropdownEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+  const WIRE_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_DIGEST_C;
 
   fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     ui_support::encoded(Response::snapshot(

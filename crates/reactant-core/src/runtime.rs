@@ -1171,6 +1171,41 @@ impl<G: 'static> Reactant<G> {
     Ok(self.create_commit(groups))
   }
 
+  /// Whether committed effects or local hook updates are queued for application.
+  pub(crate) fn has_ready_changes(&self) -> bool {
+    !self.pending_effects.is_empty()
+      || !self.pending_geometry_effects.is_empty()
+      || !self.pending_error_reports.is_empty()
+      || self.has_pending_hooks()
+      || runtime_motion::has_ready_presence(&self.roots)
+  }
+
+  /// Applies already-enqueued component effects and hook changes without polling resources.
+  pub(crate) fn apply_ready_changes(
+    &mut self,
+    game: &mut G,
+  ) -> Result<ReactantCommit, RenderError> {
+    self.require_active();
+    self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
+      runtime.freeze_store_wakes();
+      runtime.flush_effects();
+      let reported = runtime.flush_error_reports(game);
+      let geometry_effected = runtime.flush_geometry_effects(game);
+      let changed = reported || geometry_effected || runtime.geometry.borrow().dirty();
+      if changed
+        || runtime.pending_hooks_changed()
+        || runtime_motion::has_ready_presence(&runtime.roots)
+      {
+        runtime.render(game, None)
+      } else {
+        Ok(runtime.commit_pending_actions())
+      }
+    })
+  }
+
   /// Processes queued runtime work while active.
   pub fn poll(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();

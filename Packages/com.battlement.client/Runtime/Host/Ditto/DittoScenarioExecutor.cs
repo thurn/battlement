@@ -1019,7 +1019,9 @@ namespace Battlement
                 FailInfrastructureStep(
                     step,
                     DittoErrorCode.InputUnreachable,
-                    $"Controlled sample {receipt.Sequence} did not retain pointer capture."
+                    $"Controlled sample {receipt.Sequence} did not retain pointer capture "
+                        + $"(route={receipt.Route}, "
+                        + $"hit={receipt.ActualHit?.Value.ToString() ?? "none"})."
                 );
                 return false;
             }

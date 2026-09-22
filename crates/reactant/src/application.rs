@@ -14,6 +14,8 @@ use reactant_core::{app::App, hooks, portal::PortalTarget, render::Render};
 use trox::{Bundle, Localizer, SourceLocale};
 
 use crate::game_app::Coordinator;
+use reactant_core::app_runtime::AppRuntime;
+use reactant_rules::RulesWorker;
 
 /// A declarative Reactant application shell.
 ///
@@ -33,6 +35,15 @@ impl Application {
     let input = coordinator.clone();
     app = app.on_core_action(move |_, body| input.dispatch_core(body));
     Self { app, coordinator }
+  }
+
+  /// Selects rules execution before any game is mounted; defaults to a real worker.
+  pub fn rules_worker(mut self, worker: RulesWorker) -> Self {
+    if worker.is_inline() {
+      self.app = self.app.spawner(InlineSpawner);
+    }
+    self.coordinator.set_worker(worker);
+    self
   }
 
   /// Mounts the root component in the primary document.
@@ -187,6 +198,81 @@ impl ApplicationEngine {
     self.app.as_mut().expect("connect application before use")
   }
 
+  /// Counts admitted actions without exposing game state or discovering work.
+  pub fn inline_action_count(&self) -> u64 {
+    let coordinator = self.coordinator.as_ref().expect("connect before input");
+    assert!(
+      coordinator.is_inline(),
+      "inline action observation requires inline rules"
+    );
+    coordinator.admitted_actions.get()
+  }
+
+  /// Takes one already-completed inline publication or a known context change.
+  /// No worker discovery, clocks, or polling entry points are involved.
+  pub fn take_inline_output(&mut self) -> Option<EngineResponse> {
+    let coordinator = self
+      .coordinator
+      .as_ref()
+      .expect("connect before driving output");
+    assert!(
+      coordinator.is_inline(),
+      "explicit output driving requires inline rules"
+    );
+    assert!(
+      self.app.as_ref().unwrap().can_submit_output(),
+      "release outstanding responses before taking inline output"
+    );
+    let output = coordinator.take_output();
+    if output.is_none()
+      && !coordinator.has_changes()
+      && !self.app.as_ref().unwrap().has_ready_changes()
+    {
+      return None;
+    }
+    Some(
+      self
+        .app()
+        .submit_ready_output(output)
+        .expect("inline output submission failed"),
+    )
+  }
+
+  /// Applies an explicitly changed external dependency through normal composition.
+  pub fn invalidate_inline(&self) {
+    let coordinator = self
+      .coordinator
+      .as_ref()
+      .expect("connect before invalidating");
+    assert!(
+      coordinator.is_inline(),
+      "inline dependency changes require inline rules"
+    );
+    coordinator.changed();
+  }
+
+  /// Runs timers at the manual clock's current instant, never advancing that clock.
+  pub fn fire_inline_timers(&self) {
+    let coordinator = self
+      .coordinator
+      .as_ref()
+      .expect("connect before driving timers");
+    assert!(
+      coordinator.is_inline(),
+      "inline timers require inline rules"
+    );
+    coordinator.fire_due_timers();
+  }
+
+  /// Fails immediately if known inline work ended without accepting its final state.
+  pub fn assert_inline_complete(&self) {
+    self
+      .coordinator
+      .as_ref()
+      .expect("connect before checking completion")
+      .assert_inline_complete();
+  }
+
   /// Returns the active typed game handle for testing and host inspection.
   pub fn game<G: reactant_rules::Game>(&self) -> Option<crate::GameHandle<G>> {
     self.coordinator.as_ref()?.game::<G>()
@@ -230,7 +316,7 @@ impl ApplicationEngine {
 }
 
 impl Engine for ApplicationEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+  const WIRE_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_DIGEST_C;
 
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let application = self.pending.take().unwrap_or_else(|| (self.factory)());
@@ -253,6 +339,10 @@ impl Engine for ApplicationEngine {
   }
 
   fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
+    assert!(
+      !self.coordinator.as_ref().is_some_and(|c| c.is_inline()),
+      "inline engine must never be polled"
+    );
     self.app().poll()
   }
 }
@@ -283,4 +373,15 @@ macro_rules! export_application {
       visible_output = flatbuffers,
     );
   };
+}
+
+/// Inline scenarios cannot complete asynchronous resources on their calling stack.
+struct InlineSpawner;
+impl reactant_core::executor::Spawner for InlineSpawner {
+  fn spawn(
+    &self,
+    _: reactant_core::executor::BoxFuture<'static, ()>,
+  ) -> reactant_core::executor::SpawnedTask {
+    panic!("inline application cannot spawn asynchronous resources; inject a synchronous service")
+  }
 }

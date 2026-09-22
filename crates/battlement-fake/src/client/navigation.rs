@@ -211,13 +211,18 @@ impl<E: Engine> FakeClient<E> {
   }
 
   fn focus_position(&self, id: ObjectId) -> Option<PanelPoint> {
-    let camera_id = self.world.input_camera_id()?;
-    let camera = self.world.object(camera_id)?.camera()?;
-    let pose = self.world.world_transform(camera_id);
     let point = match self.world.object(id)?.kind() {
       GameObjectKind::BoxHitRegion { region } => self.world.world_point(id, region.center),
       _ => self.world.world_transform(id).position,
     };
+    self.project_world(point)
+  }
+
+  /// Projects a world point through the displayed input camera into screen pixels.
+  pub fn project_world(&self, point: battlement::Vector3) -> Option<PanelPoint> {
+    let camera_id = self.world.input_camera_id()?;
+    let camera = self.world.object(camera_id)?.camera()?;
+    let pose = self.world.world_transform(camera_id);
     let p = transform::rotate(
       transform::inverse(pose.rotation),
       battlement::Vector3::new(

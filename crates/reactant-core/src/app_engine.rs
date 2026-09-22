@@ -194,7 +194,7 @@ impl<G: 'static> App<G> {
 }
 
 impl<G: 'static> Engine for App<G> {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+  const WIRE_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_DIGEST_C;
 
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let response = self.connect_response(message)?;
@@ -241,6 +241,40 @@ impl<G: 'static> Engine for App<G> {
 }
 
 impl<G: 'static> App<G> {
+  /// Whether another publication can enter without overtaking retained output.
+  pub fn can_submit_output(&self) -> bool {
+    self.output.can_consume()
+  }
+
+  /// Reports queued synchronous component work without discovering worker output.
+  pub fn has_ready_changes(&self) -> bool {
+    self.runtime.has_ready_changes()
+  }
+
+  /// Submits a known publication without discovering asynchronous engine work.
+  /// The caller must consume each returned response before submitting another.
+  pub fn submit_ready_output(
+    &mut self,
+    output: Option<Box<dyn crate::app_runtime::AppOutput>>,
+  ) -> Result<EngineResponse, EngineError> {
+    assert!(
+      self.output.can_consume(),
+      "release outstanding host responses before submission"
+    );
+    self.output.publication = output;
+    let session = self.session.expect("connect before submitting output");
+    let mut response = DeliveryResponse::empty(session);
+    if self.runtime.has_ready_changes() {
+      let commit = self
+        .runtime
+        .apply_ready_changes(&mut self.model)
+        .expect("queued inline changes failed to render");
+      app_delivery::append(&mut response, None, commit);
+    }
+    self.settle(&mut response, None, false);
+    self.deliver(response)
+  }
+
   fn deliver(&mut self, response: DeliveryResponse) -> Result<EngineResponse, EngineError> {
     let session = *response.session_id.as_uuid().as_bytes();
     self
@@ -308,7 +342,7 @@ impl<G: 'static> App<G> {
   }
 
   fn settle(&mut self, response: &mut DeliveryResponse, action: Option<ActionId>, poll: bool) {
-    if self.orchestration.borrow().poll() {
+    if self.orchestration.borrow().apply_changes() {
       let commit = self
         .runtime
         .refresh(&mut self.model)

@@ -56,7 +56,9 @@ namespace Battlement.UI
             Func<ObjectId, (TimeSpan Elapsed, bool Discontinuity)>? audioTime = null,
             System.Action? uiEventPreventionApplied = null,
             Func<TimeSpan>? scaledNow = null,
-            Func<bool>? instantMotion = null
+            Func<bool>? instantMotion = null,
+            Func<Guid, GameObject?>? resolveWorld = null,
+            Func<Camera?>? inputCamera = null
         )
         {
             hierarchy = new BattlementUiHierarchy();
@@ -125,7 +127,9 @@ namespace Battlement.UI
                 id => hierarchy.TryGet(new ObjectId(id), out VisualElement? value) ? value : null,
                 element => hierarchy.TryGetId(element, out Guid id) ? id : null,
                 focusCoordinator.IsEffectivelyInert,
-                focusCoordinator.ActiveModal
+                focusCoordinator.ActiveModal,
+                resolveWorld,
+                inputCamera
             );
             presentationLayout = new BattlementPresentationLayout(
                 stickyCoordinator,

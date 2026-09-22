@@ -78,9 +78,10 @@ where
 pub(crate) struct Coordinator {
   current: RefCell<Option<Rc<dyn AttachedSession>>>,
   self_reference: RefCell<Weak<Coordinator>>,
-  worker: RulesWorker,
+  worker: RefCell<RulesWorker>,
   next: Cell<u64>,
   revision: Cell<u64>,
+  pub(crate) admitted_actions: Cell<u64>,
   observed: Cell<u64>,
   observed_game: RefCell<Option<(u64, crate::GameObservation)>>,
   global_input: RefCell<HashMap<String, GlobalInputHandler>>,
@@ -101,9 +102,10 @@ impl Default for Coordinator {
     Self {
       current: RefCell::default(),
       self_reference: RefCell::default(),
-      worker: RulesWorker::default(),
+      worker: RefCell::new(RulesWorker::default()),
       next: Cell::default(),
       revision: Cell::default(),
+      admitted_actions: Cell::default(),
       observed: Cell::default(),
       observed_game: RefCell::default(),
       global_input: RefCell::default(),
@@ -161,6 +163,34 @@ impl<M: 'static> GameApp for App<M> {
 }
 
 impl Coordinator {
+  pub(crate) fn set_worker(&self, worker: RulesWorker) {
+    assert!(
+      self.current.borrow().is_none(),
+      "configure execution before mounting a game"
+    );
+    *self.worker.borrow_mut() = worker;
+  }
+
+  pub(crate) fn is_inline(&self) -> bool {
+    self.worker.borrow().is_inline()
+  }
+
+  pub(crate) fn has_changes(&self) -> bool {
+    self.revision.get() != self.observed.get()
+  }
+
+  pub(crate) fn assert_inline_complete(&self) {
+    if let Some(session) = self.current.borrow().as_ref() {
+      let observation = session.observation();
+      assert_eq!(
+        observation.status,
+        GameStatus::Ready,
+        "inline game did not finish: {:?}",
+        observation
+      );
+    }
+  }
+
   pub(crate) fn bind(&self, owner: &Rc<Self>) {
     if self.self_reference.borrow().upgrade().is_none() {
       *self.self_reference.borrow_mut() = Rc::downgrade(owner);
@@ -214,7 +244,7 @@ impl Coordinator {
     let session = Rc::new(GameSession {
       id,
       automatic: Cell::new(true),
-      worker: self.worker.clone(),
+      worker: self.worker.borrow().clone(),
       app: self.self_reference.borrow().clone(),
       data: RefCell::new(SessionData {
         accepted: initial_state,
@@ -400,16 +430,17 @@ impl Coordinator {
       .min()
   }
 
-  fn poll_timers(&self) -> bool {
+  pub(crate) fn fire_due_timers(&self) -> bool {
     let now = (self.now.borrow())();
-    let due = self
+    let mut due = self
       .timers
       .borrow()
       .iter()
       .filter(|(_, timer)| timer.due <= now)
-      .map(|(identity, _)| identity.clone())
+      .map(|(identity, timer)| (timer.due, identity.clone()))
       .collect::<Vec<_>>();
-    for identity in &due {
+    due.sort();
+    for (_, identity) in &due {
       let callback = {
         let mut timers = self.timers.borrow_mut();
         let Some(timer) = timers.get_mut(identity) else {
@@ -469,7 +500,11 @@ impl AppRuntime for Coordinator {
   }
 
   fn poll(&self) -> bool {
-    let timer_changed = self.poll_timers();
+    assert!(
+      !self.is_inline(),
+      "inline execution must not poll the runtime"
+    );
+    let timer_changed = self.fire_due_timers();
     let session = self.current.borrow().clone();
     if let Some(session) = &session {
       session.refresh();
@@ -479,6 +514,14 @@ impl AppRuntime for Coordinator {
     let revision = self.revision.get();
     let revision_changed = self.observed.replace(revision) != revision;
     timer_changed || game_changed || revision_changed
+  }
+
+  fn apply_changes(&self) -> bool {
+    if !self.is_inline() {
+      return self.poll();
+    }
+    let revision = self.revision.get();
+    self.observed.replace(revision) != revision
   }
 
   fn callback(&self, callback: &mut dyn FnMut()) {

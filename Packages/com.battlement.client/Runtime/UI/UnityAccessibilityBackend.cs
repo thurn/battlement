@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Accessibility;
-using UnityEngine.UIElements;
 using NativeScrollDirection = UnityEngine.Accessibility.AccessibilityScrollDirection;
 
 namespace Battlement.UI
@@ -13,19 +12,19 @@ namespace Battlement.UI
     internal sealed class UnityAccessibilityBackend : IDisposable
     {
         private readonly Func<AccessibilityEvent, bool> dispatch;
-        private readonly Func<Guid, VisualElement?> resolveElement;
+        private readonly Func<Guid, UnityEngine.Rect> resolveFrame;
         private readonly Action<bool> statusChanged;
         private AccessibilityHierarchy? hierarchy;
         private Dictionary<Guid, AccessibilityNode> nodes = new();
 
         public UnityAccessibilityBackend(
             Func<AccessibilityEvent, bool> dispatch,
-            Func<Guid, VisualElement?> resolveElement,
+            Func<Guid, UnityEngine.Rect> resolveFrame,
             Action<bool> statusChanged
         )
         {
             this.dispatch = dispatch;
-            this.resolveElement = resolveElement;
+            this.resolveFrame = resolveFrame;
             this.statusChanged = statusChanged;
             AssistiveSupport.screenReaderStatusChanged += OnStatusChanged;
         }
@@ -101,7 +100,7 @@ namespace Battlement.UI
             AccessibilityNode node = targetHierarchy.AddNode(id.ToString("D"), parent);
             targetNodes.Add(id, node);
             UnityAccessibilityMapping.Apply(node, snapshot, snapshots);
-            node.frameGetter = () => resolveElement(id)?.worldBound ?? default;
+            node.frameGetter = () => resolveFrame(id);
             BindActions(node, snapshot, generation);
             foreach (ObjectId child in snapshot.Children)
             {

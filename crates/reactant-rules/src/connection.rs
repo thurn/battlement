@@ -50,6 +50,15 @@ impl<G: Game> DisplayConnection<G> {
   where
     P: PromptData<G>,
   {
+    let publications = self.publications();
+    if publications.inline {
+      let resolver = publications
+        .choices
+        .as_ref()
+        .expect("inline human choice has no scripted answer");
+      let index = (resolver.0)(&prompt.as_prompt());
+      return execution::select_response::<G, P>(&prompt, index);
+    }
     let request = self.publish_prompt(state, prompt, ChoiceOwner::Human);
     let response = request.wait();
     self.publications().check_active();

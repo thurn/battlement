@@ -81,6 +81,71 @@ namespace Battlement.Tests
             Assert.That(fixture.Activate(first), Is.False);
         }
 
+        [Test]
+        public void VisibleWorldControlsOwnAssistiveActionsAndDisappearWhenInactive()
+        {
+            // Test the native boundary independently of chess: a visible world
+            // object is a valid semantic owner without an invisible UI proxy.
+            // Deactivation must remove it from the active tree and reject input.
+            ObjectId id = Id("25130000-0000-4000-8000-000000000005");
+            var world = new GameObject("Accessible piece");
+            var events = new List<UiEvent>();
+            try
+            {
+                using var manager = new BattlementAccessibilityManager(
+                    value =>
+                    {
+                        events.Add(value);
+                        return UiEventDisposition.PreventDefault;
+                    },
+                    _ => null,
+                    _ => null,
+                    _ => false,
+                    _ => null,
+                    value => value == id.Value ? world : null
+                );
+                manager.Apply(
+                    new AccessibilityUpdatePayload(
+                        new AccessibilitySnapshot(
+                            1,
+                            new[] { id },
+                            new[]
+                            {
+                                new AccessibilityNodeSnapshot(
+                                    id,
+                                    null,
+                                    Array.Empty<ObjectId>(),
+                                    SemanticRole.Button,
+                                    "White pawn",
+                                    null,
+                                    new SemanticState(),
+                                    null,
+                                    new AccessibilityActionSet(Activate: true)
+                                ),
+                            }
+                        ),
+                        Array.Empty<string>()
+                    )
+                );
+                Assert.That(manager.Active, Has.Count.EqualTo(1));
+                var action = new AccessibilityEvent(
+                    manager.Generation,
+                    id,
+                    new AccessibilityAction.Activate()
+                );
+                Assert.That(manager.Dispatch(action), Is.True);
+                world.SetActive(false);
+                manager.Refresh();
+                Assert.That(manager.Active, Is.Empty);
+                Assert.That(manager.Dispatch(action), Is.False);
+                Assert.That(events, Has.Count.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(world);
+            }
+        }
+
         private sealed class Fixture : IDisposable
         {
             private readonly ObjectId documentId = Id("25130000-0000-4000-8000-000000000001");

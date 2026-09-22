@@ -105,6 +105,15 @@ impl<G: Game> GameHandle<G> {
         .as_mut()
         .expect("ready context")
         .start(&self.session.worker, accepted, action);
+    if let Some(app) = self.session.app.upgrade() {
+      app.admitted_actions.set(
+        app
+          .admitted_actions
+          .get()
+          .checked_add(1)
+          .expect("action count overflow"),
+      );
+    }
     data.run = Some(run);
     data.status = GameStatus::Busy;
     drop(data);

@@ -7,12 +7,9 @@ use cozy_chess::{Board, Color, GameStatus};
 use reactant::{
   Application, DispatchResult, GameHandle, GameRoot, GameStatus as RulesStatus, PersistentState,
   hooks,
-  prelude::{
-    AnimationPlayback, Button, Component, Display, Either, EventCallback, KeyRenderExt, Label,
-    PickingMode, Position, Render, Style,
-  },
+  prelude::{AnimationPlayback, Component, Either, EventCallback, KeyRenderExt, Render},
   rules::{DisplayConnection, ExecutionMode},
-  world::{Camera, SceneRoot, Sprite},
+  world::{BoxHitRegion, Camera, SceneRoot, Sprite},
 };
 use trox::ls;
 
@@ -25,7 +22,10 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
 };
+use battlement::{ObjectId, PickingMode};
 use reactant::PersistenceBackend;
+
+const PLAY_BUTTON_ID: ObjectId = battlement::object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 
 pub(super) const CAMERA_ROTATION: Quaternion =
   Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
@@ -41,18 +41,16 @@ pub struct ChessConfig {
   pub starting_board: Board,
   /// Optional state that mounts directly into an active session.
   pub initial_state: Option<ChessState>,
-  /// Initial semantic marker exposed by the view.
+  /// Initial presentation mode.
   pub visual_state: crate::visual_state::VisualState,
   /// Whether the configured session should be marked as restored.
   pub origin_saved: bool,
-  /// Search budget for each computer move.
-  pub think_time: Duration,
+  /// Synchronous move selector and turn admission policy.
+  pub opponent: crate::opponent::Opponent,
   /// Optional seed for presentation-only sound selection.
   pub seed: Option<u64>,
-  /// Whether host persistence may replace the configured initial state.
-  pub load_persistence: bool,
   /// Raw storage used for the saved game.
-  pub persistence: Rc<dyn PersistenceBackend>,
+  pub persistence: Option<Rc<dyn PersistenceBackend>>,
 }
 
 /// Assembles the Reactant application, document, camera, and global input policy.
@@ -61,10 +59,10 @@ pub struct ChessConfig {
 /// and can focus on state, events, and effects.
 pub fn application(config: ChessConfig) -> Application {
   let app = Application::new(crate::assets::CONTENT)
-    .child(ChessApp { config })
+    .child(ChessAssembly { config })
     .document(|mut document| {
       document.root_id = crate::visual_state::ROOT_ID;
-      document.element.picking_mode = Prop::Set(battlement::PickingMode::Ignore);
+      document.element.picking_mode = Prop::Set(PickingMode::Ignore);
       document
     })
     .camera(|camera| {
@@ -78,8 +76,46 @@ pub fn application(config: ChessConfig) -> Application {
 }
 
 /// Root component that chooses the title or active-session subtree.
+struct ChessAssembly {
+  config: ChessConfig,
+}
+
+struct PersistentChessApp {
+  config: ChessConfig,
+  backend: Rc<dyn PersistenceBackend>,
+}
+
 struct ChessApp {
   config: ChessConfig,
+  persistence: Option<PersistentState<SavedGame>>,
+}
+
+impl Component for ChessAssembly {
+  fn render(&self) -> impl Render {
+    match &self.config.persistence {
+      Some(backend) => Either::left(PersistentChessApp {
+        config: self.config.clone(),
+        backend: backend.clone(),
+      }),
+      None => Either::right(ChessApp {
+        config: self.config.clone(),
+        persistence: None,
+      }),
+    }
+  }
+}
+
+impl Component for PersistentChessApp {
+  fn render(&self) -> impl Render {
+    let persistence = reactant::use_persistent_state_with::<SavedGame>(
+      crate::persistence::SAVE_FILE_NAME,
+      self.backend.clone(),
+    );
+    ChessApp {
+      config: self.config.clone(),
+      persistence: Some(persistence),
+    }
+  }
 }
 
 /// Title presentation and its input-independent Play callback.
@@ -91,28 +127,22 @@ struct TitleScreen {
 
 /// Active game composition around an already-mounted rules handle.
 struct ChessScreen {
+  opponent: crate::opponent::Opponent,
   game: GameHandle<ChessGame>,
   control: ChessUiController,
   diagnostics: bool,
-  persistence: PersistentState<SavedGame>,
+  persistence: Option<PersistentState<SavedGame>>,
 }
 
 /// Semantic and diagnostic projection of the current game result.
 struct GameStatusView {
-  visual_state: crate::visual_state::VisualState,
   origin_saved: bool,
   diagnostics: bool,
 }
 
-/// Hidden semantic controls mirroring the world-space refresh affordance.
-struct GameControls {
-  pause_open: bool,
-  confirm_new_game: bool,
-  on_request_new_game: EventCallback<()>,
-}
-
 /// Effect-only component that schedules the computer action when appropriate.
 struct TurnCoordinator {
+  opponent: crate::opponent::Opponent,
   game: GameHandle<ChessGame>,
 }
 
@@ -128,27 +158,19 @@ impl Component for ChessApp {
   /// behavior is expressed by rendering keyed child components, which preserves
   /// Reactant's hook ordering and gives each rules-session generation a lifecycle.
   fn render(&self) -> impl Render {
-    let persistence = reactant::use_persistent_state_with::<SavedGame>(
-      crate::contract::SAVE_FILE_NAME,
-      self.config.persistence.clone(),
-    );
+    let persistence = self.persistence.clone();
     let diagnostics = reactant::use_host_module("battlement.diagnostics");
     // Persistence is an input to initial assembly, not an ongoing competing
     // source of truth. Once mounted, the rules session owns the logical state.
     let initial_state = hooks::use_memo(
       {
         let configured = self.config.initial_state.clone();
-        let saved = persistence.value().cloned();
-        let load = self.config.load_persistence;
+        let saved = persistence.as_ref().and_then(|p| p.value().cloned());
         move || {
-          if load {
-            saved
-              .and_then(|saved| saved.board())
-              .map(ChessState::resumed)
-              .or(configured)
-          } else {
-            configured
-          }
+          saved
+            .and_then(|saved| saved.board())
+            .map(ChessState::resumed)
+            .or(configured)
         }
       },
       (),
@@ -156,7 +178,7 @@ impl Component for ChessApp {
     let initial_local = hooks::use_memo(
       {
         let state = initial_state.clone();
-        let restored = self.config.load_persistence && persistence.value().is_some();
+        let restored = persistence.as_ref().is_some_and(|p| p.value().is_some());
         let visual_state = if restored {
           crate::visual_state::VisualState::Resumed
         } else {
@@ -206,7 +228,7 @@ impl Component for ChessApp {
             state,
             generation: local.opening_generation,
             mode: local.opening,
-            think_time: self.config.think_time,
+            opponent: self.config.opponent.clone(),
             seed: self.config.seed,
             control: control.clone(),
             diagnostics,
@@ -228,17 +250,17 @@ struct ChessSession {
   state: ChessState,
   generation: u64,
   mode: Option<SessionStart>,
-  think_time: Duration,
+  opponent: crate::opponent::Opponent,
   seed: Option<u64>,
   control: ChessUiController,
   diagnostics: bool,
-  persistence: PersistentState<SavedGame>,
+  persistence: Option<PersistentState<SavedGame>>,
 }
 
 impl Component for ChessSession {
   /// Mounts the typed game, installs input, and declares session-scoped effects.
   fn render(&self) -> impl Render {
-    let think_time = self.think_time;
+    let opponent = self.opponent.clone();
     let seed = self.seed;
     let game = reactant::use_game::<ChessGame, _>(
       self.generation,
@@ -249,7 +271,7 @@ impl Component for ChessSession {
             connection,
             policy: ChessPolicy,
           },
-          think_time,
+          opponent.clone(),
           seed.map_or_else(fastrand::Rng::new, fastrand::Rng::with_seed),
         )
       },
@@ -260,8 +282,17 @@ impl Component for ChessSession {
       Some(SessionStart::Restart | SessionStart::Refresh)
     ) {
       let persistence = self.persistence.clone();
-      hooks::use_effect(move || persistence.clear(), ());
+      hooks::use_effect(
+        move || {
+          if let Some(p) = persistence {
+            p.clear();
+          }
+        },
+        (),
+      );
     }
+    let opponent = self.opponent.clone();
+    hooks::use_effect(move || opponent.reset(), ());
     let music = self.control.clone();
     let restart_music = matches!(self.mode, Some(SessionStart::Restart));
     hooks::use_effect(
@@ -280,41 +311,31 @@ impl Component for ChessSession {
       game,
       control: self.control.clone(),
       diagnostics: self.diagnostics,
+      opponent: self.opponent.clone(),
       persistence: self.persistence.clone(),
     })
   }
 }
 
 impl Component for TitleScreen {
-  /// Renders matching semantic and world-space Play controls.
-  ///
-  /// Both controls share one callback so accessible UI activation and scene
-  /// picking follow exactly the same transition.
+  /// The visible Play control owns both pointer and assistive activation.
   fn render(&self) -> impl Render {
     crate::reactant_input::use_chess_input(self.control.clone(), None);
     (
-      status_markers(crate::visual_state::VisualState::Title),
-      Button::new(ls("Play chess"))
-        .host_name("play-chess")
-        .style(
-          Style::new()
-            .position(Position::Absolute)
-            .left(12.0)
-            .top(44.0)
-            .width(180.0)
-            .height(40.0)
-            .opacity(0.0),
-        )
-        .on_press(self.on_play.clone()),
       SceneRoot::new(ParentScene::PrimaryScene).child(
-        Sprite::new()
-          .id(*crate::contract::PLAY_BUTTON_ID.as_uuid())
-          .texture(crate::assets::PLAY_BUTTON)
-          .size(0.8, 0.24)
-          .fit(ImageFit::Stretch)
+        BoxHitRegion::new()
+          .size(Vector3::new(0.8, 0.24, 0.02))
           .position(Vector3::new(0.0, 6.38, -3.86))
           .rotation(CAMERA_ROTATION)
-          .on_click(self.on_play.clone()),
+          .on_click(self.on_play.clone())
+          .accessible_button(ls("Play chess"), self.on_play.clone())
+          .child(
+            Sprite::new()
+              .id(*PLAY_BUTTON_ID.as_uuid())
+              .texture(crate::assets::PLAY_BUTTON)
+              .size(0.8, 0.24)
+              .fit(ImageFit::Stretch),
+          ),
       ),
       self
         .diagnostics
@@ -330,28 +351,10 @@ impl Component for ChessScreen {
   /// hooks. They avoid one monolithic render function and make dependencies clear.
   fn render(&self) -> impl Render {
     let local = self.control.snapshot();
-    let state_result = reactant::use_game_selector::<ChessGame, _>(ChessState::result);
-    let publication = reactant::use_game_publication::<ChessGame>();
-    let published_result = publication
-      .as_deref()
-      .map(crate::reactant_game::ChessAnimation::result)
-      .or(state_result);
-    let visual_state = if local.pause_open() || local.selected.is_some() {
-      local.resolved_visual_state()
-    } else {
-      published_result.unwrap_or(local.visual_state)
-    };
     let activate = {
       let control = self.control.clone();
       let game = self.game.clone();
       EventCallback::new(move |square| control.dispatch(Some(&game), UiAction::Activate(square)))
-    };
-    let move_piece = {
-      let control = self.control.clone();
-      let game = self.game.clone();
-      EventCallback::new(move |(from, to)| {
-        control.move_piece(&game, from, to);
-      })
     };
     let request_new_game = {
       let control = self.control.clone();
@@ -373,33 +376,27 @@ impl Component for ChessScreen {
       opening_playbacks.with_mut(|active| active.push(playback));
     });
     (
-      PersistenceCoordinator {
-        persistence: self.persistence.clone(),
-      },
+      self
+        .persistence
+        .clone()
+        .map(|persistence| PersistenceCoordinator { persistence }),
       TurnCoordinator {
+        opponent: self.opponent.clone(),
         game: self.game.clone(),
       },
-      GameStatusView {
-        visual_state,
+      self.diagnostics.then_some(GameStatusView {
         origin_saved: local.origin_saved,
-        diagnostics: self.diagnostics,
-      }
-      .key(visual_state.registry_key()),
+        diagnostics: true,
+      }),
       ChessBoard {
         ui: local.clone(),
         on_activate: activate,
-        on_move: move_piece,
         on_request_new_game: request_new_game.clone(),
         on_opening_finished,
         game: self.game.clone(),
         control: self.control.clone(),
       },
       PromotionDialog,
-      GameControls {
-        pause_open: local.pause_open(),
-        confirm_new_game: local.confirm_new_game(),
-        on_request_new_game: request_new_game,
-      },
     )
   }
 }
@@ -434,36 +431,9 @@ impl Component for GameStatusView {
       GameStatus::Won => "won",
     };
     let game_origin = if self.origin_saved { "saved" } else { "new" };
-    (
-      status_markers(self.visual_state),
-      self
-        .diagnostics
-        .then(|| crate::reactant_effects::diagnostics_view(game_status, game_origin)),
-    )
-  }
-}
-
-impl Component for GameControls {
-  /// Renders the semantic new-game action only while the pause overlay is open.
-  fn render(&self) -> impl Render {
-    self.pause_open.then(|| {
-      Button::new(ls(if self.confirm_new_game {
-        "Confirm new game"
-      } else {
-        "New game"
-      }))
-      .host_name("new-game")
-      .style(
-        Style::new()
-          .position(Position::Absolute)
-          .left(12.0)
-          .top(44.0)
-          .width(180.0)
-          .height(40.0)
-          .opacity(0.0),
-      )
-      .on_press(self.on_request_new_game.clone())
-    })
+    (self
+      .diagnostics
+      .then(|| crate::reactant_effects::diagnostics_view(game_status, game_origin)),)
   }
 }
 
@@ -480,32 +450,17 @@ impl Component for TurnCoordinator {
       && state.board().status() == GameStatus::Ongoing
       && state.board().side_to_move() == Color::Black;
     let game = self.game.clone();
+    let opponent = self.opponent.clone();
     hooks::use_effect(
       move || {
-        if ready {
+        if ready && opponent.permitted() {
           assert_eq!(
             game.dispatch(ChessAction::ComputerMove),
             DispatchResult::Started
           );
         }
       },
-      (ready, state.board().to_string()),
+      (ready, state.board().hash(), self.opponent.revision()),
     );
   }
-}
-
-/// Renders a stable, hidden semantic node for every known visual state.
-///
-/// Stable nodes make black-box automation query a fixed topology; only the active
-/// node receives text, so no test needs to inspect Rust state or visual styling.
-fn status_markers(active: crate::visual_state::VisualState) -> impl Render {
-  crate::visual_state::VisualState::ALL
-    .into_iter()
-    .map(|state| {
-      Label::new(ls(if state == active { state.label() } else { "" }))
-        .name(state.registry_key())
-        .picking_mode(PickingMode::Ignore)
-        .style(Style::new().display(Display::None))
-    })
-    .collect::<Vec<_>>()
 }

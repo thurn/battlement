@@ -35,8 +35,9 @@ pub(crate) struct MotionCallbacks {
   complete: Option<MotionHandler>,
   stop: Option<MotionHandler>,
   cancel: Option<MotionHandler>,
-  gestures: [Option<GestureHandler>; 24],
-  gesture_observers: [Option<Rc<dyn Fn()>>; 24],
+  // Most targets have no gesture callbacks. Sparse storage keeps every absent
+  // hover/tap/drag target from carrying a full table through render traversal.
+  gestures: Vec<(MotionGestureEventKind, GestureHandler)>,
 }
 
 #[derive(Clone)]
@@ -282,8 +283,7 @@ impl MotionCallbacks {
       complete: None,
       stop: None,
       cancel: None,
-      gestures: [const { None }; 24],
-      gesture_observers: [const { None }; 24],
+      gestures: Vec::new(),
     }
   }
 
@@ -339,15 +339,8 @@ impl MotionCallbacks {
     if value.cancel.is_some() {
       self.cancel = value.cancel;
     }
-    for (index, handler) in value.gestures.into_iter().enumerate() {
-      if handler.is_some() {
-        self.gestures[index] = handler;
-      }
-    }
-    for (index, observer) in value.gesture_observers.into_iter().enumerate() {
-      if observer.is_some() {
-        self.gesture_observers[index] = observer;
-      }
+    for (kind, handler) in value.gestures {
+      self.set_gesture(kind, handler);
     }
     self
   }
@@ -357,7 +350,7 @@ impl MotionCallbacks {
     kind: MotionGestureEventKind,
     callback: impl Fn(&mut G, &MotionGestureEvent) + 'static,
   ) -> Self {
-    self.gestures[gesture_index(kind)] = Some(GestureHandler::new(callback));
+    self.set_gesture(kind, GestureHandler::new(callback));
     self
   }
 
@@ -447,14 +440,12 @@ impl MotionCallbacks {
   }
 
   pub(crate) fn invoke_gesture(&self, game: &mut dyn Any, event: &MotionGestureEvent) -> bool {
-    let index = gesture_index(event.kind);
-    if let Some(observer) = &self.gesture_observers[index] {
-      observer();
-    }
-    if let Some(handler) = &self.gestures[index] {
+    if let Some((_, handler)) = self.gestures.iter().find(|(kind, _)| *kind == event.kind) {
       handler.invoke(game, event);
+      true
+    } else {
+      false
     }
-    self.gesture_observers[index].is_some() || self.gestures[index].is_some()
   }
 
   pub(crate) fn validate_model(&self, model: TypeId) {
@@ -479,7 +470,7 @@ impl MotionCallbacks {
         "Motion update callback model type does not match its runtime"
       );
     }
-    for handler in self.gestures.iter().flatten() {
+    for (_, handler) in &self.gestures {
       assert_eq!(
         handler.model, model,
         "Motion gesture callback model type does not match its runtime"
@@ -497,40 +488,20 @@ impl MotionCallbacks {
     } = Some(handler);
   }
 
-  fn has_any_gesture(&self, kinds: &[MotionGestureEventKind]) -> bool {
-    kinds.iter().any(|kind| {
-      let index = gesture_index(*kind);
-      self.gestures[index].is_some() || self.gesture_observers[index].is_some()
-    })
+  fn set_gesture(&mut self, kind: MotionGestureEventKind, handler: GestureHandler) {
+    if let Some((_, existing)) = self
+      .gestures
+      .iter_mut()
+      .find(|(existing, _)| *existing == kind)
+    {
+      *existing = handler;
+    } else {
+      self.gestures.push((kind, handler));
+    }
   }
-}
 
-const fn gesture_index(kind: MotionGestureEventKind) -> usize {
-  match kind {
-    MotionGestureEventKind::HoverStart => 0,
-    MotionGestureEventKind::HoverEnd => 1,
-    MotionGestureEventKind::TapStart => 2,
-    MotionGestureEventKind::Tap => 3,
-    MotionGestureEventKind::TapCancel => 4,
-    MotionGestureEventKind::FocusStart => 5,
-    MotionGestureEventKind::FocusEnd => 6,
-    MotionGestureEventKind::FocusVisibleStart => 22,
-    MotionGestureEventKind::FocusVisibleEnd => 23,
-    MotionGestureEventKind::PanSessionStart => 7,
-    MotionGestureEventKind::PanStart => 8,
-    MotionGestureEventKind::Pan => 9,
-    MotionGestureEventKind::PanEnd => 10,
-    MotionGestureEventKind::PanCancel => 11,
-    MotionGestureEventKind::DragStart => 12,
-    MotionGestureEventKind::DragDirectionLock => 13,
-    MotionGestureEventKind::Drag => 14,
-    MotionGestureEventKind::DragEnd => 15,
-    MotionGestureEventKind::DragCancel => 16,
-    MotionGestureEventKind::DragMomentumComplete => 17,
-    MotionGestureEventKind::DragConstraintsMeasured => 18,
-    MotionGestureEventKind::Scroll => 19,
-    MotionGestureEventKind::InViewEnter => 20,
-    MotionGestureEventKind::InViewLeave => 21,
+  fn has_any_gesture(&self, kinds: &[MotionGestureEventKind]) -> bool {
+    self.gestures.iter().any(|(kind, _)| kinds.contains(kind))
   }
 }
 

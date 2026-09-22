@@ -63,6 +63,7 @@ pub struct Group {
   children: Vec<Node>,
   reference: Option<ObjectRef>,
   click: Option<Callback<()>>,
+  accessible: Option<(trox::LocalizedString, Callback<()>)>,
   events: PointerHandlers,
   navigation: NavigationHandlers,
   pointer: battlement::WorldPointerSettings,
@@ -135,6 +136,7 @@ impl Group {
       children: Vec::new(),
       reference: None,
       click: None,
+      accessible: None,
       events: PointerHandlers::new(),
       navigation: NavigationHandlers::new(),
       pointer: battlement::WorldPointerSettings::default(),
@@ -174,6 +176,12 @@ impl Group {
     object.material_instances = self.material_instances;
     object.drag_mode = self.drag_mode;
     object
+  }
+
+  /// Names the visible object and routes assistive activation to its input policy.
+  pub fn accessible_button(mut self, name: trox::LocalizedString, callback: Callback<()>) -> Self {
+    self.accessible = Some((name, callback));
+    self
   }
 
   /// Preserves the compatible native host across logical parents and attachments.
@@ -346,6 +354,9 @@ impl Component for Group {
     .child(self.children.clone())
     .events(self.events.clone())
     .navigation(self.navigation.clone());
+    if let Some((name, callback)) = &self.accessible {
+      host = host.accessible_button(name.clone(), callback.clone());
+    }
     if let Some(id) = self.id {
       host = host.id(id);
     }

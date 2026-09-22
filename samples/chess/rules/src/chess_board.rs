@@ -12,12 +12,12 @@ use reactant::{
   animation_controls::{self, AnimationSequence, MotionSelector, SequencePosition},
   app_context, hooks,
   prelude::{
-    AnimationPlayback, Button, Component, Easing, EventCallback, IdentityRenderExt, KeyRenderExt,
-    MotionComponentExt, MotionProps, ObjectRef, Position, Render, Style, StyleTarget, Transition,
-    use_object_ref,
+    AnimationPlayback, Component, Easing, EventCallback, IdentityRenderExt, KeyRenderExt,
+    MotionComponentExt, MotionProps, ObjectRef, Render, StyleTarget, Transition, use_object_ref,
   },
   world::{BoxHitRegion, Group, Plane, Prefab, SceneRoot, Sprite},
 };
+
 use trox::ls;
 
 use crate::{
@@ -26,7 +26,10 @@ use crate::{
   position::{ChessPiece, Movement, PieceIdentity},
   reactant_game::{ChessAnimation, ChessGame},
 };
+use battlement::ObjectId;
 
+const REFRESH_BUTTON_ID: ObjectId = battlement::object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
+const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = 5_070;
 const CAMERA_BUTTON_DEPTH: f64 = 1.5;
 const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
 const CRITICAL_BEAT_INTERVAL_MS: u64 = 570;
@@ -48,8 +51,6 @@ pub struct ChessBoard {
   pub ui: ChessUiState,
   /// Unified pointer activation callback for squares and opposing pieces.
   pub on_activate: EventCallback<Square>,
-  /// Accessible move callback exposed through hidden semantic buttons.
-  pub on_move: EventCallback<(Square, Square)>,
   /// Callback for the world-space refresh affordance.
   pub on_request_new_game: EventCallback<()>,
   /// Registers completion of the session-opening animation.
@@ -163,6 +164,7 @@ impl Component for ChessBoard {
       && !local.pause_open();
     let squares = Square::ALL
       .into_iter()
+      .filter(|square| state.piece(*square).is_some() || legal.contains(square))
       .map(|square| {
         ChessSquare {
           square,
@@ -179,41 +181,6 @@ impl Component for ChessBoard {
           control: self.control.clone(),
         }
         .key(square)
-      })
-      .collect::<Vec<_>>();
-    let semantic_moves = Square::ALL
-      .into_iter()
-      .filter(|square| state.board().color_on(*square) == Some(Color::White))
-      .flat_map(|from| {
-        state
-          .legal_destinations(from)
-          .into_iter()
-          .map(move |to| (from, to))
-      })
-      .collect::<Vec<_>>();
-    // Invisible UI buttons give accessibility and Ditto a semantic interaction
-    // surface; they dispatch the same callback as the rendered board.
-    let semantics = semantic_moves
-      .into_iter()
-      .enumerate()
-      .map(|(index, (from, to))| {
-        Button::new(ls(format!("Move {from} to {to}")))
-          .host_name(format!(
-            "move-{}-{}",
-            from.to_string().to_ascii_lowercase(),
-            to.to_string().to_ascii_lowercase()
-          ))
-          .style(
-            Style::new()
-              .position(Position::Absolute)
-              .left((index % 16) as f32 * 20.0)
-              .top((index / 16) as f32 * 20.0)
-              .width(18.0)
-              .height(18.0)
-              .opacity(0.0),
-          )
-          .on_press(self.on_move.clone().map_input(move |()| (from, to)))
-          .key((from, to))
       })
       .collect::<Vec<_>>();
     let cursor_active = local.cursor_visible || local.selected.is_some();
@@ -237,11 +204,8 @@ impl Component for ChessBoard {
       let half_height = CAMERA_BUTTON_DEPTH * (CAMERA_VERTICAL_FOV_RADIANS / 2.0).tan();
       let right = half_height * aspect - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
       let up = half_height - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
-      Sprite::new()
-        .id(*crate::contract::REFRESH_BUTTON_ID.as_uuid())
-        .texture(crate::assets::REFRESH_BUTTON)
-        .size(REFRESH_BUTTON_SIZE, REFRESH_BUTTON_SIZE)
-        .fit(ImageFit::Stretch)
+      BoxHitRegion::new()
+        .size(Vector3::new(REFRESH_BUTTON_SIZE, REFRESH_BUTTON_SIZE, 0.02))
         .position(Vector3::new(
           right,
           8.0 - 0.946201 * CAMERA_BUTTON_DEPTH + 0.323579 * up,
@@ -249,16 +213,28 @@ impl Component for ChessBoard {
         ))
         .rotation(crate::reactant_view::CAMERA_ROTATION)
         .on_click(self.on_request_new_game.clone())
+        .accessible_button(
+          ls(if local.confirm_new_game() {
+            "Confirm new game"
+          } else {
+            "New game"
+          }),
+          self.on_request_new_game.clone(),
+        )
+        .child(
+          Sprite::new()
+            .id(*REFRESH_BUTTON_ID.as_uuid())
+            .texture(crate::assets::REFRESH_BUTTON)
+            .size(REFRESH_BUTTON_SIZE, REFRESH_BUTTON_SIZE)
+            .fit(ImageFit::Stretch),
+        )
     });
 
-    (
-      SceneRoot::new(ParentScene::PrimaryScene).child(
-        Group::new()
-          .child((squares, cursor, refresh))
-          .motion(MotionProps::new().animation_scope(scope)),
-      ),
-      semantics,
-    )
+    (SceneRoot::new(ParentScene::PrimaryScene).child(
+      Group::new()
+        .child((squares, cursor, refresh))
+        .motion(MotionProps::new().animation_scope(scope)),
+    ),)
   }
 }
 
@@ -268,12 +244,17 @@ impl Component for ChessSquare {
     let square = self.square;
     let mut position = square_position(square);
     position.y = HIGHLIGHT_HEIGHT;
-    let surface = Plane::new()
-      .position(position)
-      .scale(Vector3::new(HIGHLIGHT_SCALE, 1.0, HIGHLIGHT_SCALE))
-      .active(self.legal_target && self.interactive)
-      .materials([MaterialAssignment::new(0, crate::assets::LEGAL_SQUARE)])
-      .on_click(self.on_activate.clone().map_input(move |()| square));
+    let surface = (self.legal_target && self.interactive).then(|| {
+      Plane::new()
+        .position(position)
+        .scale(Vector3::new(HIGHLIGHT_SCALE, 1.0, HIGHLIGHT_SCALE))
+        .materials([MaterialAssignment::new(0, crate::assets::LEGAL_SQUARE)])
+        .on_click(self.on_activate.clone().map_input(move |()| square))
+        .accessible_button(
+          ls(format!("Move to {square}")),
+          self.on_activate.clone().map_input(move |()| square),
+        )
+    });
     let piece = self.piece.map(|piece| {
       ChessPieceView {
         piece,
@@ -331,6 +312,13 @@ impl Component for ChessPieceView {
       hit
     };
     hit
+      .accessible_button(
+        ls(format!(
+          "{:?} {:?} at {}",
+          self.piece.color, self.piece.kind, square
+        )),
+        self.on_activate.clone().map_input(move |()| square),
+      )
       .child(Prefab::at(address(self.piece.color, self.piece.kind)))
       .motion(MotionProps::new().motion_name("chess-piece"))
       .key(self.spawning)
@@ -439,7 +427,7 @@ fn opening_sequence(
       MotionSelector::ScopeRoot,
       StyleTarget::new().local_scale_factor_x(1.0),
       Transition::tween()
-        .duration_secs(crate::contract::PIECE_SPAWN_SEQUENCE_DURATION_MS as f64 / 1_000.0)
+        .duration_secs(PIECE_SPAWN_SEQUENCE_DURATION_MS as f64 / 1_000.0)
         .ease(Easing::Linear),
     )
     .at(SequencePosition::Absolute(Duration::ZERO))

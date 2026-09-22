@@ -355,6 +355,45 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void NativeDragKeepsOwnershipAcrossALogicalWorldTarget()
+        {
+            // Chess captures cross an opposing piece with logical click handlers.
+            // Raycast priority must not transfer an already captured native drag to
+            // that piece: both input implementations must finish the original gesture.
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            var dragged = new ObjectId(Guid.NewGuid());
+            var crossed = new ObjectId(Guid.NewGuid());
+            Connect(
+                harness,
+                session,
+                cameraId,
+                Cube(dragged, 0, Array.Empty<PointerEvent>(), DragMode.SnapToPointer),
+                Cube(crossed, 1) with
+                {
+                    WorldPointer = new WorldPointerSettings(1, 0, false, true),
+                }
+            );
+            Camera camera = Identity(cameraId).GetComponent<Camera>();
+            UnityEngine.Vector2 pickup = camera.WorldToScreenPoint(UnityEngine.Vector3.zero);
+            UnityEngine.Vector2 destination = camera.WorldToScreenPoint(
+                new UnityEngine.Vector3(1, 0, 0)
+            );
+            Move(harness, pickup, false);
+            Move(harness, pickup, true);
+            Move(harness, destination, true);
+            Move(harness, destination, false);
+            ActionBody.DragEnd end = Actions(harness)
+                .Select(a => a.Body)
+                .OfType<ActionBody.DragEnd>()
+                .Single();
+            Assert.That(end.ObjectId, Is.EqualTo(dragged));
+            Assert.That(end.WorldPosition.X, Is.EqualTo(1).Within(0.01));
+            Assert.That(Identity(dragged).transform.position.x, Is.EqualTo(1).Within(0.01));
+        }
+
+        [Test]
         public void FocusLossCancelsDragAndRestoresPickupPosition()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

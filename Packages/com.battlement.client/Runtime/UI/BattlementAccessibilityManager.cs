@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Battlement.UI
@@ -12,6 +13,8 @@ namespace Battlement.UI
     {
         private readonly Func<UiEvent, UiEventDisposition?> emit;
         private readonly Func<Guid, VisualElement?> resolveElement;
+        private readonly Func<Guid, GameObject?> resolveWorld;
+        private readonly Func<Camera?> inputCamera;
         private readonly Func<VisualElement, Guid?> resolveId;
         private readonly Func<Guid, bool> effectivelyInert;
         private readonly Func<IPanel?, VisualElement?> activeModal;
@@ -31,7 +34,9 @@ namespace Battlement.UI
             Func<Guid, VisualElement?> resolveElement,
             Func<VisualElement, Guid?> resolveId,
             Func<Guid, bool> effectivelyInert,
-            Func<IPanel?, VisualElement?> activeModal
+            Func<IPanel?, VisualElement?> activeModal,
+            Func<Guid, GameObject?>? resolveWorld = null,
+            Func<Camera?>? inputCamera = null
         )
         {
             this.emit = emit ?? (_ => null);
@@ -39,7 +44,9 @@ namespace Battlement.UI
             this.resolveId = resolveId;
             this.effectivelyInert = effectivelyInert;
             this.activeModal = activeModal;
-            backend = new UnityAccessibilityBackend(Dispatch, resolveElement, SetBackendAvailable);
+            this.resolveWorld = resolveWorld ?? (_ => null);
+            this.inputCamera = inputCamera ?? (() => null);
+            backend = new UnityAccessibilityBackend(Dispatch, Frame, SetBackendAvailable);
         }
 
         public ulong Generation => generation;
@@ -244,7 +251,10 @@ namespace Battlement.UI
             var nodes = nextNodes.ToDictionary(node => node.ObjectId.Value);
             foreach (AccessibilityNodeSnapshot node in nextNodes)
             {
-                if (resolveElement(node.ObjectId.Value) is null)
+                if (
+                    resolveElement(node.ObjectId.Value) is null
+                    && resolveWorld(node.ObjectId.Value) == null
+                )
                     throw Failure($"Accessibility host {node.ObjectId.Value} is not live.");
                 if (node.ParentId is ObjectId parent && !nodes.ContainsKey(parent.Value))
                     throw Failure($"Accessibility parent {parent.Value} is missing.");
@@ -266,10 +276,57 @@ namespace Battlement.UI
             }
         }
 
+        private UnityEngine.Rect Frame(Guid id)
+        {
+            if (resolveElement(id) is VisualElement element)
+                return element.worldBound;
+            GameObject? world = resolveWorld(id);
+            Camera? camera = inputCamera();
+            if (world == null || camera == null)
+                return default;
+            // Hit geometry names the visible control's bounds. Include children
+            // because a piece's mesh may be nested beneath its interaction owner.
+            Bounds bounds = new Bounds(world.transform.position, UnityEngine.Vector3.zero);
+            foreach (Renderer renderer in world.GetComponentsInChildren<Renderer>())
+                bounds.Encapsulate(renderer.bounds);
+            foreach (Collider collider in world.GetComponentsInChildren<Collider>())
+                bounds.Encapsulate(collider.bounds);
+            Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            for (int corner = 0; corner < 8; corner++)
+            {
+                UnityEngine.Vector3 point =
+                    bounds.center
+                    + UnityEngine.Vector3.Scale(
+                        bounds.extents,
+                        new UnityEngine.Vector3(
+                            (corner & 1) == 0 ? -1 : 1,
+                            (corner & 2) == 0 ? -1 : 1,
+                            (corner & 4) == 0 ? -1 : 1
+                        )
+                    );
+                UnityEngine.Vector3 screen = camera.WorldToScreenPoint(point);
+                if (screen.z <= 0)
+                    return default;
+                Vector2 projected = new Vector2(screen.x, Screen.height - screen.y);
+                min = Vector2.Min(min, projected);
+                max = Vector2.Max(max, projected);
+            }
+            return UnityEngine.Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
         private bool IsPresented(AccessibilityNodeSnapshot node, HashSet<Guid> modalScopes)
         {
             VisualElement? element = resolveElement(node.ObjectId.Value);
-            if (element?.panel is null || effectivelyInert(node.ObjectId.Value))
+            if (element is null)
+            {
+                GameObject? world = resolveWorld(node.ObjectId.Value);
+                return world != null
+                    && world.activeInHierarchy
+                    && modalScopes.Count == 0
+                    && world.transform.lossyScale.sqrMagnitude > 0;
+            }
+            if (element.panel is null || effectivelyInert(node.ObjectId.Value))
                 return false;
             if (element.resolvedStyle.display == DisplayStyle.None)
                 return false;

@@ -1,15 +1,13 @@
 //! Complete chess rules state and worker actions.
 
-use std::time::Duration;
-
 use battlement::{AudioClipAddress, ObjectId};
 use cozy_chess::{Board, Color, GameStatus, Move, Square};
 use fastrand::Rng;
 use reactant::rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game};
 
 use crate::{
-  ai,
   chess_prompt::{ChessPrompt, PromotionPrompt},
+  opponent::Opponent,
   position::{ChessPiece, ChessPosition, Movement},
 };
 
@@ -64,7 +62,7 @@ pub struct ChessPolicy;
 /// nondeterministic or host-specific data into the clonable logical state.
 pub struct ChessContext {
   execution: ExecutionMode<ChessGame, ChessPolicy>,
-  think_time: Duration,
+  opponent: Opponent,
   rng: Rng,
 }
 
@@ -141,12 +139,12 @@ impl ChessContext {
   /// Creates the services used by one mounted rules session.
   pub fn new(
     execution: ExecutionMode<ChessGame, ChessPolicy>,
-    think_time: Duration,
+    opponent: Opponent,
     rng: Rng,
   ) -> Self {
     Self {
       execution,
-      think_time,
+      opponent,
       rng,
     }
   }
@@ -278,8 +276,7 @@ impl Game for ChessGame {
         context.apply_move(state, movement);
       }
       ChessAction::ComputerMove => {
-        let reply = ai::choose_move(&state.position.board, context.think_time)
-          .expect("ongoing chess position has a computer move");
+        let reply = context.opponent.choose(&state.position.board);
         context.apply_move(state, reply);
       }
     }

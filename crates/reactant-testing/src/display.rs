@@ -287,6 +287,11 @@ where
     self.pointer_down(0, position);
     self.pointer_up(0, position);
   }
+  /// Projects a world point using the current displayed camera and viewport.
+  pub fn project_world(&self, point: Vector3) -> Option<battlement::PanelPoint> {
+    self.client.project_world(point)
+  }
+
   /// Starts the native draggable-object path without resolving screen geometry.
   pub fn drag_start(&mut self, object_id: ObjectId, input: battlement_fake::client::PointerInput) {
     self.client.drag_start(object_id, input);

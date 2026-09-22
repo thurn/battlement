@@ -14,6 +14,10 @@ pub trait AppRuntime: Any {
   fn context(&self) -> Rc<dyn Any>;
   /// Polls application observations and requests a context refresh when changed.
   fn poll(&self) -> bool;
+  /// Applies changes already caused by input or explicit publication delivery.
+  fn apply_changes(&self) -> bool {
+    self.poll()
+  }
   /// Runs one input callback at the application's recovery boundary.
   fn callback(&self, callback: &mut dyn FnMut());
   /// Ends application work without joining background computation.
@@ -93,8 +97,11 @@ impl RuntimeSlot {
     )
   }
 
-  pub(crate) fn poll(&self) -> bool {
-    self.runtime.as_ref().is_some_and(|runtime| runtime.poll())
+  pub(crate) fn apply_changes(&self) -> bool {
+    self
+      .runtime
+      .as_ref()
+      .is_some_and(|runtime| runtime.apply_changes())
   }
 
   pub(crate) fn enter(&self) -> CallbackScope {

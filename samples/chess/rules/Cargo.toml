@@ -37,3 +37,15 @@ path = "tests/outcomes_tests.rs"
 [[test]]
 name = "services"
 path = "tests/services_tests.rs"
+
+[[test]]
+name = "worker"
+path = "tests/worker_tests.rs"
+
+[[test]]
+name = "observations"
+path = "tests/observations_tests.rs"
+
+[[test]]
+name = "performance"
+path = "tests/performance_tests.rs"

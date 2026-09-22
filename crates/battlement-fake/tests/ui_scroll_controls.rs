@@ -19,7 +19,7 @@ struct RecordingEngine {
 }
 
 impl Engine for RecordingEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+  const WIRE_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_DIGEST_C;
 
   fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     ui_support::encoded(Response::snapshot(
@@ -47,7 +47,7 @@ impl Engine for RecordingEngine {
 }
 
 #[test]
-fn manual_clock_scroll_settlement_and_scroller_commit_match_control_contract() {
+fn manual_clock_scroll_settlement_and_scroller_commit_match_control_behavior() {
   let session_id = SessionId::new_v4();
   let scene_id = SceneId::new_v4();
   let camera_id = ObjectId::new_v4();

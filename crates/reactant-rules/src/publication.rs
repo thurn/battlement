@@ -8,7 +8,10 @@ use std::{
   time::{Duration, Instant},
 };
 
-use crate::{CompletedAction, Game, PresentedPrompt, ResponseHandle, response::Reply, worker};
+use crate::{
+  CompletedAction, Game, PresentedPrompt, ResponseHandle, response::Reply,
+  session_context::ChoiceResolver, worker,
+};
 
 const CAPACITY: usize = 32;
 
@@ -44,6 +47,8 @@ pub struct PublicationObservation {
 }
 
 pub(crate) struct Publications<G: Game> {
+  pub(crate) inline: bool,
+  pub(crate) choices: Option<ChoiceResolver<G>>,
   state: Mutex<Queue<G>>,
   changed: Condvar,
   pub(crate) abandoned: Arc<AtomicBool>,
@@ -95,6 +100,8 @@ impl<G: Game> Checkpoint<G> {
 impl<G: Game> Publications<G> {
   pub(crate) fn new() -> Self {
     Self {
+      inline: false,
+      choices: None,
       state: Mutex::new(Queue {
         entries: VecDeque::new(),
         reserved: 0,
@@ -106,6 +113,20 @@ impl<G: Game> Publications<G> {
     }
   }
 
+  pub(crate) fn inline(choices: Option<ChoiceResolver<G>>) -> Self {
+    Self {
+      inline: true,
+      choices,
+      ..Self::new()
+    }
+  }
+
+  fn notify(&self) {
+    if !self.inline {
+      self.changed.notify_all();
+    }
+  }
+
   pub(crate) fn reserve(&self) -> Reservation<'_, G> {
     let mut state = self::lock(&self.state);
     loop {
@@ -113,17 +134,17 @@ impl<G: Game> Publications<G> {
         drop(state);
         worker::unwind_cancelled();
       }
-      if state.entries.len() + state.reserved < CAPACITY {
+      if self.inline || state.entries.len() + state.reserved < CAPACITY {
         break;
       }
       state.observation.waiting_for_capacity = true;
-      self.changed.notify_all();
+      self.notify();
       state = self.changed.wait(state).unwrap_or_else(|e| e.into_inner());
     }
     state.observation.waiting_for_capacity = false;
     state.reserved += 1;
     state.observation.builders_started += 1;
-    self.changed.notify_all();
+    self.notify();
     drop(state);
     let reservation = Reservation { publications: self };
     self.check_active();
@@ -142,7 +163,7 @@ impl<G: Game> Publications<G> {
     let entry = state.entries.pop_front();
     if entry.is_some() {
       state.observation.consumed += 1;
-      self.changed.notify_all();
+      self.notify();
     }
     entry
   }
@@ -154,7 +175,7 @@ impl<G: Game> Publications<G> {
       state.observation.abandoned = true;
       state.observation.waiting_for_capacity = false;
       let entries = mem::take(&mut state.entries);
-      self.changed.notify_all();
+      self.notify();
       (entries, state.request.take())
     };
     if let Some(request) = request {
@@ -191,6 +212,7 @@ impl<G: Game> Publications<G> {
     timeout: Duration,
     predicate: impl Fn(PublicationObservation) -> bool,
   ) -> bool {
+    assert!(!self.inline, "inline publications must never wait");
     let deadline = Instant::now() + timeout;
     let mut state = self::lock(&self.state);
     while !predicate(state.observation) {
@@ -218,7 +240,7 @@ impl<G: Game> Reservation<'_, G> {
     }
     state.entries.push_back(checkpoint);
     state.observation.published += 1;
-    self.publications.changed.notify_all();
+    self.publications.notify();
     // Release the reservation under the same lock as insertion, so an entry
     // never temporarily counts twice against capacity.
     state.reserved -= 1;
@@ -230,7 +252,7 @@ impl<G: Game> Drop for Reservation<'_, G> {
   fn drop(&mut self) {
     let mut state = self::lock(&self.publications.state);
     state.reserved -= 1;
-    self.publications.changed.notify_all();
+    self.publications.notify();
   }
 }
 

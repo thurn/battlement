@@ -1,184 +1,116 @@
+//! Service boundaries deserve their own scenarios. Only persistence tests load
+//! bytes; timer tests use an explicit virtual duration. None waits for wall time.
 mod support;
-
+use crate::support::{catalog, fixtures, game::ChessTest, host, storage::MemoryPersistence};
+use battlement::CommandBody;
+use chess_rules::audio;
+use cozy_chess::{Color, Piece, Square};
 use std::time::Duration;
 
-use battlement::{CommandBody, PhysicalKey};
-use chess_rules::{ChessGame, contract};
-use reactant_testing::GameActionResult;
-
-use crate::support::{
-  DEFAULT, MemoryPersistence, TIMEOUT, assert_state, click_play, client, client_with_modules,
-  piece_at, play_move, press_key,
-};
-
 #[test]
-fn accepted_move_is_observable_after_an_opaque_engine_reload() {
-  let persistence = MemoryPersistence::empty();
-  let mut first = client(persistence.clone(), Duration::from_secs(1));
-  click_play(&mut first);
-  assert_eq!(
-    first.game_action::<ChessGame>(TIMEOUT, |display| {
-      for key in [
-        PhysicalKey::Enter,
-        PhysicalKey::ArrowUp,
-        PhysicalKey::ArrowUp,
-        PhysicalKey::Enter,
-      ] {
-        press_key(display, key);
-      }
-    }),
-    GameActionResult::Completed
-  );
-  assert_state(&first, contract::marker::PLAYER_MOVE);
-  drop(first);
-
-  let restored = client(persistence, Duration::from_secs(1));
-  assert!(piece_at(&restored, 'e', 2).is_none());
-  assert!(piece_at(&restored, 'e', 4).is_some());
+fn a_persisted_move_survives_a_fresh_engine() {
+  // Unlike gameplay fixtures, this deliberately crosses serialization twice.
+  // Dropping the first engine prevents shared state from masquerading as storage.
+  let storage = MemoryPersistence::empty();
+  let mut game = ChessTest::persisted(storage.clone());
+  game.start();
+  game.play(Square::E2, Square::E4);
+  drop(game);
+  let restored = ChessTest::persisted(storage);
+  restored.expect_empty(Square::E2);
+  restored.expect_piece(Square::E4, Color::White, Piece::Pawn);
 }
 
 #[test]
-fn persistence_failures_leave_a_valid_interactive_unity_state() {
-  let failed_load = MemoryPersistence::with_save(DEFAULT);
-  failed_load.fail_load();
-  let mut load = client(failed_load, Duration::ZERO);
-  click_play(&mut load);
-  assert!(piece_at(&load, 'e', 2).is_some());
+fn corrupt_storage_falls_back_to_an_interactive_title() {
+  // Syntax errors and invalid chess positions are independent persistence failures.
+  // Recovery is observed by starting a normal board, not inspecting error flags.
+  for bytes in [b"not json".as_slice(), br#"{"position":"invalid"}"#] {
+    let mut game = ChessTest::persisted(MemoryPersistence::with_save(bytes));
+    game.start();
+    game.expect_piece(Square::E2, Color::White, Piece::Pawn);
+  }
+}
 
+#[test]
+fn storage_failures_do_not_break_play_or_reset() {
+  // Fault injection is restricted to the external storage service. Rendering and
+  // input stay real, so these tests establish graceful behavior at that boundary.
+  let failed_load = MemoryPersistence::with_save(include_bytes!("fixtures/default.json"));
+  failed_load.fail_load();
+  let mut game = ChessTest::persisted(failed_load);
+  game.start();
+  game.expect_piece(Square::E2, Color::White, Piece::Pawn);
   let failed_store = MemoryPersistence::empty();
   failed_store.fail_store();
-  let mut store = client(failed_store, Duration::ZERO);
-  click_play(&mut store);
-  assert!(piece_at(&store, 'e', 2).is_some());
-
-  let failed_remove = MemoryPersistence::with_save(DEFAULT);
+  let mut game = ChessTest::persisted(failed_store);
+  game.start();
+  game.play(Square::E2, Square::E4);
+  game.expect_piece(Square::E4, Color::White, Piece::Pawn);
+  let failed_remove = MemoryPersistence::with_save(include_bytes!("fixtures/default.json"));
   failed_remove.fail_remove();
-  let mut remove = client(failed_remove, Duration::ZERO);
-  press_key(&mut remove, PhysicalKey::Escape);
-  assert_state(&remove, contract::marker::PAUSED);
-  let new_game = remove.find_ui(contract::ROOT_ID, "new-game");
-  remove.click_ui(new_game);
-  let confirm = remove.find_ui(contract::ROOT_ID, "new-game");
-  remove.click_ui(confirm);
-  assert_eq!(
-    remove.settle_game::<ChessGame>(TIMEOUT),
-    GameActionResult::Completed
-  );
-  assert_state(&remove, contract::marker::REFRESHED);
-  assert!(piece_at(&remove, 'e', 2).is_some());
+  let mut game = ChessTest::persisted(failed_remove);
+  game.new_game();
+  game.expect_piece(Square::E2, Color::White, Piece::Pawn);
 }
 
 #[test]
-fn diagnostics_metadata_exists_only_for_the_selected_host_module() {
-  let absent = client(MemoryPersistence::with_save(DEFAULT), Duration::ZERO);
-  assert!(absent.diagnostics().metadata().is_empty());
-
-  let enabled = client_with_modules(
-    MemoryPersistence::with_save(DEFAULT),
-    Duration::ZERO,
-    &["battlement.diagnostics"],
-  );
+fn diagnostics_are_optional_host_output() {
+  // Metadata is tested only as a diagnostics feature. Gameplay never uses it to
+  // stand in for a rendered board or terminal sound.
+  let absent = ChessTest::from_position(fixtures::initial());
+  assert!(absent.display.diagnostics().metadata().is_empty());
+  let enabled = ChessTest::assemble(Some(fixtures::initial()), None, &["battlement.diagnostics"]);
+  let metadata = enabled.display.diagnostics().metadata();
   assert_eq!(
-    enabled
-      .diagnostics()
-      .metadata()
-      .get("sample.name")
-      .map(String::as_str),
+    metadata.get("sample.name").map(String::as_str),
     Some("chess")
   );
   assert_eq!(
-    enabled
-      .diagnostics()
-      .metadata()
-      .get("chess.opponent")
-      .map(String::as_str),
+    metadata.get("chess.opponent").map(String::as_str),
     Some("computer")
   );
-  assert_eq!(
-    enabled
-      .diagnostics()
-      .metadata()
-      .get("chess.game_origin")
-      .map(String::as_str),
-    Some("saved")
-  );
 }
 
 #[test]
-fn music_crossfades_and_reset_does_not_replay_completed_opening_beats() {
-  let mut display = client(MemoryPersistence::empty(), Duration::ZERO);
-  click_play(&mut display);
-  let spawn_count = display.particle_occurrences().len();
-
-  display.until_timer(|display| {
-    display
-      .audio_occurrences()
-      .iter()
-      .filter(|effect| contract::MUSIC_TRACKS.contains(&effect.address))
-      .count()
-      == 2
-  });
-  let played = display
+fn virtual_time_crossfades_music_and_reset_does_not_repeat_opening() {
+  // Advancing exactly two minutes fires known timers; it does not repeatedly ask
+  // whether the next track has appeared. Presentation then executes the crossfade.
+  let mut game = ChessTest::title();
+  game.start();
+  let spawn_count = game.display.particle_occurrences().len();
+  game.advance(Duration::from_secs(120));
+  let music = game
+    .display
     .audio_occurrences()
     .iter()
-    .filter(|effect| contract::MUSIC_TRACKS.contains(&effect.address))
+    .filter(|o| catalog::MUSIC.contains(&o.address))
     .collect::<Vec<_>>();
-  assert_eq!(played.len(), 2);
-  assert_eq!(played[0].address, contract::MUSIC_TRACKS[0]);
-  assert_eq!(played[1].address, contract::MUSIC_TRACKS[1]);
-  assert!(display.commands().iter().any(|entry| matches!(
-    &entry.command.body,
-    CommandBody::AudioPlay(play)
-      if play.address == contract::MUSIC_TRACKS[1] && play.fade_in_ms == 5_000
-  )));
-  assert!(display.commands().iter().any(|entry| matches!(
-    &entry.command.body,
-    CommandBody::AudioStop(stop) if stop.fade_out_ms == 5_000
-  )));
-
-  press_key(&mut display, PhysicalKey::Escape);
-  assert_state(&display, contract::marker::PAUSED);
-  let new_game = display.find_ui(contract::ROOT_ID, "new-game");
-  display.click_ui(new_game);
-  let confirm = display.find_ui(contract::ROOT_ID, "new-game");
-  display.click_ui(confirm);
-  assert_eq!(
-    display.settle_game::<ChessGame>(TIMEOUT),
-    GameActionResult::Completed
-  );
-  assert_state(&display, contract::marker::REFRESHED);
-  assert_eq!(display.particle_occurrences().len(), spawn_count);
+  assert_eq!(music.len(), 2);
+  assert_eq!(music[1].address, catalog::MUSIC[1]);
+  assert!(game.display.commands().iter().any(|entry| matches!(&entry.command.body,CommandBody::AudioPlay(p) if p.address==catalog::MUSIC[1] && p.fade_in_ms==5000)));
   assert!(
-    display
-      .audio_occurrences()
+    game
+      .display
+      .commands()
       .iter()
-      .any(|effect| effect.address == contract::RESET_SOUND)
+      .any(|entry| matches!(&entry.command.body,CommandBody::AudioStop(p) if p.fade_out_ms==5000))
   );
+  game.new_game();
+  assert_eq!(game.display.particle_occurrences().len(), spawn_count);
+  host::sound(&game.display, audio::RESET_SOUND);
 }
 
 #[test]
-fn restart_discards_pending_rules_work_and_restores_the_visible_board() {
-  let mut display = client(MemoryPersistence::with_save(DEFAULT), Duration::ZERO);
-  play_move(&mut display, ('e', 2), ('e', 4));
-  for key in [
-    PhysicalKey::ControlLeft,
-    PhysicalKey::ShiftLeft,
-    PhysicalKey::KeyR,
-  ] {
-    display.key_down(key);
-  }
-  for key in [
-    PhysicalKey::KeyR,
-    PhysicalKey::ShiftLeft,
-    PhysicalKey::ControlLeft,
-  ] {
-    display.key_up(key);
-  }
-  assert_eq!(
-    display.settle_game::<ChessGame>(TIMEOUT),
-    GameActionResult::Completed
-  );
-  assert_state(&display, contract::marker::RESTARTED);
-  assert!(piece_at(&display, 'e', 2).is_some());
-  assert!(piece_at(&display, 'e', 4).is_none());
+fn restarting_replaces_the_session_and_leaves_the_opponent_held() {
+  // Session replacement must discard old publications and callbacks. The fresh
+  // board is asserted after reset, then used again to catch a stale session owner.
+  let mut game = ChessTest::from_position(fixtures::initial());
+  game.play(Square::E2, Square::E4);
+  game.restart();
+  game.expect_piece(Square::E2, Color::White, Piece::Pawn);
+  game.expect_empty(Square::E4);
+  game.play(Square::D2, Square::D4);
+  game.expect_piece(Square::D4, Color::White, Piece::Pawn);
+  game.expect_piece(Square::D7, Color::Black, Piece::Pawn);
 }

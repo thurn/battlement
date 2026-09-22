@@ -51,7 +51,7 @@ pub const WIRE_CONTRACT_DIGEST: &str =
 pub static NATIVE_ABI_DIGEST_C: &[u8; 65] =
   b"5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14\0";
 #[doc(hidden)]
-pub static WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
+pub static WIRE_DIGEST_C: &[u8; 65] =
   b"29a8d25e01c93411c222c2a789650246a74c5b937f58ff10bf689cb85e3c03ac\0";
 
 #[doc(hidden)]
@@ -60,7 +60,7 @@ where
   F: FnOnce() -> Result<E, EngineError>,
   E: Engine,
 {
-  E::WIRE_CONTRACT_DIGEST_C.as_ptr().cast()
+  E::WIRE_DIGEST_C.as_ptr().cast()
 }
 
 /// Exports the fixed Battlement C symbols for a direct FlatBuffers engine.

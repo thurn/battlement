@@ -87,7 +87,7 @@ fn require_fixture_error(value: wire::FixtureError) -> Result<(), EngineError> {
   Ok(())
 }
 
-pub(crate) const WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
+pub(crate) const WIRE_DIGEST_C: &[u8; 65] =
   b"529b123922649678ef8aa2b61d4c4369666cb2014c6fa23b927d8b2198ef3e43\0";
 
 pub(crate) fn write_response(

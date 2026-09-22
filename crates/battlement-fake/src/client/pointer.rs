@@ -55,7 +55,7 @@ impl<E: Engine> FakeClient<E> {
         .is_some_and(|o| o.world_pointer.is_none())
     });
     let uncaptured = state.captured.is_none() && self.ui_world.pointer_capture(id).is_none();
-    if uncaptured && (legacy || (hit.is_none() && self.pointers.legacy.contains_key(&id))) {
+    if uncaptured && (legacy || self.has_legacy_drag(id)) {
       if let Some(old) = state.hovered.take() {
         self.geometric_event(
           old,

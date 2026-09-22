@@ -7,7 +7,7 @@ use battlement::ObjectId;
 use cozy_chess::{Board, Color as PieceColor, GameStatus, Move, Piece};
 
 /// Stable identity of the Reactant document root inspected by native scenarios.
-pub const ROOT_ID: ObjectId = crate::contract::ROOT_ID;
+pub const ROOT_ID: ObjectId = battlement::object_id!("43000000-0000-4000-8000-000000000002");
 
 /// Finite user-visible presentation families recognized by the Chess engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -35,7 +35,7 @@ pub enum VisualState {
 pub struct SemanticFixture {
   /// Starting logical position.
   pub board: Board,
-  /// State marker to expose when the fixture mounts.
+  /// Initial presentation family used when the fixture mounts.
   pub state: VisualState,
 }
 
@@ -58,6 +58,7 @@ pub fn semantic_fixture(name: &str) -> Option<SemanticFixture> {
     "capture" => ("4k3/8/8/4p3/3B4/8/8/4K3 w - - 0 1", VisualState::Initial),
     "castling" => ("4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", VisualState::Initial),
     "en passant" => ("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1", VisualState::Initial),
+    "promotion capture" => ("1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1", VisualState::Initial),
     "promotion" => ("4k3/P7/8/8/8/8/8/4K3 w - - 0 1", VisualState::Initial),
     "check" => ("4k3/8/8/8/8/8/R7/4K3 w - - 0 1", VisualState::Initial),
     "player win" => ("7k/5K2/6Q1/8/8/8/8/8 w - - 0 1", VisualState::Initial),
@@ -94,78 +95,6 @@ pub fn after_move(
     GameStatus::Ongoing if !board_after.checkers().is_empty() => VisualState::Check,
     GameStatus::Ongoing if mover == PieceColor::Black => VisualState::AiResponse,
     GameStatus::Ongoing => VisualState::PlayerMove,
-  }
-}
-
-impl VisualState {
-  /// Every visual state in registry order.
-  pub const ALL: [Self; 17] = [
-    Self::Title,
-    Self::Initial,
-    Self::Selected,
-    Self::PlayerMove,
-    Self::AiResponse,
-    Self::Capture,
-    Self::Castle,
-    Self::EnPassant,
-    Self::Promotion,
-    Self::Check,
-    Self::PlayerWin,
-    Self::ComputerWin,
-    Self::Draw,
-    Self::Paused,
-    Self::Refreshed,
-    Self::Restarted,
-    Self::Resumed,
-  ];
-
-  /// Returns the canonical Ditto registry key.
-  pub const fn registry_key(self) -> &'static str {
-    match self {
-      Self::Title => crate::contract::marker::TITLE,
-      Self::Initial => crate::contract::marker::INITIAL,
-      Self::Selected => crate::contract::marker::SELECTED,
-      Self::PlayerMove => crate::contract::marker::PLAYER_MOVE,
-      Self::AiResponse => crate::contract::marker::AI_RESPONSE,
-      Self::Capture => crate::contract::marker::CAPTURE,
-      Self::Castle => crate::contract::marker::CASTLE,
-      Self::EnPassant => crate::contract::marker::EN_PASSANT,
-      Self::Promotion => crate::contract::marker::PROMOTION,
-      Self::Check => crate::contract::marker::CHECK,
-      Self::PlayerWin => crate::contract::marker::PLAYER_WIN,
-      Self::ComputerWin => crate::contract::marker::COMPUTER_WIN,
-      Self::Draw => crate::contract::marker::DRAW,
-      Self::Paused => crate::contract::marker::PAUSED,
-      Self::Refreshed => crate::contract::marker::REFRESHED,
-      Self::Restarted => crate::contract::marker::RESTARTED,
-      Self::Resumed => crate::contract::marker::RESUMED,
-    }
-  }
-
-  /// Returns the hidden semantic label exposed for the active state.
-  ///
-  /// The labels are not player-facing layout. They give native black-box tests
-  /// an accessible assertion surface without coupling them to Rust state.
-  pub const fn label(self) -> &'static str {
-    match self {
-      Self::Title => "CHESS · START A NEW GAME",
-      Self::Initial => "YOUR TURN · CHOOSE A PIECE",
-      Self::Selected => "PIECE SELECTED · LEGAL TARGETS SHOWN",
-      Self::PlayerMove => "MOVE COMMITTED · COMPUTER THINKING",
-      Self::AiResponse => "COMPUTER MOVED · YOUR TURN",
-      Self::Capture => "PIECE CAPTURED",
-      Self::Castle => "CASTLING COMPLETE",
-      Self::EnPassant => "EN PASSANT COMPLETE",
-      Self::Promotion => "PAWN PROMOTED TO QUEEN",
-      Self::Check => "CHECK",
-      Self::PlayerWin => "CHECKMATE · YOU WIN",
-      Self::ComputerWin => "CHECKMATE · COMPUTER WINS",
-      Self::Draw => "DRAW",
-      Self::Paused => "PAUSED · REFRESH STARTS A NEW GAME",
-      Self::Refreshed => "NEW GAME · BOARD REFRESHED",
-      Self::Restarted => "NEW GAME · RESTART SHORTCUT",
-      Self::Resumed => "SAVED GAME RESUMED",
-    }
   }
 }
 

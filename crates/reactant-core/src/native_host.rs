@@ -18,6 +18,7 @@ use crate::{
   render::{self, Node, Render, RenderSink, RenderTree},
   render_facade,
   render_value::Sealed,
+  semantics::{SemanticName, SemanticProps},
 };
 
 /// A native host declared by a typed host adapter.
@@ -28,6 +29,7 @@ pub struct NativeHost<A: HostAdapter> {
   reference: Option<ElementRef>,
   id: Option<Uuid>,
   motion: MotionProps,
+  semantic: Option<crate::semantics::SemanticProps>,
 }
 
 /// A committed object reference with the lifetime of its logical owner.
@@ -93,6 +95,7 @@ impl<A: HostAdapter> NativeHost<A> {
       reference: None,
       id: None,
       motion: MotionProps::new(),
+      semantic: None,
     }
   }
 
@@ -130,6 +133,25 @@ impl<A: HostAdapter> NativeHost<A> {
   /// Installs semantic focus and navigation callbacks.
   pub fn navigation(mut self, events: crate::navigation_handlers::NavigationHandlers) -> Self {
     self.handlers.extend(events.handlers);
+    self
+  }
+
+  /// Exposes an assistive activation on this visible native host.
+  /// This does not change pointer routing, so native drag remains independent.
+  pub fn accessible_button(mut self, name: trox::LocalizedString, callback: Callback<()>) -> Self {
+    assert!(
+      self.semantic.is_none(),
+      "duplicate native semantic declaration"
+    );
+    self.semantic = Some(
+      SemanticProps::new(battlement::SemanticRole::Button)
+        .name(SemanticName::text(name))
+        .action(battlement::AccessibilityAction::Activate),
+    );
+    self.handlers.push(Handler::accessibility_callback(
+      "native-assistive",
+      callback.map(|action| (action == battlement::AccessibilityAction::Activate).then_some(())),
+    ));
     self
   }
 
@@ -218,6 +240,7 @@ impl<A: HostAdapter> Sealed for NativeHost<A> {
     sink.pending.extend(pending);
     sink.push(descriptor, Some(host), children);
     let position = sink.positions.last_mut().expect("native host was appended");
+    position.semantic = self.semantic.clone();
     position.presentation_id = self.id;
     position.handlers = self.handlers.clone();
     position.element_ref = self.reference.clone();

@@ -40,7 +40,7 @@ impl<E> DerefMut for FailureRecorder<E> {
   }
 }
 impl<E: Engine> Engine for FailureRecorder<E> {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = E::WIRE_CONTRACT_DIGEST_C;
+  const WIRE_DIGEST_C: &'static [u8; 65] = E::WIRE_DIGEST_C;
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     self.engine.connect(message)
   }

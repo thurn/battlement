@@ -261,7 +261,7 @@ pub(crate) fn unwind_cancelled() -> ! {
   panic::resume_unwind(Box::new(Cancellation));
 }
 
-fn panic_message(payload: &(dyn Any + Send)) -> String {
+pub(crate) fn panic_message(payload: &(dyn Any + Send)) -> String {
   payload
     .downcast_ref::<&str>()
     .map(|message| (*message).to_owned())

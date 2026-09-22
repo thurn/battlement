@@ -190,17 +190,6 @@ impl Default for ChessUiState {
 }
 
 impl ChessUiState {
-  /// Resolves temporary overlays and selection ahead of the durable game state.
-  pub const fn resolved_visual_state(&self) -> crate::visual_state::VisualState {
-    if self.pause_open() {
-      crate::visual_state::VisualState::Paused
-    } else if self.selected.is_some() {
-      crate::visual_state::VisualState::Selected
-    } else {
-      self.visual_state
-    }
-  }
-
   /// Returns whether the pause overlay currently owns interaction.
   pub const fn pause_open(&self) -> bool {
     matches!(self.overlay, Some(Overlay::Pause { .. }))
@@ -413,30 +402,6 @@ impl ChessUiController {
     }
   }
 
-  /// Dispatches a semantic source-to-target move after the same readiness checks as input.
-  ///
-  /// Hidden accessibility controls use this direct path, but legality still
-  /// comes from the accepted game state and the rules worker validates it again.
-  pub fn move_piece(&self, game: &GameHandle<ChessGame>, from: Square, target: Square) {
-    if game.status() != RulesStatus::Ready || self.current().spawning {
-      return;
-    }
-    let state = game.accepted_state();
-    if state.legal_moves(from, target).is_empty() {
-      self.update(|value| {
-        value.cursor = target;
-        Self::effect(value, LocalEffect::Invalid);
-      });
-      return;
-    }
-    if game.dispatch(ChessAction::MoveTo { from, to: target }) == DispatchResult::Started {
-      self.update(|value| {
-        value.cursor = target;
-        value.selected = None;
-      });
-    }
-  }
-
   /// Converts a draggable host identity back into the ordinary selection flow.
   fn drag_start(&self, game: &GameHandle<ChessGame>, piece: ObjectId) {
     if game.status() != RulesStatus::Ready || self.current().spawning {
@@ -457,7 +422,8 @@ impl ChessUiController {
       self.update(|local| Self::effect(local, LocalEffect::Invalid));
       return;
     };
-    let Some(target) = target.filter(|_| game.status() == RulesStatus::Ready) else {
+    let ready = game.status() == RulesStatus::Ready && !self.current().pause_open();
+    let Some(target) = target.filter(|_| ready) else {
       self.restore_drag(piece, from, false);
       return;
     };

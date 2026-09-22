@@ -95,7 +95,7 @@ impl Drop for FixtureEngine {
 }
 
 impl Engine for FixtureEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = fixture_response::WIRE_CONTRACT_DIGEST_C;
+  const WIRE_DIGEST_C: &'static [u8; 65] = fixture_response::WIRE_DIGEST_C;
 
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     if ReleaseScenario::from_connect(message).is_some_and(ReleaseScenario::is_integration) {

@@ -344,6 +344,18 @@ where
     &mut self.diagnostics
   }
 
+  /// Executes one concrete response supplied by an in-process application driver.
+  pub fn receive(&mut self, response: battlement_native::EngineResponse) {
+    self.apply_response_bytes(response, ResponseMode::Existing);
+  }
+
+  /// Reports the next finite presentation deadline without executing engine work.
+  pub fn next_presentation_in(&self) -> Option<Duration> {
+    self
+      .next_deadline()
+      .map(|deadline| Duration::from_millis(deadline.saturating_sub(self.presentation_ms)))
+  }
+
   /// Applies exactly one queued engine response, when one is available.
   pub fn poll(&mut self) {
     self.poll_available();
@@ -1157,7 +1169,7 @@ where
         message,
       ))
     }
-    .expect("fake presentation failure must satisfy the FlatBuffers contract");
+    .expect("fake presentation failure must satisfy the FlatBuffers behavior");
     let response = self
       .engine
       .submit(message.as_bytes())

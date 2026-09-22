@@ -591,7 +591,10 @@ namespace Battlement
                         dittoMotionClock.IsControlled || dittoMotionClock.IsInstant
                             ? dittoMotionClock.Elapsed
                             : TimeSpan.FromSeconds(Time.timeAsDouble),
-                    () => dittoMotionClock.IsInstant
+                    () => dittoMotionClock.IsInstant,
+                    id =>
+                        world.TryGetObject(new ObjectId(id), out GameObject? value) ? value : null,
+                    () => world.InputCamera
                 );
                 runtime.SetUiDocuments(uiDocuments);
                 worldFocus = new BattlementWorldFocusInput(
@@ -2310,7 +2313,11 @@ namespace Battlement
             )
             {
                 BattlementIdentity identity = target.GetComponent<BattlementIdentity>();
-                if (identity != null && identity.WorldPointer?.ForwardsUiEvents == false)
+                if (
+                    identity != null
+                    && identity.WorldPointer?.ForwardsUiEvents == false
+                    && value.Body is not UiEventBody.AccessibilityAction
+                )
                 {
                     return UiEventDisposition.Continue;
                 }

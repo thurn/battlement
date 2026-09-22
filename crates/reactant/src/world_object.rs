@@ -130,6 +130,12 @@ impl<P> WorldObject<P> {
     self.group = self.group.capture_on_press(capture);
     self
   }
+  /// Attaches assistive activation to this visible object without changing dragging.
+  pub fn accessible_button(mut self, name: trox::LocalizedString, callback: Callback<()>) -> Self {
+    self.group = self.group.accessible_button(name, callback);
+    self
+  }
+
   /// Handles native or logical descendant activation.
   pub fn on_click(mut self, callback: Callback<()>) -> Self {
     self.group = self.group.on_click(callback);

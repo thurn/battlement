@@ -7,12 +7,14 @@
 #![warn(missing_docs)]
 
 mod display;
+mod inline;
 mod publications;
 pub mod temporal;
 #[cfg(feature = "worker-fixture")]
 mod worker;
 
 pub use display::{Display, GameActionResult};
+pub use inline::InlineActionResult;
 pub use publications::PublicationDisplay;
 #[cfg(feature = "worker-fixture")]
 pub use worker::{WorkerDisplay, WorkerDisplayBuilder, WorkerWaitError};

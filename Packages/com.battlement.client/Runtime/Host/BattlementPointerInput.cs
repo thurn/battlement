@@ -268,7 +268,12 @@ namespace Battlement
                 state.UpdateDrag(sample.Position);
             PointerHit hit = sample.IsPresent ? Raycast(pointerId, sample.Position) : default;
             BattlementIdentity? target = hit.Identity;
-            if (logical?.Process(pointerId, sample, target, blocked, state.Buttons) == true)
+            // A native drag owns its gesture through release, even when it crosses
+            // a target with logical pointer handlers (for example, a captured piece).
+            if (
+                state.DragIdentity == null
+                && logical?.Process(pointerId, sample, target, blocked, state.Buttons) == true
+            )
             {
                 state.CancelGestures();
                 state.Target = null;

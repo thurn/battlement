@@ -3,14 +3,15 @@
 mod ai;
 mod app;
 #[allow(dead_code)]
-mod assets;
-mod audio;
+pub mod assets;
+pub mod audio;
 mod chess_board;
 mod chess_prompt;
 mod chess_ui_state;
 mod cursor;
 mod motion;
-mod persistence;
+mod opponent;
+pub mod persistence;
 mod position;
 mod promotion_dialog;
 mod reactant_effects;
@@ -19,7 +20,8 @@ mod reactant_input;
 mod reactant_view;
 mod visual_state;
 
-pub mod contract;
+pub use chess_prompt::ChessPrompt;
+pub use opponent::Opponent;
 
 pub use app::{EngineDependencies, create_engine};
 pub use reactant::{Engine, PersistenceBackend};

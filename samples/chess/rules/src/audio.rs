@@ -8,7 +8,7 @@ use crate::assets::sfx;
 use battlement::AudioClipAddress;
 
 /// Addresses of NotJam's sound-effect collection.
-pub(super) const SOUND_EFFECTS: [AudioClipAddress; 41] = [
+pub const SOUND_EFFECTS: [AudioClipAddress; 41] = [
   sfx::ACCEPT,
   sfx::ALARM,
   sfx::ATTACK_A,

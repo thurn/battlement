@@ -28,7 +28,7 @@ impl<E> BatchEngine<E> {
 }
 
 impl<E: Engine> Engine for BatchEngine<E> {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = E::WIRE_CONTRACT_DIGEST_C;
+  const WIRE_DIGEST_C: &'static [u8; 65] = E::WIRE_DIGEST_C;
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let response = self.engine.connect(message)?;
     self.session = response.session_id();

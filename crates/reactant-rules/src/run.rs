@@ -1,11 +1,17 @@
-use std::{rc::Rc, sync::Arc, thread, time::Duration};
+use std::{
+  panic::{self, AssertUnwindSafe},
+  rc::Rc,
+  sync::Arc,
+  thread,
+  time::Duration,
+};
 
 use crate::{
   Checkpoint, CompletedAction, DisplayConnection, Game, PublicationObservation, ResponseHandle,
   RulesContext, RulesWorker,
   publication::Publications,
   session_context::PublicationTarget,
-  worker::WorkerSlot,
+  worker::{self, WorkerSlot},
   worker_observer::{WorkerEvent, WorkerObserver},
 };
 
@@ -15,9 +21,8 @@ use crate::{
 /// The owner must stop or drop the run when abandoning its display lifetime.
 /// Application acceptance remains the responsibility of the consuming session.
 pub struct RulesRun<G: Game> {
-  slot: Rc<WorkerSlot>,
-  id: u64,
-  observer: WorkerObserver,
+  worker: Option<(Rc<WorkerSlot>, u64, WorkerObserver)>,
+  inline_failure: Option<String>,
   publications: Arc<Publications<G>>,
 }
 
@@ -68,12 +73,14 @@ impl<G: Game> RulesRun<G> {
     mut context: G::Context,
     action: G::Action,
   ) -> Self {
-    let publications = Arc::new(Publications::new());
+    let publications = Arc::new(if worker.inline {
+      Publications::inline(worker.choices())
+    } else {
+      Publications::new()
+    });
     *target.lock().unwrap() = Arc::downgrade(&publications);
-    let slot = Rc::clone(&worker.slot);
-    let observer = slot.observe_next();
     let output = Arc::clone(&publications);
-    let id = slot.replace(move |_| {
+    let execute = move || {
       let _failure_guard = FailureGuard(output.as_ref());
       G::execute(&mut context, &mut state, action);
       output.check_active();
@@ -90,11 +97,21 @@ impl<G: Game> RulesRun<G> {
           target,
         }),
       });
-    });
+    };
+    let (backing, inline_failure) = if worker.inline {
+      let failure = panic::catch_unwind(AssertUnwindSafe(execute))
+        .err()
+        .map(|payload| worker::panic_message(payload.as_ref()));
+      (None, failure)
+    } else {
+      let slot = Rc::clone(&worker.slot);
+      let observer = slot.observe_next();
+      let id = slot.replace(move |_| execute());
+      (Some((slot, id, observer)), None)
+    };
     Self {
-      slot,
-      id,
-      observer,
+      worker: backing,
+      inline_failure,
       publications,
     }
   }
@@ -112,7 +129,9 @@ impl<G: Game> RulesRun<G> {
   /// Invalidates pending output and wakes publication waits without joining.
   pub fn stop(&self) {
     self.publications.abandon();
-    self.slot.cancel_run(self.id);
+    if let Some((slot, id, _)) = &self.worker {
+      slot.cancel_run(*id);
+    }
   }
 
   /// Returns cumulative public publication boundaries.
@@ -131,8 +150,14 @@ impl<G: Game> RulesRun<G> {
 
   /// Returns worker lifecycle status without taking any checkpoint.
   pub fn observation(&self) -> RunObservation {
-    let mut result = RunObservation::default();
-    for event in self.observer.events() {
+    let mut result = RunObservation {
+      failure: self.inline_failure.clone(),
+      ..RunObservation::default()
+    };
+    let Some((_, _, observer)) = &self.worker else {
+      return result;
+    };
+    for event in observer.events() {
       match event {
         WorkerEvent::Started(_) => result.started = true,
         WorkerEvent::Stopped(_) => result.stopped = true,
@@ -146,16 +171,26 @@ impl<G: Game> RulesRun<G> {
 
   /// Waits for worker entry without advancing presentation time or frames.
   pub fn wait_for_worker_started(&self, timeout: Duration) -> bool {
-    self.observer.wait_for(timeout, |events| {
-      events.iter().any(|e| matches!(e, WorkerEvent::Started(_)))
-    })
+    self
+      .worker
+      .as_ref()
+      .expect("inline execution has no worker to wait for")
+      .2
+      .wait_for(timeout, |events| {
+        events.iter().any(|e| matches!(e, WorkerEvent::Started(_)))
+      })
   }
 
   /// Waits for cleanup without advancing presentation time or frames.
   pub fn wait_for_worker_stopped(&self, timeout: Duration) -> bool {
-    self.observer.wait_for(timeout, |events| {
-      events.iter().any(|e| matches!(e, WorkerEvent::Stopped(_)))
-    })
+    self
+      .worker
+      .as_ref()
+      .expect("inline execution has no worker to wait for")
+      .2
+      .wait_for(timeout, |events| {
+        events.iter().any(|e| matches!(e, WorkerEvent::Stopped(_)))
+      })
   }
 }
 

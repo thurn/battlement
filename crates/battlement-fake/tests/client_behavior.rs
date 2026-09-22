@@ -45,7 +45,7 @@ impl CoreScriptedEngine {
 }
 
 impl Engine for CoreScriptedEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+  const WIRE_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_DIGEST_C;
 
   fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let response = self
@@ -377,7 +377,7 @@ fn geometry_batches_are_validated_and_exposed_through_the_engine_action() {
 }
 
 #[test]
-fn diagnostics_failures_follow_the_normal_batch_failure_contract() {
+fn diagnostics_failures_follow_the_normal_batch_failure_behavior() {
   let session_id = session(101);
   let failed_batch = batch_id(102);
   let failed_command = command_id(103);
@@ -419,7 +419,7 @@ fn diagnostics_failures_follow_the_normal_batch_failure_contract() {
 }
 
 #[test]
-fn invalid_diagnostics_metadata_follows_the_normal_batch_failure_contract() {
+fn invalid_diagnostics_metadata_follows_the_normal_batch_failure_behavior() {
   let session_id = session(111);
   let failed_batch = batch_id(112);
   let failed_command = command_id(113);
@@ -495,7 +495,7 @@ fn diagnostics_reject_reused_command_ids_before_reexecution() {
 }
 
 #[test]
-fn hierarchy_transforms_and_active_state_match_contract() {
+fn hierarchy_transforms_and_active_state_match_behavior() {
   let session_id = session(2);
   let parent = GameObject {
     local_transform: LocalTransform {

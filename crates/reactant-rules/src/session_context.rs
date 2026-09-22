@@ -1,4 +1,5 @@
 use std::{
+  any::Any,
   rc::Rc,
   sync::{Arc, Mutex, Weak},
 };
@@ -11,6 +12,8 @@ pub(crate) type PublicationTarget<G> = Arc<Mutex<Weak<Publications<G>>>>;
 #[derive(Clone)]
 pub struct RulesWorker {
   pub(crate) slot: Rc<WorkerSlot>,
+  pub(crate) inline: bool,
+  choices: Option<Rc<dyn Any>>,
 }
 
 /// A session's reusable domain context, transferred to each action's worker.
@@ -30,11 +33,51 @@ impl Default for RulesWorker {
   fn default() -> Self {
     Self {
       slot: Rc::new(WorkerSlot::new()),
+      inline: false,
+      choices: None,
     }
   }
 }
 
+/// An injected answer resolver retains normal typed prompt validation.
+pub(crate) struct ChoiceResolver<G: Game>(pub(crate) Arc<PromptResolver<G>>);
+
+type PromptResolver<G> = dyn for<'a> Fn(&<G as Game>::Prompt<'a>) -> usize + Send + Sync;
+
 impl RulesWorker {
+  /// Runs finite actions on the caller, collecting publications without blocking.
+  /// Human prompts require an explicit answer resolver; production uses `default`.
+  pub fn inline() -> Self {
+    Self {
+      inline: true,
+      ..Self::default()
+    }
+  }
+
+  /// Supplies human answers for one game's inline actions, as prompt option indices.
+  pub fn answer_with<G: Game>(
+    mut self,
+    resolver: impl for<'a> Fn(&G::Prompt<'a>) -> usize + Send + Sync + 'static,
+  ) -> Self {
+    assert!(self.inline, "scripted answers require inline execution");
+    self.choices = Some(Rc::new(ChoiceResolver::<G>(Arc::new(resolver))));
+    self
+  }
+
+  /// Reports whether actions finish on the caller without worker synchronization.
+  pub fn is_inline(&self) -> bool {
+    self.inline
+  }
+
+  pub(crate) fn choices<G: Game>(&self) -> Option<ChoiceResolver<G>> {
+    self.choices.as_ref().map(|value| {
+      let value = value
+        .downcast_ref::<ChoiceResolver<G>>()
+        .expect("scripted answers belong to another game");
+      ChoiceResolver(Arc::clone(&value.0))
+    })
+  }
+
   /// Reports cleanup completion without starting or joining any worker.
   pub fn is_idle(&self) -> bool {
     self.slot.is_idle()
