@@ -24,12 +24,15 @@ impl ChessTest {
   pub fn from_position(board: Board) -> Self {
     Self::assemble(Some(board), None, &[])
   }
+
   pub fn title() -> Self {
     Self::assemble(None, None, &[])
   }
+
   pub fn persisted(storage: Rc<dyn PersistenceBackend>) -> Self {
     Self::assemble(None, Some(storage), &[])
   }
+
   pub fn assemble(
     position: Option<Board>,
     persistence: Option<Rc<dyn PersistenceBackend>>,
@@ -80,6 +83,7 @@ impl ChessTest {
       choices,
     }
   }
+
   pub fn play(&mut self, from: Square, to: Square) {
     assert_eq!(
       self
@@ -96,10 +100,12 @@ impl ChessTest {
     );
     assert!(self.choices.lock().unwrap().is_empty(), "unused choice");
   }
+
   pub fn promote(&mut self, from: Square, to: Square, piece: Piece) {
     self.choices.lock().unwrap().push_back((from, to, piece));
     self.play(from, to);
   }
+
   pub fn reply(&mut self, from: Square, to: Square) {
     self.opponent.reply_with(Move {
       from,
@@ -110,20 +116,25 @@ impl ChessTest {
     self.opponent.assert_reply_consumed();
     host::expect_empty(&self.display, from);
   }
+
   pub fn expect_piece(&self, square: Square, color: Color, piece: Piece) {
     host::expect_piece(&self.display, square, color, piece);
   }
+
   pub fn expect_empty(&self, square: Square) {
     host::expect_empty(&self.display, square);
   }
+
   pub fn start(&mut self) {
     host::image_click(&mut self.display, assets::PLAY_BUTTON);
     self.display.finish_inline();
   }
+
   pub fn pause(&mut self) {
     host::key(&mut self.display, PhysicalKey::Escape);
     self.display.finish_inline();
   }
+
   pub fn new_game(&mut self) {
     self.pause();
     for _ in 0..2 {
@@ -131,6 +142,7 @@ impl ChessTest {
       self.display.finish_inline();
     }
   }
+
   pub fn restart(&mut self) {
     for key in [
       PhysicalKey::ControlLeft,
@@ -149,6 +161,7 @@ impl ChessTest {
     self.choices.lock().unwrap().clear();
     self.display.finish_inline();
   }
+
   pub fn advance(&mut self, time: Duration) {
     self.display.advance_inline(time);
   }

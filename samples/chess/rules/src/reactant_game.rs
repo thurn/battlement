@@ -228,9 +228,13 @@ impl ChoicePolicy<ChessGame> for ChessPolicy {
 
 impl Game for ChessGame {
   type State = ChessState;
+
   type Action = ChessAction;
+
   type StateAnimation = ChessAnimation;
+
   type Prompt<'a> = ChessPrompt<'a>;
+
   type Context = ChessContext;
 
   /// Clones only deterministic logical state for speculative rules execution.
