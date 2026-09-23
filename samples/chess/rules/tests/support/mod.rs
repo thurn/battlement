@@ -6,8 +6,7 @@
 //! Assertions inspect visible prefab assets and accumulated transforms, never the
 //! rules snapshot, component tree, internal IDs, or invisible status labels.
 #![allow(dead_code)]
-pub mod catalog;
+pub mod board;
 pub mod fixtures;
 pub mod game;
-pub mod host;
 pub mod storage;

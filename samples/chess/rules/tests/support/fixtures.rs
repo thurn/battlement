@@ -88,6 +88,16 @@ pub fn computer_win() -> Board {
   b.build().unwrap()
 }
 
+/// Independently specified expected board after e2-e4 and the zero-budget a7-a5 reply.
+pub fn opening_reply() -> Board {
+  let mut board = BoardBuilder::from_board(&Board::default());
+  *board.square_mut(Square::E2) = None;
+  *board.square_mut(Square::E4) = Some((Piece::Pawn, Color::White));
+  *board.square_mut(Square::A7) = None;
+  *board.square_mut(Square::A5) = Some((Piece::Pawn, Color::Black));
+  board.build().unwrap()
+}
+
 fn kings() -> BoardBuilder {
   position(&[
     (Square::E1, Color::White, Piece::King),

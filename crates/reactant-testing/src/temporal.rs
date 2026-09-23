@@ -12,7 +12,6 @@ pub struct Clock;
 impl Clock {
   /// Advances rules and presentation clocks without recording a rendered frame.
   pub fn advance<E: Engine>(display: &mut Display<E>, duration: Duration) {
-    display.client.advance_time(duration);
-    display.flush();
+    display.advance(duration);
   }
 }

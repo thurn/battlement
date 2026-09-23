@@ -8,7 +8,7 @@ use reactant::{
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game, RulesWorker},
 };
-use reactant_testing::{Display, GameActionResult};
+use reactant_testing::{ActionResult, Display};
 use std::{cell::RefCell, rc::Rc, time::Duration};
 use trox::ls;
 const ROOT: ObjectId = object_id!("78100000-0000-4000-8000-000000000001");
@@ -93,6 +93,40 @@ fn connect() -> Connect {
   Connect::new("test", "test", ScreenSize::new(1920, 1080))
 }
 
+fn counter(worker: RulesWorker, events: Rc<RefCell<Vec<usize>>>) -> Display {
+  Display::connect_application::<Counter>(
+    move |clock| {
+      ApplicationEngine::with_clock(
+        move || self::application(worker.clone(), events.clone()),
+        move || clock.now(),
+      )
+    },
+    self::assets(),
+    self::connect(),
+  )
+}
+
+#[test]
+fn virtual_time_does_not_depend_on_worker_scheduling() {
+  // Pending worker publications must be received at the current virtual instant,
+  // before advancing the same forty milliseconds used by the inline application.
+  let mut inline = self::counter(RulesWorker::inline(), Rc::default());
+  let mut worker = self::counter(RulesWorker::default(), Rc::default());
+  inline.click_ui(inline.find_ui(ROOT, "run"));
+  worker.click_ui(worker.find_ui(ROOT, "run"));
+  inline.advance(Duration::from_millis(40));
+  worker.advance(Duration::from_millis(40));
+  assert_eq!(
+    inline.ui_element(inline.find_ui(ROOT, "value")).text(),
+    Some("40")
+  );
+  assert_eq!(
+    worker.ui_element(worker.find_ui(ROOT, "value")).text(),
+    Some("40")
+  );
+  assert_eq!(worker.presentation_time(), inline.presentation_time());
+}
+
 #[test]
 fn inline_and_worker_paths_deliver_the_same_ordered_presentation() {
   // One action exceeds the worker FIFO capacity. Inline execution collects it on
@@ -100,18 +134,9 @@ fn inline_and_worker_paths_deliver_the_same_ordered_presentation() {
   // accepting the final state. Engine::poll panics for the inline instance.
   let inline_events = Rc::new(RefCell::new(Vec::new()));
   let events = inline_events.clone();
-  let mut inline = Display::connect_inline(
-    move |clock| {
-      ApplicationEngine::with_clock(
-        move || application(RulesWorker::inline(), events.clone()),
-        move || clock.now(),
-      )
-    },
-    assets(),
-    connect(),
-  );
+  let mut inline = self::counter(RulesWorker::inline(), events);
   inline.click_ui(inline.find_ui(ROOT, "run"));
-  inline.finish_inline();
+  inline.settle();
   assert_eq!(*inline_events.borrow(), (1..=40).collect::<Vec<_>>());
   assert_eq!(
     inline.ui_element(inline.find_ui(ROOT, "value")).text(),
@@ -120,27 +145,12 @@ fn inline_and_worker_paths_deliver_the_same_ordered_presentation() {
   assert_eq!(inline.presentation_time(), Duration::from_millis(40));
   let threaded_events = Rc::new(RefCell::new(Vec::new()));
   let events = threaded_events.clone();
-  let mut threaded = Display::connect_with_clocked(
-    move |clock| {
-      ApplicationEngine::with_clock(
-        move || application(RulesWorker::default(), events.clone()),
-        move || clock.now(),
-      )
-    },
-    assets(),
-    connect(),
-  );
-  assert_eq!(
-    threaded.settle_game::<Counter>(Duration::from_secs(5)),
-    GameActionResult::Completed
-  );
+  let mut threaded = self::counter(RulesWorker::default(), events);
   let run = threaded.find_ui(ROOT, "run");
   assert_eq!(
-    threaded.game_action::<Counter>(Duration::from_secs(5), |d| d.click_ui(run)),
-    GameActionResult::Completed
+    threaded.action(|d| d.click_ui(run)),
+    ActionResult::Completed
   );
-  threaded.settle();
-  threaded.flush();
   assert_eq!(*threaded_events.borrow(), *inline_events.borrow());
   assert_eq!(
     threaded.ui_element(threaded.find_ui(ROOT, "value")).text(),
@@ -153,7 +163,7 @@ fn reconnect_discards_old_output_and_mounts_a_fresh_inline_session() {
   // Replacement happens while output is queued. Old completion and Motion must
   // not install state into the fresh session, even though the engine is reused.
   let events = Rc::new(RefCell::new(Vec::new()));
-  let mut display = Display::connect_inline(
+  let mut display = Display::connect_application::<Counter>(
     move |clock| {
       ApplicationEngine::with_clock(
         move || application(RulesWorker::inline(), events.clone()),
@@ -165,13 +175,13 @@ fn reconnect_discards_old_output_and_mounts_a_fresh_inline_session() {
   );
   display.click_ui(display.find_ui(ROOT, "run"));
   display.reconnect();
-  display.finish_inline();
+  display.settle();
   assert_eq!(
     display.ui_element(display.find_ui(ROOT, "value")).text(),
     Some("0")
   );
   display.click_ui(display.find_ui(ROOT, "run"));
-  display.finish_inline();
+  display.settle();
   assert_eq!(
     display.ui_element(display.find_ui(ROOT, "value")).text(),
     Some("40")
@@ -194,7 +204,7 @@ fn an_external_resource_cannot_silently_enter_the_fast_lane() {
   // Reject spawning it before its first poll, rather than waiting for a loading UI
   // or deciding completion from the test's expected value. Real resource behavior
   // belongs in the worker/integration lane, with its actual executor.
-  Display::connect_inline(
+  Display::connect_application::<Counter>(
     |clock| {
       ApplicationEngine::with_clock(
         || {

@@ -6,15 +6,21 @@
 
 #![warn(missing_docs)]
 
+pub mod assets;
+pub mod benchmark;
 mod display;
-mod inline;
+mod driving;
+mod input;
+mod observations;
 mod publications;
+mod storage;
 pub mod temporal;
 #[cfg(feature = "worker-fixture")]
 mod worker;
 
-pub use display::{Display, GameActionResult};
-pub use inline::InlineActionResult;
+pub use display::Display;
+pub use driving::ActionResult;
 pub use publications::PublicationDisplay;
+pub use storage::MemoryPersistence;
 #[cfg(feature = "worker-fixture")]
 pub use worker::{WorkerDisplay, WorkerDisplayBuilder, WorkerWaitError};

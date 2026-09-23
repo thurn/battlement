@@ -280,7 +280,8 @@ fn terminal(display: &Display) -> bool {
 }
 
 fn finish_computer_turn(display: &mut Display) {
-  display.until_presented(|display| self::status_text(display) != "Computer thinking…");
+  display.settle();
+  assert_ne!(self::status_text(display), "Computer thinking…");
 }
 
 fn click_cell(display: &mut Display, index: usize) {

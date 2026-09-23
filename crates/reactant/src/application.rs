@@ -199,13 +199,22 @@ impl ApplicationEngine {
   }
 
   /// Counts admitted actions without exposing game state or discovering work.
-  pub fn inline_action_count(&self) -> u64 {
-    let coordinator = self.coordinator.as_ref().expect("connect before input");
-    assert!(
-      coordinator.is_inline(),
-      "inline action observation requires inline rules"
-    );
-    coordinator.admitted_actions.get()
+  pub fn action_count(&self) -> u64 {
+    self
+      .coordinator
+      .as_ref()
+      .expect("connect before input")
+      .admitted_actions
+      .get()
+  }
+
+  /// Reports the configured rules executor without inspecting game state.
+  pub fn rules_are_inline(&self) -> bool {
+    self
+      .coordinator
+      .as_ref()
+      .expect("connect before input")
+      .is_inline()
   }
 
   /// Takes one already-completed inline publication or a known context change.

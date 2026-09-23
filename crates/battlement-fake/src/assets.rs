@@ -54,8 +54,13 @@ impl FakeAssetCatalog {
   /// Registers a temporary particle-effect prefab address.
   pub fn add_particle_effect(&mut self, address: impl Into<PrefabAddress>) {
     let address = address.into();
-    self.insert_address(address.as_str());
-    self.particle_effects.insert(address.into_string());
+    if !self.prefabs.contains_key(address.as_str()) {
+      self.insert_address(address.as_str());
+    }
+    assert!(
+      self.particle_effects.insert(address.into_string()),
+      "duplicate particle effect declaration"
+    );
   }
 
   /// Registers mesh geometry with its positive submesh count.

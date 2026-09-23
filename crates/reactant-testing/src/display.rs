@@ -1,7 +1,4 @@
-use std::{
-  sync::Arc,
-  time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 use battlement::{CommandId, Connect, ObjectId, Vector3};
 use battlement_fake::{
@@ -12,15 +9,6 @@ use battlement_fake::{
 };
 use battlement_native::Engine;
 
-/// Stable boundary reached after synchronously driving one game action.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum GameActionResult {
-  /// The action's final publication was accepted and rendered.
-  Completed,
-  /// The action presented a human-owned prompt and is waiting for a response.
-  AwaitingInput,
-}
-
 /// A real engine connected to the deterministic in-memory display host.
 ///
 /// Inputs travel through the engine's public submit APIs. Observations come
@@ -30,6 +18,8 @@ where
   E: Engine,
 {
   pub(crate) client: FakeClient<E>,
+  pub(crate) drive: fn(&mut Self, Option<Duration>) -> crate::ActionResult,
+  pub(crate) boundary: crate::ActionResult,
 }
 
 impl Display<reactant::ApplicationEngine> {
@@ -43,7 +33,7 @@ impl Display<reactant::ApplicationEngine> {
       move |clock| reactant::ApplicationEngine::with_clock(factory, move || clock.now()),
       assets,
     );
-    Self { client }
+    Self::from_client(client)
   }
 
   /// Mounts an application with explicit deterministic platform metadata.
@@ -58,7 +48,7 @@ impl Display<reactant::ApplicationEngine> {
       assets,
       connect,
     );
-    Self { client }
+    Self::from_client(client)
   }
 
   /// Returns the active typed game's readiness.
@@ -69,62 +59,6 @@ impl Display<reactant::ApplicationEngine> {
   /// Copies the active typed game's accepted state.
   pub fn game_state<G: reactant::rules::Game>(&mut self) -> Option<G::State> {
     self.with_engine(|engine| engine.game::<G>().map(|game| game.accepted_state()))
-  }
-
-  /// Runs one input operation and synchronously presents that game action's result.
-  ///
-  /// Worker waits use Reactant's notification sidechannel rather than sleeping
-  /// or advancing virtual presentation time. The result identifies the action's
-  /// completion or its human-owned prompt, not any subsequent automatic action.
-  pub fn game_action<G: reactant::rules::Game>(
-    &mut self,
-    timeout: Duration,
-    operation: impl FnOnce(&mut Self),
-  ) -> GameActionResult {
-    let completed = self
-      .with_engine(|engine| engine.game::<G>().map(|game| game.completed_actions()))
-      .expect("no game of the requested type is attached");
-    operation(self);
-    self.drive_game::<G>(timeout, Some(completed))
-  }
-
-  /// Runs a game action and advances presentation until its observable result appears.
-  pub fn game_action_presented<G: reactant::rules::Game>(
-    &mut self,
-    timeout: Duration,
-    operation: impl FnOnce(&mut Self),
-    presented: impl Fn(&Self) -> bool,
-  ) -> GameActionResult {
-    let result = self.game_action::<G>(timeout, operation);
-    self.until_presented(presented);
-    result
-  }
-
-  /// Synchronously presents game work until it is ready or asks for human input.
-  pub fn settle_game<G: reactant::rules::Game>(&mut self, timeout: Duration) -> GameActionResult {
-    self.flush();
-    self.drive_game::<G>(timeout, None)
-  }
-
-  /// Drives scheduled application timers until an observable result appears.
-  ///
-  /// Finite presentation work can be completed separately with [`Self::settle`].
-  pub fn until_timer(&mut self, observed: impl Fn(&Self) -> bool) {
-    self.flush();
-    for _ in 0..1_000 {
-      if observed(self) {
-        return;
-      }
-      let delay = self
-        .with_engine(|engine| engine.next_timer_due_in())
-        .expect("observable result was not reached and no application timer remains");
-      self.client.advance_time(delay);
-      self.flush();
-    }
-    assert!(
-      observed(self),
-      "observable result was not reached after 1,000 application timer events"
-    );
   }
 
   /// Waits for one typed rules publication without advancing presentation time.
@@ -144,57 +78,6 @@ impl Display<reactant::ApplicationEngine> {
   ) -> Option<reactant::presentation::PresentationObservation> {
     self.with_engine(|engine| engine.presentation(id))
   }
-
-  fn drive_game<G: reactant::rules::Game>(
-    &mut self,
-    timeout: Duration,
-    completed_before: Option<u64>,
-  ) -> GameActionResult {
-    let deadline = Instant::now() + timeout;
-    loop {
-      let (status, completed, waiting, diagnostic) = self.with_engine(|engine| {
-        let game = engine
-          .game::<G>()
-          .expect("no game of the requested type is attached");
-        (
-          game.status(),
-          game.completed_actions(),
-          game.waiting_for_input(),
-          game.diagnostic(),
-        )
-      });
-      if completed_before.is_some_and(|before| completed > before) {
-        self.flush();
-        return GameActionResult::Completed;
-      }
-      if waiting {
-        return GameActionResult::AwaitingInput;
-      }
-      match status {
-        reactant::GameStatus::Ready if completed_before.is_none() => {
-          return GameActionResult::Completed;
-        }
-        reactant::GameStatus::Failed => {
-          panic!(
-            "game failed while synchronizing: {}",
-            diagnostic.as_deref().unwrap_or("no diagnostic")
-          )
-        }
-        reactant::GameStatus::Stopped => panic!("game stopped while synchronizing"),
-        reactant::GameStatus::Ready | reactant::GameStatus::Busy => {}
-      }
-      let remaining = deadline.saturating_duration_since(Instant::now());
-      assert!(
-        !remaining.is_zero(),
-        "game synchronization timed out after {timeout:?}"
-      );
-      assert!(
-        self.wait_for_game_output::<G>(remaining),
-        "game synchronization timed out after {timeout:?}"
-      );
-      self.client.poll();
-    }
-  }
 }
 
 impl<E> Display<E>
@@ -204,9 +87,7 @@ where
   /// Connects an engine with deterministic fake platform metadata.
   #[must_use]
   pub fn connect(engine: E, assets: impl Into<Arc<FakeAssetCatalog>>) -> Self {
-    Self {
-      client: FakeClient::connect(engine, assets),
-    }
+    Self::from_client(FakeClient::connect(engine, assets))
   }
 
   /// Connects an engine with explicit deterministic platform metadata.
@@ -216,9 +97,7 @@ where
     assets: impl Into<Arc<FakeAssetCatalog>>,
     connect: Connect,
   ) -> Self {
-    Self {
-      client: FakeClient::connect_with(engine, assets, connect),
-    }
+    Self::from_client(FakeClient::connect_with(engine, assets, connect))
   }
 
   /// Connects an engine factory to the display's deterministic manual clock.
@@ -229,7 +108,7 @@ where
     connect: Connect,
   ) -> Self {
     let (client, _) = FakeClient::connect_with_clocked(make_engine, assets, connect);
-    let mut display = Self { client };
+    let mut display = Self::from_client(client);
     display.flush();
     display
   }
@@ -537,28 +416,33 @@ where
     self.client.advance_frame();
   }
 
-  /// Advances all finite presentation work, including later automatic actions.
-  /// Use [`Self::until_presented`] to stop at a particular visible result.
-  pub fn settle(&mut self) {
-    self.client.settle();
+  /// Completes known work and finite presentation, stopping at a human choice.
+  pub fn settle(&mut self) -> crate::ActionResult {
+    self.boundary = (self.drive)(self, None);
+    self.boundary
   }
 
-  /// Advances scheduled presentation events until the requested state is visible.
-  pub fn until_presented(&mut self, observed: impl Fn(&Self) -> bool) {
-    self.flush();
-    for _ in 0..10_000 {
-      if observed(self) {
-        return;
-      }
-      assert!(
-        self.client.advance_to_next_presentation_event(),
-        "observable result was not reached and no finite presentation event remains"
-      );
+  /// Advances virtual time through scheduled events, without sleeping.
+  pub fn advance(&mut self, duration: Duration) {
+    (self.drive)(self, Some(self.presentation_time() + duration));
+  }
+
+  pub(crate) fn from_client(client: FakeClient<E>) -> Self {
+    Self {
+      client,
+      drive: |display, target| {
+        if let Some(target) = target {
+          display
+            .client
+            .advance_time(target.saturating_sub(display.presentation_time()));
+          display.flush();
+        } else {
+          display.client.settle();
+        }
+        crate::ActionResult::Completed
+      },
+      boundary: crate::ActionResult::Completed,
     }
-    assert!(
-      observed(self),
-      "observable result was not reached after 10,000 presentation events"
-    );
   }
 
   /// Returns elapsed virtual presentation time.
