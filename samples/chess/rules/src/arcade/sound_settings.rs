@@ -4,6 +4,7 @@ use battlement::Style;
 use reactant::{control_behavior, prelude::*};
 use trox::tx;
 
+use crate::arcade::font_scale::FontScale;
 use crate::arcade::{font_scale, toggle_control::ToggleControl, volume_control::VolumeControl};
 
 /// Source-ordered Sound settings controls.
@@ -66,7 +67,7 @@ impl Component for SoundSettings {
   }
 }
 
-fn multiline_row_height(scale: font_scale::FontScale) -> f32 {
+fn multiline_row_height(scale: FontScale) -> f32 {
   match scale {
     font_scale::FontScale::Percent100 => 159.0,
     font_scale::FontScale::Percent150 => 227.0,

@@ -7,6 +7,7 @@ use cozy_chess::{Color, GameStatus, Square};
 use reactant::{DispatchResult, GameHandle, GameStatus as RulesStatus, hooks};
 
 use crate::reactant_game::{ChessAction, ChessGame, ChessState};
+use crate::{reactant_effects, visual_state::VisualState};
 
 const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 
@@ -92,7 +93,7 @@ pub struct ChessUiState {
   /// Top-level screen independent of rules worker state.
   pub screen: AppScreen,
   /// Last durable semantic presentation state.
-  pub visual_state: crate::visual_state::VisualState,
+  pub visual_state: VisualState,
   /// Whether this session began from persisted board data.
   pub origin_saved: bool,
   /// Whether opening animation currently suppresses interaction.
@@ -170,7 +171,7 @@ impl Default for ChessUiState {
   fn default() -> Self {
     Self {
       screen: AppScreen::Title,
-      visual_state: crate::visual_state::VisualState::Title,
+      visual_state: VisualState::Title,
       origin_saved: false,
       spawning: false,
       opening_generation: 0,
@@ -213,7 +214,7 @@ impl ChessUiController {
   pub fn resume_saved(&self) {
     self.update(|local| {
       local.screen = AppScreen::Game;
-      local.visual_state = crate::visual_state::VisualState::Resumed;
+      local.visual_state = VisualState::Resumed;
       local.origin_saved = true;
       local.overlay = None;
     });
@@ -299,9 +300,9 @@ impl ChessUiController {
     let next = ChessUiState {
       screen: AppScreen::Game,
       visual_state: match mode {
-        SessionStart::Fresh => crate::visual_state::VisualState::Initial,
-        SessionStart::Restart => crate::visual_state::VisualState::Restarted,
-        SessionStart::Refresh => crate::visual_state::VisualState::Refreshed,
+        SessionStart::Fresh => VisualState::Initial,
+        SessionStart::Restart => VisualState::Restarted,
+        SessionStart::Refresh => VisualState::Refreshed,
       },
       origin_saved,
       spawning: mode != SessionStart::Refresh,
@@ -342,7 +343,7 @@ impl ChessUiController {
   /// Advances the playlist and increments the playback dependency token.
   pub fn next_music(&self) {
     self.update(|local| {
-      local.music_track = (local.music_track + 1) % crate::reactant_effects::music_track_count();
+      local.music_track = (local.music_track + 1) % reactant_effects::music_track_count();
       local.music_generation = local
         .music_generation
         .checked_add(1)

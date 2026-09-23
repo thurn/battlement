@@ -3,6 +3,7 @@
 use battlement::{Command, KeyEvent, PhysicalKey, Position, Style};
 use reactant::{portal::PortalTarget, prelude::*};
 
+use crate::arcade::arcade_route_transition::ArcadeNavigationContext;
 use crate::arcade::{
   arcade_frame_pulse::ArcadeScreen, arcade_menu_transition::ArcadeMenuTransition,
   arcade_route_transition, main_menu::MainMenu, screen_frame::ExitAwareScreenFrame,
@@ -28,7 +29,7 @@ impl Component for ArcadeScreenRouter {
 
 fn router(
   component: &ArcadeScreenRouter,
-  navigation: arcade_route_transition::ArcadeNavigationContext,
+  navigation: ArcadeNavigationContext,
   app: AppHandle,
 ) -> View {
   let dismiss = self::dismiss_action(navigation.clone());
@@ -65,9 +66,7 @@ fn router(
     )
 }
 
-fn dismiss_action(
-  navigation: arcade_route_transition::ArcadeNavigationContext,
-) -> EventCallback<()> {
+fn dismiss_action(navigation: ArcadeNavigationContext) -> EventCallback<()> {
   EventCallback::new(move |()| {
     if navigation.active_screen == ArcadeScreen::Settings {
       navigation.navigate(ArcadeScreen::Main);

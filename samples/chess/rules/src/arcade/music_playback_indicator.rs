@@ -1,5 +1,6 @@
 //! Source-shaped music recommendation and sound toggle.
 
+use crate::arcade::music_heartbeat::ControlHeartbeat;
 use crate::arcade::{
   background_music::{BackgroundMusicContext, BackgroundMusicStatus, use_background_music},
   music_heartbeat,
@@ -30,10 +31,7 @@ impl Component for MusicPlaybackIndicator {
   }
 }
 
-fn button(
-  music: &BackgroundMusicContext,
-  heartbeat: &music_heartbeat::ControlHeartbeat,
-) -> impl Render + use<> {
+fn button(music: &BackgroundMusicContext, heartbeat: &ControlHeartbeat) -> impl Render + use<> {
   Button::content(
     View::new()
       .style(

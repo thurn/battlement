@@ -15,6 +15,9 @@ use trox::{ls, tx};
 use crate::arcade::{
   action_skin, control_effects, font_scale, setting_row::SettingRow, use_interaction,
 };
+use crate::arcade::{
+  font_scale::FontScaleRole, music_heartbeat, use_interaction::InteractionState,
+};
 
 /// A red arcade action whose visible row label supplies its accessible name.
 #[builder]
@@ -26,8 +29,7 @@ pub struct EraseControl {
 impl Component for EraseControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
-    let heartbeat =
-      crate::arcade::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
+    let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let scale = font_scale::use_font_scale();
     let (burst_generation, on_click) = control_effects::use_burst_callback(self.on_click.clone());
     let (label, button) = use_control_label()
@@ -64,7 +66,7 @@ impl Component for EraseControl {
                         .full_size()
                         .color(Color::hex(0xff3553))
                         .unity_font_definition(crate::arcade::action_button::ACTION_FONT)
-                        .font_size(67.0 * scale.dynamic(font_scale::FontScaleRole::Control))
+                        .font_size(67.0 * scale.dynamic(FontScaleRole::Control))
                         .unity_text_align(TextAnchor::MiddleCenter),
                     ),
                   ),
@@ -117,7 +119,7 @@ fn paint() -> PaintStyle {
     )
 }
 
-fn target(state: use_interaction::InteractionState) -> MotionTarget {
+fn target(state: InteractionState) -> MotionTarget {
   MotionTarget::new(
     StyleTarget::new()
       .background_gradient(if state.focus_visible {

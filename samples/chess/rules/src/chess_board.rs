@@ -26,6 +26,7 @@ use crate::{
   position::{ChessPiece, Movement, PieceIdentity},
   reactant_game::{ChessAnimation, ChessGame},
 };
+use crate::{chess_ui_state::AppScreen, motion};
 use battlement::ObjectId;
 
 const REFRESH_BUTTON_ID: ObjectId = battlement::object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
@@ -147,7 +148,7 @@ impl Component for ChessBoard {
         {
           restore_scope.set(
             MotionSelector::object(piece_reference(&restore_references, piece.identity)),
-            crate::motion::position_target(square),
+            motion::position_target(square),
           );
         }
       },
@@ -162,7 +163,7 @@ impl Component for ChessBoard {
       && state.board().status() == GameStatus::Ongoing
       && state.board().side_to_move() == Color::White
       && !local.pause_open()
-      && local.screen == crate::chess_ui_state::AppScreen::Game;
+      && local.screen == AppScreen::Game;
     let squares = Square::ALL
       .into_iter()
       .filter(|square| state.piece(*square).is_some() || legal.contains(square))
@@ -342,8 +343,8 @@ fn sequence(animation: &ChessAnimation, references: &[ObjectRef; 64]) -> Animati
         movement,
         Movement::Capture { .. } | Movement::Promotion { .. }
       );
-      let arrival = crate::motion::arrival_duration(movement);
-      let mut sequence = crate::motion::sequence(movement, references);
+      let arrival = motion::arrival_duration(movement);
+      let mut sequence = motion::sequence(movement, references);
       sequence = sequence
         .play_sound(sound.clone())
         .at(SequencePosition::Absolute(if capture_or_promotion {

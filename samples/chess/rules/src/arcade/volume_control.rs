@@ -2,6 +2,7 @@
 
 use trox::{LocalizedString, tx_args, txa};
 
+use crate::arcade::music_heartbeat;
 use crate::arcade::{
   control_effects, font_scale,
   setting_row::{self, SettingRow},
@@ -38,8 +39,7 @@ pub struct VolumeControl {
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
-    let heartbeat =
-      crate::arcade::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
+    let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let font_scale = font_scale::use_font_scale();
     let burst = control_effects::use_slider_burst(self.on_change.clone());
     let (label, slider) = use_control_label().bind_with(|name| {

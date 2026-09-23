@@ -5,6 +5,7 @@ use cozy_chess::{Board, Color, GameStatus, Move, Square};
 use fastrand::Rng;
 use reactant::rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game};
 
+use crate::visual_state::{self, VisualState};
 use crate::{
   chess_prompt::{ChessPrompt, PromotionPrompt},
   opponent::Opponent,
@@ -37,7 +38,7 @@ pub enum ChessAnimation {
     /// Check or terminal sound scheduled after arrival.
     final_sound: Option<AudioClipAddress>,
     /// Semantic classification recorded with this accepted move.
-    result: crate::visual_state::VisualState,
+    result: VisualState,
     /// Post-move position available before any following rules action.
     accepted_board: Board,
   },
@@ -47,7 +48,7 @@ pub enum ChessAnimation {
 #[derive(Clone)]
 pub struct ChessState {
   position: ChessPosition,
-  result: Option<crate::visual_state::VisualState>,
+  result: Option<VisualState>,
 }
 
 /// Type-level description connecting chess state, actions, prompts, and animations.
@@ -111,14 +112,14 @@ impl ChessState {
   }
 
   /// Returns the semantic outcome recorded with the most recent accepted move.
-  pub const fn result(&self) -> Option<crate::visual_state::VisualState> {
+  pub const fn result(&self) -> Option<VisualState> {
     self.result
   }
 }
 
 impl ChessAnimation {
   /// Returns the semantic result published alongside this animation checkpoint.
-  pub const fn result(&self) -> crate::visual_state::VisualState {
+  pub const fn result(&self) -> VisualState {
     match self {
       Self::Movement { result, .. } => *result,
     }
@@ -189,12 +190,7 @@ impl ChessContext {
       movement: description,
       sound,
       final_sound,
-      result: crate::visual_state::after_move(
-        &state.position.board,
-        &board_after,
-        movement,
-        moving.color,
-      ),
+      result: visual_state::after_move(&state.position.board, &board_after, movement, moving.color),
       accepted_board: board_after,
     }
   }

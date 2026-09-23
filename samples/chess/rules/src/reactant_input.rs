@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use battlement::{ControllerButton, ControllerInputSettings, DebugUiSurface, PhysicalKey};
 use reactant::{Application, GameHandle, GlobalInput};
 
+use crate::cursor;
 use crate::{
   chess_ui_state::{ChessUiController, UiAction},
   reactant_game::ChessGame,
@@ -66,7 +67,7 @@ pub fn use_chess_input(control: ChessUiController, game: Option<GameHandle<Chess
       if game.is_some() {
         control.dispatch(
           game.as_ref(),
-          UiAction::MoveCursor(crate::cursor::moved_in_direction(
+          UiAction::MoveCursor(cursor::moved_in_direction(
             control.current().cursor,
             direction,
           )),
@@ -96,7 +97,7 @@ fn key_down(control: &ChessUiController, game: Option<&GameHandle<ChessGame>>, k
     {
       control.dispatch(
         game,
-        UiAction::MoveCursor(crate::cursor::moved(control.current().cursor, key)),
+        UiAction::MoveCursor(cursor::moved(control.current().cursor, key)),
       );
     }
     PhysicalKey::Escape if control.current().selected.is_some() => {

@@ -11,6 +11,7 @@ use crate::arcade::{
   setting_row::SettingRow,
   use_interaction,
 };
+use crate::arcade::{music_heartbeat, use_interaction::InteractionState};
 use battlement::{
   Align, Color, FlexDirection, Gradient, Length, LengthUnits, MotionProperty, Position, Style,
   TextAnchor, Translate, UiFontAddress,
@@ -53,8 +54,7 @@ impl Component for SelectControl {
   fn render(&self) -> impl Render {
     let font_scale = font_scale::use_font_scale();
     let interaction = use_interaction::use_interaction();
-    let heartbeat =
-      crate::arcade::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
+    let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let (trigger_burst, set_trigger_burst) = hooks::use_state(0_u32);
     let (open, set_open) = hooks::use_state(false);
     let (open_generation, set_open_generation) = hooks::use_state(0_u32);
@@ -334,7 +334,7 @@ fn filter(highlighted: bool) -> PaintFilterList {
     ))
 }
 
-fn target(state: use_interaction::InteractionState) -> MotionTarget {
+fn target(state: InteractionState) -> MotionTarget {
   let highlighted = state.hovered || state.focus_visible;
   MotionTarget::new(
     StyleTarget::new()

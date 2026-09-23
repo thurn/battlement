@@ -1,4 +1,5 @@
 //! A synchronous computer player with explicit turn admission.
+use crate::ai;
 use cozy_chess::{Board, Move};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -70,9 +71,7 @@ impl Opponent {
 
   pub(crate) fn choose(&self, board: &Board) -> Move {
     match &self.0 {
-      Kind::Search(budget) => {
-        crate::ai::choose_move(board, *budget).expect("ongoing computer turn")
-      }
+      Kind::Search(budget) => ai::choose_move(board, *budget).expect("ongoing computer turn"),
       Kind::Scripted(s) => {
         let reply = s
           .lock()

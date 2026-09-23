@@ -5,6 +5,7 @@ use trox::{LocalizedString, tx};
 use crate::arcade::{
   control_effects, font_scale, select_control, tabs_navigation, tabs_skin, use_interaction,
 };
+use crate::arcade::{music_heartbeat, use_interaction::InteractionState};
 use battlement::{
   Align, Color, FlexDirection, MotionProperty, Overflow, PickingMode, Position, Style, TextAnchor,
   TextShadow, WhiteSpace,
@@ -147,8 +148,7 @@ struct SettingsTabButton {
 impl Component for SettingsTabButton {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
-    let heartbeat =
-      crate::arcade::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
+    let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let font_scale = font_scale::use_font_scale();
     TabButton::new()
       .label(self.tab.label())
@@ -233,7 +233,7 @@ fn use_references() -> [ElementRef; 4] {
   ]
 }
 
-fn target(active: bool, state: use_interaction::InteractionState) -> MotionTarget {
+fn target(active: bool, state: InteractionState) -> MotionTarget {
   let highlighted = state.hovered || state.focus_visible;
   MotionTarget::new(
     StyleTarget::new()

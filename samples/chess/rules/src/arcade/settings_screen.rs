@@ -24,6 +24,7 @@ use crate::arcade::{
   sound_settings::SoundSettings,
   toggle_control::ToggleControl,
 };
+use crate::arcade::{arcade_route_transition, background_music::BackgroundMusicContext};
 use battlement::Overflow;
 
 /// The source settings screen; the host owns routing and external URL requests.
@@ -50,7 +51,7 @@ impl Component for SettingsScreen {
     let (tab_direction, set_tab_direction) = hooks::use_state(1_i32);
     let (font_scale, set_font_scale) = font_scale::use_font_scale_state();
     let (language, set_language) = hooks::use_state(String::from("English"));
-    let navigation = crate::arcade::arcade_route_transition::use_arcade_navigation();
+    let navigation = arcade_route_transition::use_arcade_navigation();
     let (increase_move_duration, set_increase_move_duration) = hooks::use_state(true);
     let (upload_crash_reports, set_upload_crash_reports) = hooks::use_state(true);
     let (resolution, set_resolution) = hooks::use_state(String::from("1920 × 1080"));
@@ -192,7 +193,7 @@ fn panel(
   set_effects_volume: &StateSetter<u32>,
   panel_scrolled: [bool; 3],
   set_panel_scrolled: &StateSetter<[bool; 3]>,
-  music: &background_music::BackgroundMusicContext,
+  music: &BackgroundMusicContext,
   set_active_modal: &StateSetter<Option<SettingsModal>>,
   overlay: PortalTarget,
 ) -> impl Render {

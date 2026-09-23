@@ -13,7 +13,7 @@ from platform_support import executable_name, user_cache_path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 STYLON_VERSION = "0.1.0"
-STYLON_REVISION = "af0190e254bcf15dd9b86b17afc33df6c8e6e2fe"
+STYLON_REVISION = "b1497143248ae2a1749c39a322ad5c8f20b8230d"
 STYLON_REPOSITORY = "https://github.com/thurn/stylon.git"
 TARGET = Path("samples/chess/rules")
 

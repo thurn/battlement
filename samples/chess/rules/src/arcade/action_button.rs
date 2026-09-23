@@ -1,5 +1,6 @@
 //! Arcade actions with composed labels and parent-owned callbacks.
 
+use crate::arcade::use_interaction::InteractionState;
 use crate::arcade::{
   action_skin, assets, control_effects,
   font_scale::{self, FontScale},
@@ -230,7 +231,7 @@ fn filter(brightness: f32, blur: f32, alpha: f64) -> PaintFilterList {
     ))
 }
 
-fn target(state: use_interaction::InteractionState) -> MotionTarget {
+fn target(state: InteractionState) -> MotionTarget {
   let highlighted = state.hovered || state.focus_visible;
   let filter = if state.focus_visible {
     use_interaction::focus_filter()

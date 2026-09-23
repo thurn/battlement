@@ -23,6 +23,12 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
 };
+use crate::{
+  opponent::Opponent,
+  reactant_effects::{self, GameEffects},
+  reactant_input,
+  visual_state::VisualState,
+};
 use battlement::PickingMode;
 use reactant::PersistenceBackend;
 
@@ -41,11 +47,11 @@ pub struct ChessConfig {
   /// Optional state that mounts directly into an active session.
   pub initial_state: Option<ChessState>,
   /// Initial presentation mode.
-  pub visual_state: crate::visual_state::VisualState,
+  pub visual_state: VisualState,
   /// Whether the configured session should be marked as restored.
   pub origin_saved: bool,
   /// Synchronous move selector and turn admission policy.
-  pub opponent: crate::opponent::Opponent,
+  pub opponent: Opponent,
   /// Optional seed for presentation-only sound selection.
   pub seed: Option<u64>,
   /// Raw storage used for the saved game.
@@ -71,7 +77,7 @@ pub fn application(config: ChessConfig) -> Application {
         .rotation(CAMERA_ROTATION)
         .into_object(camera.object_id)
     });
-  crate::reactant_input::configure_application(app)
+  reactant_input::configure_application(app)
 }
 
 /// Root component that chooses the title or active-session subtree.
@@ -125,7 +131,7 @@ struct TitleScreen {
 
 /// Active game composition around an already-mounted rules handle.
 struct ChessScreen {
-  opponent: crate::opponent::Opponent,
+  opponent: Opponent,
   game: GameHandle<ChessGame>,
   control: ChessUiController,
   diagnostics: bool,
@@ -140,7 +146,7 @@ struct GameStatusView {
 
 /// Effect-only component that schedules the computer action when appropriate.
 struct TurnCoordinator {
-  opponent: crate::opponent::Opponent,
+  opponent: Opponent,
   game: GameHandle<ChessGame>,
 }
 
@@ -182,7 +188,7 @@ impl Component for ChessApp {
           .and_then(SavedGame::board)
           .is_some();
         let visual_state = if restored {
-          crate::visual_state::VisualState::Resumed
+          VisualState::Resumed
         } else {
           self.config.visual_state
         };
@@ -193,7 +199,7 @@ impl Component for ChessApp {
             local.screen = AppScreen::Game;
             local.visual_state = visual_state;
             local.origin_saved = origin_saved;
-            if visual_state == crate::visual_state::VisualState::Paused {
+            if visual_state == VisualState::Paused {
               local.overlay = Some(crate::chess_ui_state::Overlay::Pause {
                 confirm_new_game: false,
               });
@@ -250,7 +256,7 @@ impl Component for ChessApp {
       }
     };
     (
-      crate::reactant_effects::GameEffects::new(control, diagnostics),
+      GameEffects::new(control, diagnostics),
       screen,
       ChessMenu {
         active: local.screen != AppScreen::Game,
@@ -265,7 +271,7 @@ struct ChessSession {
   state: ChessState,
   generation: u64,
   mode: Option<SessionStart>,
-  opponent: crate::opponent::Opponent,
+  opponent: Opponent,
   seed: Option<u64>,
   control: ChessUiController,
   diagnostics: bool,
@@ -291,7 +297,7 @@ impl Component for ChessSession {
         )
       },
     );
-    crate::reactant_input::use_chess_input(
+    reactant_input::use_chess_input(
       self.control.clone(),
       (self.control.snapshot().screen == AppScreen::Game).then(|| game.clone()),
     );
@@ -338,10 +344,10 @@ impl Component for ChessSession {
 impl Component for TitleScreen {
   /// The menu owns both pointer and assistive activation.
   fn render(&self) -> impl Render {
-    crate::reactant_input::use_chess_input(self.control.clone(), None);
+    reactant_input::use_chess_input(self.control.clone(), None);
     (self
       .diagnostics
-      .then(|| crate::reactant_effects::diagnostics_view("ongoing", "new")),)
+      .then(|| reactant_effects::diagnostics_view("ongoing", "new")),)
   }
 }
 
@@ -449,7 +455,7 @@ impl Component for GameStatusView {
     let game_origin = if self.origin_saved { "saved" } else { "new" };
     (self
       .diagnostics
-      .then(|| crate::reactant_effects::diagnostics_view(game_status, game_origin)),)
+      .then(|| reactant_effects::diagnostics_view(game_status, game_origin)),)
   }
 }
 

@@ -8,6 +8,7 @@ use std::{
 use cozy_chess::Board;
 use reactant::Application;
 
+use crate::opponent::Opponent;
 use crate::{
   reactant_game::ChessState,
   reactant_view::{self, ChessConfig},
@@ -31,7 +32,7 @@ pub struct EngineDependencies {
   /// Optional deterministic presentation-randomness seed.
   pub rng_seed: Option<u64>,
   /// Computer turn admission and move selection.
-  pub opponent: crate::opponent::Opponent,
+  pub opponent: Opponent,
 }
 
 /// Creates the opaque engine used by black-box hosts.
@@ -90,7 +91,7 @@ fn configured_application(
     initial_state,
     visual_state,
     origin_saved,
-    opponent: crate::opponent::Opponent::search(think_time),
+    opponent: Opponent::search(think_time),
     seed,
     persistence: load_persistence.then_some(persistence),
   })

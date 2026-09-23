@@ -9,6 +9,7 @@ use reactant::{
   prelude::{Easing, ObjectRef, StyleTarget, Transition},
 };
 
+use crate::chess_board;
 use crate::position::{Movement, PieceIdentity};
 
 const MOVE_DURATION: Duration = Duration::from_millis(300);
@@ -97,7 +98,7 @@ pub fn sequence(movement: &Movement, references: &[ObjectRef; 64]) -> AnimationS
 
 /// Creates the Motion target corresponding to the center of a chess square.
 pub fn position_target(square: Square) -> StyleTarget {
-  let position = crate::chess_board::square_position(square);
+  let position = chess_board::square_position(square);
   StyleTarget::new()
     .local_position_x(position.x as f32)
     .local_position_y(position.y as f32)

@@ -9,6 +9,7 @@ use crate::arcade::{
   setting_row::SettingRow,
   use_interaction,
 };
+use crate::arcade::{music_heartbeat, use_interaction::InteractionState};
 use battlement::{
   Align, Color, FontStyle, Gradient, Justify, Length, MotionProperty, PickingMode, Position, Scale,
   Shadow, Style, TextAnchor, Translate,
@@ -57,8 +58,7 @@ pub struct InfoBadge {
 impl Component for ToggleControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
-    let heartbeat =
-      crate::arcade::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
+    let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let font_scale = font_scale::use_font_scale();
     let (burst_generation, on_change) = control_effects::use_burst_callback(self.on_change.clone());
     let (label, checkbox) = use_control_label().bind_with(|label_name| {
@@ -177,7 +177,7 @@ fn surface_paint() -> PaintStyle {
     )
 }
 
-fn surface_target(state: use_interaction::InteractionState) -> MotionTarget {
+fn surface_target(state: InteractionState) -> MotionTarget {
   MotionTarget::new(
     StyleTarget::new()
       .background_gradient(if state.focus_visible {

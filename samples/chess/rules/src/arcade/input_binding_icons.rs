@@ -4,6 +4,7 @@ use battlement::{Color, Gradient, Position, Rotate, Shadow, Style, TextAnchor};
 use reactant::{paint::PaintStyle, prelude::*};
 use trox::ls;
 
+use crate::arcade::font_scale::FontScaleRole;
 use crate::arcade::{font_scale, setting_row::DISPLAY_FONT};
 
 /// Direction represented by a keyboard arrow or D-pad highlight.
@@ -63,12 +64,12 @@ impl Component for KeyboardArrow {
       .style(
         Style::new()
           .position(Position::Relative)
-          .width(65.0 * font_scale.dynamic(font_scale::FontScaleRole::Control))
-          .height(65.0 * font_scale.dynamic(font_scale::FontScaleRole::Control))
+          .width(65.0 * font_scale.dynamic(FontScaleRole::Control))
+          .height(65.0 * font_scale.dynamic(FontScaleRole::Control))
           .rotate(Rotate::degrees(self.direction.angle())),
       )
       .child(self::arrow_parts(
-        font_scale.dynamic(font_scale::FontScaleRole::Control),
+        font_scale.dynamic(FontScaleRole::Control),
       ))
   }
 }
@@ -81,12 +82,12 @@ impl Component for DPadIcon {
       .style(
         Style::new()
           .position(Position::Relative)
-          .width(87.0 * font_scale.dynamic(font_scale::FontScaleRole::Control))
-          .height(87.0 * font_scale.dynamic(font_scale::FontScaleRole::Control)),
+          .width(87.0 * font_scale.dynamic(FontScaleRole::Control))
+          .height(87.0 * font_scale.dynamic(FontScaleRole::Control)),
       )
       .child(self::d_pad_cells(
         self.direction,
-        font_scale.dynamic(font_scale::FontScaleRole::Control),
+        font_scale.dynamic(FontScaleRole::Control),
       ))
   }
 }
@@ -98,13 +99,13 @@ impl Component for ControllerButtonIcon {
       .name(format!("controller-button-{}", self.label.slug()))
       .style(self::controller_style(
         self.label,
-        font_scale.dynamic(font_scale::FontScaleRole::Control),
+        font_scale.dynamic(FontScaleRole::Control),
       ))
       .paint(self::controller_paint(self.label))
       .child(
         Label::new(ls(self.label.visible())).style(self::controller_label_style(
           self.label,
-          font_scale.dynamic(font_scale::FontScaleRole::Control),
+          font_scale.dynamic(FontScaleRole::Control),
         )),
       )
   }
