@@ -161,7 +161,8 @@ impl Component for ChessBoard {
     let interactive = status == RulesStatus::Ready
       && state.board().status() == GameStatus::Ongoing
       && state.board().side_to_move() == Color::White
-      && !local.pause_open();
+      && !local.pause_open()
+      && local.screen == crate::chess_ui_state::AppScreen::Game;
     let squares = Square::ALL
       .into_iter()
       .filter(|square| state.piece(*square).is_some() || legal.contains(square))

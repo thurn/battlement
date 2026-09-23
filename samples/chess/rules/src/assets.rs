@@ -28,6 +28,29 @@ pub mod black {
   pub const ROOK: PrefabAddress = PrefabAddress::from_static("black/rook");
 }
 
+pub mod chess {
+  pub mod menu {
+    pub mod audio {
+      use battlement::AudioClipAddress;
+
+      /// Addressable key `chess/menu/audio/drag-and-dread` (UnityEngine.AudioClip) from `Assets/Original/drag-and-dread.opus` in group `Battlement Chess`.
+      pub const DRAG_AND_DREAD: AudioClipAddress =
+        AudioClipAddress::from_static("chess/menu/audio/drag-and-dread");
+    }
+
+    pub mod fonts {
+      use battlement::UiFontAddress;
+
+      /// Addressable key `chess/menu/fonts/action` (UnityEngine.TextCore.Text.FontAsset) from `Assets/Original/Barlow Condensed 800 Italic UI.asset` in group `Battlement Chess`.
+      pub const ACTION: UiFontAddress = UiFontAddress::from_static("chess/menu/fonts/action");
+      /// Addressable key `chess/menu/fonts/control` (UnityEngine.TextCore.Text.FontAsset) from `Assets/Original/Barlow Condensed 700 UI.asset` in group `Battlement Chess`.
+      pub const CONTROL: UiFontAddress = UiFontAddress::from_static("chess/menu/fonts/control");
+      /// Addressable key `chess/menu/fonts/display` (UnityEngine.TextCore.Text.FontAsset) from `Assets/Original/Bebas Neue UI.asset` in group `Battlement Chess`.
+      pub const DISPLAY: UiFontAddress = UiFontAddress::from_static("chess/menu/fonts/display");
+    }
+  }
+}
+
 pub mod effects {
   use battlement::PrefabAddress;
 
@@ -180,6 +203,10 @@ pub const ASSET_CATALOG: &[PreparedAsset] = &[
   PreparedAsset::Prefab(black::PAWN),
   PreparedAsset::Prefab(black::QUEEN),
   PreparedAsset::Prefab(black::ROOK),
+  PreparedAsset::AudioClip(chess::menu::audio::DRAG_AND_DREAD),
+  PreparedAsset::UiFont(chess::menu::fonts::ACTION),
+  PreparedAsset::UiFont(chess::menu::fonts::CONTROL),
+  PreparedAsset::UiFont(chess::menu::fonts::DISPLAY),
   PreparedAsset::Scene(CONTENT),
   PreparedAsset::Prefab(effects::CAPTURE),
   PreparedAsset::Prefab(effects::PIECE_SELECTED),

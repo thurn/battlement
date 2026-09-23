@@ -12,7 +12,7 @@ use reactant_testing::ActionResult;
 fn play_button_starts_a_game() {
   // The title exposes usable controls; starting presents the board and opening effects.
   let mut game = ChessTest::title();
-  game.display.expect_button("Play chess");
+  game.display.expect_button("PLAY");
   game.display.expect_key_enabled(PhysicalKey::Enter);
   game
     .display
@@ -31,8 +31,8 @@ fn play_button_starts_a_game() {
 fn keyboard_moves_a_pawn() {
   // Selection and navigation use the production cursor, without inspecting its state.
   let mut game = ChessTest::title();
+  game.start();
   game.display.send_keys(&[
-    PhysicalKey::Enter,
     PhysicalKey::ArrowRight,
     PhysicalKey::Enter,
     PhysicalKey::ArrowUp,
@@ -47,9 +47,7 @@ fn keyboard_moves_a_pawn() {
 fn controller_moves_a_pawn() {
   // Separate navigation and submit operations make the intended gesture readable.
   let mut game = ChessTest::title();
-  game
-    .display
-    .press_controller_button(ControllerButton::South);
+  game.start();
   game
     .display
     .navigate_controller(&[ControllerDirection::Left]);

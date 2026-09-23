@@ -18,7 +18,7 @@ fn ordinary_reactant_samples_do_not_expose_transport_boilerplate() {
     .parent()
     .and_then(Path::parent)
     .expect("Reactant crate lives under the repository crates directory");
-  for sample in ["chess", "tictactoe", "reactant", "chess-ui"] {
+  for sample in ["chess", "tictactoe", "reactant"] {
     check_directory(&root.join("samples").join(sample));
   }
 }

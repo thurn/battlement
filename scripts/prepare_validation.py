@@ -257,6 +257,10 @@ def prepare(
                     )
         else:
             for producer in producers:
+                if producer[1] == "reactant-assets":
+                    # These Unity cache files are ignored by Git, so a clean
+                    # candidate checkout must materialize them before checking.
+                    run_producer(repository, producer, False, runner)
                 run_producer(repository, producer, True, runner)
         if git(repository, "write-tree") != before_index:
             raise RuntimeError("A preparation producer changed the staged Git index")

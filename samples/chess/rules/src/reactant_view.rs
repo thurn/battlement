@@ -2,18 +2,19 @@
 
 use std::{rc::Rc, time::Duration};
 
-use battlement::{ImageFit, ParentScene, Prop, Quaternion, Vector3};
+use battlement::{Color as UiColor, Position, Prop, Quaternion, Style, Vector3};
 use cozy_chess::{Board, Color, GameStatus};
 use reactant::{
   Application, DispatchResult, GameHandle, GameRoot, GameStatus as RulesStatus, PersistentState,
   hooks,
-  prelude::{AnimationPlayback, Component, Either, EventCallback, KeyRenderExt, Render},
+  prelude::{AnimationPlayback, Button, Component, Either, EventCallback, KeyRenderExt, Render},
   rules::{DisplayConnection, ExecutionMode},
-  world::{BoxHitRegion, Camera, SceneRoot, Sprite},
+  world::Camera,
 };
 use trox::ls;
 
 use crate::{
+  arcade::ChessMenu,
   chess_board::ChessBoard,
   chess_ui_state::{
     AppScreen, ChessUiController, ChessUiState, SessionStart, UiAction, use_chess_ui,
@@ -22,10 +23,8 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
 };
-use battlement::{ObjectId, PickingMode};
+use battlement::PickingMode;
 use reactant::PersistenceBackend;
-
-const PLAY_BUTTON_ID: ObjectId = battlement::object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 
 pub(super) const CAMERA_ROTATION: Quaternion =
   Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
@@ -118,9 +117,8 @@ impl Component for PersistentChessApp {
   }
 }
 
-/// Title presentation and its input-independent Play callback.
+/// Menu presentation and its input-independent Play callback.
 struct TitleScreen {
-  on_play: EventCallback<()>,
   control: ChessUiController,
   diagnostics: bool,
 }
@@ -178,7 +176,11 @@ impl Component for ChessApp {
     let initial_local = hooks::use_memo(
       {
         let state = initial_state.clone();
-        let restored = persistence.as_ref().is_some_and(|p| p.value().is_some());
+        let restored = persistence
+          .as_ref()
+          .and_then(|p| p.value())
+          .and_then(SavedGame::board)
+          .is_some();
         let visual_state = if restored {
           crate::visual_state::VisualState::Resumed
         } else {
@@ -187,7 +189,7 @@ impl Component for ChessApp {
         let origin_saved = self.config.origin_saved || restored;
         move || {
           let mut local = ChessUiState::default();
-          if state.is_some() {
+          if state.is_some() && !restored {
             local.screen = AppScreen::Game;
             local.visual_state = visual_state;
             local.origin_saved = origin_saved;
@@ -204,16 +206,25 @@ impl Component for ChessApp {
     );
     let control = use_chess_ui(initial_local);
     let local = control.snapshot();
-    let screen = match local.screen {
-      AppScreen::Title => {
-        let start = control.clone();
-        Either::left(TitleScreen {
-          on_play: EventCallback::new(move |()| start.request_start(false)),
-          control: control.clone(),
-          diagnostics,
-        })
+    let restored = persistence
+      .as_ref()
+      .and_then(|p| p.value())
+      .and_then(SavedGame::board)
+      .is_some();
+    let play = control.clone();
+    let on_play = EventCallback::new(move |()| {
+      if restored && play.current().screen == AppScreen::Title {
+        play.resume_saved();
+      } else {
+        play.request_start(false);
       }
-      AppScreen::Game => {
+    });
+    let screen = match local.screen {
+      AppScreen::Title => Either::left(TitleScreen {
+        control: control.clone(),
+        diagnostics,
+      }),
+      AppScreen::Game | AppScreen::Menu => {
         let state = if local.opening_generation == 0 {
           initial_state
             .clone()
@@ -241,6 +252,10 @@ impl Component for ChessApp {
     (
       crate::reactant_effects::GameEffects::new(control, diagnostics),
       screen,
+      ChessMenu {
+        active: local.screen != AppScreen::Game,
+        on_play,
+      },
     )
   }
 }
@@ -276,7 +291,10 @@ impl Component for ChessSession {
         )
       },
     );
-    crate::reactant_input::use_chess_input(self.control.clone(), Some(game.clone()));
+    crate::reactant_input::use_chess_input(
+      self.control.clone(),
+      (self.control.snapshot().screen == AppScreen::Game).then(|| game.clone()),
+    );
     if matches!(
       self.mode,
       Some(SessionStart::Restart | SessionStart::Refresh)
@@ -318,29 +336,12 @@ impl Component for ChessSession {
 }
 
 impl Component for TitleScreen {
-  /// The visible Play control owns both pointer and assistive activation.
+  /// The menu owns both pointer and assistive activation.
   fn render(&self) -> impl Render {
     crate::reactant_input::use_chess_input(self.control.clone(), None);
-    (
-      SceneRoot::new(ParentScene::PrimaryScene).child(
-        BoxHitRegion::new()
-          .size(Vector3::new(0.8, 0.24, 0.02))
-          .position(Vector3::new(0.0, 6.38, -3.86))
-          .rotation(CAMERA_ROTATION)
-          .on_click(self.on_play.clone())
-          .accessible_button(ls("Play chess"), self.on_play.clone())
-          .child(
-            Sprite::new()
-              .id(*PLAY_BUTTON_ID.as_uuid())
-              .texture(crate::assets::PLAY_BUTTON)
-              .size(0.8, 0.24)
-              .fit(ImageFit::Stretch),
-          ),
-      ),
-      self
-        .diagnostics
-        .then(|| crate::reactant_effects::diagnostics_view("ongoing", "new")),
-    )
+    (self
+      .diagnostics
+      .then(|| crate::reactant_effects::diagnostics_view("ongoing", "new")),)
   }
 }
 
@@ -351,6 +352,7 @@ impl Component for ChessScreen {
   /// hooks. They avoid one monolithic render function and make dependencies clear.
   fn render(&self) -> impl Render {
     let local = self.control.snapshot();
+    let menu = self.control.clone();
     let activate = {
       let control = self.control.clone();
       let game = self.game.clone();
@@ -396,6 +398,20 @@ impl Component for ChessScreen {
         game: self.game.clone(),
         control: self.control.clone(),
       },
+      (local.screen == AppScreen::Game).then(|| {
+        Button::new(ls("Main menu"))
+          .style(
+            Style::new()
+              .position(Position::Absolute)
+              .top(16)
+              .left(16)
+              .width(140)
+              .height(48)
+              .background_color(UiColor::rgb(0.03, 0.09, 0.18))
+              .color(UiColor::WHITE),
+          )
+          .on_press(move || menu.show_menu())
+      }),
       PromotionDialog,
     )
   }

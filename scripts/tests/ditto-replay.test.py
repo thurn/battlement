@@ -24,7 +24,7 @@ def main() -> None:
             "ditto_build_leases.py", "ci_steps.py",
         ):
             shutil.copy2(scripts / name, root / "scripts" / name)
-        config = root / "samples/chess-ui/ditto.toml"
+        config = root / "samples/chess/ditto.toml"
         config.parent.mkdir(parents=True)
         configuration = """name = 'fixture'
 [[scenarios]]
@@ -60,7 +60,7 @@ output.write_text(json.dumps({"status":"passed", "errors":[]}))
             binary = root / "ditto.cmd"
             binary.write_text(f'@"{sys.executable}" "{script}" %*\n')
         environment = {"DITTO_CACHE_ROOT": str(root / "cache"), "DITTO_ODIFF_PATH": str(binary)}
-        recipe = ditto_replay.record(root, binary, root / "cache", "chess-ui",
+        recipe = ditto_replay.record(root, binary, root / "cache", "chess",
                                      ["gallery reset", "collection components"], environment)
         result = {"run_id": "original-failure", "status": "failed",
                   "build": {"fingerprint": "a" * 64}}
@@ -146,7 +146,7 @@ output.write_text(json.dumps({"status":"passed", "errors":[]}))
         marker.unlink()
 
         no_comparison = ditto_replay.record(
-            root, Path(recipe["tools"]["runner"]["path"]), root / "cache", "chess-ui",
+            root, Path(recipe["tools"]["runner"]["path"]), root / "cache", "chess",
             ["collection components"], {"DITTO_CACHE_ROOT": str(root / "cache")},
         )
         no_comparison_path = root / "no-comparison.json"

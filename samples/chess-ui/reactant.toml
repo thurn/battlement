@@ -1,4 +1,0 @@
-[project]
-application = "Chess UI.app"
-scene = "Assets/Scenes/ChessUi.unity"
-manifest-path = "rules/Cargo.toml"

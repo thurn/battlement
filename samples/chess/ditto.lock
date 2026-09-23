@@ -5,28 +5,58 @@ namespace = "battlement/chess"
 profile = "macos"
 scenario = "computer win"
 checkpoint = "computer-win"
-sha256 = "a3c9fbe34a9cf82ac74152b1ffc2ef6b5320c38f4031a92d9d59c2f9a5779cd7"
+sha256 = "1a7266c1e2032c49e0b9821b78740b01b6044e4f05c9deb2c2fb5db15f50be5f"
 width = 1280
 height = 720
-size_bytes = 541920
-source = "6e015552598da2cf6b3af4e1632a5e315c138c472666bbadea32fdfeea3a3ade"
+size_bytes = 540202
+source = "ecf71764321e571ee202cff30174f5a1f52fa9a0c20b1723689bb3c80e27b235"
 
 [[baselines]]
 profile = "macos"
 scenario = "resumed board"
 checkpoint = "resumed-board"
-sha256 = "9fb87851809c85f29552fab4357ba8671f3525ad7ef1542a9eac661fd67c0089"
+sha256 = "5d67d721598af7010af767ed2e08d2caa191d999b19a2c2cdba186bca368cb54"
 width = 1280
 height = 720
-size_bytes = 536514
-source = "6e015552598da2cf6b3af4e1632a5e315c138c472666bbadea32fdfeea3a3ade"
+size_bytes = 534814
+source = "ecf71764321e571ee202cff30174f5a1f52fa9a0c20b1723689bb3c80e27b235"
+
+[[baselines]]
+profile = "macos"
+scenario = "title"
+checkpoint = "new-game"
+sha256 = "e976b9c8cd99c8c0a1e58d43b670e0bd1166c89f6b97b3faea54f4fb3e158313"
+width = 1280
+height = 720
+size_bytes = 664796
+source = "ecf71764321e571ee202cff30174f5a1f52fa9a0c20b1723689bb3c80e27b235"
+
+[[baselines]]
+profile = "macos"
+scenario = "title"
+checkpoint = "returned-menu"
+sha256 = "569824889a815f6ce9a28af10eefe784b0915d8ea594cd511dabc79220c562b1"
+width = 1280
+height = 720
+size_bytes = 154311
+source = "49b601e5bb51ccfc4c721720e33aba99ac43f5c761d3b6e21b0e27d4e1e5d808"
+
+[[baselines]]
+profile = "macos"
+scenario = "title"
+checkpoint = "settings"
+sha256 = "6421c8ce8e3ba2ea2dee40b6d9be46f7353aaf5839edd6a9b7bd8ae3a11b2d35"
+width = 1280
+height = 720
+size_bytes = 133930
+source = "49b601e5bb51ccfc4c721720e33aba99ac43f5c761d3b6e21b0e27d4e1e5d808"
 
 [[baselines]]
 profile = "macos"
 scenario = "title"
 checkpoint = "title"
-sha256 = "5eb7ecd13e3b8f45b872f23b85772153949cd51e1932d6e6426b3eb2ce72a6a4"
+sha256 = "e7076827412b99f6d89ef25e9974b4ad685316405d199668eb528864afc85071"
 width = 1280
 height = 720
-size_bytes = 509125
-source = "6e015552598da2cf6b3af4e1632a5e315c138c472666bbadea32fdfeea3a3ade"
+size_bytes = 152308
+source = "49b601e5bb51ccfc4c721720e33aba99ac43f5c761d3b6e21b0e27d4e1e5d808"

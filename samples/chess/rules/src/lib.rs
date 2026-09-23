@@ -2,6 +2,7 @@
 
 mod ai;
 mod app;
+mod arcade;
 #[allow(dead_code)]
 pub mod assets;
 pub mod audio;

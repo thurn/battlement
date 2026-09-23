@@ -13,7 +13,7 @@ use reactant::{
 
 use crate::{
   assets::music,
-  chess_ui_state::{ChessUiController, LocalEffect},
+  chess_ui_state::{AppScreen, ChessUiController, LocalEffect},
 };
 
 const MUSIC_CROSSFADE: Duration = Duration::from_secs(5);
@@ -87,7 +87,7 @@ impl Component for GameEffects {
         move || {
           let prior = previous_music.get();
           let prior_state = prior.map(|(generation, track, _)| (generation, track));
-          if local.music_generation == 0 {
+          if local.music_generation == 0 || local.screen == AppScreen::Menu {
             if let Some((_, _, active)) = prior {
               app.send(active.stop(Duration::ZERO));
               previous_music.replace(None);
@@ -114,7 +114,12 @@ impl Component for GameEffects {
           }
         }
       },
-      (local.music_generation, local.music_track, local.volume),
+      (
+        local.music_generation,
+        local.music_track,
+        local.volume,
+        local.screen,
+      ),
     );
     hooks::use_effect(
       {

@@ -6,7 +6,7 @@ use chess_rules::{
   self, ChessGame, ChessPrompt, EngineDependencies, Opponent, PersistenceBackend, assets,
 };
 use cozy_chess::{Board, Color, Move, Piece, Square};
-use reactant::rules::RulesWorker;
+use reactant::{asset_generator, rules::RulesWorker};
 use reactant_testing::{ActionResult, Display, assets as testing_assets};
 use std::{
   collections::VecDeque,
@@ -187,7 +187,12 @@ impl ChessTest {
   }
 
   pub fn start(&mut self) {
-    self.display.click_image(assets::PLAY_BUTTON);
+    self.display.activate_accessible("PLAY");
+  }
+
+  pub fn show_menu(&mut self) {
+    self.display.click_button("Main menu");
+    self.display.refresh();
   }
 
   pub fn pause(&mut self) {
@@ -216,7 +221,11 @@ impl ChessTest {
   pub fn assets() -> Arc<FakeAssetCatalog> {
     static ASSETS: OnceLock<Arc<FakeAssetCatalog>> = OnceLock::new();
     ASSETS
-      .get_or_init(|| Arc::new(testing_assets::catalog(assets::ASSET_CATALOG)))
+      .get_or_init(|| {
+        let mut catalog = testing_assets::catalog(assets::ASSET_CATALOG);
+        catalog.add_textures(asset_generator::registrations().map(|asset| asset.address));
+        Arc::new(catalog)
+      })
       .clone()
   }
 }

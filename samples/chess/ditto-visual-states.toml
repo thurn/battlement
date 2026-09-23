@@ -1,7 +1,19 @@
 version = 1
 
 [[states]]
-key = "screen.title"
+key = "screen.menu"
+screen = "chess"
+
+[[states]]
+key = "screen.settings"
+screen = "chess"
+
+[[states]]
+key = "board.new-game"
+screen = "chess"
+
+[[states]]
+key = "screen.returned-menu"
 screen = "chess"
 
 [[states]]

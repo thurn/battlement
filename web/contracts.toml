@@ -12,7 +12,7 @@ samples = ["ui"]
 [[risks]]
 paths = ["Packages/com.battlement.client/Runtime/UI/BattlementPaint*.cs", "Packages/com.battlement.client/Runtime/UI/BattlementRadialGradientRaster.cs", "Packages/com.battlement.client/Runtime/UI/Resources/BattlementPanelSettingsTemplate.asset"]
 reason = "Paint geometry and browser worker scheduling"
-samples = ["chess-ui"]
+samples = ["chess"]
 
 [[risks]]
 paths = ["Packages/com.battlement.client/Editor/BattlementSampleBuild.cs"]

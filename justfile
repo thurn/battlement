@@ -15,10 +15,6 @@ chess *args:
 clear-chess:
     rm ~/Library/Application\ Support/com.battlement.ditto.shell/chess-game.json
 
-# Build and run the Reactant chess UI sample; append flags such as `--web`.
-chess-ui *args:
-    cargo run --quiet -p rt -- run --project samples/chess-ui "$@"
-
 # Build and run the Reactant UI laboratory; append flags such as `--web`.
 reactant *args:
     cargo run --quiet -p rt -- run --project samples/reactant "$@"
@@ -67,13 +63,13 @@ ditto-ci *args:
 perf-report *args:
     python3 scripts/perf_report.py "$@"
 
-# Prepare a cached chess UI web build for local review; append `--development` for a debug build.
+# Prepare a cached chess web build for local review; append `--development` for a debug build.
 web-demo *args:
-    python3 scripts/prepare-web-demo.py --project samples/chess-ui "$@"
+    python3 scripts/prepare-web-demo.py --project samples/chess "$@"
 
 # Deploy the complete public sample set from explicit repository projects.
 deploy *args:
-    python3 scripts/deploy.py --project samples/basic --project samples/chess --project samples/chess-ui --project samples/reactant --project samples/tictactoe --project samples/ui "$@"
+    python3 scripts/deploy.py --project samples/basic --project samples/chess --project samples/reactant --project samples/tictactoe --project samples/ui "$@"
 
 # Run any repository Python script with arbitrary arguments.
 script path *args:

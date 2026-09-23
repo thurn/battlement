@@ -15,7 +15,9 @@ fn saved_moves_survive_a_fresh_engine() {
   game.start();
   game.play(Square::E2, Square::E4);
   drop(game);
-  let restored = ChessTest::persisted(storage);
+  let mut restored = ChessTest::persisted(storage);
+  restored.display.expect_button("PLAY");
+  restored.start();
   restored.expect_empty(Square::E2);
   restored.expect_piece(Square::E4, Color::White, Piece::Pawn);
 }
@@ -63,6 +65,7 @@ fn delete_failure_does_not_interrupt_new_game() {
   let storage = storage::with_save(include_bytes!("fixtures/default.json"));
   storage.fail_remove();
   let mut game = ChessTest::persisted(storage);
+  game.start();
   game.new_game();
   game.expect_board(&fixtures::initial());
 }

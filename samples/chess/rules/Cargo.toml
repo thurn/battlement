@@ -49,3 +49,7 @@ path = "tests/observations_tests.rs"
 [[test]]
 name = "performance"
 path = "tests/performance_tests.rs"
+
+[[test]]
+name = "menu"
+path = "tests/menu_tests.rs"

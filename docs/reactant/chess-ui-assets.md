@@ -1,9 +1,9 @@
 # Chess UI assets
 
-The standalone `samples/chess-ui` sample owns its imported assets. Binary inputs
+The `samples/chess` sample owns the menu's imported assets. Binary inputs
 come from `git@github.com:thurn/mockups.git`, commit
 `2451ea9cc6f76b356b1102ee37b82c478853122a`. Their bytes are preserved under
-`Assets/Original` with the same basenames.
+`samples/chess/Assets/Original` with the same basenames.
 
 | Original repository path | License |
 | --- | --- |
@@ -18,6 +18,6 @@ Bebas Neue's embedded copyright identifies the Bebas Neue Project Authors
 (2019), and its embedded license URL points to the SIL Open Font License.
 
 The 18 generator declarations are owned by
-`samples/chess-ui/rules/src/assets.rs`. Their recipes use the sample's Barlow
+`samples/chess/rules/src/arcade/assets.rs`. Their recipes use the sample's Barlow
 Condensed 800 italic file for generated lettering. Generate the assets with
-`cargo run -p rt -- assets generate --project samples/chess-ui`.
+`cargo run -p rt -- assets generate --project samples/chess`.

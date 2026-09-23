@@ -9,7 +9,7 @@ baseline_download = "2m"
 
 [defaults]
 step_timeout = "5s"
-scenario_timeout = "10s"
+scenario_timeout = "45s"
 motion = "instant"
 
 [defaults.comparison]
@@ -22,10 +22,6 @@ reactant = true
 unity_project = "."
 scene = "Assets/Scenes/Main.unity"
 rust_manifest = "rules/Cargo.toml"
-
-[aliases]
-play = "4cf7cb75-ec8f-44ec-88c9-c83ca3869f43"
-refresh = "35b288b3-6d72-48af-aeb9-e8f11d63e3ea"
 
 [baseline]
 kind = "r2"
@@ -43,12 +39,40 @@ display = { width = 1280, height = 720, scale = 1.0 }
 [[scenarios]]
 name = "title"
 fixture = "title"
+motion = "controlled"
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "Play chess" }, role = "button", name = "Play chess" }
+accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "button", name = "PLAY" }
 
 [[scenarios.steps]]
 screenshot = { name = "title" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "settings" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RETURN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Main menu" }, role = "button", name = "Main menu" }
+
+[[scenarios.steps]]
+screenshot = { name = "new-game" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Main menu" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "button", name = "PLAY" }
+
+[[scenarios.steps]]
+screenshot = { name = "returned-menu" }
 
 [[scenarios]]
 name = "computer win"

@@ -85,6 +85,26 @@ def main() -> None:
             assert "conflict with the staged snapshot" in str(error)
         else:
             raise AssertionError("unstaged generator input was accepted")
+        source.write_text("pub fn fixture() {}\n")
+
+        visual_output = root / "samples/visual/Assets/Generated/texture.png"
+        visual_calls = []
+
+        def visual_runner(command: list[str], *, cwd: Path) -> None:
+            visual_calls.append(command)
+            if "generate" in command:
+                visual_output.parent.mkdir(parents=True, exist_ok=True)
+                visual_output.write_bytes(b"generated texture")
+            else:
+                assert visual_output.read_bytes() == b"generated texture"
+
+        module.prepare(
+            root, "check", ["visual"], root / "visual.json",
+            root / "visual.patch", runner=visual_runner,
+        )
+        assert [command[7] for command in visual_calls if command[6] == "assets"] == [
+            "generate", "check",
+        ]
     print("Validation preparation tests passed.")
 
 
@@ -102,6 +122,8 @@ def create_repository(root: Path) -> None:
         "samples/fixture/rules/src/lib.rs": "pub fn fixture() {}\n",
         "samples/fixture/rules/src/assets.rs": GENERATED_MARKER + "// original\n",
         "samples/fixture/Assets/AddressableAssetsData/settings": "original\n",
+        "samples/visual/reactant.toml": "application = 'Visual.app'\nscene = 'Assets/Main.unity'\n",
+        "samples/visual/rules/src/lib.rs": "reactant::asset_generator::generate! {}\n",
     }
     for relative, contents in files.items():
         path = root / relative

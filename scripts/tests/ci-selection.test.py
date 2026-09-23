@@ -16,12 +16,12 @@ import ci_selection
 
 workspaces = [
     Path("samples/basic/rules/Cargo.toml"),
-    Path("samples/chess-ui/rules/Cargo.toml"),
+    Path("samples/chess/rules/Cargo.toml"),
     Path("samples/reactant/rules/Cargo.toml"),
 ]
 dependencies = {
     "basic": {"battlement"},
-    "chess-ui": {"battlement", "reactant", "reactant-core", "reactant-ui"},
+    "chess": {"battlement", "reactant", "reactant-core", "reactant-ui"},
     "reactant": {"battlement", "reactant", "reactant-core", "reactant-ui"},
 }
 
@@ -34,7 +34,7 @@ with patch.object(
     assert all_workspaces.root and list(all_workspaces.samples) == workspaces
 
     chess_ui = ci_selection.select_rust(
-        ROOT, ["samples/chess-ui/rules/src/lib.rs"], workspaces
+        ROOT, ["samples/chess/rules/src/lib.rs"], workspaces
     )
     assert not chess_ui.root
     assert chess_ui.samples == (workspaces[1],)
@@ -58,7 +58,7 @@ selected, _reasons = ci_selection.select_reactant_assets(
 )
 assert selected
 selected, reasons = ci_selection.select_reactant_assets(
-    ["samples/chess-ui/rules/src/lib.rs"]
+    ["samples/chess/rules/src/lib.rs"]
 )
 assert not selected and "no changed path" in reasons[0]
 selected, _reasons = ci_selection.select_reactant_assets([])

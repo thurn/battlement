@@ -18,7 +18,6 @@ fn repository_report_discovers_complete_coverage_for_every_sample() {
     vec![
       ("basic", &SampleStatus::Complete),
       ("chess", &SampleStatus::Complete),
-      ("chess-ui", &SampleStatus::Complete),
       ("reactant", &SampleStatus::Complete),
       ("tictactoe", &SampleStatus::Complete),
       ("ui", &SampleStatus::Complete),

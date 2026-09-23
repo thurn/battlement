@@ -105,11 +105,10 @@ fn key_down(control: &ChessUiController, game: Option<&GameHandle<ChessGame>>, k
     PhysicalKey::Escape if game.is_some() => control.dispatch(game, UiAction::TogglePause),
     PhysicalKey::Equal => adjust_volume(control, game, 0.1),
     PhysicalKey::Minus => adjust_volume(control, game, -0.1),
-    PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space if game.is_none() => {
-      control.request_start(true);
-    }
     PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space => {
-      activate_cursor(control, game.expect("active session checked above"));
+      if let Some(game) = game {
+        activate_cursor(control, game);
+      }
     }
     _ => {}
   }
@@ -146,7 +145,7 @@ fn controller_button(
       activate_cursor(control, game.expect("active game"));
     }
     ControllerButton::East if game.is_some() => control.dispatch(game, UiAction::CancelSelection),
-    ControllerButton::South => control.request_start(true),
+    ControllerButton::South => {}
     _ => {}
   }
 }

@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import native_validation_selection as selection
 
 
-SAMPLES = ["basic", "reactant", "chess-ui"]
+SAMPLES = ["basic", "reactant", "chess"]
 
 
 assert selection.select(ROOT, ["README.md"], SAMPLES) == []
@@ -28,12 +28,12 @@ assert selection.select(ROOT, ["samples/ui/Assets/Resources/BattlementTextSettin
 dependencies = {
     "basic": {"battlement"},
     "reactant": {"battlement", "reactant", "reactant-core", "reactant-ui"},
-    "chess-ui": {"battlement", "reactant", "reactant-core", "reactant-ui"},
+    "chess": {"battlement", "reactant", "reactant-core", "reactant-ui"},
 }
 with patch.object(selection, "sample_crates", side_effect=lambda _root, sample: dependencies[sample]):
     assert selection.select(ROOT, ["crates/reactant-core/src/lib.rs"], SAMPLES) == [
         "reactant",
-        "chess-ui",
+        "chess",
     ]
 
 print("native validation selection tests passed")

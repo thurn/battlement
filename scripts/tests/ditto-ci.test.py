@@ -185,7 +185,7 @@ def main() -> None:
         assert gated.returncode == 0, gated.stderr
         gate = json.loads((artifact_root(gated) / "gate.json").read_text())
         assert gate["status"] == "passed"
-        assert len(gate["samples"]) == 6
+        assert len(gate["samples"]) == 5
         assert gate["budget_seconds"] == 120
         suites = [
             tomllib.loads(path.read_text())
@@ -216,7 +216,7 @@ def main() -> None:
             if event.get("event") == "process.started"
             and event.get("operation_id") == native_start["operation_id"]
         ]
-        assert len(child_processes) == 6
+        assert len(child_processes) == 5
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)
@@ -254,7 +254,7 @@ def main() -> None:
         for invocation_root in (root_a, root_b):
             verified = ditto_evidence.read(invocation_root / "evidence.json", invocation_root.name)
             assert verified["status"] == "passed"
-            assert len([item for item in verified["files"] if item["path"].endswith("/result.json")]) == 6
+            assert len([item for item in verified["files"] if item["path"].endswith("/result.json")]) == 5
         # Both failures remain independently discoverable after the latest alias changes.
         failed_runs = [subprocess.Popen(
             [sys.executable, str(RUNNER), "gate"], cwd=REPOSITORY_ROOT,
@@ -267,7 +267,7 @@ def main() -> None:
             failed_root = artifact_root(subprocess.CompletedProcess([], 1, stdout, stderr))
             verified = ditto_evidence.read(failed_root / "evidence.json", failed_root.name)
             assert verified["status"] == "failed"
-            assert len([item for item in verified["files"] if item["path"].endswith("/run.tar.gz")]) == 6
+            assert len([item for item in verified["files"] if item["path"].endswith("/run.tar.gz")]) == 5
         result_path = root_a / "basic/result.json"
         original_result = result_path.read_bytes()
         for mutation in ("remove", "alter"):
@@ -371,7 +371,7 @@ def main() -> None:
         environment["DITTO_CI_BRANCH"] = "master"
         published = run(["publish"], environment)
         assert published.returncode == 0, published.stderr
-        assert len((root / "published").read_text().splitlines()) == 6
+        assert len((root / "published").read_text().splitlines()) == 5
 
         environment["DITTO_CI_BRANCH"] = "feature"
         skipped = run(["publish"], environment)

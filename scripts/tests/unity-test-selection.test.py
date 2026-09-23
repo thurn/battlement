@@ -41,7 +41,7 @@ def main() -> None:
         REPOSITORY_ROOT,
         [
             "docs/guide.md",
-            "samples/chess-ui/rules/src/lib.rs",
+            "samples/chess/rules/src/lib.rs",
             "crates/reactant/src/lib.rs",
             "crates/battlement-ditto/src/lib.rs",
         ],

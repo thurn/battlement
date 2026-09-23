@@ -15,6 +15,8 @@ const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 pub enum AppScreen {
   /// Start screen before a rules session is mounted.
   Title,
+  /// Main menu opened over an existing rules session.
+  Menu,
   /// Active board backed by a mounted rules session.
   Game,
 }
@@ -207,6 +209,25 @@ impl ChessUiState {
 }
 
 impl ChessUiController {
+  /// Opens the saved board selected from the startup menu.
+  pub fn resume_saved(&self) {
+    self.update(|local| {
+      local.screen = AppScreen::Game;
+      local.visual_state = crate::visual_state::VisualState::Resumed;
+      local.origin_saved = true;
+      local.overlay = None;
+    });
+  }
+
+  /// Shows the main menu and releases the active board session.
+  pub fn show_menu(&self) {
+    self.update(|local| {
+      local.screen = AppScreen::Menu;
+      local.overlay = None;
+      local.selected = None;
+    });
+  }
+
   /// Returns the render-frame snapshot used for declarative composition.
   pub fn snapshot(&self) -> ChessUiState {
     self.local.clone()

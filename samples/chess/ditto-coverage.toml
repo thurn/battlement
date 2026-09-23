@@ -3,10 +3,28 @@ sample = "chess"
 canonical_profile = "macos"
 
 [[mappings]]
-state = "screen.title"
+state = "screen.menu"
 scenario = "title"
 checkpoint = "title"
-owner = "reactant_app::opening_uses_accessible_play_and_shared_spawn_checkpoints"
+owner = "menu::menu_opens_settings_and_starts_the_3d_game"
+
+[[mappings]]
+state = "screen.settings"
+scenario = "title"
+checkpoint = "settings"
+owner = "menu::menu_opens_settings_and_starts_the_3d_game"
+
+[[mappings]]
+state = "board.new-game"
+scenario = "title"
+checkpoint = "new-game"
+owner = "menu::menu_opens_settings_and_starts_the_3d_game"
+
+[[mappings]]
+state = "screen.returned-menu"
+scenario = "title"
+checkpoint = "returned-menu"
+owner = "menu::gameplay_can_return_to_menu_and_start_a_new_game"
 
 [[mappings]]
 state = "terminal.computer-win"

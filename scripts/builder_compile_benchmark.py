@@ -15,7 +15,6 @@ import time
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLES = {
     "reactant": ("composition.rs", "state_identity.rs", "StateIdentity", "compact", "bool"),
-    "chess-ui": ("review_text.rs", "caret.rs", "Caret", "is_open", "bool"),
 }
 
 

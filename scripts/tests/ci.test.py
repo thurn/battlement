@@ -51,7 +51,7 @@ def main() -> None:
         _verify_unity_execution_selection(root)
         _verify_runtime_checks_overlap()
         _verify_unity_native_diagnostics_selection()
-        for name in ("tictactoe", "basic", "chess", "chess-ui"):
+        for name in ("tictactoe", "basic", "chess"):
             sample = root / "samples" / name
             sample.mkdir(parents=True)
             (sample / "sample.toml").write_text(f'executable = "{name}"\n')
@@ -68,7 +68,7 @@ def main() -> None:
         _manifest(root / "samples/quoted-workspace", "['workspace'] # standalone\n")
 
         ci.REPOSITORY_ROOT = root
-        assert ci.sample_names() == ["basic", "chess", "chess-ui", "tictactoe"]
+        assert ci.sample_names() == ["basic", "chess", "tictactoe"]
         assert ci.sample_rust_workspaces() == [
             Path("samples/basic/rules/Cargo.toml"),
             Path("samples/quoted-workspace/Cargo.toml"),
