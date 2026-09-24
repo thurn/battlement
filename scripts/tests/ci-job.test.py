@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import time
@@ -30,8 +31,21 @@ def await_state(path: Path, state: str, timeout: float = 5) -> dict:
     raise AssertionError(f"job did not reach {state}: {ci_job.read_job(path)}")
 
 
+def scratch_repository(path: Path) -> Path:
+    """Create a one-commit repository so job source identity stays cheap to compute."""
+    path.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=ci-job-test", "-c", "user.email=ci-job-test@invalid",
+         "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "fixture"],
+        cwd=path, check=True,
+    )
+    return path
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-ci-job-test.") as temporary:
+        repository = scratch_repository(Path(temporary) / "repository")
         os.environ["BATTLEMENT_CI_JOB_ROOT"] = temporary
         os.environ["BATTLEMENT_LOG_ROOT"] = str(Path(temporary) / "performance")
         os.environ["CODEX_THREAD_ID"] = "11111111-2222-4333-8444-555555555555"
@@ -49,8 +63,8 @@ while not release_path.exists():
     time.sleep(.02)
 """
         command = [sys.executable, "-c", release_source, str(release_path)]
-        first = ci_job.start_job(REPOSITORY_ROOT, ["--full"], command=command)
-        second = ci_job.start_job(REPOSITORY_ROOT, ["--full"], command=command)
+        first = ci_job.start_job(repository, ["--full"], command=command)
+        second = ci_job.start_job(repository, ["--full"], command=command)
         assert second["attached"] is True
         assert first["job_id"] == second["job_id"]
         path = Path(first["handle_path"])
@@ -118,7 +132,7 @@ threading.Event().wait()
             str(ready_path),
         ]
         cancelable = ci_job.start_job(
-            REPOSITORY_ROOT,
+            repository,
             ["--ditto"],
             command=cancel_command,
         )
@@ -130,7 +144,7 @@ threading.Event().wait()
             "import threading; threading.Event().wait()",
         ]
         unrelated = ci_job.start_job(
-            REPOSITORY_ROOT,
+            repository,
             [],
             purpose="unrelated-job",
             command=blocking_command,
@@ -155,7 +169,7 @@ threading.Event().wait()
         assert ci_job.cancel(unrelated_path)["state"] == "canceled"
 
         invalid = ci_job.start_job(
-            REPOSITORY_ROOT,
+            repository,
             [],
             purpose="source-test",
             command=blocking_command,
@@ -168,7 +182,7 @@ threading.Event().wait()
         ci_job.source_identity = lambda _repository: changed_source
         try:
             replacement = ci_job.start_job(
-                REPOSITORY_ROOT, [], purpose="source-test", command=[sys.executable, "-c", "pass"]
+                repository, [], purpose="source-test", command=[sys.executable, "-c", "pass"]
             )
             assert replacement["job_id"] != invalid["job_id"]
             assert ci_job.refresh(invalid_path)["state"] == "inputs-invalidated"
