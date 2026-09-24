@@ -35,8 +35,20 @@ def main() -> None:
         os.environ["BATTLEMENT_CI_JOB_ROOT"] = temporary
         os.environ["BATTLEMENT_LOG_ROOT"] = str(Path(temporary) / "performance")
         os.environ["CODEX_THREAD_ID"] = "11111111-2222-4333-8444-555555555555"
-        command = [sys.executable, "-c",
-                   "import time; print('==> Fixture', flush=True); time.sleep(.4)"]
+        release_path = Path(temporary) / "fixture.release"
+        release_source = """
+import pathlib
+import sys
+import time
+release_path = pathlib.Path(sys.argv[1])
+print('==> Fixture', flush=True)
+deadline = time.monotonic() + 30
+while not release_path.exists():
+    if time.monotonic() > deadline:
+        sys.exit('fixture was never released')
+    time.sleep(.02)
+"""
+        command = [sys.executable, "-c", release_source, str(release_path)]
         first = ci_job.start_job(REPOSITORY_ROOT, ["--full"], command=command)
         second = ci_job.start_job(REPOSITORY_ROOT, ["--full"], command=command)
         assert second["attached"] is True
@@ -56,6 +68,7 @@ def main() -> None:
         unchanged = ci_job.wait_for(path, running["revision"], .05)
         assert unchanged["timed_out"] is True
         assert unchanged["job_id"] == first["job_id"]
+        release_path.write_text("release")
         passed = ci_job.wait_for(path, running["revision"], 5)
         assert passed["state"] == "passed"
         assert passed["timed_out"] is False

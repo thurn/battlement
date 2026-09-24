@@ -11,8 +11,10 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+import tempfile
 from threading import Lock, local
 import time
 from typing import Any, TextIO
@@ -77,17 +79,29 @@ def normalize_repository_url(url: str | None) -> str:
 
 def git_metadata(repository_root: Path) -> dict[str, Any]:
     """Return non-fatal Git identity used to correlate local and gated runs."""
-    def query(*arguments: str) -> str:
+    def query(*arguments: str, environment: dict[str, str] | None = None) -> str:
         try:
             return subprocess.run(
-                ["git", *arguments],
+                ["git", "--no-optional-locks", *arguments],
                 cwd=repository_root,
                 check=True,
                 capture_output=True,
                 text=True,
+                env=environment,
             ).stdout.strip()
         except (OSError, subprocess.CalledProcessError):
             return ""
+
+    def staged_tree_oid() -> str:
+        # write-tree always locks the index, so write from a private copy to
+        # avoid failing while a concurrent Git command holds index.lock.
+        index = query("rev-parse", "--path-format=absolute", "--git-path", "index")
+        if not index or not Path(index).is_file():
+            return query("write-tree")
+        with tempfile.TemporaryDirectory(prefix="battlement-index.") as temporary:
+            private_index = Path(temporary) / "index"
+            shutil.copyfile(index, private_index)
+            return query("write-tree", environment=os.environ | {"GIT_INDEX_FILE": str(private_index)})
 
     status = query("status", "--porcelain=v1", "--untracked-files=all")
     repository_url = query("remote", "get-url", "origin")
@@ -96,7 +110,7 @@ def git_metadata(repository_root: Path) -> dict[str, Any]:
         "worktree_path": str(repository_root.resolve()),
         "branch": query("branch", "--show-current"),
         "head_oid": query("rev-parse", "HEAD"),
-        "staged_tree_oid": query("write-tree"),
+        "staged_tree_oid": staged_tree_oid(),
         "dirty": bool(status),
     }
 
