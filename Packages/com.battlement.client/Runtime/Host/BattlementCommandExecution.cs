@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using Battlement.UI;
 
 namespace Battlement
@@ -74,6 +75,8 @@ namespace Battlement
         }
 
         public void ResetWorkOwnership() => workOwnership.Clear();
+
+        public IEnumerable<ObjectId> LiveUiSubtree(ObjectId id) => uiDocuments.LogicalSubtree(id);
 
         public void CancelScope(ulong scope) =>
             workOwnership.Cancel(scope, world, uiDocuments, operations);

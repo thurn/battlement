@@ -33,10 +33,25 @@ namespace Battlement.Tests
             Offset<Wire.UiElement> rootElement = WriteElement(builder, root);
             IReadOnlyList<UiNode> children = value.Children ?? Array.Empty<UiNode>();
             VectorOffset rootChildren = WriteUuidVector(builder, children);
+            VectorOffset nodeVector = WriteNodeVector(builder, children);
+            Wire.UiDocument.StartUiDocument(builder);
+            Wire.UiDocument.AddNodes(builder, nodeVector);
+            Wire.UiDocument.AddRootChildIds(builder, rootChildren);
+            Wire.UiDocument.AddRootElement(builder, rootElement);
+            Wire.UiDocument.AddRootId(builder, Uuid(builder, value.RootId.Value));
+            Wire.UiDocument.AddDocumentId(builder, Uuid(builder, value.DocumentId.Value));
+            return Wire.UiDocument.EndUiDocument(builder);
+        }
+
+        private static VectorOffset WriteNodeVector(
+            FlatBufferBuilder builder,
+            IReadOnlyList<UiNode> roots
+        )
+        {
             var flattened = new List<UiNode>();
             var stack = new Stack<UiNode>();
-            for (int index = children.Count - 1; index >= 0; index--)
-                stack.Push(children[index]);
+            for (int index = roots.Count - 1; index >= 0; index--)
+                stack.Push(roots[index]);
             while (stack.Count > 0)
             {
                 UiNode node = stack.Pop();
@@ -48,14 +63,7 @@ namespace Battlement.Tests
             var nodes = new int[flattened.Count];
             for (int index = 0; index < nodes.Length; index++)
                 nodes[index] = WriteNode(builder, flattened[index]).Value;
-            VectorOffset nodeVector = OffsetVector(builder, nodes);
-            Wire.UiDocument.StartUiDocument(builder);
-            Wire.UiDocument.AddNodes(builder, nodeVector);
-            Wire.UiDocument.AddRootChildIds(builder, rootChildren);
-            Wire.UiDocument.AddRootElement(builder, rootElement);
-            Wire.UiDocument.AddRootId(builder, Uuid(builder, value.RootId.Value));
-            Wire.UiDocument.AddDocumentId(builder, Uuid(builder, value.DocumentId.Value));
-            return Wire.UiDocument.EndUiDocument(builder);
+            return OffsetVector(builder, nodes);
         }
 
         private static Offset<Wire.UiNode> WriteNode(FlatBufferBuilder builder, UiNode value)

@@ -356,6 +356,57 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void UnorderedReferenceToPendingUiChangeFailsAtAdmission()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            var rootId = new ObjectId(Guid.NewGuid());
+            var panelId = new ObjectId(Guid.NewGuid());
+            var labelId = new ObjectId(Guid.NewGuid());
+            var addedId = new ObjectId(Guid.NewGuid());
+            ConnectWithUi(
+                harness,
+                session,
+                rootId,
+                new UiNode(
+                    panelId,
+                    new UiElement.Box(),
+                    new[] { new UiNode(labelId, new UiElement.Box()) }
+                )
+            );
+            Command wait = Wait(TimeSpan.FromHours(1));
+            Batch exit = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(wait),
+                Group(UiCommand(new CommandBody.VisualElement.Destroy(panelId)))
+            );
+            Batch racing = BatchWithGroups(session, BatchStart.Now, Group(UpdateUi(labelId)));
+            Batch selfContained = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(
+                    UiCommand(
+                        new CommandBody.VisualElement.Create(
+                            rootId,
+                            new UiNode(addedId, new UiElement.Box())
+                        )
+                    ),
+                    UpdateUi(addedId)
+                )
+            );
+
+            SubmitResponse(harness, Response(session, exit, racing, selfContained));
+
+            BatchFailed<CoreErrorCode> failure = Failures(harness).Single();
+            Assert.That(failure.BatchId, Is.EqualTo(racing.Id));
+            Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.UnknownObject));
+            Assert.That(failure.Message, Does.Contain(labelId.ToString()));
+            Assert.That(failure.Message, Does.Contain(exit.Id.ToString()));
+            Assert.That(harness.Runner.UiDocumentsForTests.TryGet(addedId, out _), Is.True);
+        }
+
+        [Test]
         public void PresentationPauseFreezesOwnedWaitsButNotIndependentWork()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -565,6 +616,54 @@ namespace Battlement.Tests
 
         private static Command Wait(TimeSpan duration) =>
             new(new CommandId(Guid.NewGuid()), new CommandBody.Time.Wait(duration));
+
+        private static void ConnectWithUi(
+            BattlementTestHarness harness,
+            SessionId session,
+            ObjectId rootId,
+            params UiNode[] children
+        )
+        {
+            var documentId = new ObjectId(Guid.NewGuid());
+            BattlementGameObject document = new(
+                documentId,
+                new GameObjectKind.UiDocumentState(rootId),
+                new ParentScene.Persistent(),
+                null,
+                true,
+                LocalTransform.Identity,
+                Array.Empty<PointerEvent>()
+            );
+            Snapshot snapshot = FakeBattlementTransport.CompleteSnapshot(
+                session,
+                objects: new[] { document }
+            ) with
+            {
+                Ui = new[] { new UiDocument(documentId, rootId, Children: children) },
+            };
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.ResponseResult(
+                    new Response(
+                        session,
+                        new ResponseMessage<Command>[]
+                        {
+                            new ResponseMessage<Command>.SnapshotMessage(snapshot),
+                        }
+                    )
+                )
+            );
+            harness.Runner.Connect();
+        }
+
+        private static Command UiCommand(CommandBody body) =>
+            new(new CommandId(Guid.NewGuid()), body);
+
+        private static Command UpdateUi(ObjectId id) =>
+            UiCommand(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(id, new UiElement.Box())
+                )
+            );
 
         private static bool HasIdentity(ObjectId id) =>
             Object.FindObjectsByType<BattlementIdentity>().Any(identity => identity.Id == id.Value);

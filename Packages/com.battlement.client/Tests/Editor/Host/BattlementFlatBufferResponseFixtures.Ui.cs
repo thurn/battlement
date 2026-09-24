@@ -63,12 +63,84 @@ namespace Battlement.Tests
         private static Payload VisualCreate(
             FlatBufferBuilder builder,
             CommandBody.VisualElement.Create value
-        ) => throw Unsupported(value);
+        )
+        {
+            VectorOffset nodes = WriteNodeVector(builder, new[] { value.Node });
+            Wire.VisualElementCreatePayload.StartVisualElementCreatePayload(builder);
+            Wire.VisualElementCreatePayload.AddParentId(
+                builder,
+                Uuid(builder, value.ParentId.Value)
+            );
+            Wire.VisualElementCreatePayload.AddChildIndex(builder, value.ChildIndex);
+            Wire.VisualElementCreatePayload.AddNodes(builder, nodes);
+            Wire.VisualElementCreatePayload.AddRootId(
+                builder,
+                Uuid(builder, value.Node.ObjectId.Value)
+            );
+            return new(
+                Wire.CoreCommandKind.VisualElementCreate,
+                Wire.CoreCommandPayload.VisualElementCreatePayload,
+                Wire.VisualElementCreatePayload.EndVisualElementCreatePayload(builder).Value
+            );
+        }
 
         private static Payload VisualUpdate(
             FlatBufferBuilder builder,
             CommandBody.VisualElement.Update value
-        ) => throw Unsupported(value);
+        )
+        {
+            Offset<Wire.UiElement>? element = value.Value is VisualElementUpdate.Properties update
+                ? WriteElement(builder, update.Element)
+                : null;
+            Wire.VisualElementUpdatePayload.StartVisualElementUpdatePayload(builder);
+            switch (value.Value)
+            {
+                case VisualElementUpdate.Properties properties:
+                    Wire.VisualElementUpdatePayload.AddKind(
+                        builder,
+                        Wire.VisualElementUpdateKind.Properties
+                    );
+                    Wire.VisualElementUpdatePayload.AddObjectId(
+                        builder,
+                        Uuid(builder, properties.ObjectId.Value)
+                    );
+                    Wire.VisualElementUpdatePayload.AddElement(builder, element!.Value);
+                    break;
+                case VisualElementUpdate.Parent parent:
+                    Wire.VisualElementUpdatePayload.AddKind(
+                        builder,
+                        Wire.VisualElementUpdateKind.Parent
+                    );
+                    Wire.VisualElementUpdatePayload.AddObjectId(
+                        builder,
+                        Uuid(builder, parent.ObjectId.Value)
+                    );
+                    Wire.VisualElementUpdatePayload.AddParentId(
+                        builder,
+                        Uuid(builder, parent.ParentId.Value)
+                    );
+                    Wire.VisualElementUpdatePayload.AddChildIndex(builder, parent.ChildIndex);
+                    break;
+                case VisualElementUpdate.Index index:
+                    Wire.VisualElementUpdatePayload.AddKind(
+                        builder,
+                        Wire.VisualElementUpdateKind.Index
+                    );
+                    Wire.VisualElementUpdatePayload.AddObjectId(
+                        builder,
+                        Uuid(builder, index.ObjectId.Value)
+                    );
+                    Wire.VisualElementUpdatePayload.AddChildIndex(builder, index.ChildIndex);
+                    break;
+                default:
+                    throw Unsupported(value);
+            }
+            return new(
+                Wire.CoreCommandKind.VisualElementUpdate,
+                Wire.CoreCommandPayload.VisualElementUpdatePayload,
+                Wire.VisualElementUpdatePayload.EndVisualElementUpdatePayload(builder).Value
+            );
+        }
 
         private static Payload VisualDestroy(
             FlatBufferBuilder builder,

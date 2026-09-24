@@ -121,10 +121,33 @@ namespace Battlement
                 batch.Dispose();
                 return;
             }
-            batches.Add(new ScheduledBatch(sessionId, batch, admission));
+            var scheduled = new ScheduledBatch(sessionId, batch, admission);
+            batches.Add(scheduled);
             ActivityVersion++;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
+            if (FindUnorderedUiReference(scheduled) is string message)
+                Fail(scheduled, CoreErrorCode.UnknownObject, message);
+#endif
             Advance();
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
+        private string? FindUnorderedUiReference(ScheduledBatch scheduled)
+        {
+            if (scheduled.IsCancellation)
+                return null;
+            return BattlementBatchOrdering.FindUnorderedReference(
+                scheduled.Batch,
+                batches
+                    .Where(earlier =>
+                        earlier != scheduled && earlier.Outcome == BatchOutcome.Pending
+                    )
+                    .Where(earlier => !earlier.IsCancellation && !IsDependency(scheduled, earlier))
+                    .Select(earlier => (earlier.Batch, earlier.NextGroup)),
+                executor.LiveUiSubtree
+            );
+        }
+#endif
 
         private void CancelScope(ulong scope)
         {

@@ -484,6 +484,12 @@ namespace Battlement.UI
         public bool TryGet(ObjectId objectId, out UnityEngine.UIElements.VisualElement? value) =>
             hierarchy.TryGet(objectId, out value);
 
+        /// <summary>Lists a tracked element and its logical descendants, if present.</summary>
+        internal IEnumerable<ObjectId> LogicalSubtree(ObjectId objectId) =>
+            hierarchy.Contains(objectId.Value)
+                ? hierarchy.LogicalPreorder(objectId.Value).Select(id => new ObjectId(id))
+                : Array.Empty<ObjectId>();
+
         internal bool TryGetGeometryTarget(
             ObjectId objectId,
             out UnityEngine.UIElements.VisualElement element,
