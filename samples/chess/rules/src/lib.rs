@@ -2,7 +2,6 @@
 
 mod ai;
 mod app;
-mod arcade;
 #[allow(dead_code)]
 pub mod assets;
 pub mod audio;
@@ -10,6 +9,7 @@ mod chess_board;
 mod chess_prompt;
 mod chess_ui_state;
 mod cursor;
+mod menu;
 mod motion;
 mod opponent;
 pub mod persistence;

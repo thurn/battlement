@@ -14,11 +14,11 @@ use reactant::{
 use trox::ls;
 
 use crate::{
-  arcade::ChessMenu,
   chess_board::ChessBoard,
   chess_ui_state::{
     AppScreen, ChessUiController, ChessUiState, SessionStart, UiAction, use_chess_ui,
   },
+  menu::ChessMenu,
   persistence::SavedGame,
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},

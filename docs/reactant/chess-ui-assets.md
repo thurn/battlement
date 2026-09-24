@@ -18,6 +18,6 @@ Bebas Neue's embedded copyright identifies the Bebas Neue Project Authors
 (2019), and its embedded license URL points to the SIL Open Font License.
 
 The 18 generator declarations are owned by
-`samples/chess/rules/src/arcade/assets.rs`. Their recipes use the sample's Barlow
+`samples/chess/rules/src/menu/assets.rs`. Their recipes use the sample's Barlow
 Condensed 800 italic file for generated lettering. Generate the assets with
 `cargo run -p rt -- assets generate --project samples/chess`.
