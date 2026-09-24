@@ -311,7 +311,7 @@ namespace Battlement
         /// <summary>Wait until blocking work in earlier batches has completed.</summary>
         AfterEarlierBlockingWork,
 
-        /// <summary>Wait for earlier asset preparation batches only.</summary>
+        /// <summary>Wait for earlier asset preparation and same-start batches.</summary>
         AfterEarlierAssetPreparation,
     }
 

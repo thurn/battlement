@@ -25,6 +25,7 @@ pub use battlement_ui_fake;
 pub use response_reader::read as read_response;
 
 mod assertions;
+mod batch_ordering;
 mod executor;
 mod interpolation;
 mod material;

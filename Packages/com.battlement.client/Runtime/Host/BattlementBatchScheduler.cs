@@ -399,7 +399,8 @@ namespace Battlement
             }
             if (scheduled.Start == BatchStart.AfterEarlierAssetPreparation)
             {
-                return earlier.ContainsAssetPreparation;
+                return earlier.ContainsAssetPreparation
+                    || earlier.Start == BatchStart.AfterEarlierAssetPreparation;
             }
             if (scheduled.WorkScope.HasValue && earlier.WorkScope != scheduled.WorkScope)
                 return earlier.ContainsAssetPreparation;
@@ -412,7 +413,9 @@ namespace Battlement
             if (scheduled.Start == BatchStart.AfterEarlierAssetPreparation)
             {
                 return batches.Any(batch =>
-                    IsDependency(scheduled, batch) && batch.Outcome == BatchOutcome.Failed
+                    batch.ContainsAssetPreparation
+                    && IsDependency(scheduled, batch)
+                    && batch.Outcome == BatchOutcome.Failed
                 );
             }
             if (scheduled.Admission.WaitsThroughSequence is null)

@@ -219,6 +219,7 @@ where
     }
     let mut scheduled = ScheduledBatch::new(batch);
     scheduled.retention = self.response_retention.clone();
+    crate::batch_ordering::assert_ordered(&self.scheduled_batches, &scheduled, &self.ui_world);
     self.scheduled_batches.push(scheduled);
     self.pump_presentation();
   }
@@ -519,16 +520,8 @@ where
     if batch.started {
       return !batch.groups.is_empty();
     }
-    match batch.start {
-      BatchStart::Now => true,
-      BatchStart::AfterEarlierBlockingWork => {
-        !self.scheduled_batches[..index].iter().any(|earlier| {
-          batch.scope.is_none() || earlier.scope == batch.scope || earlier.prepares_assets
-        })
-      }
-      BatchStart::AfterEarlierAssetPreparation => !self.scheduled_batches[..index]
-        .iter()
-        .any(|earlier| earlier.prepares_assets),
-    }
+    !self.scheduled_batches[..index]
+      .iter()
+      .any(|earlier| crate::batch_ordering::depends_on(batch, earlier))
   }
 }

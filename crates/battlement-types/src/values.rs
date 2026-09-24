@@ -418,7 +418,7 @@ pub enum BatchStart {
   Now,
   /// Wait until blocking work in earlier batches has completed.
   AfterEarlierBlockingWork,
-  /// Wait for earlier batches that prepare assets, without waiting for unrelated operations.
+  /// Wait for earlier asset preparation and earlier batches with this start, but not other work.
   AfterEarlierAssetPreparation,
 }
 

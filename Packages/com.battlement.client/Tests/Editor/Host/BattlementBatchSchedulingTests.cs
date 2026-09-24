@@ -307,6 +307,55 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void IndependentBatchesWaitForEarlierIndependentBatches()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            Command wait = Wait(TimeSpan.FromHours(1));
+            var screen = new ObjectId(Guid.NewGuid());
+            var later = new ObjectId(Guid.NewGuid());
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierAssetPreparation,
+                        Group(wait),
+                        Group(Create(screen))
+                    ),
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierAssetPreparation,
+                        Group(Create(later))
+                    )
+                )
+            );
+            Assert.That(HasIdentity(screen), Is.False);
+            Assert.That(HasIdentity(later), Is.False);
+
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(
+                        session,
+                        BatchStart.Now,
+                        Group(
+                            new Command(
+                                new CommandId(Guid.NewGuid()),
+                                new CommandBody.Operation.Cancel(wait.Id)
+                            )
+                        )
+                    )
+                )
+            );
+            Assert.That(HasIdentity(screen), Is.True);
+            Assert.That(HasIdentity(later), Is.True);
+            Assert.That(Failures(harness), Is.Empty);
+        }
+
+        [Test]
         public void PresentationPauseFreezesOwnedWaitsButNotIndependentWork()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
