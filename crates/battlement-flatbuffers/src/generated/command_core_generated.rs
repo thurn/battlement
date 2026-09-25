@@ -527,6 +527,97 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
+      pub const ENUM_MIN_DIAGNOSTICS_OPERATION: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_DIAGNOSTICS_OPERATION: u8 = 1;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_DIAGNOSTICS_OPERATION: [DiagnosticsOperation; 2] = [
+        DiagnosticsOperation::SetMetadata,
+        DiagnosticsOperation::SetReporting,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct DiagnosticsOperation(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl DiagnosticsOperation {
+        pub const SetMetadata: Self = Self(0);
+        pub const SetReporting: Self = Self(1);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 1;
+        pub const ENUM_VALUES: &'static [Self] = &[Self::SetMetadata, Self::SetReporting];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::SetMetadata => Some("SetMetadata"),
+            Self::SetReporting => Some("SetReporting"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for DiagnosticsOperation {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for DiagnosticsOperation {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for DiagnosticsOperation {
+        type Output = DiagnosticsOperation;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for DiagnosticsOperation {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for DiagnosticsOperation {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for DiagnosticsOperation {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
       pub const ENUM_MIN_PARTICLE_SPAWN_LOCATION_KIND: u8 = 0;
       #[deprecated(
         since = "2.0.0",
@@ -1104,8 +1195,10 @@ pub mod battlement {
       }
 
       impl<'a> DiagnosticsPayload<'a> {
-        pub const VT_KEY: ::flatbuffers::VOffsetT = 4;
-        pub const VT_VALUE: ::flatbuffers::VOffsetT = 6;
+        pub const VT_OPERATION: ::flatbuffers::VOffsetT = 4;
+        pub const VT_KEY: ::flatbuffers::VOffsetT = 6;
+        pub const VT_VALUE: ::flatbuffers::VOffsetT = 8;
+        pub const VT_ENABLED: ::flatbuffers::VOffsetT = 10;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -1128,11 +1221,28 @@ pub mod battlement {
           if let Some(x) = args.key {
             builder.add_key(x);
           }
+          builder.add_enabled(args.enabled);
+          builder.add_operation(args.operation);
           builder.finish()
         }
 
         #[inline]
-        pub fn key(&self) -> &'a str {
+        pub fn operation(&self) -> DiagnosticsOperation {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<DiagnosticsOperation>(
+                DiagnosticsPayload::VT_OPERATION,
+                Some(DiagnosticsOperation::SetMetadata),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn key(&self) -> Option<&'a str> {
           // Safety:
           // Created from valid Table for this object
           // which contains a valid value in this slot
@@ -1140,7 +1250,6 @@ pub mod battlement {
             self
               ._tab
               .get::<::flatbuffers::ForwardsUOffset<&str>>(DiagnosticsPayload::VT_KEY, None)
-              .unwrap()
           }
         }
         #[inline]
@@ -1154,6 +1263,18 @@ pub mod battlement {
               .get::<::flatbuffers::ForwardsUOffset<&str>>(DiagnosticsPayload::VT_VALUE, None)
           }
         }
+        #[inline]
+        pub fn enabled(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(DiagnosticsPayload::VT_ENABLED, Some(false))
+              .unwrap()
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for DiagnosticsPayload<'_> {
@@ -1163,22 +1284,28 @@ pub mod battlement {
           pos: usize,
         ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
           v.visit_table(pos)?
-            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("key", Self::VT_KEY, true)?
+            .visit_field::<DiagnosticsOperation>("operation", Self::VT_OPERATION, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("key", Self::VT_KEY, false)?
             .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("value", Self::VT_VALUE, false)?
+            .visit_field::<bool>("enabled", Self::VT_ENABLED, false)?
             .finish();
           Ok(())
         }
       }
       pub struct DiagnosticsPayloadArgs<'a> {
+        pub operation: DiagnosticsOperation,
         pub key: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub value: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub enabled: bool,
       }
       impl<'a> Default for DiagnosticsPayloadArgs<'a> {
         #[inline]
         fn default() -> Self {
           DiagnosticsPayloadArgs {
-            key: None, // required field
+            operation: DiagnosticsOperation::SetMetadata,
+            key: None,
             value: None,
+            enabled: false,
           }
         }
       }
@@ -1188,6 +1315,14 @@ pub mod battlement {
         start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
       }
       impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DiagnosticsPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_operation(&mut self, operation: DiagnosticsOperation) {
+          self.fbb_.push_slot::<DiagnosticsOperation>(
+            DiagnosticsPayload::VT_OPERATION,
+            operation,
+            DiagnosticsOperation::SetMetadata,
+          );
+        }
         #[inline]
         pub fn add_key(&mut self, key: ::flatbuffers::WIPOffset<&'b str>) {
           self
@@ -1199,6 +1334,12 @@ pub mod battlement {
           self
             .fbb_
             .push_slot_always::<::flatbuffers::WIPOffset<_>>(DiagnosticsPayload::VT_VALUE, value);
+        }
+        #[inline]
+        pub fn add_enabled(&mut self, enabled: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(DiagnosticsPayload::VT_ENABLED, enabled, false);
         }
         #[inline]
         pub fn new(
@@ -1213,7 +1354,6 @@ pub mod battlement {
         #[inline]
         pub fn finish(self) -> ::flatbuffers::WIPOffset<DiagnosticsPayload<'a>> {
           let o = self.fbb_.end_table(self.start_);
-          self.fbb_.required(o, DiagnosticsPayload::VT_KEY, "key");
           ::flatbuffers::WIPOffset::new(o.value())
         }
       }
@@ -1221,8 +1361,10 @@ pub mod battlement {
       impl ::core::fmt::Debug for DiagnosticsPayload<'_> {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
           let mut ds = f.debug_struct("DiagnosticsPayload");
+          ds.field("operation", &self.operation());
           ds.field("key", &self.key());
           ds.field("value", &self.value());
+          ds.field("enabled", &self.enabled());
           ds.finish()
         }
       }

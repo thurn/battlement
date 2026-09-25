@@ -29,14 +29,20 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
     }
     Kind::Diagnostics => {
       let body = value.payload_as_diagnostics_payload().ok_or_else(missing)?;
-      CommandBody::Diagnostics(
-        battlement_cloud::diagnostics::DiagnosticsCommand::SetMetadata(
-          battlement_cloud::diagnostics::DiagnosticsMetadata {
-            key: body.key().to_owned(),
-            value: body.value().map(str::to_owned),
-          },
-        ),
-      )
+      CommandBody::Diagnostics(match body.operation() {
+        payload::DiagnosticsOperation::SetMetadata => {
+          battlement_cloud::diagnostics::DiagnosticsCommand::SetMetadata(
+            battlement_cloud::diagnostics::DiagnosticsMetadata {
+              key: body.key().ok_or_else(missing)?.to_owned(),
+              value: body.value().map(str::to_owned),
+            },
+          )
+        }
+        payload::DiagnosticsOperation::SetReporting => {
+          battlement_cloud::diagnostics::DiagnosticsCommand::SetReporting(body.enabled())
+        }
+        _ => return Err(missing()),
+      })
     }
     Kind::AssetsReplaceSet => {
       let body = value

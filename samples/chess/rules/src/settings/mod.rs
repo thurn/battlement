@@ -3,6 +3,7 @@
 pub mod bindings;
 mod context;
 mod model;
+pub mod reporting;
 mod save_status;
 
 pub use context::{SettingsContext, SettingsRoot, use_settings};

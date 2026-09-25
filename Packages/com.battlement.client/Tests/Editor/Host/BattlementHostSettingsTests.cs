@@ -122,6 +122,9 @@ namespace Battlement.Tests
                 ControllerCount = 2,
                 Diagnostics = SettingAvailability.Failed,
                 DiagnosticsConfigured = true,
+                CaptureExceptions = false,
+                PerformanceReporting = true,
+                DiagnosticsError = "local control failed",
                 ObservationError = "vendor unavailable",
                 LastResult = new HostSettingsResult(new CommandId(Guid.NewGuid()), "denied"),
             };
@@ -209,6 +212,9 @@ namespace Battlement.Tests
             Assert.That(wire.ControllerCount, Is.EqualTo(2));
             Assert.That(wire.Diagnostics, Is.EqualTo(Wire.SettingAvailability.Failed));
             Assert.That(wire.DiagnosticsConfigured, Is.True);
+            Assert.That(wire.CaptureExceptions, Is.False);
+            Assert.That(wire.PerformanceReporting, Is.True);
+            Assert.That(wire.DiagnosticsError, Is.EqualTo(value.DiagnosticsError));
             Assert.That(wire.ObservationError, Is.EqualTo(value.ObservationError));
             Assert.That(wire.LastResult!.Value.Error, Is.EqualTo(value.LastResult!.Error));
         }

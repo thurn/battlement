@@ -107,6 +107,12 @@ pub struct HostSettings {
   pub diagnostics: SettingAvailability,
   /// Whether the host has the vendor project configuration.
   pub diagnostics_configured: bool,
+  /// Readback of Unity exception capture; absence means unobserved.
+  pub capture_exceptions: Option<bool>,
+  /// Readback of the legacy performance service, not a verified upload gate.
+  pub performance_reporting: Option<bool>,
+  /// Most recent diagnostics apply or observation failure.
+  pub diagnostics_error: Option<String>,
   /// Observation failures are separate from unavailable capabilities.
   pub observation_error: Option<String>,
   /// Latest explicit setting operation outcome, if any.
@@ -130,6 +136,9 @@ impl Default for HostSettings {
       controller_count: 0,
       diagnostics: SettingAvailability::Unavailable,
       diagnostics_configured: false,
+      capture_exceptions: None,
+      performance_reporting: None,
+      diagnostics_error: None,
       observation_error: None,
       last_result: None,
     }

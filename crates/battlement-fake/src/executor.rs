@@ -38,6 +38,15 @@ where
       let result = self.diagnostics.execute(command.command_id, diagnostics);
       match result {
         Ok(()) => {
+          if let battlement_cloud::diagnostics::DiagnosticsCommand::SetReporting(enabled) =
+            diagnostics
+          {
+            let mut settings = self.connect.host_settings.clone();
+            settings.capture_exceptions = Some(*enabled);
+            settings.performance_reporting = Some(*enabled);
+            settings.diagnostics_error = None;
+            self.set_host_settings(settings);
+          }
           self.record_executed(command, batch_id, group_index, command_index);
           return true;
         }

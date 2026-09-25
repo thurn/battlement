@@ -36,6 +36,9 @@ fn settings() -> HostSettings {
     controller_count: 2,
     diagnostics: SettingAvailability::Failed,
     diagnostics_configured: true,
+    capture_exceptions: Some(false),
+    performance_reporting: Some(true),
+    diagnostics_error: Some("local control failed".into()),
     observation_error: Some("vendor unavailable".into()),
     last_result: Some(HostSettingsResult {
       request_id: CommandId::new_v4(),

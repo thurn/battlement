@@ -1,6 +1,7 @@
 //! Saved preferences are exercised through the public application and storage boundaries.
 mod support;
 
+use battlement::host_settings::HostPlatform;
 use battlement::{CheckedState, PhysicalKey};
 use chess_rules::settings::{self, ChessSettings, Language, TextSize};
 use reactant::{
@@ -208,4 +209,49 @@ fn preference_hydration_precedes_startup_effects_and_never_writes_defaults() {
       .unwrap(),
     Some(bytes.to_vec())
   );
+}
+
+#[test]
+fn reporting_restores_saved_intent_and_exposes_local_results_separately() {
+  let storage = MemoryPersistence::empty();
+  let mut game = ChessTest::persisted(storage.clone());
+  assert_eq!(game.display.diagnostics().reporting(), Some(true));
+  game.display.activate_accessible("SETTINGS");
+  assert_eq!(
+    game
+      .display
+      .semantic_node("Upload Crash Reports")
+      .hint
+      .as_deref(),
+    Some("Reporting is not configured in this build.")
+  );
+  game.display.activate_accessible("Upload Crash Reports");
+  assert_eq!(game.display.diagnostics().reporting(), Some(false));
+  drop(game);
+  let mut game = ChessTest::persisted(storage);
+  assert_eq!(game.display.diagnostics().reporting(), Some(false));
+  game.display.activate_accessible("SETTINGS");
+  assert_eq!(
+    game
+      .display
+      .semantic_node("Upload Crash Reports")
+      .state
+      .checked,
+    Some(CheckedState::False)
+  );
+  game
+    .display
+    .set_host_settings(battlement::host_settings::HostSettings {
+      platform: HostPlatform::Web,
+      ..Default::default()
+    });
+  assert!(
+    !game
+      .display
+      .accessibility()
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Upload Crash Reports"))
+  );
+  assert_eq!(game.display.diagnostics().reporting(), Some(false));
 }

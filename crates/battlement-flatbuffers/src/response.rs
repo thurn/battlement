@@ -3,6 +3,7 @@ use battlement::RenderOrder;
 use battlement::{Command, CommandBody};
 #[cfg(any(test, feature = "test-support"))]
 use battlement::{Response, ResponseMessage, Validate};
+use battlement_cloud::diagnostics::DiagnosticsCommand;
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, VerifierOptions, WIPOffset};
 
 use crate::{
@@ -278,19 +279,22 @@ pub(crate) fn write_command<'a>(
       )
     }
     CommandBody::Diagnostics(value) => {
-      let battlement_cloud::diagnostics::DiagnosticsCommand::SetMetadata(value) = value;
-      let key = builder.create_string(&value.key);
-      let metadata_value = value
-        .value
-        .as_ref()
-        .map(|value| builder.create_string(value));
-      let payload = command_wire::DiagnosticsPayload::create(
-        builder,
-        &command_wire::DiagnosticsPayloadArgs {
-          key: Some(key),
-          value: metadata_value,
+      let args = match value {
+        DiagnosticsCommand::SetMetadata(value) => command_wire::DiagnosticsPayloadArgs {
+          key: Some(builder.create_string(&value.key)),
+          value: value
+            .value
+            .as_ref()
+            .map(|value| builder.create_string(value)),
+          ..Default::default()
         },
-      );
+        DiagnosticsCommand::SetReporting(enabled) => command_wire::DiagnosticsPayloadArgs {
+          operation: command_wire::DiagnosticsOperation::SetReporting,
+          enabled: *enabled,
+          ..Default::default()
+        },
+      };
+      let payload = command_wire::DiagnosticsPayload::create(builder, &args);
       (
         wire::CoreCommandKind::Diagnostics,
         wire::CoreCommandPayload::DiagnosticsPayload,

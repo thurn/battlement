@@ -24,7 +24,8 @@ struct Tween {
 }
 
 table ExternalUrlPayload { url:string (required); }
-table DiagnosticsPayload { key:string (required); value:string; }
+enum DiagnosticsOperation:ubyte { SetMetadata, SetReporting }
+table DiagnosticsPayload { operation:DiagnosticsOperation; key:string; value:string; enabled:bool; }
 table ReplaceAssetSetPayload { assets:[PreparedAsset] (required); }
 table SceneLoadPayload { scene_id:Uuid (required); address:string (required); make_primary:bool; }
 table SceneIdPayload { scene_id:Uuid (required); }

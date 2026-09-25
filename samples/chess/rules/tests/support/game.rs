@@ -1,5 +1,6 @@
 //! User-intent helpers isolate scenarios from the current gesture and layout.
 use crate::support::board;
+use battlement::host_settings::{HostPlatform, SettingAvailability};
 use battlement::{Connect, PhysicalKey, PrefabAddress, ScreenSize, Vector3};
 use battlement_fake::assets::FakeAssetCatalog;
 use chess_rules::{
@@ -31,7 +32,7 @@ impl ChessTest {
   }
 
   pub fn persisted(storage: Rc<dyn PersistenceBackend>) -> Self {
-    Self::assemble(None, Some(storage), &[])
+    Self::assemble(None, Some(storage), &["battlement.diagnostics"])
   }
 
   pub fn assemble(
@@ -88,6 +89,10 @@ impl ChessTest {
     let mut connect =
       Connect::new("test", "test", ScreenSize::new(1920, 1080)).persistent_data_path("memory");
     connect.modules = modules.iter().map(|m| (*m).to_owned()).collect();
+    if modules.contains(&"battlement.diagnostics") {
+      connect.host_settings.platform = HostPlatform::MacOs;
+      connect.host_settings.diagnostics = SettingAvailability::Available;
+    }
     let display = Display::connect_application::<ChessGame>(
       move |clock| {
         chess_rules::create_engine(EngineDependencies {

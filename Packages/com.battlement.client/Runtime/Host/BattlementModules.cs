@@ -29,6 +29,8 @@ namespace Battlement
     {
         /// <summary>Executes one synchronous Diagnostics command.</summary>
         void SetMetadata(string key, string? value);
+        void SetReporting(bool enabled);
+        DiagnosticsObservation ReadReporting();
     }
 
     /// <summary>Stable module execution failure consumed by the core batch pipeline.</summary>
@@ -79,28 +81,32 @@ namespace Battlement
 
         public void Execute(DiagnosticsCommand command)
         {
-            if (command is not DiagnosticsCommand.SetMetadata metadata)
-                throw new BattlementModuleException(
-                    CoreErrorCode.InvalidEncoding,
-                    "The Diagnostics command kind is unknown."
-                );
-            Execute(metadata.Key, metadata.Value);
+            switch (command)
+            {
+                case DiagnosticsCommand.SetMetadata metadata:
+                    DiagnosticsRuntime().SetMetadata(metadata.Key, metadata.Value);
+                    break;
+                case DiagnosticsCommand.SetReporting reporting:
+                    DiagnosticsRuntime().SetReporting(reporting.Enabled);
+                    break;
+                default:
+                    throw new BattlementModuleException(
+                        CoreErrorCode.InvalidEncoding,
+                        "The Diagnostics command kind is unknown."
+                    );
+            }
         }
 
-        public void Execute(string key, string? value)
-        {
-            IBattlementDiagnosticsRuntime? runtime = runtimes
+        public DiagnosticsObservation ReadReporting() => DiagnosticsRuntime().ReadReporting();
+
+        private IBattlementDiagnosticsRuntime DiagnosticsRuntime() =>
+            runtimes
                 .OfType<IBattlementDiagnosticsRuntime>()
-                .FirstOrDefault(value => value.ModuleId == "battlement.diagnostics");
-            if (runtime is null)
-            {
-                throw new BattlementModuleException(
-                    CoreErrorCode.ModuleUnavailable,
-                    "No selected Diagnostics module owns the command."
-                );
-            }
-            runtime.SetMetadata(key, value);
-        }
+                .FirstOrDefault(value => value.ModuleId == "battlement.diagnostics")
+            ?? throw new BattlementModuleException(
+                CoreErrorCode.ModuleUnavailable,
+                "No selected Diagnostics module owns the command."
+            );
 
         public void Dispose() => DisposeRuntimes();
 

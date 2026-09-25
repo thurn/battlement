@@ -414,14 +414,23 @@ public struct HostSettings : IFlatbufferObject
   public uint ControllerCount { get { int o = __p.__offset(26); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
   public Battlement.FlatBuffers.Generated.SettingAvailability Diagnostics { get { int o = __p.__offset(28); return o != 0 ? (Battlement.FlatBuffers.Generated.SettingAvailability)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.SettingAvailability.Unavailable; } }
   public bool DiagnosticsConfigured { get { int o = __p.__offset(30); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
-  public string ObservationError { get { int o = __p.__offset(32); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public bool? CaptureExceptions { get { int o = __p.__offset(32); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool?)null; } }
+  public bool? PerformanceReporting { get { int o = __p.__offset(34); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool?)null; } }
+  public string DiagnosticsError { get { int o = __p.__offset(36); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetObservationErrorBytes() { return __p.__vector_as_span<byte>(32, 1); }
+  public Span<byte> GetDiagnosticsErrorBytes() { return __p.__vector_as_span<byte>(36, 1); }
 #else
-  public ArraySegment<byte>? GetObservationErrorBytes() { return __p.__vector_as_arraysegment(32); }
+  public ArraySegment<byte>? GetDiagnosticsErrorBytes() { return __p.__vector_as_arraysegment(36); }
 #endif
-  public byte[] GetObservationErrorArray() { return __p.__vector_as_array<byte>(32); }
-  public Battlement.FlatBuffers.Generated.HostSettingsResult? LastResult { get { int o = __p.__offset(34); return o != 0 ? (Battlement.FlatBuffers.Generated.HostSettingsResult?)(new Battlement.FlatBuffers.Generated.HostSettingsResult()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public byte[] GetDiagnosticsErrorArray() { return __p.__vector_as_array<byte>(36); }
+  public string ObservationError { get { int o = __p.__offset(38); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetObservationErrorBytes() { return __p.__vector_as_span<byte>(38, 1); }
+#else
+  public ArraySegment<byte>? GetObservationErrorBytes() { return __p.__vector_as_arraysegment(38); }
+#endif
+  public byte[] GetObservationErrorArray() { return __p.__vector_as_array<byte>(38); }
+  public Battlement.FlatBuffers.Generated.HostSettingsResult? LastResult { get { int o = __p.__offset(40); return o != 0 ? (Battlement.FlatBuffers.Generated.HostSettingsResult?)(new Battlement.FlatBuffers.Generated.HostSettingsResult()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.HostSettings> CreateHostSettings(FlatBufferBuilder builder,
       Battlement.FlatBuffers.Generated.HostPlatform platform = Battlement.FlatBuffers.Generated.HostPlatform.Unavailable,
@@ -438,17 +447,23 @@ public struct HostSettings : IFlatbufferObject
       uint controller_count = 0,
       Battlement.FlatBuffers.Generated.SettingAvailability diagnostics = Battlement.FlatBuffers.Generated.SettingAvailability.Unavailable,
       bool diagnostics_configured = false,
+      bool? capture_exceptions = null,
+      bool? performance_reporting = null,
+      StringOffset diagnostics_errorOffset = default(StringOffset),
       StringOffset observation_errorOffset = default(StringOffset),
       Offset<Battlement.FlatBuffers.Generated.HostSettingsResult> last_resultOffset = default(Offset<Battlement.FlatBuffers.Generated.HostSettingsResult>)) {
-    builder.StartTable(16);
+    builder.StartTable(19);
     HostSettings.AddLastResult(builder, last_resultOffset);
     HostSettings.AddObservationError(builder, observation_errorOffset);
+    HostSettings.AddDiagnosticsError(builder, diagnostics_errorOffset);
     HostSettings.AddControllerCount(builder, controller_count);
     HostSettings.AddAppliedFrameRate(builder, applied_frame_rate);
     HostSettings.AddFrameRates(builder, frame_ratesOffset);
     HostSettings.AddAppliedDisplay(builder, applied_displayOffset);
     HostSettings.AddResolutions(builder, resolutionsOffset);
     HostSettings.AddDisplayModes(builder, display_modesOffset);
+    HostSettings.AddPerformanceReporting(builder, performance_reporting);
+    HostSettings.AddCaptureExceptions(builder, capture_exceptions);
     HostSettings.AddDiagnosticsConfigured(builder, diagnostics_configured);
     HostSettings.AddDiagnostics(builder, diagnostics);
     HostSettings.AddKeyboardConnected(builder, keyboard_connected);
@@ -460,7 +475,7 @@ public struct HostSettings : IFlatbufferObject
     return HostSettings.EndHostSettings(builder);
   }
 
-  public static void StartHostSettings(FlatBufferBuilder builder) { builder.StartTable(16); }
+  public static void StartHostSettings(FlatBufferBuilder builder) { builder.StartTable(19); }
   public static void AddPlatform(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.HostPlatform platform) { builder.AddByte(0, (byte)platform, 0); }
   public static void AddDisplay(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.SettingAvailability display) { builder.AddByte(1, (byte)display, 0); }
   public static void AddDisplayModes(FlatBufferBuilder builder, VectorOffset displayModesOffset) { builder.AddOffset(2, displayModesOffset.Value, 0); }
@@ -486,8 +501,11 @@ public struct HostSettings : IFlatbufferObject
   public static void AddControllerCount(FlatBufferBuilder builder, uint controllerCount) { builder.AddUint(11, controllerCount, 0); }
   public static void AddDiagnostics(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.SettingAvailability diagnostics) { builder.AddByte(12, (byte)diagnostics, 0); }
   public static void AddDiagnosticsConfigured(FlatBufferBuilder builder, bool diagnosticsConfigured) { builder.AddBool(13, diagnosticsConfigured, false); }
-  public static void AddObservationError(FlatBufferBuilder builder, StringOffset observationErrorOffset) { builder.AddOffset(14, observationErrorOffset.Value, 0); }
-  public static void AddLastResult(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.HostSettingsResult> lastResultOffset) { builder.AddOffset(15, lastResultOffset.Value, 0); }
+  public static void AddCaptureExceptions(FlatBufferBuilder builder, bool? captureExceptions) { builder.AddBool(14, captureExceptions); }
+  public static void AddPerformanceReporting(FlatBufferBuilder builder, bool? performanceReporting) { builder.AddBool(15, performanceReporting); }
+  public static void AddDiagnosticsError(FlatBufferBuilder builder, StringOffset diagnosticsErrorOffset) { builder.AddOffset(16, diagnosticsErrorOffset.Value, 0); }
+  public static void AddObservationError(FlatBufferBuilder builder, StringOffset observationErrorOffset) { builder.AddOffset(17, observationErrorOffset.Value, 0); }
+  public static void AddLastResult(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.HostSettingsResult> lastResultOffset) { builder.AddOffset(18, lastResultOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.HostSettings> EndHostSettings(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 8);  // display_modes
@@ -517,8 +535,11 @@ static public class HostSettingsVerify
       && verifier.VerifyField(tablePos, 26 /*ControllerCount*/, 4 /*uint*/, 4, false)
       && verifier.VerifyField(tablePos, 28 /*Diagnostics*/, 1 /*Battlement.FlatBuffers.Generated.SettingAvailability*/, 1, false)
       && verifier.VerifyField(tablePos, 30 /*DiagnosticsConfigured*/, 1 /*bool*/, 1, false)
-      && verifier.VerifyString(tablePos, 32 /*ObservationError*/, false)
-      && verifier.VerifyTable(tablePos, 34 /*LastResult*/, Battlement.FlatBuffers.Generated.HostSettingsResultVerify.Verify, false)
+      && verifier.VerifyField(tablePos, 32 /*CaptureExceptions*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyField(tablePos, 34 /*PerformanceReporting*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyString(tablePos, 36 /*DiagnosticsError*/, false)
+      && verifier.VerifyString(tablePos, 38 /*ObservationError*/, false)
+      && verifier.VerifyTable(tablePos, 40 /*LastResult*/, Battlement.FlatBuffers.Generated.HostSettingsResultVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

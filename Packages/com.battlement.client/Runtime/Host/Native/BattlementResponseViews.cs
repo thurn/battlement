@@ -1234,11 +1234,9 @@ namespace Battlement
 
     internal readonly struct BattlementDirectDiagnostics
     {
-        internal BattlementDirectDiagnostics(string key, string? value) =>
-            (Key, Value) = (key, value);
+        internal BattlementDirectDiagnostics(DiagnosticsCommand command) => Command = command;
 
-        internal string Key { get; }
-        internal string? Value { get; }
+        internal DiagnosticsCommand Command { get; }
     }
 
     internal readonly struct BattlementDirectAssetSet
@@ -2840,7 +2838,16 @@ namespace Battlement
                 execution = new BattlementCommandExecution(
                     commandId,
                     command.Blocking,
-                    new BattlementDirectDiagnostics(payload.Key, payload.Value)
+                    new BattlementDirectDiagnostics(
+                        payload.Operation switch
+                        {
+                            Wire.DiagnosticsOperation.SetMetadata =>
+                                new DiagnosticsCommand.SetMetadata(payload.Key, payload.Value),
+                            Wire.DiagnosticsOperation.SetReporting =>
+                                new DiagnosticsCommand.SetReporting(payload.Enabled),
+                            _ => throw new InvalidDataException("Unknown Diagnostics operation."),
+                        }
+                    )
                 );
                 return true;
             }

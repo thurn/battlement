@@ -31,6 +31,7 @@ pub enum FakeDiagnosticsCommandOutcome {
 /// In-memory implementation of the Diagnostics metadata command contract.
 pub struct DiagnosticsFake {
   available: bool,
+  reporting: Option<bool>,
   metadata: BTreeMap<String, String>,
   command_results: Vec<FakeDiagnosticsCommandResult>,
 }
@@ -39,6 +40,7 @@ impl Default for DiagnosticsFake {
   fn default() -> Self {
     Self {
       available: true,
+      reporting: None,
       metadata: BTreeMap::new(),
       command_results: Vec::new(),
     }
@@ -59,6 +61,11 @@ impl DiagnosticsFake {
   #[must_use]
   pub const fn is_available(&self) -> bool {
     self.available
+  }
+
+  /// Last successfully applied local reporting request.
+  pub fn reporting(&self) -> Option<bool> {
+    self.reporting
   }
 
   /// Returns metadata currently held by the simulated Unity API.
@@ -102,6 +109,7 @@ impl DiagnosticsFake {
     command.validate().map_err(map_validation)?;
     match command {
       DiagnosticsCommand::SetMetadata(metadata) => self.set_metadata(metadata),
+      DiagnosticsCommand::SetReporting(enabled) => self.reporting = Some(*enabled),
     }
     Ok(())
   }

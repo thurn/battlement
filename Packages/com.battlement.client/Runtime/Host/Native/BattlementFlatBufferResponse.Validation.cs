@@ -755,8 +755,13 @@ namespace Battlement
                     Wire.DiagnosticsPayload payload = value.PayloadAsDiagnosticsPayload();
                     if (!value.Blocking)
                         throw new InvalidDataException("Diagnostics commands must be blocking.");
-                    if (DiagnosticsProtocol.Validate(payload.Key, payload.Value) is not null)
-                        throw new InvalidDataException("Diagnostics metadata is invalid.");
+                    if (payload.Operation == Wire.DiagnosticsOperation.SetMetadata)
+                    {
+                        if (DiagnosticsProtocol.Validate(payload.Key, payload.Value) is not null)
+                            throw new InvalidDataException("Diagnostics metadata is invalid.");
+                    }
+                    else if (payload.Operation != Wire.DiagnosticsOperation.SetReporting)
+                        throw new InvalidDataException("Unknown Diagnostics operation.");
                     return true;
                 }
                 case Wire.CoreCommandKind.GeometryObservationUpdate:

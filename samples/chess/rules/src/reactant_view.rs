@@ -37,6 +37,7 @@ use crate::{
 };
 use battlement::PickingMode;
 use reactant::PersistenceBackend;
+use settings::reporting;
 
 pub(super) const CAMERA_ROTATION: Quaternion =
   Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
@@ -110,6 +111,7 @@ struct ChessApp {
 
 impl Component for ChessAssembly {
   fn render(&self) -> impl Render {
+    reporting::use_reporting();
     match &self.config.persistence {
       Some(backend) => Either::left(PersistentChessApp {
         config: self.config.clone(),

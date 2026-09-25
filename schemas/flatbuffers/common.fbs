@@ -103,6 +103,9 @@ table HostSettings {
   controller_count:uint;
   diagnostics:SettingAvailability;
   diagnostics_configured:bool;
+  capture_exceptions:bool = null;
+  performance_reporting:bool = null;
+  diagnostics_error:string;
   observation_error:string;
   last_result:HostSettingsResult;
 }

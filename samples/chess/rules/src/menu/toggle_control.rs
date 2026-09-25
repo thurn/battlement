@@ -68,15 +68,7 @@ impl Component for ToggleControl {
         self
           .accessibility_description
           .as_ref()
-          .map(|description| SemanticDescription::text(description.clone()))
-          .or_else(|| {
-            self.with_info.then(|| {
-              SemanticDescription::text(tx(
-                "We upload crash reports to Unity Diagnostics.",
-                "Crash report help message.",
-              ))
-            })
-          }),
+          .map(|description| SemanticDescription::text(description.clone())),
         self.checked,
         false,
         on_change.clone(),

@@ -11,7 +11,17 @@ namespace Battlement
 
         /// <summary>Sets one metadata value, or clears the key when value is null.</summary>
         public sealed record SetMetadata(string Key, string? Value = null) : DiagnosticsCommand;
+
+        /// <summary>Applies supported local reporting controls without promising uploads.</summary>
+        public sealed record SetReporting(bool Enabled) : DiagnosticsCommand;
     }
+
+    /// <summary>Local API readback, independent of remote collection or upload.</summary>
+    public sealed record DiagnosticsObservation(
+        bool? CaptureExceptions,
+        bool? PerformanceReporting,
+        string? Error = null
+    );
 
     /// <summary>Unity Diagnostics metadata bounds shared by protocol clients.</summary>
     public static class DiagnosticsProtocol
@@ -88,7 +98,7 @@ namespace Battlement
 
     public abstract partial record CommandBody
     {
-        /// <summary>Enriches future Unity Diagnostics reports with custom metadata.</summary>
+        /// <summary>Controls local Unity Diagnostics APIs and report metadata.</summary>
         public sealed record Diagnostics(DiagnosticsCommand Command) : CommandBody;
     }
 }

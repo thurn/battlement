@@ -839,6 +839,7 @@ impl MessageWriter {
       &command_wire::DiagnosticsPayloadArgs {
         key: Some(key),
         value: Some(value),
+        ..Default::default()
       },
     );
     self.core_command(

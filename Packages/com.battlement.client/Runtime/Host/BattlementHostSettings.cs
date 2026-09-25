@@ -28,11 +28,18 @@ namespace Battlement
                     "battlement.host.settings",
                     $"platform={value.Platform} keyboard={value.KeyboardConnected} "
                         + $"controllers={value.ControllerCount} display={value.Display} "
-                        + $"pacing={value.FramePacing}"
+                        + $"pacing={value.FramePacing} diagnostics={value.Diagnostics} "
+                        + $"diagnostics_configured={value.DiagnosticsConfigured} "
+                        + $"capture_exceptions={value.CaptureExceptions} "
+                        + $"performance_reporting={value.PerformanceReporting} "
+                        + $"diagnostics_error={value.DiagnosticsError}"
                 )
             );
 
-        public static HostSettings Read(IReadOnlyList<string> modules)
+        public static HostSettings Read(
+            IReadOnlyList<string> modules,
+            Func<DiagnosticsObservation>? readReporting = null
+        )
         {
             HostPlatform platform = Platform(Application.platform);
             bool desktop = platform is HostPlatform.MacOs or HostPlatform.Windows;
@@ -54,6 +61,16 @@ namespace Battlement
                 DiagnosticsConfigured =
                     diagnostics && !string.IsNullOrEmpty(Application.cloudProjectId),
             };
+            if (diagnostics && readReporting is not null)
+            {
+                DiagnosticsObservation observation = readReporting();
+                result = result with
+                {
+                    CaptureExceptions = observation.CaptureExceptions,
+                    PerformanceReporting = observation.PerformanceReporting,
+                    DiagnosticsError = observation.Error,
+                };
+            }
             if (!supported)
                 return result;
             try

@@ -8,10 +8,38 @@ namespace Battlement.Cloud.Diagnostics
     {
         public bool CaptureExceptions
         {
+            get
+            {
+#if !UNITY_WEBGL || UNITY_EDITOR
+                return CrashReportHandler.enableCaptureExceptions;
+#else
+                throw new System.PlatformNotSupportedException();
+#endif
+            }
             set
             {
 #if !UNITY_WEBGL || UNITY_EDITOR
                 CrashReportHandler.enableCaptureExceptions = value;
+#endif
+            }
+        }
+
+        public bool PerformanceReporting
+        {
+            get
+            {
+#if !UNITY_WEBGL || UNITY_EDITOR
+                return UnityEngine.Analytics.PerformanceReporting.enabled;
+#else
+                throw new System.PlatformNotSupportedException();
+#endif
+            }
+            set
+            {
+#if !UNITY_WEBGL || UNITY_EDITOR
+                UnityEngine.Analytics.PerformanceReporting.enabled = value;
+#else
+                throw new System.PlatformNotSupportedException();
 #endif
             }
         }

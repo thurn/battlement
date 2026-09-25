@@ -69,6 +69,11 @@ namespace Battlement
                 value.ControllerCount,
                 (Wire.SettingAvailability)value.Diagnostics,
                 value.DiagnosticsConfigured,
+                value.CaptureExceptions,
+                value.PerformanceReporting,
+                value.DiagnosticsError is null
+                    ? default
+                    : builder.CreateString(value.DiagnosticsError),
                 observationError,
                 result
             );

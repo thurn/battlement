@@ -59,6 +59,9 @@ namespace Battlement
         public uint ControllerCount { get; init; }
         public SettingAvailability Diagnostics { get; init; }
         public bool DiagnosticsConfigured { get; init; }
+        public bool? CaptureExceptions { get; init; }
+        public bool? PerformanceReporting { get; init; }
+        public string? DiagnosticsError { get; init; }
         public string? ObservationError { get; init; }
         public HostSettingsResult? LastResult { get; init; }
 

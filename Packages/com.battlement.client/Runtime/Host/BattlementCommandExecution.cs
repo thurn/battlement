@@ -190,7 +190,7 @@ namespace Battlement
                         CoreErrorCode.InvalidProperty,
                         "Diagnostics commands must be blocking."
                     );
-                return ExecuteModule(() => modules.Execute(diagnostics.Key, diagnostics.Value));
+                return ExecuteModule(() => modules.Execute(diagnostics.Command));
             }
             if (command.DirectAssets is BattlementDirectAssetSet assets)
                 return LaunchDirect(() =>

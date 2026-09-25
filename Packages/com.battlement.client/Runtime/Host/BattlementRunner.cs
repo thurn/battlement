@@ -1376,7 +1376,10 @@ namespace Battlement
 
         private HostSettings ReadHostSettings(BattlementRunnerOptions configured) =>
             configured.ReadHostSettings is null
-                ? BattlementHostSettings.Read(configuredRuntime!.Modules.ModuleIds)
+                ? BattlementHostSettings.Read(
+                    configuredRuntime!.Modules.ModuleIds,
+                    configuredRuntime.Modules.ReadReporting
+                )
                 : configured.ReadHostSettings();
 
         private void PublishHostSettings(bool force = false)

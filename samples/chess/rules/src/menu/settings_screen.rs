@@ -23,9 +23,11 @@ use crate::menu::{
   sound_settings::SoundSettings,
   toggle_control::ToggleControl,
 };
+use crate::settings::reporting;
 use crate::settings::{self, Language, SettingsChange, SettingsContext, SettingsSaveStatus};
 use battlement::Overflow;
 use battlement::host_settings::{DisplayMode, DisplayResolution, HostSettings};
+use battlement::{Color, WhiteSpace, host_settings::SettingAvailability};
 
 /// The source settings screen; the host owns routing and external URL requests.
 #[builder]
@@ -161,7 +163,9 @@ fn panel(
         )),
     )
     .child(match active_tab {
-      SettingsTab::Gameplay => Either::Left(self::gameplay(settings, set_active_modal, overlay)),
+      SettingsTab::Gameplay => {
+        Either::Left(self::gameplay(settings, host, set_active_modal, overlay))
+      }
       SettingsTab::Graphics => Either::Right(Either::Left(
         GraphicsSettings::new()
           .resolution(
@@ -224,11 +228,13 @@ fn panel(
 #[allow(clippy::too_many_arguments)]
 fn gameplay(
   settings: &SettingsContext,
+  host: &HostSettings,
   set_active_modal: &StateSetter<Option<SettingsModal>>,
   overlay: PortalTarget,
 ) -> impl Render {
   let value = settings.desired;
   let font_scale = value.text_size;
+  let reporting_feedback = reporting::feedback(host, value.upload_crash_reports);
   (
     SelectControl::new()
       .label(control_behavior::name_source_text(tx(
@@ -298,24 +304,37 @@ fn gameplay(
       .row_height(self::multiline_row_height(font_scale))
       .checked(value.increase_move_duration)
       .on_change(settings.callback(SettingsChange::IncreaseMoveDuration)),
-    ToggleControl::new()
-      .label(control_behavior::name_source_text(tx(
-        "Upload Crash\nReports",
-        "Two-line crash-report setting label.",
-      )))
-      .aria_label(tx(
-        "Upload Crash Reports",
-        "Crash-report checkbox accessibility label.",
-      ))
-      .row_height(self::multiline_row_height(font_scale))
-      .checked(value.upload_crash_reports)
-      .with_info(true)
-      .on_info_click(
-        set_active_modal
-          .callback()
-          .map_input(|_| Some(SettingsModal::Privacy)),
+    (host.diagnostics != SettingAvailability::Unavailable).then(|| {
+      (
+        ToggleControl::new()
+          .label(control_behavior::name_source_text(tx(
+            "Upload Crash\nReports",
+            "Two-line crash-report setting label.",
+          )))
+          .aria_label(tx(
+            "Upload Crash Reports",
+            "Crash-report checkbox accessibility label.",
+          ))
+          .row_height(self::multiline_row_height(font_scale))
+          .checked(value.upload_crash_reports)
+          .accessibility_description(reporting_feedback.clone())
+          .with_info(true)
+          .on_info_click(
+            set_active_modal
+              .callback()
+              .map_input(|_| Some(SettingsModal::Privacy)),
+          )
+          .on_change(settings.callback(SettingsChange::UploadCrashReports)),
+        control_behavior::static_label(reporting_feedback).style(
+          Style::new()
+            .width(800)
+            .font_size(30.0 * font_scale.factor())
+            .white_space(WhiteSpace::Normal)
+            .color(Color::WHITE)
+            .margin_bottom(20),
+        ),
       )
-      .on_change(settings.callback(SettingsChange::UploadCrashReports)),
+    }),
     EraseControl::new().on_click(
       set_active_modal
         .callback()

@@ -45,11 +45,11 @@ source = "49b601e5bb51ccfc4c721720e33aba99ac43f5c761d3b6e21b0e27d4e1e5d808"
 profile = "macos"
 scenario = "title"
 checkpoint = "settings"
-sha256 = "6421c8ce8e3ba2ea2dee40b6d9be46f7353aaf5839edd6a9b7bd8ae3a11b2d35"
+sha256 = "c40aab6df9e837819648b2f5f4d9c4a9fc810a6c6fd8d7b68890352f4811bf7b"
 width = 1280
 height = 720
-size_bytes = 133930
-source = "49b601e5bb51ccfc4c721720e33aba99ac43f5c761d3b6e21b0e27d4e1e5d808"
+size_bytes = 135767
+source = "9fb87422bd0d5ef57a1ac8c0e0ad7a82ea00bad45c903d0c7d6adf4ba1361120"
 
 [[baselines]]
 profile = "macos"

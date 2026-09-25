@@ -16,7 +16,7 @@ use super::*;
 pub enum CommandBody {
   /// Request the platform's external handler for an absolute URL.
   ApplicationOpenUrl(ExternalUrlRequest),
-  /// Enrich future Unity Diagnostics reports through the selected module.
+  /// Control local reporting APIs and metadata through the selected module.
   ///
   /// Execution is local and synchronous. Success does not acknowledge report
   /// creation, upload, ingestion, grouping, or symbolication. The command fails with

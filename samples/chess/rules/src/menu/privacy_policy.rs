@@ -38,8 +38,8 @@ impl Component for PrivacyPolicyHelp {
           .style(Style::new().align_items(Align::Center))
           .child((
             control_behavior::static_label(tx(
-              "We upload crash reports to Unity Diagnostics.",
-              "Crash report help message.",
+              "Unity Diagnostics is our reporting service. This setting controls available local capture APIs after saved settings load. Startup reports, native crashes, and queued uploads may not follow this choice.",
+              "Best-effort crash report help message.",
             ))
             .style(
               Style::new()
@@ -69,6 +69,8 @@ impl Component for PrivacyPolicyHelp {
 
 fn privacy_link_style(scale: f32) -> Style {
   Style::new()
+    .max_width(620)
+    .white_space(WhiteSpace::Normal)
     .margin_top(34)
     .padding(0)
     .padding_bottom(7)

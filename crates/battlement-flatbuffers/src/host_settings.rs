@@ -74,6 +74,9 @@ impl<'a> HostSettingsView<'a> {
       controller_count: value.controller_count(),
       diagnostics: self::availability(value.diagnostics())?,
       diagnostics_configured: value.diagnostics_configured(),
+      capture_exceptions: value.capture_exceptions(),
+      performance_reporting: value.performance_reporting(),
+      diagnostics_error: value.diagnostics_error().map(str::to_owned),
       observation_error: value.observation_error().map(str::to_owned),
       last_result: value
         .last_result()
@@ -135,6 +138,10 @@ pub(crate) fn write<'a>(
       },
     )
   });
+  let diagnostics_error = value
+    .diagnostics_error
+    .as_ref()
+    .map(|value| builder.create_string(value));
   Ok(wire::HostSettings::create(
     builder,
     &wire::HostSettingsArgs {
@@ -152,6 +159,9 @@ pub(crate) fn write<'a>(
       controller_count: value.controller_count,
       diagnostics: wire::SettingAvailability(value.diagnostics as u8),
       diagnostics_configured: value.diagnostics_configured,
+      capture_exceptions: value.capture_exceptions,
+      performance_reporting: value.performance_reporting,
+      diagnostics_error,
       observation_error,
       last_result,
     },

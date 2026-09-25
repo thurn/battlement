@@ -65,6 +65,12 @@ public enum Easing : byte
   InOutBounce = 30,
 };
 
+public enum DiagnosticsOperation : byte
+{
+  SetMetadata = 0,
+  SetReporting = 1,
+};
+
 public enum ParticleSpawnLocationKind : byte
 {
   GameObject = 0,
@@ -159,36 +165,43 @@ public struct DiagnosticsPayload : IFlatbufferObject
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public DiagnosticsPayload __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public string Key { get { int o = __p.__offset(4); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public Battlement.FlatBuffers.Generated.DiagnosticsOperation Operation { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.DiagnosticsOperation)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.DiagnosticsOperation.SetMetadata; } }
+  public string Key { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetKeyBytes() { return __p.__vector_as_span<byte>(4, 1); }
+  public Span<byte> GetKeyBytes() { return __p.__vector_as_span<byte>(6, 1); }
 #else
-  public ArraySegment<byte>? GetKeyBytes() { return __p.__vector_as_arraysegment(4); }
+  public ArraySegment<byte>? GetKeyBytes() { return __p.__vector_as_arraysegment(6); }
 #endif
-  public byte[] GetKeyArray() { return __p.__vector_as_array<byte>(4); }
-  public string Value { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public byte[] GetKeyArray() { return __p.__vector_as_array<byte>(6); }
+  public string Value { get { int o = __p.__offset(8); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetValueBytes() { return __p.__vector_as_span<byte>(6, 1); }
+  public Span<byte> GetValueBytes() { return __p.__vector_as_span<byte>(8, 1); }
 #else
-  public ArraySegment<byte>? GetValueBytes() { return __p.__vector_as_arraysegment(6); }
+  public ArraySegment<byte>? GetValueBytes() { return __p.__vector_as_arraysegment(8); }
 #endif
-  public byte[] GetValueArray() { return __p.__vector_as_array<byte>(6); }
+  public byte[] GetValueArray() { return __p.__vector_as_array<byte>(8); }
+  public bool Enabled { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.DiagnosticsPayload> CreateDiagnosticsPayload(FlatBufferBuilder builder,
+      Battlement.FlatBuffers.Generated.DiagnosticsOperation operation = Battlement.FlatBuffers.Generated.DiagnosticsOperation.SetMetadata,
       StringOffset keyOffset = default(StringOffset),
-      StringOffset valueOffset = default(StringOffset)) {
-    builder.StartTable(2);
+      StringOffset valueOffset = default(StringOffset),
+      bool enabled = false) {
+    builder.StartTable(4);
     DiagnosticsPayload.AddValue(builder, valueOffset);
     DiagnosticsPayload.AddKey(builder, keyOffset);
+    DiagnosticsPayload.AddEnabled(builder, enabled);
+    DiagnosticsPayload.AddOperation(builder, operation);
     return DiagnosticsPayload.EndDiagnosticsPayload(builder);
   }
 
-  public static void StartDiagnosticsPayload(FlatBufferBuilder builder) { builder.StartTable(2); }
-  public static void AddKey(FlatBufferBuilder builder, StringOffset keyOffset) { builder.AddOffset(0, keyOffset.Value, 0); }
-  public static void AddValue(FlatBufferBuilder builder, StringOffset valueOffset) { builder.AddOffset(1, valueOffset.Value, 0); }
+  public static void StartDiagnosticsPayload(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void AddOperation(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.DiagnosticsOperation operation) { builder.AddByte(0, (byte)operation, 0); }
+  public static void AddKey(FlatBufferBuilder builder, StringOffset keyOffset) { builder.AddOffset(1, keyOffset.Value, 0); }
+  public static void AddValue(FlatBufferBuilder builder, StringOffset valueOffset) { builder.AddOffset(2, valueOffset.Value, 0); }
+  public static void AddEnabled(FlatBufferBuilder builder, bool enabled) { builder.AddBool(3, enabled, false); }
   public static Offset<Battlement.FlatBuffers.Generated.DiagnosticsPayload> EndDiagnosticsPayload(FlatBufferBuilder builder) {
     int o = builder.EndTable();
-    builder.Required(o, 4);  // key
     return new Offset<Battlement.FlatBuffers.Generated.DiagnosticsPayload>(o);
   }
 }
@@ -199,8 +212,10 @@ static public class DiagnosticsPayloadVerify
   static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
   {
     return verifier.VerifyTableStart(tablePos)
-      && verifier.VerifyString(tablePos, 4 /*Key*/, true)
-      && verifier.VerifyString(tablePos, 6 /*Value*/, false)
+      && verifier.VerifyField(tablePos, 4 /*Operation*/, 1 /*Battlement.FlatBuffers.Generated.DiagnosticsOperation*/, 1, false)
+      && verifier.VerifyString(tablePos, 6 /*Key*/, false)
+      && verifier.VerifyString(tablePos, 8 /*Value*/, false)
+      && verifier.VerifyField(tablePos, 10 /*Enabled*/, 1 /*bool*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

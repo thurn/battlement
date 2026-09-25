@@ -25,7 +25,7 @@ pub struct Command {
 impl Command {
   /// Creates a blocking Unity Diagnostics command with a generated identity.
   ///
-  /// Diagnostics metadata writes run synchronously on Unity's main thread. A
+  /// Diagnostics controls and metadata writes run synchronously on Unity's main thread. A
   /// successful command confirms only the local Unity API call, never Dashboard
   /// ingestion.
   #[must_use]

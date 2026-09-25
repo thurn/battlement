@@ -1,4 +1,4 @@
-//! Commands for adding custom metadata to Unity Diagnostics reports.
+//! Local controls and metadata for Unity Diagnostics.
 //!
 //! Unity attaches current custom metadata and buffered Unity logs to later crashes,
 //! exceptions, and supported Android Application Not Responding reports. Battlement
@@ -6,9 +6,11 @@
 //! normal tracing events for chronological context and reserve metadata for bounded
 //! context that should remain attached to future reports.
 //!
-//! Exception capture and the recent-log buffer are configured on the
-//! `BattlementDiagnosticsModule` asset in Unity. Diagnostic data collection itself
-//! remains a Unity project or build-profile setting.
+//! The module asset supplies initial exception capture and log-buffer settings.
+//! `SetReporting` applies exception capture and legacy performance reporting after
+//! preferences load. Host settings expose local readback separately from intent.
+//! Engine diagnostic data collection remains a project or build-profile setting;
+//! these APIs do not establish control of early startup or queued/native uploads.
 //!
 //! A successful command means the local Unity API call returned. It does not mean
 //! that Unity created, uploaded, grouped, or symbolicated a report.
@@ -48,6 +50,8 @@ pub const MAXIMUM_METADATA_VALUE_LENGTH: usize = 1_024;
 pub enum DiagnosticsCommand {
   /// Sets one metadata value, or clears the key when `value` is absent.
   SetMetadata(DiagnosticsMetadata),
+  /// Applies the available local capture and performance-reporting controls.
+  SetReporting(bool),
 }
 
 impl DiagnosticsCommand {
@@ -59,6 +63,7 @@ impl DiagnosticsCommand {
   pub fn validate(&self) -> Result<(), DiagnosticsValidationError> {
     match self {
       Self::SetMetadata(metadata) => metadata.validate(),
+      Self::SetReporting(_) => Ok(()),
     }
   }
 }

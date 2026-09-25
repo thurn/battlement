@@ -68,14 +68,72 @@ namespace Battlement.Tests
             Assert.That(error!.ErrorCode, Is.EqualTo(CoreErrorCode.DiagnosticsOperationFailed));
         }
 
+        [Test]
+        public void ReportingReadbackDistinguishesRequestFromUnsupportedEnable()
+        {
+            var backend = new FakeBackend { IgnoreReportingEnable = true };
+            using var runtime = new BattlementDiagnosticsRuntime(backend, true, 10);
+            runtime.Execute(new DiagnosticsCommand.SetReporting(false));
+            Assert.That(
+                runtime.ReadReporting(),
+                Is.EqualTo(new DiagnosticsObservation(false, false))
+            );
+            runtime.Execute(new DiagnosticsCommand.SetReporting(true));
+            Assert.That(
+                runtime.ReadReporting(),
+                Is.EqualTo(new DiagnosticsObservation(true, false))
+            );
+        }
+
+        [Test]
+        public void ReportingFailureRetainsPartialReadbackAndCanRecover()
+        {
+            var backend = new FakeBackend();
+            using var runtime = new BattlementDiagnosticsRuntime(backend, true, 10);
+            runtime.SetReporting(true);
+            backend.FailReporting = true;
+            var error = Assert.Throws<BattlementModuleException>(() => runtime.SetReporting(false));
+            Assert.That(error!.ErrorCode, Is.EqualTo(CoreErrorCode.DiagnosticsOperationFailed));
+            Assert.That(runtime.ReadReporting().CaptureExceptions, Is.False);
+            Assert.That(runtime.ReadReporting().PerformanceReporting, Is.True);
+            Assert.That(runtime.ReadReporting().Error, Is.Not.Null);
+            backend.FailReporting = false;
+            runtime.SetReporting(false);
+            Assert.That(
+                runtime.ReadReporting(),
+                Is.EqualTo(new DiagnosticsObservation(false, false))
+            );
+        }
+
         private sealed class FakeBackend : IDiagnosticsBackend
         {
             public List<string> Writes { get; } = new();
             public bool FailMetadata { get; init; }
+            public bool IgnoreReportingEnable { get; init; }
+            public bool FailReporting { get; set; }
+            private bool capture;
+            private bool reporting;
 
             public bool CaptureExceptions
             {
-                set => Writes.Add($"capture={value}");
+                get => capture;
+                set
+                {
+                    capture = value;
+                    Writes.Add($"capture={value}");
+                }
+            }
+
+            public bool PerformanceReporting
+            {
+                get => reporting;
+                set
+                {
+                    if (FailReporting)
+                        throw new InvalidOperationException("injected reporting failure");
+                    reporting = value && !IgnoreReportingEnable;
+                    Writes.Add($"reporting={value}");
+                }
             }
 
             public uint LogBufferSize

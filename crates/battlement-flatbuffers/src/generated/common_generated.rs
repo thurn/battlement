@@ -2510,8 +2510,11 @@ pub mod battlement {
         pub const VT_CONTROLLER_COUNT: ::flatbuffers::VOffsetT = 26;
         pub const VT_DIAGNOSTICS: ::flatbuffers::VOffsetT = 28;
         pub const VT_DIAGNOSTICS_CONFIGURED: ::flatbuffers::VOffsetT = 30;
-        pub const VT_OBSERVATION_ERROR: ::flatbuffers::VOffsetT = 32;
-        pub const VT_LAST_RESULT: ::flatbuffers::VOffsetT = 34;
+        pub const VT_CAPTURE_EXCEPTIONS: ::flatbuffers::VOffsetT = 32;
+        pub const VT_PERFORMANCE_REPORTING: ::flatbuffers::VOffsetT = 34;
+        pub const VT_DIAGNOSTICS_ERROR: ::flatbuffers::VOffsetT = 36;
+        pub const VT_OBSERVATION_ERROR: ::flatbuffers::VOffsetT = 38;
+        pub const VT_LAST_RESULT: ::flatbuffers::VOffsetT = 40;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -2534,6 +2537,9 @@ pub mod battlement {
           if let Some(x) = args.observation_error {
             builder.add_observation_error(x);
           }
+          if let Some(x) = args.diagnostics_error {
+            builder.add_diagnostics_error(x);
+          }
           builder.add_controller_count(args.controller_count);
           builder.add_applied_frame_rate(args.applied_frame_rate);
           if let Some(x) = args.frame_rates {
@@ -2547,6 +2553,12 @@ pub mod battlement {
           }
           if let Some(x) = args.display_modes {
             builder.add_display_modes(x);
+          }
+          if let Some(x) = args.performance_reporting {
+            builder.add_performance_reporting(x);
+          }
+          if let Some(x) = args.capture_exceptions {
+            builder.add_capture_exceptions(x);
           }
           builder.add_diagnostics_configured(args.diagnostics_configured);
           builder.add_diagnostics(args.diagnostics);
@@ -2748,6 +2760,39 @@ pub mod battlement {
           }
         }
         #[inline]
+        pub fn capture_exceptions(&self) -> Option<bool> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(HostSettings::VT_CAPTURE_EXCEPTIONS, None)
+          }
+        }
+        #[inline]
+        pub fn performance_reporting(&self) -> Option<bool> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(HostSettings::VT_PERFORMANCE_REPORTING, None)
+          }
+        }
+        #[inline]
+        pub fn diagnostics_error(&self) -> Option<&'a str> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(HostSettings::VT_DIAGNOSTICS_ERROR, None)
+          }
+        }
+        #[inline]
         pub fn observation_error(&self) -> Option<&'a str> {
           // Safety:
           // Created from valid Table for this object
@@ -2795,6 +2840,9 @@ pub mod battlement {
      .visit_field::<u32>("controller_count", Self::VT_CONTROLLER_COUNT, false)?
      .visit_field::<SettingAvailability>("diagnostics", Self::VT_DIAGNOSTICS, false)?
      .visit_field::<bool>("diagnostics_configured", Self::VT_DIAGNOSTICS_CONFIGURED, false)?
+     .visit_field::<bool>("capture_exceptions", Self::VT_CAPTURE_EXCEPTIONS, false)?
+     .visit_field::<bool>("performance_reporting", Self::VT_PERFORMANCE_REPORTING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("diagnostics_error", Self::VT_DIAGNOSTICS_ERROR, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("observation_error", Self::VT_OBSERVATION_ERROR, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<HostSettingsResult>>("last_result", Self::VT_LAST_RESULT, false)?
      .finish();
@@ -2817,6 +2865,9 @@ pub mod battlement {
         pub controller_count: u32,
         pub diagnostics: SettingAvailability,
         pub diagnostics_configured: bool,
+        pub capture_exceptions: Option<bool>,
+        pub performance_reporting: Option<bool>,
+        pub diagnostics_error: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub observation_error: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub last_result: Option<::flatbuffers::WIPOffset<HostSettingsResult<'a>>>,
       }
@@ -2838,6 +2889,9 @@ pub mod battlement {
             controller_count: 0,
             diagnostics: SettingAvailability::Unavailable,
             diagnostics_configured: false,
+            capture_exceptions: None,
+            performance_reporting: None,
+            diagnostics_error: None,
             observation_error: None,
             last_result: None,
           }
@@ -2964,6 +3018,29 @@ pub mod battlement {
           );
         }
         #[inline]
+        pub fn add_capture_exceptions(&mut self, capture_exceptions: bool) {
+          self
+            .fbb_
+            .push_slot_always::<bool>(HostSettings::VT_CAPTURE_EXCEPTIONS, capture_exceptions);
+        }
+        #[inline]
+        pub fn add_performance_reporting(&mut self, performance_reporting: bool) {
+          self.fbb_.push_slot_always::<bool>(
+            HostSettings::VT_PERFORMANCE_REPORTING,
+            performance_reporting,
+          );
+        }
+        #[inline]
+        pub fn add_diagnostics_error(
+          &mut self,
+          diagnostics_error: ::flatbuffers::WIPOffset<&'b str>,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            HostSettings::VT_DIAGNOSTICS_ERROR,
+            diagnostics_error,
+          );
+        }
+        #[inline]
         pub fn add_observation_error(
           &mut self,
           observation_error: ::flatbuffers::WIPOffset<&'b str>,
@@ -3028,6 +3105,9 @@ pub mod battlement {
           ds.field("controller_count", &self.controller_count());
           ds.field("diagnostics", &self.diagnostics());
           ds.field("diagnostics_configured", &self.diagnostics_configured());
+          ds.field("capture_exceptions", &self.capture_exceptions());
+          ds.field("performance_reporting", &self.performance_reporting());
+          ds.field("diagnostics_error", &self.diagnostics_error());
           ds.field("observation_error", &self.observation_error());
           ds.field("last_result", &self.last_result());
           ds.finish()
