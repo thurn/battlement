@@ -67,7 +67,18 @@ def semantic_hash(result: dict) -> str:
 
 def event_transcript_hash(path: Path) -> str:
     """Hash ordered event meaning while excluding generated identity and timing fields."""
+    input_sessions = {}
+
     def normalized(value, path=()):
+        if path == ("body", "result", "input_trace", "session") and isinstance(value, str):
+            identity, separator, suffix = value.partition(":")
+            try:
+                identity = uuid.UUID(identity)
+            except ValueError:
+                return value
+            # Preserve identity reuse, transitions and reset counters across the transcript.
+            ordinal = input_sessions.setdefault(identity, len(input_sessions))
+            return ["input-session", ordinal, separator + suffix]
         if isinstance(value, dict):
             fields = {
                 key: normalized(item, (*path, key))

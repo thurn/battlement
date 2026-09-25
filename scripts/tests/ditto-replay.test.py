@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the supported replay command and its prerequisite failures."""
 
+import copy
 import json
 import os
 from pathlib import Path
@@ -54,11 +55,56 @@ def check_render_receipts(root: Path) -> None:
     assert observe([receipt, advance]) != expected
 
 
+def check_input_sessions(root: Path) -> None:
+    """Generated UUIDs vary; input ownership transitions and receipts must not."""
+    first_id = "89d2b5f2-33bf-4ba2-9620-e44b989718df"
+    second_id = "07d8ce2c-8de8-4bbf-9691-612812298803"
+    replacement_id = "e3c6c40c-94c8-4d2f-b60e-8173c4a88c9c"
+    trace = {"session": first_id + ":19", "generation": 20, "receipts": [{
+        "route": "world-logical", "expected_target": "pawn", "actual_hit": "pawn",
+        "capture_owner": "pawn", "presentation_boundary": 15, "pointer_id": 0,
+    }]}
+    event = {"event_name": "ditto.context", "body": {"result": {"input_trace": trace}}}
+    events = [copy.deepcopy(event) for _ in range(4)]
+    events[2]["body"]["result"]["input_trace"]["session"] = second_id + ":20"
+    path = root / "input-sessions.jsonl"
+
+    def observe(values):
+        path.write_text("\n".join(map(json.dumps, values)) + "\n")
+        return ditto_replay.event_transcript_hash(path)
+
+    expected = observe(events)
+    renamed = json.loads(json.dumps(events).replace(first_id, replacement_id).replace(second_id, first_id))
+    assert observe(renamed) == expected
+    for session in (first_id + ":20", second_id + ":19", "named-session", None):
+        changed = copy.deepcopy(events)
+        changed[1]["body"]["result"]["input_trace"]["session"] = session
+        assert observe(changed) != expected
+    for key, value in (("route", "none"), ("expected_target", "board"),
+                       ("actual_hit", None), ("capture_owner", None),
+                       ("presentation_boundary", 16), ("pointer_id", 1)):
+        changed = copy.deepcopy(events)
+        changed[0]["body"]["result"]["input_trace"]["receipts"][0][key] = value
+        assert observe(changed) != expected
+    changed = copy.deepcopy(events)
+    changed[0]["body"]["result"]["input_trace"]["generation"] += 1
+    assert observe(changed) != expected
+    assert observe(list(reversed(events))) != expected
+    for value in (first_id, replacement_id):
+        event["body"]["session"] = value
+        events[0] = copy.deepcopy(event)
+        if value == first_id:
+            unrelated = observe(events)
+        else:
+            assert observe(events) != unrelated
+
+
 def main() -> None:
     scripts = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix="ditto-replay-test.") as temporary:
         root = Path(temporary)
         check_render_receipts(root)
+        check_input_sessions(root)
         (root / "scripts").mkdir()
         for name in (
             "ditto_ci.py", "ditto_replay.py", "ditto_evidence.py", "operation_log.py",
