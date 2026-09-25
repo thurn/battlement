@@ -3,8 +3,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use battlement::{
-  Connect, KeyEvent, Length, ObjectId, PhysicalKey, Prop, ScreenSize, StyleValue, UiDocument,
-  UiEvent, UiEventBody,
+  Connect, Length, ObjectId, PhysicalKey, Prop, ScreenSize, StyleValue, UiDocument,
 };
 use cozy_chess::{Board, BoardBuilder, Color, Piece, Square};
 use reactant::{
@@ -50,6 +49,9 @@ fn display_with_settings(
   let observer = handle.clone();
   let mut catalog = testing_assets::catalog(assets::ASSET_CATALOG);
   catalog.add_textures(asset_generator::registrations().map(|asset| asset.address));
+  let mut connect =
+    Connect::new("test", "test", ScreenSize::new(1920, 1080)).persistent_data_path("memory");
+  connect.host_settings.keyboard_connected = true;
   let display = Display::connect_application::<ChessGame>(
     move |clock| {
       ApplicationEngine::with_clock(
@@ -71,7 +73,7 @@ fn display_with_settings(
       )
     },
     catalog,
-    Connect::new("test", "test", ScreenSize::new(1920, 1080)).persistent_data_path("memory"),
+    connect,
   );
   (display, handle)
 }
@@ -137,17 +139,7 @@ fn language_replacement_keeps_binding_dialog_focus_and_conflict() {
   let focus = display
     .focused()
     .expect("capture focuses its waiting input");
-  display.deliver_ui_event(UiEvent {
-    target_id: display
-      .semantic_node("Waiting for keyboard input")
-      .object_id,
-    cancelable: true,
-    default_prevented: false,
-    body: UiEventBody::KeyDown(KeyEvent {
-      physical_key: Some(PhysicalKey::ArrowRight),
-      ..KeyEvent::default()
-    }),
-  });
+  display.send_key(PhysicalKey::ArrowRight);
   display.settle();
   display.semantic_node("Already used by \u{2068}Right\u{2069}");
   self::change_language(&mut display, &handle, Language::French);

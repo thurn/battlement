@@ -69,3 +69,7 @@ path = "tests/computer_delay_tests.rs"
 [[test]]
 name = "erase_progress"
 path = "tests/erase_progress_tests.rs"
+
+[[test]]
+name = "bindings"
+path = "tests/bindings_tests.rs"

@@ -36,12 +36,16 @@ pub struct ControllerButtonIcon {
   label: ControllerLabel,
 }
 
-/// Fixed controller button labels used by the source table.
+/// Physical controller labels used by binding cells.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ControllerLabel {
   A,
   Menu,
   Y,
+  X,
+  LeftShoulder,
+  RightShoulder,
+  Select,
 }
 
 impl InputDirection {
@@ -108,6 +112,10 @@ impl ControllerLabel {
       Self::A => "A",
       Self::Menu => "≡",
       Self::Y => "Y",
+      Self::X => "X",
+      Self::LeftShoulder => "LB",
+      Self::RightShoulder => "RB",
+      Self::Select => "View",
     }
   }
 
@@ -116,6 +124,10 @@ impl ControllerLabel {
       Self::A => "a",
       Self::Menu => "menu",
       Self::Y => "y",
+      Self::X => "x",
+      Self::LeftShoulder => "lb",
+      Self::RightShoulder => "rb",
+      Self::Select => "view",
     }
   }
 }
@@ -226,11 +238,14 @@ fn controller_label_style(label: ControllerLabel, scale: f32) -> Style {
     .full_size()
     .color(Color::hex(0xf8f8f5))
     .unity_font_definition(DISPLAY_FONT)
-    .font_size(if label == ControllerLabel::Menu {
-      54.0 * scale
-    } else {
-      57.0 * scale
-    })
+    .font_size(
+      match label {
+        ControllerLabel::Menu => 54.0,
+        ControllerLabel::LeftShoulder | ControllerLabel::RightShoulder => 32.0,
+        ControllerLabel::Select => 24.0,
+        _ => 57.0,
+      } * scale,
+    )
     .unity_text_align(TextAnchor::MiddleCenter)
 }
 
@@ -238,7 +253,8 @@ fn controller_paint(label: ControllerLabel) -> PaintStyle {
   let (center, edge, glow) = match label {
     ControllerLabel::A => (0x65bd14, 0x237000, 0x72e71c),
     ControllerLabel::Y => (0xffca15, 0xc27a00, 0xffb000),
-    ControllerLabel::Menu => (0x34373b, 0x121416, 0x08090b),
+    ControllerLabel::X => (0x3191f4, 0x1254a5, 0x268cff),
+    _ => (0x34373b, 0x121416, 0x08090b),
   };
   PaintStyle::new()
     .background(
@@ -259,6 +275,7 @@ fn controller_border(label: ControllerLabel) -> Color {
   Color::hex(match label {
     ControllerLabel::A => 0xa7ff35,
     ControllerLabel::Y => 0xfff5a6,
-    ControllerLabel::Menu => 0x777b80,
+    ControllerLabel::X => 0x92caff,
+    _ => 0x777b80,
   })
 }

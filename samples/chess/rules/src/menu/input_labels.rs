@@ -1,5 +1,6 @@
 //! Localizable binding names, independent of their stable input identities.
 
+use crate::settings::bindings::ControllerBinding;
 use battlement::PhysicalKey;
 use trox::{LocalizedString, ls, tx};
 
@@ -16,16 +17,19 @@ pub fn action(index: usize) -> LocalizedString {
   }
 }
 
-pub fn controller(index: usize) -> LocalizedString {
-  match index {
-    0 => tx("D-pad left", "Controller binding name."),
-    1 => tx("D-pad right", "Controller binding name."),
-    2 => tx("D-pad up", "Controller binding name."),
-    3 => tx("D-pad down", "Controller binding name."),
-    4 => ls("A"),
-    5 => tx("menu", "Controller binding name."),
-    6 => ls("Y"),
-    _ => panic!("unknown controller binding"),
+pub fn controller(binding: ControllerBinding) -> LocalizedString {
+  match binding {
+    ControllerBinding::DpadLeft => tx("D-pad left", "Controller binding name."),
+    ControllerBinding::DpadRight => tx("D-pad right", "Controller binding name."),
+    ControllerBinding::DpadUp => tx("D-pad up", "Controller binding name."),
+    ControllerBinding::DpadDown => tx("D-pad down", "Controller binding name."),
+    ControllerBinding::South => ls("A"),
+    ControllerBinding::West => ls("X"),
+    ControllerBinding::North => ls("Y"),
+    ControllerBinding::LeftShoulder => ls("LB"),
+    ControllerBinding::RightShoulder => ls("RB"),
+    ControllerBinding::Start => tx("menu", "Controller binding name."),
+    ControllerBinding::Select => tx("View", "Controller binding name."),
   }
 }
 

@@ -88,9 +88,10 @@ impl ChessTest {
     let computer = opponent.clone();
     let mut connect =
       Connect::new("test", "test", ScreenSize::new(1920, 1080)).persistent_data_path("memory");
+    connect.host_settings.platform = HostPlatform::MacOs;
+    connect.host_settings.keyboard_connected = true;
     connect.modules = modules.iter().map(|m| (*m).to_owned()).collect();
     if modules.contains(&"battlement.diagnostics") {
-      connect.host_settings.platform = HostPlatform::MacOs;
       connect.host_settings.diagnostics = SettingAvailability::Available;
     }
     let display = Display::connect_application::<ChessGame>(

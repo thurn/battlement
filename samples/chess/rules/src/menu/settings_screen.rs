@@ -13,6 +13,7 @@ use crate::menu::{
   erase_dialog::EraseDialog,
   font_scale::FontScale,
   graphics_settings::GraphicsSettings,
+  input_devices::InputDevices,
   input_settings::InputSettings,
   privacy_policy::PrivacyPolicyHelp,
   return_button::ReturnButton,
@@ -53,6 +54,12 @@ impl Component for SettingsScreen {
     let (tab_direction, set_tab_direction) = hooks::use_state(1_i32);
     let settings = settings::use_settings();
     let host = reactant::use_host_settings();
+    let input_available = InputDevices::from_host(&host).available();
+    let active_tab = if active_tab == SettingsTab::Input && !input_available {
+      SettingsTab::Gameplay
+    } else {
+      active_tab
+    };
     let navigation = arcade_route_transition::use_arcade_navigation();
     let (active_modal, set_active_modal) = hooks::use_state(None::<SettingsModal>);
 
@@ -88,6 +95,7 @@ impl Component for SettingsScreen {
         .child((
           SettingsTabs::new()
             .active_tab(active_tab)
+            .input_available(input_available)
             .on_select(EventCallback::new({
               let set_active_tab = set_active_tab.clone();
               let set_tab_direction = set_tab_direction.clone();

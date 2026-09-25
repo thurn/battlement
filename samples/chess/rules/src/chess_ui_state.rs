@@ -47,8 +47,6 @@ pub enum UiAction {
   CancelSelection,
   /// Moves the shared keyboard/controller cursor.
   MoveCursor(Square),
-  /// Cycles through selectable pieces or legal targets.
-  CycleCursor(bool),
   /// Opens or closes the pause overlay.
   TogglePause,
   /// Requests a new game, preserving whether non-pointer input needs a cursor.
@@ -270,9 +268,6 @@ impl ChessUiController {
       UiAction::EndDrag(piece, target) => self.drag_end(required_game(game), piece, target),
       UiAction::CancelSelection => self.cancel_selection(),
       UiAction::MoveCursor(square) => self.move_cursor(square),
-      UiAction::CycleCursor(forward) => {
-        self.cycle_cursor(&required_game(game).accepted_state(), forward);
-      }
       UiAction::TogglePause => self.toggle_pause(),
       UiAction::RequestNewGame { cursor_visible } => self.request_new_game(cursor_visible),
       UiAction::DismissNewGameConfirmation => self.update(|local| {
@@ -540,36 +535,6 @@ impl ChessUiController {
       local.cursor = square;
       local.cursor_visible = true;
     });
-  }
-
-  /// Cycles through legal targets or through player pieces that can move.
-  ///
-  /// Candidate derivation from rules state keeps controller navigation useful in
-  /// sparse endgames without embedding a second focus graph in the view.
-  fn cycle_cursor(&self, state: &ChessState, forward: bool) {
-    let local = self.current();
-    let candidates = if let Some(selected) = local.selected {
-      state.legal_destinations(selected)
-    } else {
-      Square::ALL
-        .into_iter()
-        .filter(|square| {
-          state.board().color_on(*square) == Some(Color::White)
-            && !state.legal_destinations(*square).is_empty()
-        })
-        .collect()
-    };
-    if candidates.is_empty() {
-      return;
-    }
-    let current = candidates.iter().position(|square| *square == local.cursor);
-    let index = match (current, forward) {
-      (Some(index), true) => (index + 1) % candidates.len(),
-      (Some(0), false) | (None, false) => candidates.len() - 1,
-      (Some(index), false) => index - 1,
-      (None, true) => 0,
-    };
-    self.move_cursor(candidates[index]);
   }
 
   /// Toggles the app-owned pause overlay without pausing or mutating rules state.

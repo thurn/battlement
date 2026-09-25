@@ -1,6 +1,6 @@
 //! Stable gameplay actions and validated physical binding maps.
 
-use battlement::PhysicalKey;
+use battlement::{ControllerButton, ControllerDirection, PhysicalKey};
 use serde::{Deserialize, Serialize};
 
 /// Gameplay actions whose bindings are independent of translated labels.
@@ -75,6 +75,25 @@ pub fn is_modifier(key: PhysicalKey) -> bool {
 }
 
 impl GameplayAction {
+  pub fn from_direction(direction: ControllerDirection) -> Self {
+    match direction {
+      ControllerDirection::Left => Self::Left,
+      ControllerDirection::Right => Self::Right,
+      ControllerDirection::Up => Self::Up,
+      ControllerDirection::Down => Self::Down,
+    }
+  }
+
+  pub fn direction(self) -> Option<ControllerDirection> {
+    match self {
+      Self::Left => Some(ControllerDirection::Left),
+      Self::Right => Some(ControllerDirection::Right),
+      Self::Up => Some(ControllerDirection::Up),
+      Self::Down => Some(ControllerDirection::Down),
+      _ => None,
+    }
+  }
+
   pub const ALL: [Self; 7] = [
     Self::Left,
     Self::Right,
@@ -145,4 +164,51 @@ fn unique<T: PartialEq>(values: &[T]) -> bool {
     .iter()
     .enumerate()
     .all(|(index, value)| !values[..index].contains(value))
+}
+
+impl<T: Copy + PartialEq> Bindings<T> {
+  pub fn action(self, binding: T) -> Option<GameplayAction> {
+    self
+      .values()
+      .iter()
+      .position(|value| *value == binding)
+      .map(|index| GameplayAction::ALL[index])
+  }
+}
+
+impl ControllerBinding {
+  pub fn from_direction(direction: ControllerDirection) -> Self {
+    match direction {
+      ControllerDirection::Left => Self::DpadLeft,
+      ControllerDirection::Right => Self::DpadRight,
+      ControllerDirection::Up => Self::DpadUp,
+      ControllerDirection::Down => Self::DpadDown,
+    }
+  }
+
+  pub fn from_button(button: ControllerButton) -> Option<Self> {
+    match button {
+      ControllerButton::South => Some(Self::South),
+      ControllerButton::West => Some(Self::West),
+      ControllerButton::North => Some(Self::North),
+      ControllerButton::LeftShoulder => Some(Self::LeftShoulder),
+      ControllerButton::RightShoulder => Some(Self::RightShoulder),
+      ControllerButton::Start => Some(Self::Start),
+      ControllerButton::Select => Some(Self::Select),
+      _ => None,
+    }
+  }
+
+  pub fn button(self) -> Option<ControllerButton> {
+    match self {
+      Self::South => Some(ControllerButton::South),
+      Self::West => Some(ControllerButton::West),
+      Self::North => Some(ControllerButton::North),
+      Self::LeftShoulder => Some(ControllerButton::LeftShoulder),
+      Self::RightShoulder => Some(ControllerButton::RightShoulder),
+      Self::Start => Some(ControllerButton::Start),
+      Self::Select => Some(ControllerButton::Select),
+      _ => None,
+    }
+  }
 }

@@ -4,9 +4,9 @@ use std::{
 };
 
 use battlement::{
-  ControllerButton, ControllerButtonPayload, ControllerDirection, ControllerInputSettings,
-  ControllerNavigationPayload, ControllerNavigationSource, KeyPayload, ObjectId, PhysicalKey,
-  PreparedAsset, application::ApplicationState, host_settings::HostSettings,
+  CommandBody, ControllerButton, ControllerButtonPayload, ControllerDirection,
+  ControllerInputSettings, ControllerNavigationPayload, ControllerNavigationSource, KeyPayload,
+  ObjectId, PhysicalKey, PreparedAsset, application::ApplicationState, host_settings::HostSettings,
 };
 use reactant::{
   Application, GlobalInput, InputCaptureCancellation, InputCaptureDevice, InputCaptureResult,
@@ -164,7 +164,9 @@ impl Component for CaptureObserver {
   fn render(&self) -> impl Render {
     let results = self.results.clone();
     let close = self.close.clone();
+    let announce = reactant::announcement::use_announce();
     reactant::use_input_capture(self.device, move |result| {
+      announce.send(trox::ls("Capture finished"));
       results.borrow_mut().push(result);
       close.set(None);
     });
@@ -275,6 +277,15 @@ fn exclusive_capture_swallows_opener_repeat_and_underlying_activation_until_rele
       button: ControllerButton::North
     })]
   );
+  let announcements = display
+    .commands()
+    .iter()
+    .flat_map(|entry| match &entry.command.body {
+      CommandBody::AccessibilityUpdate(update) => update.announcements.clone(),
+      _ => Vec::new(),
+    })
+    .collect::<Vec<_>>();
+  assert_eq!(announcements, ["Capture finished"]);
   assert!(
     globals
       .borrow()

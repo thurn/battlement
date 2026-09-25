@@ -34,6 +34,7 @@ pub enum SettingsTab {
 pub struct SettingsTabs {
   #[builder(required)]
   active_tab: SettingsTab,
+  input_available: bool,
   #[builder(required)]
   on_select: EventCallback<SettingsTab>,
 }
@@ -81,6 +82,7 @@ impl Component for SettingsTabs {
   fn render(&self) -> impl Render {
     let enlarged = font_scale::use_font_scale().factor() > 1.0;
     let references = self::use_references();
+    let input_available = self.input_available;
     let (bursts, set_bursts) = hooks::use_state([0_u32; 4]);
     TabStrip::new()
       .label(tx("Settings categories", "Settings category list."))
@@ -118,14 +120,21 @@ impl Component for SettingsTabs {
             .overflow(Overflow::Visible),
         ),
       )
-      .children(SettingsTab::ALL.map(|tab| {
-        SettingsTabButton::new()
-          .tab(tab)
-          .active(tab == self.active_tab)
-          .on_select(self.on_select.clone())
-          .references(references.clone())
-          .burst_generation(bursts[tab as usize])
-      }))
+      .children(
+        SettingsTab::ALL
+          .into_iter()
+          .filter(|tab| *tab != SettingsTab::Input || input_available)
+          .map(|tab| {
+            SettingsTabButton::new()
+              .tab(tab)
+              .input_available(input_available)
+              .active(tab == self.active_tab)
+              .on_select(self.on_select.clone())
+              .references(references.clone())
+              .burst_generation(bursts[tab as usize])
+          })
+          .collect::<Vec<_>>(),
+      )
   }
 }
 
@@ -133,6 +142,7 @@ impl Component for SettingsTabs {
 struct SettingsTabButton {
   #[builder(required)]
   tab: SettingsTab,
+  input_available: bool,
   active: bool,
   #[builder(required)]
   on_select: EventCallback<SettingsTab>,
@@ -155,11 +165,13 @@ impl Component for SettingsTabButton {
           .element_ref(self.references[self.tab as usize].clone())
           .on_key_down_event_callback(tabs_navigation::key_callback(
             self.tab,
+            self.input_available,
             self.references.clone(),
             self.on_select.clone(),
           ))
           .on_navigation_move_event_callback(tabs_navigation::controller_callback(
             self.tab,
+            self.input_available,
             self.references.clone(),
             self.on_select.clone(),
           ))

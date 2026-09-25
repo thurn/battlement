@@ -34,10 +34,10 @@ fn keyboard_moves_a_pawn() {
   game.start();
   game.display.send_keys(&[
     PhysicalKey::ArrowRight,
-    PhysicalKey::Enter,
+    PhysicalKey::Space,
     PhysicalKey::ArrowUp,
     PhysicalKey::ArrowUp,
-    PhysicalKey::Enter,
+    PhysicalKey::Space,
   ]);
   game.expect_empty(Square::F2);
   game.expect_piece(Square::F4, Color::White, Piece::Pawn);
