@@ -18,7 +18,7 @@ use crate::{
   native_video::{NativeVideoFailure, NativeVideoProcessor},
   scenario_orchestration::{DecisionFailure, MaterializedScenario, ScenarioMaterializer},
   wire::{
-    common::{ErrorCode, ErrorSource, StepStatus},
+    common::{ErrorCode, ErrorSource, StepName, StepStatus},
     job::{Job, ResolvedScenario, StepKind},
     lifecycle::{
       DittoContext, DittoEventRecord, NativeVideoInput, PlayerStepResult, ScenarioComplete,
@@ -224,6 +224,11 @@ impl ExecutionMaterializer {
           });
         }
       }
+    } else if let (StepName::Screenshot, Some(failure)) = (player.kind, failure.as_ref()) {
+      screenshot = Some(ScreenshotResult::Unavailable {
+        reason: failure.message.clone(),
+        error_id: failure.error_id.clone(),
+      });
     }
     if let Some(input_id) = &player.video_input_id {
       let started = Instant::now();
