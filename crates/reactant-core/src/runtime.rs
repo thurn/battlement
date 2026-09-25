@@ -73,6 +73,7 @@ pub struct ReactantCommit {
   pub(crate) groups: Option<Vec<Vec<Command>>>,
   pub(crate) receipt: Option<DeliveryReceipt>,
   pub(crate) work_owners: HashMap<ObjectId, u64>,
+  pub(crate) observation_scope: Option<u64>,
   pub(crate) independent: bool,
 }
 
@@ -1400,6 +1401,8 @@ impl<G: 'static> Reactant<G> {
     if self.track_work_scopes {
       commit.work_owners = self.work_owners.clone();
       commit.work_owners.extend(motion_owners);
+      // Global observations describe the current tree, not hosts retained only for destruction.
+      commit.observation_scope = self.current_work_owners.values().copied().max();
       commit.independent = true;
     }
     commit

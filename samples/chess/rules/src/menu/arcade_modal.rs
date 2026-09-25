@@ -42,6 +42,7 @@ pub struct ArcadeModal {
   confirm_label: LocalizedString,
   cancel_label: Option<LocalizedString>,
   danger: bool,
+  busy: bool,
   #[builder(default = true)]
   close_on_escape: bool,
   #[builder(required)]
@@ -67,6 +68,7 @@ struct OpenArcadeModal {
   confirm_label: LocalizedString,
   cancel_label: Option<LocalizedString>,
   danger: bool,
+  busy: bool,
   close_on_escape: bool,
   reduce_motion: bool,
   #[builder(required)]
@@ -91,6 +93,7 @@ struct ModalBody {
   confirm_label: LocalizedString,
   cancel_label: Option<LocalizedString>,
   danger: bool,
+  busy: bool,
   close_on_escape: bool,
   reduce_motion: bool,
   #[builder(required)]
@@ -105,6 +108,7 @@ struct ModalButton {
   label: LocalizedString,
   autofocus: bool,
   danger: bool,
+  busy: bool,
   #[builder(required)]
   reference: ElementRef,
   #[builder(required)]
@@ -124,6 +128,7 @@ impl Component for ArcadeModal {
       .confirm_label(self.confirm_label.clone())
       .cancel_label(self.cancel_label.clone())
       .danger(self.danger)
+      .busy(self.busy)
       .close_on_escape(self.close_on_escape)
       .reduce_motion(self.reduce_motion)
       .on_confirm(self.on_confirm.clone())
@@ -199,6 +204,7 @@ impl OpenArcadeModal {
           .confirm_label(self.confirm_label.clone())
           .cancel_label(self.cancel_label.clone())
           .danger(self.danger)
+          .busy(self.busy)
           .close_on_escape(self.close_on_escape)
           .reduce_motion(self.reduce_motion)
           .on_confirm(self.on_confirm.clone())
@@ -251,6 +257,7 @@ impl Component for ModalBody {
           .child(self.cancel_label.as_ref().map(|label| {
             ModalButton::new()
               .label(label.clone())
+              .busy(self.busy)
               .autofocus(self.autofocus_actions)
               .reference(cancel.clone())
               .on_press(self.on_close.clone())
@@ -262,6 +269,7 @@ impl Component for ModalBody {
               .label(self.confirm_label.clone())
               .autofocus(self.autofocus_actions && self.cancel_label.is_none())
               .danger(self.danger)
+              .busy(self.busy)
               .reference(confirm)
               .on_press(self.on_confirm.clone())
               .on_close(self.on_close.clone())
@@ -455,6 +463,7 @@ impl Component for ModalButton {
             .picking_mode(PickingMode::Ignore)
             .style(self::button_label_style(self.danger, scale)),
         )
+        .disabled(self.busy || !is_present)
         .semantic_name(SemanticName::Text(self.label.clone()))
         .host_name(if self.danger {
           "arcade-modal-danger"
@@ -477,6 +486,7 @@ impl Component for ModalButton {
             .picking_mode(PickingMode::Ignore)
             .style(self::button_label_style(self.danger, scale)),
         )
+        .disabled(self.busy || !is_present)
         .semantic_name(SemanticName::Text(self.label.clone()))
         .host_name(if self.danger {
           "arcade-modal-danger"

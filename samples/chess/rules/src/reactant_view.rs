@@ -6,7 +6,10 @@ use battlement::{Color as UiColor, Position, Prop, Quaternion, Style, Vector3};
 use cozy_chess::{Board, GameStatus};
 use reactant::{
   Application, GameHandle, GameRoot, PersistentState, hooks,
-  prelude::{AnimationPlayback, Button, Component, Either, EventCallback, KeyRenderExt, Render},
+  prelude::{
+    AnimationPlayback, Button, Component, ContextProvider, Either, EventCallback, KeyRenderExt,
+    Render,
+  },
   rules::{DisplayConnection, ExecutionMode},
   world::Camera,
 };
@@ -23,6 +26,7 @@ use crate::{
   persistence::SavedGame,
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessContext, ChessGame, ChessPolicy, ChessState},
+  saved_progress,
   settings::{self, Language, SettingsRoot},
 };
 use crate::{
@@ -159,6 +163,8 @@ struct GameStatusView {
 /// Effect-only component that persists the latest accepted publication.
 struct PersistenceCoordinator {
   persistence: PersistentState<SavedGame>,
+  control: ChessUiController,
+  generation: u64,
 }
 
 impl Component for ChessApp {
@@ -218,6 +224,11 @@ impl Component for ChessApp {
     );
     let control = use_chess_ui(initial_local);
     let local = control.snapshot();
+    let progress = saved_progress::use_progress_owner(
+      persistence.clone(),
+      control.clone(),
+      initial_state.as_ref().map(|state| state.board().clone()),
+    );
     let restored = persistence
       .as_ref()
       .and_then(|p| p.value())
@@ -231,13 +242,15 @@ impl Component for ChessApp {
         play.request_start(false);
       }
     });
-    let screen = match local.screen {
-      AppScreen::Title => Either::left(TitleScreen {
+    let screen = match (local.screen, local.erasing) {
+      (AppScreen::Title, _) | (_, true) => Either::left(TitleScreen {
         control: control.clone(),
         diagnostics,
       }),
-      AppScreen::Game | AppScreen::Menu => {
-        let state = if local.opening_generation == 0 {
+      (AppScreen::Game | AppScreen::Menu, false) => {
+        let state = if let Some(board) = progress.recovery(local.opening_generation) {
+          ChessState::with_generation(board, local.opening_generation)
+        } else if local.opening_generation == 0 {
           initial_state
             .clone()
             .unwrap_or_else(|| ChessState::new(self.config.starting_board.clone()))
@@ -261,14 +274,14 @@ impl Component for ChessApp {
         )
       }
     };
-    (
+    ContextProvider::new().context(progress).child((
       GameEffects::new(control, diagnostics),
       screen,
       ChessMenu {
         active: local.screen != AppScreen::Game,
         on_play,
       },
-    )
+    ))
   }
 }
 
@@ -303,6 +316,7 @@ impl Component for ChessSession {
         )
       },
     );
+    saved_progress::use_saved_progress().use_session(self.generation, game.clone());
     reactant_input::use_chess_input(
       self.control.clone(),
       (self.control.snapshot().screen == AppScreen::Game).then(|| game.clone()),
@@ -394,7 +408,11 @@ impl Component for ChessScreen {
       self
         .persistence
         .clone()
-        .map(|persistence| PersistenceCoordinator { persistence }),
+        .map(|persistence| PersistenceCoordinator {
+          persistence,
+          control: self.control.clone(),
+          generation: local.opening_generation,
+        }),
       TurnCoordinator {
         opponent: self.opponent.clone(),
         game: self.game.clone(),
@@ -448,7 +466,21 @@ impl Component for PersistenceCoordinator {
     let position = board.to_string();
     let saved = SavedGame::new(board);
     let persistence = self.persistence.clone();
-    hooks::use_effect(move || persistence.update(saved), position);
+    let progress = saved_progress::use_saved_progress();
+    let board = board.clone();
+    let control = self.control.clone();
+    let generation = self.generation;
+    hooks::use_effect(
+      move || {
+        let current = control.current();
+        if current.erasing || current.opening_generation != generation {
+          return;
+        }
+        progress.record(board);
+        persistence.update(saved);
+      },
+      position,
+    );
   }
 }
 

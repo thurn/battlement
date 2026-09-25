@@ -22,6 +22,7 @@ mod reactant_effects;
 mod reactant_game;
 mod reactant_input;
 mod reactant_view;
+mod saved_progress;
 pub mod settings;
 mod visual_state;
 

@@ -71,7 +71,13 @@ impl ReactantCommit {
         .collect();
     }
     let groups = self.take_groups();
-    let batches = crate::work_scope::batches(session, groups, &self.work_owners, self.independent);
+    let batches = crate::work_scope::batches(
+      session,
+      groups,
+      &self.work_owners,
+      self.observation_scope,
+      self.independent,
+    );
     self.acknowledge();
     batches
   }
@@ -81,6 +87,7 @@ impl ReactantCommit {
       groups: Some(Vec::new()),
       receipt: None,
       work_owners: Default::default(),
+      observation_scope: None,
       independent: false,
     }
   }
@@ -90,6 +97,7 @@ impl ReactantCommit {
       groups: Some(groups),
       receipt: Some(receipt),
       work_owners: Default::default(),
+      observation_scope: None,
       independent: false,
     }
   }

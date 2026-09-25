@@ -18,6 +18,7 @@ mod concept_frame;
 mod control_effects;
 mod dropdown_motion;
 mod erase_control;
+mod erase_dialog;
 mod font_scale;
 mod frame_styles;
 mod graphics_settings;

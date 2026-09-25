@@ -289,3 +289,37 @@ fn first_attachment_keeps_the_already_connected_menu_lifetime() {
   drop(display);
   assert_eq!(game.status(), GameStatus::Stopped);
 }
+
+#[test]
+fn removing_stopped_game_publishes_independent_menu_semantics() {
+  let probe = Arc::new(Probe::default());
+  let mut app = App::with_model("app/content", 0_usize).root(|stage| {
+    View::new().child((
+      Button::new(ls(if *stage == 0 { "Stop" } else { "Finished" }))
+        .on_press(|stage: &mut usize| *stage = 1),
+      (*stage == 0).then(|| GameRoot::new(GameView)),
+    ))
+  });
+  let game = app.start_game::<Counter>(probe.state(), |connection| {
+    Context::interactive(connection, probe.clone())
+  });
+  let consumer = app.game_consumer::<Counter>();
+  consumer.resume_automatic_submission();
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("app/content");
+  let mut display = Display::connect(app, assets);
+  display.settle();
+  display.expect_button("Stop");
+  game.stop();
+  display.activate_accessible("Stop");
+  display.expect_button("Finished");
+  assert!(
+    !display
+      .accessibility()
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Stop"))
+  );
+  assert_eq!(display.frame(), 0);
+  assert_eq!(display.presentation_time(), Duration::ZERO);
+}

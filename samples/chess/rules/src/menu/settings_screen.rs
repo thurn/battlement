@@ -8,9 +8,9 @@ use crate::menu::arcade_route_transition;
 use crate::menu::settings_panel;
 
 use crate::menu::{
-  arcade_modal::ArcadeModal,
   arcade_tab_transition::ArcadeTabTransition,
   erase_control::EraseControl,
+  erase_dialog::EraseDialog,
   font_scale::FontScale,
   graphics_settings::GraphicsSettings,
   input_settings::InputSettings,
@@ -118,18 +118,8 @@ impl Component for SettingsScreen {
       ReturnButton::new()
         .reduced_motion(navigation.reduce_motion)
         .on_press(self.on_return.clone()),
-      ArcadeModal::new()
+      EraseDialog::new()
         .open(active_modal == Some(SettingsModal::Erase))
-        .title(tx("Erase Saved Data?", "Saved-data confirmation title."))
-        .children(Text::new(tx(
-          "All saved data will be permanently erased. This cannot be undone.",
-          "Saved-data confirmation warning.",
-        )))
-        .confirm_label(tx("Erase", "Saved-data confirmation action."))
-        .cancel_label(tx("Cancel", "Cancel the current dialog."))
-        .danger(true)
-        .reduce_motion(navigation.reduce_motion)
-        .on_confirm(set_active_modal.callback().map_input(|_| None))
         .on_close(set_active_modal.callback().map_input(|_| None))
         .overlay(self.overlay.clone()),
       PrivacyPolicyHelp::new()

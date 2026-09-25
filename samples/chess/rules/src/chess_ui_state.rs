@@ -98,6 +98,8 @@ pub struct ChessUiState {
   pub origin_saved: bool,
   /// Whether opening animation currently suppresses interaction.
   pub spawning: bool,
+  /// Saved-progress removal owns the session until success or recovery.
+  pub erasing: bool,
   /// Identity used to remount sessions and ignore stale animation completions.
   pub opening_generation: u64,
   /// Opening animation requested for the current generation.
@@ -174,6 +176,7 @@ impl Default for ChessUiState {
       visual_state: VisualState::Title,
       origin_saved: false,
       spawning: false,
+      erasing: false,
       opening_generation: 0,
       opening: None,
       selected: None,
@@ -212,6 +215,9 @@ impl ChessUiState {
 impl ChessUiController {
   /// Returns to the retained board from the startup or in-game menu.
   pub fn resume_game(&self) {
+    if self.current().erasing {
+      return;
+    }
     self.update(|local| {
       local.screen = AppScreen::Game;
       local.visual_state = VisualState::Resumed;
@@ -219,7 +225,7 @@ impl ChessUiController {
     });
   }
 
-  /// Shows the main menu and releases the active board session.
+  /// Shows the main menu while retaining the active board session.
   pub fn show_menu(&self) {
     self.update(|local| {
       local.screen = AppScreen::Menu;
@@ -252,6 +258,9 @@ impl ChessUiController {
   /// method. Centralization keeps affordance behavior consistent and leaves the
   /// rules worker responsible only for authoritative chess actions.
   pub fn dispatch(&self, game: Option<&GameHandle<ChessGame>>, action: UiAction) {
+    if self.current().erasing {
+      return;
+    }
     match action {
       UiAction::Select(square) => self.select(&required_game(game).accepted_state(), square),
       UiAction::Activate(square) => self.activate_square(required_game(game), square),
@@ -292,6 +301,9 @@ impl ChessUiController {
   /// not. Incrementing the generation keys both the rules session and callbacks.
   pub fn begin_session(&self, mode: SessionStart, cursor_visible: bool, origin_saved: bool) {
     let previous = self.current();
+    if previous.erasing {
+      return;
+    }
     let opening_generation = previous
       .opening_generation
       .checked_add(1)
@@ -315,6 +327,41 @@ impl ChessUiController {
     };
     self.current.replace(next.clone());
     self.dispatch.send(next);
+  }
+
+  /// Invalidates session callbacks before any ordered progress deletion begins.
+  pub fn begin_erasure(&self) {
+    self.update(|local| {
+      local.erasing = true;
+      local.opening_generation = local
+        .opening_generation
+        .checked_add(1)
+        .expect("opening generation overflow");
+      local.opening = None;
+      local.spawning = false;
+      local.selected = None;
+      local.drag_restore = None;
+      local.overlay = None;
+      local.effect = None;
+      local.held.clear();
+    });
+  }
+
+  /// Returns to the initial menu only after storage acknowledges progress removal.
+  pub fn finish_erasure(&self) {
+    self.update(|local| {
+      local.erasing = false;
+      local.screen = AppScreen::Title;
+      local.visual_state = VisualState::Title;
+      local.origin_saved = false;
+      local.cursor = crate::cursor::START;
+      local.cursor_visible = false;
+    });
+  }
+
+  /// Allows a new session to recover the preserved board after a failed deletion.
+  pub fn cancel_erasure(&self) {
+    self.update(|local| local.erasing = false);
   }
 
   /// Starts a replacement session requested by the global restart chord.

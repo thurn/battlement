@@ -66,6 +66,9 @@ impl Component for WaitingTurn {
           return;
         }
         let current = control.current();
+        if current.erasing {
+          return;
+        }
         if current.screen != AppScreen::Game || current.pause_open() {
           return;
         }

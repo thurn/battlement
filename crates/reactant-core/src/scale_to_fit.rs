@@ -10,7 +10,7 @@ use std::rc::Rc;
 ///
 /// Flex/grid layout determines the available space. Children retain their design
 /// coordinates, while the bounds reserve exactly the scaled size. Until the host
-/// reports geometry the canvas has zero scale, avoiding an oversized first frame.
+/// reports usable geometry the canvas is hidden, avoiding an oversized first frame.
 /// Viewport padding and borders are excluded from the measured content area.
 /// Scaling never enlarges the design unless `max_scale` explicitly allows it.
 ///
@@ -195,7 +195,8 @@ impl<R: Render> Component for ScaleToFit<R> {
                       .top(0)
                       .width(self.width)
                       .height(self.height)
-                      .scale(Scale::uniform(scale))
+                      .opacity(if scale > 0.0 { 1.0 } else { 0.0 })
+                      .scale(Scale::uniform(if scale > 0.0 { scale } else { 1.0 }))
                       .transform_origin(TransformOrigin::two_dimensional(
                         Length::Px(0.0),
                         Length::Px(0.0),

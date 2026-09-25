@@ -41,6 +41,7 @@ pub(crate) fn batches(
   session: SessionId,
   groups: Vec<Vec<Command>>,
   owners: &HashMap<ObjectId, u64>,
+  observation_scope: Option<u64>,
   independent: bool,
 ) -> Vec<Batch> {
   let mut batches: Vec<Batch> = Vec::new();
@@ -54,7 +55,7 @@ pub(crate) fn batches(
             command.body,
             CommandBody::AccessibilityUpdate(_) | CommandBody::GeometryObservationUpdate(_)
           )
-          .then(|| owners.values().copied().max())
+          .then_some(observation_scope)
           .flatten()
         });
       if let Some((_, commands)) = split.iter_mut().find(|(owner, _)| *owner == scope) {
@@ -168,7 +169,7 @@ pub(crate) fn extract_snapshot(
   if !commands.is_empty() {
     groups.insert(0, commands);
   }
-  self::batches(snapshot.session_id, groups, owners, true)
+  self::batches(snapshot.session_id, groups, owners, None, true)
 }
 
 fn extract_nodes(

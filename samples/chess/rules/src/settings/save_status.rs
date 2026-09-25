@@ -47,7 +47,7 @@ impl Component for SettingsSaveStatus {
               "Visible settings storage failure status.",
             ))
             .style(Style::new().width(640).white_space(WhiteSpace::Normal)),
-            Button::new(tx("Retry", "Retry saving current settings."))
+            Button::new(tx("Retry", "Retry the failed storage operation."))
               .style(
                 Style::new()
                   .width(230)
