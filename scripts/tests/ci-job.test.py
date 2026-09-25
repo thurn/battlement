@@ -87,6 +87,8 @@ import ci_tooling
 repository, ready, release = map(pathlib.Path, sys.argv[2:])
 print('==> Parent validation', flush=True)
 print('Resource capacity: waiting for real parent admission', flush=True)
+print('Resource capacity: waiting for second parent admission', flush=True)
+print('Resource capacity: acquired real parent admission', flush=True)
 ci_tooling.CHECKS = (('Nested fixture', 'fixture.py'),)
 try:
     ci_tooling.run(repository)
@@ -94,6 +96,8 @@ except subprocess.CalledProcessError as error:
     assert error.returncode == 7
 else:
     raise AssertionError('nested fixture should fail')
+print('Resource capacity: acquired second parent admission', flush=True)
+print('Parent validation resumed after both admissions', flush=True)
 ready.write_text('ready')
 deadline = time.monotonic() + 30
 while not release.exists():
@@ -119,7 +123,8 @@ print('<== Parent validation (0.1s)', flush=True)
         )
         status = json.loads(observed.stdout)
         assert status["current_step"] == "Parent validation", status
-        assert status["waiting_for"] == "Resource capacity: waiting for real parent admission", status
+        assert status["last_wait_diagnostic"] == "Resource capacity: waiting for second parent admission", status
+        assert "waiting_for" not in status
         retained = list((repository / ".logs/ci/tooling").glob("*/fixture.py.log"))
         assert len(retained) == 1
         assert "retained child failure" in retained[0].read_text()
@@ -128,10 +133,11 @@ print('<== Parent validation (0.1s)', flush=True)
         release.write_text("release")
         terminal = ci_job.wait_for(path, None, 5)
     assert terminal["state"] == "passed", terminal
+    assert terminal["last_wait_diagnostic"] == status["last_wait_diagnostic"]
+    assert "waiting_for" not in terminal
     assert terminal["current_step"] is None
-    assert terminal["waiting_for"] is None
-    print(f"CI parent progress: {status['current_step']}; wait={status['waiting_for']}; "
-          f"terminal_wait={terminal['waiting_for']}")
+    print(f"CI parent progress: {status['current_step']}; "
+          f"last_wait_diagnostic={status['last_wait_diagnostic']}")
 
 
 def main() -> None:

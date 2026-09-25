@@ -84,7 +84,7 @@ def observe_progress(job: dict) -> dict:
         lines = []
         stat = None
     active = []
-    waiting_for = None
+    last_wait_diagnostic = None
     for line in lines:
         if line.startswith(ci_tooling.FIXTURE_OUTPUT_PREFIX):
             continue
@@ -97,11 +97,12 @@ def observe_progress(job: dict) -> dict:
                     active.pop(index)
                     break
         if "waiting for " in line.casefold() or " queued for " in line.casefold():
-            waiting_for = line.strip()[-500:]
+            last_wait_diagnostic = line.strip()[-500:]
     result["current_step"] = None if job["state"] in TERMINAL_STATES else (
         active[-1] if active else None
     )
-    result["waiting_for"] = None if job["state"] in TERMINAL_STATES else waiting_for
+    # Interleaved text does not identify wait owners or all acquisition boundaries.
+    result["last_wait_diagnostic"] = last_wait_diagnostic
     result["last_progress"] = None if stat is None else {
         "bytes": stat.st_size,
         "modified_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(
