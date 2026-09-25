@@ -33,7 +33,7 @@ impl Component for SettingsSaveStatus {
           Style::new()
             .position(Position::Absolute)
             .left(68)
-            .top(if scale > 1.0 { 1090 } else { 1480 })
+            .top(if scale > 1.0 { 1090 } else { 1250 })
             .width(887)
             .min_height(56.0 * scale)
             .flex_direction(FlexDirection::Row)

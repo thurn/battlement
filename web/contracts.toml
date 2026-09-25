@@ -38,3 +38,8 @@ kind = "worker"
 paths = ["samples/chess/rules/src/settings/audio.rs", "samples/chess/rules/src/menu/background_music.rs", "samples/chess/rules/src/menu/sound_settings.rs", "crates/reactant-core/src/audio.rs"]
 reason = "Chess browser audio gains, background mute and resume feedback"
 samples = ["chess"]
+
+[[risks]]
+paths = ["crates/reactant/src/persistence*.rs", "crates/battlement-native/src/browser_persistence.rs", "Packages/com.battlement.client/Runtime/BattlementPersistence.jslib"]
+reason = "Settings persistence must wait for serialized browser storage transactions"
+samples = ["chess"]

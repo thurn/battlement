@@ -28,8 +28,23 @@ async (page, context) => {
     throw new Error(`Play row did not become ${visible ? 'visible' : 'dismissed'}`);
   };
   const title = await waitForPlay(true);
-  await page.mouse.click(320, 128, { delay: 200 });
+  async function click(x, y) {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    try {
+      await page.evaluate(() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
+    } finally { await page.mouse.up(); }
+  }
+  const content = { x: 260, y: 132, width: 120, height: 90 };
+  const menu = await check.capture('main-menu-actions', content);
+  await click(320, 170);
+  await check.expectImage('settings-panel', menu, content, 0.2);
+  await click(320, 334);
+  await check.expectImage('main-menu-restored', menu, content, 0, 0.06);
+  await click(320, 128);
   await waitForPlay(false);
   await check.expectImage('game-board', title, play, 0.2);
-  return check.result('Wait for Play, click it, and verify the title menu leaves the board');
+  return check.result('Open Settings, return, and start a game by dismissing the visible Play menu');
 }

@@ -20,6 +20,8 @@ pub struct SettingsPanel {
 pub fn content_height(scale: FontScale, feedback: bool) -> f32 {
   if scale.factor() > 1.0 {
     if feedback { 470.0 } else { 680.0 }
+  } else if feedback {
+    791.0
   } else {
     971.0
   }

@@ -99,13 +99,21 @@ def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> s
     return """async (page) => {
       const logs = [], failures = [], canceledRequests = [], startupProgress = [];
       let initialized = false;
+      const blockingWarning = 'Blocking on the main thread is very dangerous, see https://emscripten.org/docs/porting/pthreads.html#blocking-on-the-main-browser-thread';
+      const unityStartupWait = text => {
+        if (initialized) return false;
+        return text.startsWith(blockingWarning + '\\n') && [
+          'at build.wasm.UnityGUID::Init()',
+          'at build.wasm.AssetBundleLoadFromStreamAsyncOperation::',
+        ].every(frame => text.includes(frame));
+      };
       const onConsole = message => {
         if (!message.text().includes("battlement.frame.slow")) logs.push(message.text().slice(0, 2000));
         if (logs.length > 200) logs.shift();
         const text = message.text();
         if (text.includes('battlement.host.connected')) initialized = true;
         const loading = !initialized && /^(still waiting on run dependencies:|dependency: (?:dataUrl|loading-workers)|\\(end of list\\))$/.test(text.trim());
-        if (loading) startupProgress.push(text);
+        if (loading || unityStartupWait(text)) startupProgress.push(text);
         else if (message.type() === 'error') failures.push(text.slice(0, 2000));
       };
       const onError = error => failures.push(String(error));
@@ -125,6 +133,17 @@ def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> s
       page.on('requestfailed', onRequest);
       try {
         page.setDefaultTimeout(30000);
+        // Emscripten emits warnOnce through console.error. Capture its origin so
+        // only Unity's known asset-startup mutex warning can be classified.
+        await page.addInitScript(warning => {
+          const original = console.error;
+          console.error = function (...args) {
+            if (args.length === 1 && args[0] === warning) {
+              return original.call(console, warning + '\\n' + new Error().stack);
+            }
+            return original.apply(console, args);
+          };
+        }, blockingWarning);
         const result = await (CONTRACT)(page, {
           url: URL_VALUE, evidencePrefix: EVIDENCE_VALUE, logs, start: SHARED_VALUE,
           async waitForLog(pattern) {

@@ -26,6 +26,8 @@ CHECKS = (
     ("Test Web demo cache", "scripts/tests/prepare-web-demo.test.py"),
     ("Test sample deployment workflow", "scripts/tests/deploy.test.py"),
     ("Test isolated Playwright transport", "scripts/tests/playwright-mcp.test.py"),
+    ("Test browser persistence transactions", "scripts/tests/browser-persistence.test.py"),
+    ("Test browser console classification", "scripts/tests/browser-console.test.py"),
     ("Test browser risk selection", "scripts/tests/web-selection.test.py"),
     ("Test Stylon validation", "scripts/tests/stylon-validation.test.py"),
     ("Test CI sample discovery", "scripts/tests/ci.test.py"),

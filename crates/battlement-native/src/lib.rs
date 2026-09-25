@@ -8,6 +8,8 @@
 #![warn(missing_docs)]
 
 mod adapter;
+#[cfg(target_os = "emscripten")]
+mod browser_persistence;
 mod engine;
 mod handles;
 mod logging;
@@ -30,6 +32,8 @@ pub use battlement_flatbuffers::{
   UiSelectionView, UiTabCloseView, UiTabReorderView, UiTabSelectionView, UiTransitionView,
   UiValueCommitView, UiValueView, UiWheelView, write_connect,
 };
+#[cfg(target_os = "emscripten")]
+pub use browser_persistence::*;
 pub use engine::*;
 pub use handles::*;
 pub use logging::*;
