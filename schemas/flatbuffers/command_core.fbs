@@ -267,6 +267,9 @@ table WaitPayload { duration_ms:ulong; }
 table CancelOperationPayload { command_id:Uuid (required); }
 table SetInputEnabledPayload { enabled:bool; }
 table PointerEventsPayload { object_id:Uuid (required); events:[PointerEventKind] (required); }
+enum InputCaptureOperation:ubyte { BeginKeyboard, BeginController, End }
+table InputCapturePayload { capture_id:Uuid (required); operation:InputCaptureOperation; }
+
 table GlobalKeysPayload { keys:[PhysicalKey] (required); }
 
 table ControllerInputSettings {

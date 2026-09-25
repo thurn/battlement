@@ -288,6 +288,7 @@ namespace Battlement.Tests
                 CommandBody.Input.SetPointerEvents value => PointerEvents(builder, value),
                 CommandBody.Input.SetGlobalKeys value => GlobalKeys(builder, value),
                 CommandBody.Input.SetController value => ControllerInput(builder, value),
+                CommandBody.Input.Capture value => InputCapture(builder, value.Value),
                 CommandBody.Controller.Vibrate value => ControllerVibration(builder, value),
                 CommandBody.VisualElement.Create value => VisualCreate(builder, value),
                 CommandBody.VisualElement.Update value => VisualUpdate(builder, value),

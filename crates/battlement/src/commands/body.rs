@@ -191,6 +191,8 @@ pub enum CommandBody {
   InputSetGlobalKeys(GlobalKeysPayload),
   /// Replace controller-button and discrete-navigation settings.
   InputSetController(ControllerInputSettings),
+  /// Own exclusive physical input capture before menu and global routing.
+  InputCapture(crate::InputCaptureCommand),
   /// Run controller vibration motors for a bounded duration.
   ControllerVibrate(ControllerVibrationPayload),
   /// Set whether one Battlement developer interface surface is visible.

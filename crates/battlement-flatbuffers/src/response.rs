@@ -1524,6 +1524,14 @@ pub(crate) fn write_command<'a>(
         payload.as_union_value(),
       )
     }
+    CommandBody::InputCapture(body) => {
+      let payload = crate::input_capture::write_command(builder, *body);
+      (
+        wire::CoreCommandKind::InputCapture,
+        wire::CoreCommandPayload::InputCapturePayload,
+        payload.as_union_value(),
+      )
+    }
     CommandBody::InputSetController(body) => {
       let payload = write_controller_settings(builder, body);
       (
@@ -3321,6 +3329,7 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     wire::CoreCommandKind::InputSetPointerEvents => wire::CoreCommandPayload::PointerEventsPayload,
     wire::CoreCommandKind::InputSetGlobalKeys => wire::CoreCommandPayload::GlobalKeysPayload,
     wire::CoreCommandKind::InputSetController => wire::CoreCommandPayload::ControllerInputSettings,
+    wire::CoreCommandKind::InputCapture => wire::CoreCommandPayload::InputCapturePayload,
     wire::CoreCommandKind::ControllerVibrate => {
       wire::CoreCommandPayload::ControllerVibrationPayload
     }
@@ -3365,6 +3374,13 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     return Err(ProtocolError::new("response command kind/payload mismatch"));
   }
   match value.kind() {
+    wire::CoreCommandKind::InputCapture => {
+      crate::input_capture::read_command(
+        value
+          .payload_as_input_capture_payload()
+          .ok_or_else(|| ProtocolError::new("capture payload missing"))?,
+      )?;
+    }
     wire::CoreCommandKind::AudioPlay => {
       crate::audio::validate_bus(
         value

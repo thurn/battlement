@@ -77,6 +77,13 @@ public enum ParticleSpawnLocationKind : byte
   WorldPosition = 1,
 };
 
+public enum InputCaptureOperation : byte
+{
+  BeginKeyboard = 0,
+  BeginController = 1,
+  End = 2,
+};
+
 public enum DebugUiSurface : byte
 {
   LogViewer = 0,
@@ -2851,6 +2858,40 @@ static public class PointerEventsPayloadVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*ObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
       && verifier.VerifyVectorOfData(tablePos, 6 /*Events*/, 1 /*Battlement.FlatBuffers.Generated.PointerEventKind*/, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
+public struct InputCapturePayload : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static InputCapturePayload GetRootAsInputCapturePayload(ByteBuffer _bb) { return GetRootAsInputCapturePayload(_bb, new InputCapturePayload()); }
+  public static InputCapturePayload GetRootAsInputCapturePayload(ByteBuffer _bb, InputCapturePayload obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public InputCapturePayload __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? CaptureId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.InputCaptureOperation Operation { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.InputCaptureOperation)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.InputCaptureOperation.BeginKeyboard; } }
+
+  public static void StartInputCapturePayload(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddCaptureId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> captureIdOffset) { builder.AddStruct(0, captureIdOffset.Value, 0); }
+  public static void AddOperation(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.InputCaptureOperation operation) { builder.AddByte(1, (byte)operation, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.InputCapturePayload> EndInputCapturePayload(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // capture_id
+    return new Offset<Battlement.FlatBuffers.Generated.InputCapturePayload>(o);
+  }
+}
+
+
+static public class InputCapturePayloadVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*CaptureId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyField(tablePos, 6 /*Operation*/, 1 /*Battlement.FlatBuffers.Generated.InputCaptureOperation*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

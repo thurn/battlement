@@ -101,27 +101,28 @@ public enum CoreCommandKind : byte
   InputSetPointerEvents = 78,
   InputSetGlobalKeys = 79,
   InputSetController = 80,
-  ControllerVibrate = 81,
-  DebugUi = 82,
-  VisualElementCreate = 83,
-  VisualElementUpdate = 84,
-  VisualElementDestroy = 85,
-  VisualElementPerformAction = 86,
-  MotionValue = 87,
-  MotionValuePlayback = 88,
-  MotionPlayback = 89,
-  MotionControlledClock = 90,
-  MotionControl = 91,
-  MotionScope = 92,
-  MotionDragControl = 93,
-  GeometryObservationUpdate = 94,
-  AccessibilityUpdate = 95,
-  ObjectSetRenderOrder = 96,
-  RendererSetInstances = 97,
-  BoxHitRegionSetGeometry = 98,
-  InputSetWorldPointer = 99,
-  MotionSetWorldDescriptor = 100,
-  AudioSetMix = 101,
+  InputCapture = 81,
+  ControllerVibrate = 82,
+  DebugUi = 83,
+  VisualElementCreate = 84,
+  VisualElementUpdate = 85,
+  VisualElementDestroy = 86,
+  VisualElementPerformAction = 87,
+  MotionValue = 88,
+  MotionValuePlayback = 89,
+  MotionPlayback = 90,
+  MotionControlledClock = 91,
+  MotionControl = 92,
+  MotionScope = 93,
+  MotionDragControl = 94,
+  GeometryObservationUpdate = 95,
+  AccessibilityUpdate = 96,
+  ObjectSetRenderOrder = 97,
+  RendererSetInstances = 98,
+  BoxHitRegionSetGeometry = 99,
+  InputSetWorldPointer = 100,
+  MotionSetWorldDescriptor = 101,
+  AudioSetMix = 102,
 };
 
 public enum CoreCommandPayload : byte
@@ -194,28 +195,29 @@ public enum CoreCommandPayload : byte
   SetInputEnabledPayload = 65,
   PointerEventsPayload = 66,
   GlobalKeysPayload = 67,
-  ControllerInputSettings = 68,
-  ControllerVibrationPayload = 69,
-  DebugUiPayload = 70,
-  VisualElementCreatePayload = 71,
-  VisualElementUpdatePayload = 72,
-  VisualElementDestroyPayload = 73,
-  VisualElementActionPayload = 74,
-  MotionValueOperation = 75,
-  MotionValuePlaybackOperation = 76,
-  MotionPlaybackOperation = 77,
-  MotionControlledClockOperation = 78,
-  MotionControlOperation = 79,
-  MotionScopeOperation = 80,
-  MotionDragControlOperation = 81,
-  GeometryObservationUpdate = 82,
-  AccessibilityUpdate = 83,
-  ObjectRenderOrderPayload = 84,
-  RendererInstancesPayload = 85,
-  BoxHitRegionPayload = 86,
-  WorldPointerPayload = 87,
-  WorldMotionPayload = 88,
-  AudioMixPayload = 89,
+  InputCapturePayload = 68,
+  ControllerInputSettings = 69,
+  ControllerVibrationPayload = 70,
+  DebugUiPayload = 71,
+  VisualElementCreatePayload = 72,
+  VisualElementUpdatePayload = 73,
+  VisualElementDestroyPayload = 74,
+  VisualElementActionPayload = 75,
+  MotionValueOperation = 76,
+  MotionValuePlaybackOperation = 77,
+  MotionPlaybackOperation = 78,
+  MotionControlledClockOperation = 79,
+  MotionControlOperation = 80,
+  MotionScopeOperation = 81,
+  MotionDragControlOperation = 82,
+  GeometryObservationUpdate = 83,
+  AccessibilityUpdate = 84,
+  ObjectRenderOrderPayload = 85,
+  RendererInstancesPayload = 86,
+  BoxHitRegionPayload = 87,
+  WorldPointerPayload = 88,
+  WorldMotionPayload = 89,
+  AudioMixPayload = 90,
 };
 
 
@@ -428,6 +430,9 @@ static public class CoreCommandPayloadVerify
       case CoreCommandPayload.GlobalKeysPayload:
         result = Battlement.FlatBuffers.Generated.GlobalKeysPayloadVerify.Verify(verifier, tablePos);
         break;
+      case CoreCommandPayload.InputCapturePayload:
+        result = Battlement.FlatBuffers.Generated.InputCapturePayloadVerify.Verify(verifier, tablePos);
+        break;
       case CoreCommandPayload.ControllerInputSettings:
         result = Battlement.FlatBuffers.Generated.ControllerInputSettingsVerify.Verify(verifier, tablePos);
         break;
@@ -637,6 +642,7 @@ public struct CoreCommand : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.SetInputEnabledPayload PayloadAsSetInputEnabledPayload() { return Payload<Battlement.FlatBuffers.Generated.SetInputEnabledPayload>().Value; }
   public Battlement.FlatBuffers.Generated.PointerEventsPayload PayloadAsPointerEventsPayload() { return Payload<Battlement.FlatBuffers.Generated.PointerEventsPayload>().Value; }
   public Battlement.FlatBuffers.Generated.GlobalKeysPayload PayloadAsGlobalKeysPayload() { return Payload<Battlement.FlatBuffers.Generated.GlobalKeysPayload>().Value; }
+  public Battlement.FlatBuffers.Generated.InputCapturePayload PayloadAsInputCapturePayload() { return Payload<Battlement.FlatBuffers.Generated.InputCapturePayload>().Value; }
   public Battlement.FlatBuffers.Generated.ControllerInputSettings PayloadAsControllerInputSettings() { return Payload<Battlement.FlatBuffers.Generated.ControllerInputSettings>().Value; }
   public Battlement.FlatBuffers.Generated.ControllerVibrationPayload PayloadAsControllerVibrationPayload() { return Payload<Battlement.FlatBuffers.Generated.ControllerVibrationPayload>().Value; }
   public Battlement.FlatBuffers.Generated.DebugUiPayload PayloadAsDebugUiPayload() { return Payload<Battlement.FlatBuffers.Generated.DebugUiPayload>().Value; }

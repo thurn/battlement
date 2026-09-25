@@ -87,6 +87,22 @@ public enum CoreActionKind : byte
   ApplicationStateChanged = 15,
   ReducedMotionPreferenceChanged = 16,
   HostSettingsChanged = 17,
+  InputCaptured = 18,
+};
+
+public enum InputCaptureResultKind : byte
+{
+  Key = 0,
+  Button = 1,
+  Direction = 2,
+  Cancelled = 3,
+};
+
+public enum InputCaptureCancellation : byte
+{
+  FocusLost = 0,
+  DeviceDisconnected = 1,
+  Superseded = 2,
 };
 
 public enum CoreActionBody : byte
@@ -104,6 +120,7 @@ public enum CoreActionBody : byte
   ApplicationStateAction = 10,
   ReducedMotionPreferenceAction = 11,
   HostSettingsAction = 12,
+  InputCaptureAction = 13,
 };
 
 
@@ -150,6 +167,9 @@ static public class CoreActionBodyVerify
         break;
       case CoreActionBody.HostSettingsAction:
         result = Battlement.FlatBuffers.Generated.HostSettingsActionVerify.Verify(verifier, tablePos);
+        break;
+      case CoreActionBody.InputCaptureAction:
+        result = Battlement.FlatBuffers.Generated.InputCaptureActionVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;
@@ -483,6 +503,61 @@ static public class ControllerNavigateActionVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct InputCaptureAction : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static InputCaptureAction GetRootAsInputCaptureAction(ByteBuffer _bb) { return GetRootAsInputCaptureAction(_bb, new InputCaptureAction()); }
+  public static InputCaptureAction GetRootAsInputCaptureAction(ByteBuffer _bb, InputCaptureAction obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public InputCaptureAction __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? CaptureId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.InputCaptureResultKind Result { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.InputCaptureResultKind)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.InputCaptureResultKind.Key; } }
+  public int DeviceId { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public Battlement.FlatBuffers.Generated.PhysicalKey Key { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.PhysicalKey)__p.bb.GetUshort(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.PhysicalKey.Escape; } }
+  public Battlement.FlatBuffers.Generated.ControllerButton Button { get { int o = __p.__offset(12); return o != 0 ? (Battlement.FlatBuffers.Generated.ControllerButton)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.ControllerButton.South; } }
+  public Battlement.FlatBuffers.Generated.ControllerDirection Direction { get { int o = __p.__offset(14); return o != 0 ? (Battlement.FlatBuffers.Generated.ControllerDirection)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.ControllerDirection.Left; } }
+  public Battlement.FlatBuffers.Generated.ControllerNavigationSource Source { get { int o = __p.__offset(16); return o != 0 ? (Battlement.FlatBuffers.Generated.ControllerNavigationSource)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.ControllerNavigationSource.Dpad; } }
+  public bool Repeat { get { int o = __p.__offset(18); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public Battlement.FlatBuffers.Generated.InputCaptureCancellation Cancellation { get { int o = __p.__offset(20); return o != 0 ? (Battlement.FlatBuffers.Generated.InputCaptureCancellation)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.InputCaptureCancellation.FocusLost; } }
+
+  public static void StartInputCaptureAction(FlatBufferBuilder builder) { builder.StartTable(9); }
+  public static void AddCaptureId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> captureIdOffset) { builder.AddStruct(0, captureIdOffset.Value, 0); }
+  public static void AddResult(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.InputCaptureResultKind result) { builder.AddByte(1, (byte)result, 0); }
+  public static void AddDeviceId(FlatBufferBuilder builder, int deviceId) { builder.AddInt(2, deviceId, 0); }
+  public static void AddKey(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.PhysicalKey key) { builder.AddUshort(3, (ushort)key, 0); }
+  public static void AddButton(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.ControllerButton button) { builder.AddByte(4, (byte)button, 0); }
+  public static void AddDirection(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.ControllerDirection direction) { builder.AddByte(5, (byte)direction, 0); }
+  public static void AddSource(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.ControllerNavigationSource source) { builder.AddByte(6, (byte)source, 0); }
+  public static void AddRepeat(FlatBufferBuilder builder, bool repeat) { builder.AddBool(7, repeat, false); }
+  public static void AddCancellation(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.InputCaptureCancellation cancellation) { builder.AddByte(8, (byte)cancellation, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.InputCaptureAction> EndInputCaptureAction(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // capture_id
+    return new Offset<Battlement.FlatBuffers.Generated.InputCaptureAction>(o);
+  }
+}
+
+
+static public class InputCaptureActionVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*CaptureId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyField(tablePos, 6 /*Result*/, 1 /*Battlement.FlatBuffers.Generated.InputCaptureResultKind*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*DeviceId*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 10 /*Key*/, 2 /*Battlement.FlatBuffers.Generated.PhysicalKey*/, 2, false)
+      && verifier.VerifyField(tablePos, 12 /*Button*/, 1 /*Battlement.FlatBuffers.Generated.ControllerButton*/, 1, false)
+      && verifier.VerifyField(tablePos, 14 /*Direction*/, 1 /*Battlement.FlatBuffers.Generated.ControllerDirection*/, 1, false)
+      && verifier.VerifyField(tablePos, 16 /*Source*/, 1 /*Battlement.FlatBuffers.Generated.ControllerNavigationSource*/, 1, false)
+      && verifier.VerifyField(tablePos, 18 /*Repeat*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyField(tablePos, 20 /*Cancellation*/, 1 /*Battlement.FlatBuffers.Generated.InputCaptureCancellation*/, 1, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct GeometryAction : IFlatbufferObject
 {
   private Table __p;
@@ -699,6 +774,7 @@ public struct CoreAction : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.ApplicationStateAction BodyAsApplicationStateAction() { return Body<Battlement.FlatBuffers.Generated.ApplicationStateAction>().Value; }
   public Battlement.FlatBuffers.Generated.ReducedMotionPreferenceAction BodyAsReducedMotionPreferenceAction() { return Body<Battlement.FlatBuffers.Generated.ReducedMotionPreferenceAction>().Value; }
   public Battlement.FlatBuffers.Generated.HostSettingsAction BodyAsHostSettingsAction() { return Body<Battlement.FlatBuffers.Generated.HostSettingsAction>().Value; }
+  public Battlement.FlatBuffers.Generated.InputCaptureAction BodyAsInputCaptureAction() { return Body<Battlement.FlatBuffers.Generated.InputCaptureAction>().Value; }
 
   public static void StartCoreAction(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddActionId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> actionIdOffset) { builder.AddStruct(0, actionIdOffset.Value, 0); }

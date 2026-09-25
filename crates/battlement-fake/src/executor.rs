@@ -668,6 +668,7 @@ where
         settings.buttons = dedupe(settings.buttons);
         self.world.set_controller_input(settings);
       }
+      CommandBody::InputCapture(value) => self.capture_command(*value),
       CommandBody::ControllerVibrate(_) => {}
       CommandBody::DebugUi(value) => self
         .world

@@ -55,6 +55,9 @@ namespace Battlement
 
             /// <summary>Replace controller-button and navigation settings.</summary>
             public sealed record SetController(ControllerInputSettings Settings) : CommandBody;
+
+            /// <summary>Capture physical input before menu and global routing.</summary>
+            public sealed record Capture(InputCaptureCommand Value) : CommandBody;
         }
 
         public static class Controller

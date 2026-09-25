@@ -504,6 +504,9 @@ namespace Battlement.UI
         internal BattlementUiNavigation Navigation =>
             new(() => InputDocuments, focusCoordinator.ShowSemanticFocus);
 
+        internal void SetPhysicalInputCapture(Func<bool> captured) =>
+            eventObserver.PhysicalInputCaptured = captured;
+
         internal void SetWorldCaptureResolver(Func<int, bool> captured) =>
             eventObserver.WorldCaptured = captured;
 

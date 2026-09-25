@@ -321,6 +321,9 @@ namespace Battlement
 
         public sealed record HostSettingsChanged(HostSettings Value) : ActionBody;
 
+        /// <summary>One terminal exclusive physical input capture result.</summary>
+        public sealed record InputCaptured(InputCaptureEvent Value) : ActionBody;
+
         /// <summary>The host's reduced-motion preference changed.</summary>
         public sealed record ReducedMotionPreferenceChanged(ReducedMotionPreference Value)
             : ActionBody;

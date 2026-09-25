@@ -156,13 +156,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 101;
+      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 102;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 102] = [
+      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 103] = [
         CoreCommandKind::ApplicationOpenUrl,
         CoreCommandKind::Diagnostics,
         CoreCommandKind::AssetsReplaceSet,
@@ -244,6 +244,7 @@ pub mod battlement {
         CoreCommandKind::InputSetPointerEvents,
         CoreCommandKind::InputSetGlobalKeys,
         CoreCommandKind::InputSetController,
+        CoreCommandKind::InputCapture,
         CoreCommandKind::ControllerVibrate,
         CoreCommandKind::DebugUi,
         CoreCommandKind::VisualElementCreate,
@@ -353,30 +354,31 @@ pub mod battlement {
         pub const InputSetPointerEvents: Self = Self(78);
         pub const InputSetGlobalKeys: Self = Self(79);
         pub const InputSetController: Self = Self(80);
-        pub const ControllerVibrate: Self = Self(81);
-        pub const DebugUi: Self = Self(82);
-        pub const VisualElementCreate: Self = Self(83);
-        pub const VisualElementUpdate: Self = Self(84);
-        pub const VisualElementDestroy: Self = Self(85);
-        pub const VisualElementPerformAction: Self = Self(86);
-        pub const MotionValue: Self = Self(87);
-        pub const MotionValuePlayback: Self = Self(88);
-        pub const MotionPlayback: Self = Self(89);
-        pub const MotionControlledClock: Self = Self(90);
-        pub const MotionControl: Self = Self(91);
-        pub const MotionScope: Self = Self(92);
-        pub const MotionDragControl: Self = Self(93);
-        pub const GeometryObservationUpdate: Self = Self(94);
-        pub const AccessibilityUpdate: Self = Self(95);
-        pub const ObjectSetRenderOrder: Self = Self(96);
-        pub const RendererSetInstances: Self = Self(97);
-        pub const BoxHitRegionSetGeometry: Self = Self(98);
-        pub const InputSetWorldPointer: Self = Self(99);
-        pub const MotionSetWorldDescriptor: Self = Self(100);
-        pub const AudioSetMix: Self = Self(101);
+        pub const InputCapture: Self = Self(81);
+        pub const ControllerVibrate: Self = Self(82);
+        pub const DebugUi: Self = Self(83);
+        pub const VisualElementCreate: Self = Self(84);
+        pub const VisualElementUpdate: Self = Self(85);
+        pub const VisualElementDestroy: Self = Self(86);
+        pub const VisualElementPerformAction: Self = Self(87);
+        pub const MotionValue: Self = Self(88);
+        pub const MotionValuePlayback: Self = Self(89);
+        pub const MotionPlayback: Self = Self(90);
+        pub const MotionControlledClock: Self = Self(91);
+        pub const MotionControl: Self = Self(92);
+        pub const MotionScope: Self = Self(93);
+        pub const MotionDragControl: Self = Self(94);
+        pub const GeometryObservationUpdate: Self = Self(95);
+        pub const AccessibilityUpdate: Self = Self(96);
+        pub const ObjectSetRenderOrder: Self = Self(97);
+        pub const RendererSetInstances: Self = Self(98);
+        pub const BoxHitRegionSetGeometry: Self = Self(99);
+        pub const InputSetWorldPointer: Self = Self(100);
+        pub const MotionSetWorldDescriptor: Self = Self(101);
+        pub const AudioSetMix: Self = Self(102);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 101;
+        pub const ENUM_MAX: u8 = 102;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::ApplicationOpenUrl,
           Self::Diagnostics,
@@ -459,6 +461,7 @@ pub mod battlement {
           Self::InputSetPointerEvents,
           Self::InputSetGlobalKeys,
           Self::InputSetController,
+          Self::InputCapture,
           Self::ControllerVibrate,
           Self::DebugUi,
           Self::VisualElementCreate,
@@ -565,6 +568,7 @@ pub mod battlement {
             Self::InputSetPointerEvents => Some("InputSetPointerEvents"),
             Self::InputSetGlobalKeys => Some("InputSetGlobalKeys"),
             Self::InputSetController => Some("InputSetController"),
+            Self::InputCapture => Some("InputCapture"),
             Self::ControllerVibrate => Some("ControllerVibrate"),
             Self::DebugUi => Some("DebugUi"),
             Self::VisualElementCreate => Some("VisualElementCreate"),
@@ -650,13 +654,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 89;
+      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 90;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 90] = [
+      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 91] = [
         CoreCommandPayload::NONE,
         CoreCommandPayload::ExternalUrlPayload,
         CoreCommandPayload::DiagnosticsPayload,
@@ -725,6 +729,7 @@ pub mod battlement {
         CoreCommandPayload::SetInputEnabledPayload,
         CoreCommandPayload::PointerEventsPayload,
         CoreCommandPayload::GlobalKeysPayload,
+        CoreCommandPayload::InputCapturePayload,
         CoreCommandPayload::ControllerInputSettings,
         CoreCommandPayload::ControllerVibrationPayload,
         CoreCommandPayload::DebugUiPayload,
@@ -822,31 +827,32 @@ pub mod battlement {
         pub const SetInputEnabledPayload: Self = Self(65);
         pub const PointerEventsPayload: Self = Self(66);
         pub const GlobalKeysPayload: Self = Self(67);
-        pub const ControllerInputSettings: Self = Self(68);
-        pub const ControllerVibrationPayload: Self = Self(69);
-        pub const DebugUiPayload: Self = Self(70);
-        pub const VisualElementCreatePayload: Self = Self(71);
-        pub const VisualElementUpdatePayload: Self = Self(72);
-        pub const VisualElementDestroyPayload: Self = Self(73);
-        pub const VisualElementActionPayload: Self = Self(74);
-        pub const MotionValueOperation: Self = Self(75);
-        pub const MotionValuePlaybackOperation: Self = Self(76);
-        pub const MotionPlaybackOperation: Self = Self(77);
-        pub const MotionControlledClockOperation: Self = Self(78);
-        pub const MotionControlOperation: Self = Self(79);
-        pub const MotionScopeOperation: Self = Self(80);
-        pub const MotionDragControlOperation: Self = Self(81);
-        pub const GeometryObservationUpdate: Self = Self(82);
-        pub const AccessibilityUpdate: Self = Self(83);
-        pub const ObjectRenderOrderPayload: Self = Self(84);
-        pub const RendererInstancesPayload: Self = Self(85);
-        pub const BoxHitRegionPayload: Self = Self(86);
-        pub const WorldPointerPayload: Self = Self(87);
-        pub const WorldMotionPayload: Self = Self(88);
-        pub const AudioMixPayload: Self = Self(89);
+        pub const InputCapturePayload: Self = Self(68);
+        pub const ControllerInputSettings: Self = Self(69);
+        pub const ControllerVibrationPayload: Self = Self(70);
+        pub const DebugUiPayload: Self = Self(71);
+        pub const VisualElementCreatePayload: Self = Self(72);
+        pub const VisualElementUpdatePayload: Self = Self(73);
+        pub const VisualElementDestroyPayload: Self = Self(74);
+        pub const VisualElementActionPayload: Self = Self(75);
+        pub const MotionValueOperation: Self = Self(76);
+        pub const MotionValuePlaybackOperation: Self = Self(77);
+        pub const MotionPlaybackOperation: Self = Self(78);
+        pub const MotionControlledClockOperation: Self = Self(79);
+        pub const MotionControlOperation: Self = Self(80);
+        pub const MotionScopeOperation: Self = Self(81);
+        pub const MotionDragControlOperation: Self = Self(82);
+        pub const GeometryObservationUpdate: Self = Self(83);
+        pub const AccessibilityUpdate: Self = Self(84);
+        pub const ObjectRenderOrderPayload: Self = Self(85);
+        pub const RendererInstancesPayload: Self = Self(86);
+        pub const BoxHitRegionPayload: Self = Self(87);
+        pub const WorldPointerPayload: Self = Self(88);
+        pub const WorldMotionPayload: Self = Self(89);
+        pub const AudioMixPayload: Self = Self(90);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 89;
+        pub const ENUM_MAX: u8 = 90;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ExternalUrlPayload,
@@ -916,6 +922,7 @@ pub mod battlement {
           Self::SetInputEnabledPayload,
           Self::PointerEventsPayload,
           Self::GlobalKeysPayload,
+          Self::InputCapturePayload,
           Self::ControllerInputSettings,
           Self::ControllerVibrationPayload,
           Self::DebugUiPayload,
@@ -1010,6 +1017,7 @@ pub mod battlement {
             Self::SetInputEnabledPayload => Some("SetInputEnabledPayload"),
             Self::PointerEventsPayload => Some("PointerEventsPayload"),
             Self::GlobalKeysPayload => Some("GlobalKeysPayload"),
+            Self::InputCapturePayload => Some("InputCapturePayload"),
             Self::ControllerInputSettings => Some("ControllerInputSettings"),
             Self::ControllerVibrationPayload => Some("ControllerVibrationPayload"),
             Self::DebugUiPayload => Some("DebugUiPayload"),
@@ -2344,6 +2352,20 @@ pub mod battlement {
 
         #[inline]
         #[allow(non_snake_case)]
+        pub fn payload_as_input_capture_payload(&self) -> Option<InputCapturePayload<'a>> {
+          if self.payload_type() == CoreCommandPayload::InputCapturePayload {
+            let u = self.payload();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { InputCapturePayload::init_from_table(u) })
+          } else {
+            None
+          }
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
         pub fn payload_as_controller_input_settings(&self) -> Option<ControllerInputSettings<'a>> {
           if self.payload_type() == CoreCommandPayload::ControllerInputSettings {
             let u = self.payload();
@@ -2752,6 +2774,7 @@ pub mod battlement {
           CoreCommandPayload::SetInputEnabledPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SetInputEnabledPayload>>("CoreCommandPayload::SetInputEnabledPayload", pos),
           CoreCommandPayload::PointerEventsPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<PointerEventsPayload>>("CoreCommandPayload::PointerEventsPayload", pos),
           CoreCommandPayload::GlobalKeysPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GlobalKeysPayload>>("CoreCommandPayload::GlobalKeysPayload", pos),
+          CoreCommandPayload::InputCapturePayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<InputCapturePayload>>("CoreCommandPayload::InputCapturePayload", pos),
           CoreCommandPayload::ControllerInputSettings => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ControllerInputSettings>>("CoreCommandPayload::ControllerInputSettings", pos),
           CoreCommandPayload::ControllerVibrationPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ControllerVibrationPayload>>("CoreCommandPayload::ControllerVibrationPayload", pos),
           CoreCommandPayload::DebugUiPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<DebugUiPayload>>("CoreCommandPayload::DebugUiPayload", pos),
@@ -3534,6 +3557,16 @@ pub mod battlement {
             }
             CoreCommandPayload::GlobalKeysPayload => {
               if let Some(x) = self.payload_as_global_keys_payload() {
+                ds.field("payload", &x)
+              } else {
+                ds.field(
+                  "payload",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            CoreCommandPayload::InputCapturePayload => {
+              if let Some(x) = self.payload_as_input_capture_payload() {
                 ds.field("payload", &x)
               } else {
                 ds.field(

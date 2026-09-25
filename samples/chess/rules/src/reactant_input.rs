@@ -60,16 +60,19 @@ pub fn configure_application(application: Application) -> Application {
 /// and legality paths as clicks and drags.
 pub fn use_chess_input(control: ChessUiController, game: Option<GameHandle<ChessGame>>) {
   reactant::use_global_input(move |input| match input {
-    GlobalInput::KeyDown(key) => key_down(&control, game.as_ref(), key),
-    GlobalInput::KeyUp(key) => control.dispatch(game.as_ref(), UiAction::KeyUp(key)),
-    GlobalInput::ControllerButtonDown(button) => controller_button(&control, game.as_ref(), button),
-    GlobalInput::ControllerNavigate(direction) => {
+    GlobalInput::Reset => control.dispatch(game.as_ref(), UiAction::ClearHeldKeys),
+    GlobalInput::KeyDown(input) => key_down(&control, game.as_ref(), input.key),
+    GlobalInput::KeyUp(input) => control.dispatch(game.as_ref(), UiAction::KeyUp(input.key)),
+    GlobalInput::ControllerButtonDown(input) => {
+      controller_button(&control, game.as_ref(), input.button)
+    }
+    GlobalInput::ControllerNavigate(input) => {
       if game.is_some() {
         control.dispatch(
           game.as_ref(),
           UiAction::MoveCursor(cursor::moved_in_direction(
             control.current().cursor,
-            direction,
+            input.direction,
           )),
         );
       }

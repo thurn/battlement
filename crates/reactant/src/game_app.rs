@@ -7,8 +7,6 @@ use std::{
   time::{Duration, Instant},
 };
 
-use battlement::{ObjectId, Vector3};
-use battlement_native::CoreActionBodyView;
 use reactant_core::{
   app::App,
   app_runtime::{AppOutput, AppRuntime},
@@ -20,10 +18,9 @@ use crate::{
   game_hooks::GameRenderContext,
   game_output::{GameConsumer, PendingOutput},
   game_session::{DispatchFault, GameHandle, GameSession, GameStatus, SessionData},
-  input::{DragCallbacks, GlobalInput},
+  input_dispatch::InputDispatch,
+  input_subscriptions::InputSubscriptions,
 };
-
-type GlobalInputHandler = Rc<dyn Fn(GlobalInput)>;
 
 /// App-owned game attachment and the Rust publication consumer.
 /// Import this trait from `reactant::prelude` to extend the existing UI-only App.
@@ -84,9 +81,8 @@ pub(crate) struct Coordinator {
   pub(crate) admitted_actions: Cell<u64>,
   observed: Cell<u64>,
   observed_game: RefCell<Option<(u64, crate::GameObservation)>>,
-  global_input: RefCell<HashMap<String, GlobalInputHandler>>,
-  drag: RefCell<HashMap<ObjectId, (u64, DragCallbacks)>>,
-  next_input: Cell<u64>,
+  pub(crate) input: Rc<InputDispatch>,
+  pub(crate) input_subscriptions: Rc<InputSubscriptions>,
   now: RefCell<Rc<dyn Fn() -> Instant>>,
   timers: RefCell<HashMap<String, Timer>>,
 }
@@ -109,9 +105,8 @@ impl Default for Coordinator {
       admitted_actions: Cell::default(),
       observed: Cell::default(),
       observed_game: RefCell::default(),
-      global_input: RefCell::default(),
-      drag: RefCell::default(),
-      next_input: Cell::default(),
+      input: Rc::default(),
+      input_subscriptions: Rc::default(),
       now: RefCell::new(Rc::new(Instant::now)),
       timers: RefCell::default(),
     }
@@ -312,88 +307,6 @@ impl Coordinator {
     );
   }
 
-  pub(crate) fn register_global_input(&self, identity: String, handler: GlobalInputHandler) {
-    self.global_input.borrow_mut().insert(identity, handler);
-  }
-
-  pub(crate) fn unregister_global_input(&self, identity: &str) {
-    self.global_input.borrow_mut().remove(identity);
-  }
-
-  pub(crate) fn register_drag(&self, object: ObjectId, callbacks: DragCallbacks) -> u64 {
-    let token = self
-      .next_input
-      .get()
-      .checked_add(1)
-      .expect("input identity overflow");
-    self.next_input.set(token);
-    self.drag.borrow_mut().insert(object, (token, callbacks));
-    token
-  }
-
-  pub(crate) fn unregister_drag(&self, object: ObjectId, token: u64) {
-    let mut drag = self.drag.borrow_mut();
-    if drag
-      .get(&object)
-      .is_some_and(|registered| registered.0 == token)
-    {
-      drag.remove(&object);
-    }
-  }
-
-  pub(crate) fn dispatch_core(&self, body: CoreActionBodyView<'_>) {
-    let global = match body {
-      CoreActionBodyView::KeyDown(value) => Some(GlobalInput::KeyDown(value.physical_key())),
-      CoreActionBodyView::KeyUp(value) => Some(GlobalInput::KeyUp(value.physical_key())),
-      CoreActionBodyView::ControllerButtonDown(value) => {
-        Some(GlobalInput::ControllerButtonDown(value.controller_button()))
-      }
-      CoreActionBodyView::ControllerButtonUp(value) => {
-        Some(GlobalInput::ControllerButtonUp(value.controller_button()))
-      }
-      CoreActionBodyView::ControllerNavigate(value) => Some(GlobalInput::ControllerNavigate(
-        value.controller_direction(),
-      )),
-      CoreActionBodyView::DragStart(value) => {
-        let object = ObjectId::from_bytes(value.object_id()).expect("validated drag object");
-        let callback = self
-          .drag
-          .borrow()
-          .get(&object)
-          .and_then(|entry| entry.1.start.clone());
-        if let Some(callback) = callback {
-          callback();
-        }
-        None
-      }
-      CoreActionBodyView::DragEnd(value) => {
-        let object = ObjectId::from_bytes(value.object_id()).expect("validated drag object");
-        let callback = self
-          .drag
-          .borrow()
-          .get(&object)
-          .and_then(|entry| entry.1.end.clone());
-        if let Some(callback) = callback {
-          let [x, y, z] = value.world_position();
-          callback(Vector3::new(x, y, z));
-        }
-        None
-      }
-      _ => None,
-    };
-    if let Some(input) = global {
-      let handlers = self
-        .global_input
-        .borrow()
-        .values()
-        .cloned()
-        .collect::<Vec<_>>();
-      for handler in handlers {
-        handler(input);
-      }
-    }
-  }
-
   pub(crate) fn set_clock(&self, now: Rc<dyn Fn() -> Instant>) {
     *self.now.borrow_mut() = now;
   }
@@ -576,8 +489,7 @@ impl AppRuntime for Coordinator {
       session.stop();
     }
     self.timers.borrow_mut().clear();
-    self.global_input.borrow_mut().clear();
-    self.drag.borrow_mut().clear();
+    self.input.clear();
   }
 }
 

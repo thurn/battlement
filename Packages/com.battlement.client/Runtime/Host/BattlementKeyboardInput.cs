@@ -98,6 +98,20 @@ namespace Battlement
         internal static PhysicalKey Physical(Key key) =>
             Mappings.Single(mapping => mapping.Key == key).Code;
 
+        internal static bool TryPhysical(Key key, out PhysicalKey physical)
+        {
+            foreach (KeyMapping mapping in Mappings)
+            {
+                if (mapping.Key == key)
+                {
+                    physical = mapping.Code;
+                    return true;
+                }
+            }
+            physical = default;
+            return false;
+        }
+
         private void Synchronize(Keyboard keyboard)
         {
             held.Clear();

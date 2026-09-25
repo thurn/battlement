@@ -94,6 +94,35 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ExclusiveCapturePreventsKeysAndSubmitButKeepsPointerCancelReachable()
+        {
+            using var fixture = new KeyboardFixture();
+            bool captured = true;
+            fixture.SetCapture(() => captured);
+            using KeyDownEvent key = KeyDownEvent.GetPooled('A', KeyCode.A, EventModifiers.None);
+            key.target = fixture.Target;
+            fixture.Target.SendEvent(key);
+            using NavigationSubmitEvent submit = NavigationSubmitEvent.GetPooled();
+            submit.target = fixture.Target;
+            fixture.Target.SendEvent(submit);
+            Assert.That(fixture.Events, Is.Empty);
+#pragma warning disable CS0618
+            Assert.That(key.isDefaultPrevented, Is.True);
+            Assert.That(submit.isDefaultPrevented, Is.True);
+#pragma warning restore CS0618
+            using UnityEngine.UIElements.ClickEvent click =
+                UnityEngine.UIElements.ClickEvent.GetPooled();
+            click.target = fixture.Target;
+            fixture.Target.SendEvent(click);
+            Assert.That(fixture.Events, Has.Count.EqualTo(1));
+            captured = false;
+            using NavigationSubmitEvent restored = NavigationSubmitEvent.GetPooled();
+            restored.target = fixture.Target;
+            fixture.Target.SendEvent(restored);
+            Assert.That(fixture.Events, Has.Count.EqualTo(2));
+        }
+
+        [Test]
         public void FocusDirectionsPreservePublicDirectionValues()
         {
             Assert.That(MapFocus(null), Is.Null);
@@ -180,6 +209,9 @@ namespace Battlement.Tests
                 Assert.That(documents.TryGet(TargetId, out VisualElement? target), Is.True);
                 Target = target!;
             }
+
+            public void SetCapture(Func<bool> captured) =>
+                documents.SetPhysicalInputCapture(captured);
 
             public List<UiEvent> Events { get; }
 

@@ -188,6 +188,11 @@ namespace Battlement
                     value.Button
                 ),
                 ActionBody.ControllerNavigate value => ControllerNavigate(value),
+                ActionBody.InputCaptured value => new ActionBodyOffset(
+                    Wire.CoreActionKind.InputCaptured,
+                    Wire.CoreActionBody.InputCaptureAction,
+                    BattlementInputCaptureWire.Write(builder, value.Value).Value
+                ),
                 ActionBody.HostSettingsChanged value => HostSettings(value.Value),
                 ActionBody.ApplicationStateChanged value => ApplicationState(value.Value),
                 ActionBody.ReducedMotionPreferenceChanged value => ReducedMotion(value.Value),

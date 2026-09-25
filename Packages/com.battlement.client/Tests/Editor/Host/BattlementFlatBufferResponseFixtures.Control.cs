@@ -77,6 +77,29 @@ namespace Battlement.Tests
             );
         }
 
+        private static Payload InputCapture(FlatBufferBuilder builder, InputCaptureCommand value)
+        {
+            (ObjectId id, Wire.InputCaptureOperation operation) = value switch
+            {
+                InputCaptureCommand.Begin begin => (
+                    begin.Request.Id,
+                    begin.Request.Device == InputCaptureDevice.Keyboard
+                        ? Wire.InputCaptureOperation.BeginKeyboard
+                        : Wire.InputCaptureOperation.BeginController
+                ),
+                InputCaptureCommand.End end => (end.Id, Wire.InputCaptureOperation.End),
+                _ => throw new System.InvalidOperationException("Unknown capture operation."),
+            };
+            Wire.InputCapturePayload.StartInputCapturePayload(builder);
+            Wire.InputCapturePayload.AddOperation(builder, operation);
+            Wire.InputCapturePayload.AddCaptureId(builder, Uuid(builder, id.Value));
+            return new(
+                Wire.CoreCommandKind.InputCapture,
+                Wire.CoreCommandPayload.InputCapturePayload,
+                Wire.InputCapturePayload.EndInputCapturePayload(builder).Value
+            );
+        }
+
         private static Payload ControllerInput(
             FlatBufferBuilder builder,
             CommandBody.Input.SetController value

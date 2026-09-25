@@ -814,6 +814,28 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
           .collect::<Result<_, _>>()?,
       })
     }
+    Kind::InputCapture => {
+      let body = value
+        .payload_as_input_capture_payload()
+        .ok_or_else(missing)?;
+      let id = object_id(body.capture_id())?;
+      CommandBody::InputCapture(match body.operation() {
+        payload::InputCaptureOperation::BeginKeyboard => {
+          battlement::InputCaptureCommand::Begin(battlement::InputCaptureRequest {
+            id,
+            device: battlement::InputCaptureDevice::Keyboard,
+          })
+        }
+        payload::InputCaptureOperation::BeginController => {
+          battlement::InputCaptureCommand::Begin(battlement::InputCaptureRequest {
+            id,
+            device: battlement::InputCaptureDevice::Controller,
+          })
+        }
+        payload::InputCaptureOperation::End => battlement::InputCaptureCommand::End(id),
+        _ => return Err("unknown capture operation".to_owned()),
+      })
+    }
     Kind::InputSetController => {
       let body = value
         .payload_as_controller_input_settings()

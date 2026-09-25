@@ -65,7 +65,8 @@ enum CoreActionKind:ubyte {
   MotionEvents,
   ApplicationStateChanged,
   ReducedMotionPreferenceChanged,
-  HostSettingsChanged
+  HostSettingsChanged,
+  InputCaptured
 }
 
 table ActivationAction {
@@ -110,6 +111,21 @@ table ControllerNavigateAction {
   repeat:bool;
 }
 
+enum InputCaptureResultKind:ubyte { Key, Button, Direction, Cancelled }
+enum InputCaptureCancellation:ubyte { FocusLost, DeviceDisconnected, Superseded }
+
+table InputCaptureAction {
+  capture_id:Uuid (required);
+  result:InputCaptureResultKind;
+  device_id:int;
+  key:PhysicalKey;
+  button:ControllerButton;
+  direction:ControllerDirection;
+  source:ControllerNavigationSource;
+  repeat:bool;
+  cancellation:InputCaptureCancellation;
+}
+
 table GeometryAction {
   value:GeometryObservationBatch (required);
 }
@@ -142,7 +158,8 @@ union CoreActionBody {
   MotionAction,
   ApplicationStateAction,
   ReducedMotionPreferenceAction,
-  HostSettingsAction
+  HostSettingsAction,
+  InputCaptureAction
 }
 
 table CoreAction {

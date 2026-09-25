@@ -275,7 +275,7 @@ namespace Battlement
             return new NavigationState(direction, source, TimeSpan.Zero);
         }
 
-        private static ButtonControl Control(Gamepad gamepad, ControllerButton button) =>
+        internal static ButtonControl Control(Gamepad gamepad, ControllerButton button) =>
             button switch
             {
                 ControllerButton.South => gamepad.buttonSouth,

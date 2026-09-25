@@ -10,8 +10,9 @@ use crate::{
   ui_event_generated::{PanelPoint, PhysicalKey as WirePhysicalKey, PointerButtonKind},
 };
 use battlement::{
-  Action, ActionBody, BatchFailed, ControllerButton, ControllerDirection, CoreErrorCode,
-  OperationFailed, PhysicalKey, PointerButton,
+  Action, ActionBody, BatchFailed, ControllerButton, ControllerDirection,
+  ControllerNavigationSource, CoreErrorCode, InputCaptureEvent, OperationFailed, PhysicalKey,
+  PointerButton,
 };
 
 /// Constructs one built-in action directly in a size-prefixed FlatBuffer.
@@ -267,6 +268,14 @@ fn write_action_body<'a>(
       );
       (kind, Body::ControllerButtonAction, value.as_union_value())
     }
+    ActionBody::InputCaptured(value) => {
+      let action = crate::input_capture::write_event(builder, *value)?;
+      (
+        Kind::InputCaptured,
+        Body::InputCaptureAction,
+        action.as_union_value(),
+      )
+    }
     ActionBody::ControllerNavigate(value) => {
       if value.controller_id < 0 {
         return Err(error("controller identity must be nonnegative"));
@@ -461,6 +470,8 @@ pub enum CoreActionBodyView<'a> {
   ControllerButtonUp(ControllerButtonActionView<'a>),
   /// Controller navigation step.
   ControllerNavigate(ControllerNavigateActionView<'a>),
+  /// Terminal exclusive physical input capture result.
+  InputCaptured(InputCaptureEvent),
   /// One coherent generation of changed geometry observations.
   GeometryObservations(crate::GeometryObservationBatchView<'a>),
   /// One normalized Motion event batch.
@@ -686,6 +697,15 @@ impl ControllerNavigateActionView<'_> {
   pub fn source(self) -> u8 {
     self.value.source().0
   }
+  /// Returns the validated physical navigation source.
+  #[must_use]
+  pub fn navigation_source(self) -> ControllerNavigationSource {
+    match self.value.source() {
+      wire::ControllerNavigationSource::Dpad => ControllerNavigationSource::Dpad,
+      wire::ControllerNavigationSource::LeftStick => ControllerNavigationSource::LeftStick,
+      _ => unreachable!("core action validation closes controller navigation sources"),
+    }
+  }
   /// Returns whether this was a held-input repeat.
   #[must_use]
   pub fn is_repeat(self) -> bool {
@@ -831,6 +851,9 @@ fn action_body(value: wire::CoreAction<'_>) -> Result<CoreActionBodyView<'_>, Pr
     (Kind::ControllerButtonUp, Body::ControllerButtonAction) => {
       CoreActionBodyView::ControllerButtonUp(controller_button(value)?)
     }
+    (Kind::InputCaptured, Body::InputCaptureAction) => CoreActionBodyView::InputCaptured(
+      crate::input_capture::read_event(value.body_as_input_capture_action().ok_or_else(mismatch)?)?,
+    ),
     (Kind::ControllerNavigate, Body::ControllerNavigateAction) => {
       CoreActionBodyView::ControllerNavigate(controller_navigate(value)?)
     }

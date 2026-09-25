@@ -436,6 +436,8 @@ pub enum ActionBody {
   ControllerButtonUp(ControllerButtonPayload),
   /// The D-pad or left stick requested one cardinal navigation step.
   ControllerNavigate(ControllerNavigationPayload),
+  /// One terminal result from an exclusive physical input capture.
+  InputCaptured(crate::InputCaptureEvent),
   /// One coherent generation of changed geometry observations.
   GeometryObservations(GeometryObservationBatch),
   /// Ordered Motion lifecycle boundaries and coalesced samples.

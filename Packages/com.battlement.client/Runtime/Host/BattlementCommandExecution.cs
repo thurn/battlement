@@ -18,6 +18,7 @@ namespace Battlement
         private readonly BattlementAudioSources audioSources;
         private readonly BattlementCustomCommands customCommands;
         private readonly BattlementControllerInput controllerInput;
+        private readonly BattlementInputCapture inputCapture;
         private readonly DittoMotionClock motionClock;
         private readonly Action<bool> setInputEnabled;
         private readonly BattlementUiDocuments uiDocuments;
@@ -35,6 +36,7 @@ namespace Battlement
             BattlementParticleEffects particleEffects,
             BattlementAudioSources audioSources,
             BattlementControllerInput controllerInput,
+            BattlementInputCapture inputCapture,
             BattlementCustomCommands customCommands,
             DittoMotionClock motionClock,
             Action<bool> setInputEnabled,
@@ -53,6 +55,7 @@ namespace Battlement
             this.particleEffects = particleEffects;
             this.audioSources = audioSources;
             this.controllerInput = controllerInput;
+            this.inputCapture = inputCapture;
             this.customCommands = customCommands;
             this.motionClock = motionClock;
             this.setInputEnabled = setInputEnabled;
@@ -695,6 +698,9 @@ namespace Battlement
                 case BattlementDirectInputConfigurationKind.GlobalKeys:
                     PhysicalKey[] globalKeys = command.ReadGlobalKeys();
                     world.SetGlobalKeys(globalKeys);
+                    break;
+                case BattlementDirectInputConfigurationKind.Capture:
+                    inputCapture.Execute(command.ReadCapture());
                     break;
                 case BattlementDirectInputConfigurationKind.Controller:
                     ControllerInputSettings controller = command.ReadController();

@@ -15,6 +15,9 @@ mod game_session;
 mod host_clock;
 mod host_settings;
 mod input;
+mod input_capture;
+mod input_dispatch;
+mod input_subscriptions;
 pub use host_settings::use_host_settings;
 mod persistence;
 mod persistence_file;
@@ -36,6 +39,7 @@ mod world_view;
 mod world_visuals;
 
 pub use application_shell::{Application, ApplicationEngine, use_portal_target};
+pub use battlement::{InputCaptureCancellation, InputCaptureDevice, InputCaptureResult};
 pub use battlement_native::Engine;
 pub use game_app::use_game;
 pub use game_hooks::{
@@ -46,6 +50,8 @@ pub use game_hooks::{
 pub use game_output::{GameConsumer, GameOutput};
 pub use game_session::{DispatchResult, GameHandle, GameObservation, GameStatus};
 pub use input::{GlobalInput, use_global_input};
+pub use input_capture::use_input_capture;
+pub use input_subscriptions::{InputSubscription, use_input_subscription};
 pub use persistence::{
   PersistentState, use_host_module, use_persistent_state, use_persistent_state_with,
 };

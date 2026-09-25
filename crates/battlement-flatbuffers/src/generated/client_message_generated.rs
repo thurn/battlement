@@ -534,13 +534,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_ACTION_KIND: u8 = 17;
+      pub const ENUM_MAX_CORE_ACTION_KIND: u8 = 18;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_ACTION_KIND: [CoreActionKind; 18] = [
+      pub const ENUM_VALUES_CORE_ACTION_KIND: [CoreActionKind; 19] = [
         CoreActionKind::Activate,
         CoreActionKind::PointerEnter,
         CoreActionKind::PointerExit,
@@ -559,6 +559,7 @@ pub mod battlement {
         CoreActionKind::ApplicationStateChanged,
         CoreActionKind::ReducedMotionPreferenceChanged,
         CoreActionKind::HostSettingsChanged,
+        CoreActionKind::InputCaptured,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -584,9 +585,10 @@ pub mod battlement {
         pub const ApplicationStateChanged: Self = Self(15);
         pub const ReducedMotionPreferenceChanged: Self = Self(16);
         pub const HostSettingsChanged: Self = Self(17);
+        pub const InputCaptured: Self = Self(18);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 17;
+        pub const ENUM_MAX: u8 = 18;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::Activate,
           Self::PointerEnter,
@@ -606,6 +608,7 @@ pub mod battlement {
           Self::ApplicationStateChanged,
           Self::ReducedMotionPreferenceChanged,
           Self::HostSettingsChanged,
+          Self::InputCaptured,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -628,6 +631,7 @@ pub mod battlement {
             Self::ApplicationStateChanged => Some("ApplicationStateChanged"),
             Self::ReducedMotionPreferenceChanged => Some("ReducedMotionPreferenceChanged"),
             Self::HostSettingsChanged => Some("HostSettingsChanged"),
+            Self::InputCaptured => Some("InputCaptured"),
             _ => None,
           }
         }
@@ -687,18 +691,211 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MIN_CORE_ACTION_BODY: u8 = 0;
+      pub const ENUM_MIN_INPUT_CAPTURE_RESULT_KIND: u8 = 0;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_ACTION_BODY: u8 = 12;
+      pub const ENUM_MAX_INPUT_CAPTURE_RESULT_KIND: u8 = 3;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_ACTION_BODY: [CoreActionBody; 13] = [
+      pub const ENUM_VALUES_INPUT_CAPTURE_RESULT_KIND: [InputCaptureResultKind; 4] = [
+        InputCaptureResultKind::Key,
+        InputCaptureResultKind::Button,
+        InputCaptureResultKind::Direction,
+        InputCaptureResultKind::Cancelled,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct InputCaptureResultKind(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl InputCaptureResultKind {
+        pub const Key: Self = Self(0);
+        pub const Button: Self = Self(1);
+        pub const Direction: Self = Self(2);
+        pub const Cancelled: Self = Self(3);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 3;
+        pub const ENUM_VALUES: &'static [Self] =
+          &[Self::Key, Self::Button, Self::Direction, Self::Cancelled];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Key => Some("Key"),
+            Self::Button => Some("Button"),
+            Self::Direction => Some("Direction"),
+            Self::Cancelled => Some("Cancelled"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for InputCaptureResultKind {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for InputCaptureResultKind {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for InputCaptureResultKind {
+        type Output = InputCaptureResultKind;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for InputCaptureResultKind {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for InputCaptureResultKind {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for InputCaptureResultKind {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_INPUT_CAPTURE_CANCELLATION: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_INPUT_CAPTURE_CANCELLATION: u8 = 2;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_INPUT_CAPTURE_CANCELLATION: [InputCaptureCancellation; 3] = [
+        InputCaptureCancellation::FocusLost,
+        InputCaptureCancellation::DeviceDisconnected,
+        InputCaptureCancellation::Superseded,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct InputCaptureCancellation(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl InputCaptureCancellation {
+        pub const FocusLost: Self = Self(0);
+        pub const DeviceDisconnected: Self = Self(1);
+        pub const Superseded: Self = Self(2);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 2;
+        pub const ENUM_VALUES: &'static [Self] =
+          &[Self::FocusLost, Self::DeviceDisconnected, Self::Superseded];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::FocusLost => Some("FocusLost"),
+            Self::DeviceDisconnected => Some("DeviceDisconnected"),
+            Self::Superseded => Some("Superseded"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for InputCaptureCancellation {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for InputCaptureCancellation {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for InputCaptureCancellation {
+        type Output = InputCaptureCancellation;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for InputCaptureCancellation {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for InputCaptureCancellation {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for InputCaptureCancellation {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_CORE_ACTION_BODY: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_CORE_ACTION_BODY: u8 = 13;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_CORE_ACTION_BODY: [CoreActionBody; 14] = [
         CoreActionBody::NONE,
         CoreActionBody::ActivationAction,
         CoreActionBody::PointerAction,
@@ -712,6 +909,7 @@ pub mod battlement {
         CoreActionBody::ApplicationStateAction,
         CoreActionBody::ReducedMotionPreferenceAction,
         CoreActionBody::HostSettingsAction,
+        CoreActionBody::InputCaptureAction,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -732,9 +930,10 @@ pub mod battlement {
         pub const ApplicationStateAction: Self = Self(10);
         pub const ReducedMotionPreferenceAction: Self = Self(11);
         pub const HostSettingsAction: Self = Self(12);
+        pub const InputCaptureAction: Self = Self(13);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 12;
+        pub const ENUM_MAX: u8 = 13;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ActivationAction,
@@ -749,6 +948,7 @@ pub mod battlement {
           Self::ApplicationStateAction,
           Self::ReducedMotionPreferenceAction,
           Self::HostSettingsAction,
+          Self::InputCaptureAction,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -766,6 +966,7 @@ pub mod battlement {
             Self::ApplicationStateAction => Some("ApplicationStateAction"),
             Self::ReducedMotionPreferenceAction => Some("ReducedMotionPreferenceAction"),
             Self::HostSettingsAction => Some("HostSettingsAction"),
+            Self::InputCaptureAction => Some("InputCaptureAction"),
             _ => None,
           }
         }
@@ -2128,6 +2329,337 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum InputCaptureActionOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct InputCaptureAction<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for InputCaptureAction<'a> {
+        type Inner = InputCaptureAction<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> InputCaptureAction<'a> {
+        pub const VT_CAPTURE_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_RESULT: ::flatbuffers::VOffsetT = 6;
+        pub const VT_DEVICE_ID: ::flatbuffers::VOffsetT = 8;
+        pub const VT_KEY: ::flatbuffers::VOffsetT = 10;
+        pub const VT_BUTTON: ::flatbuffers::VOffsetT = 12;
+        pub const VT_DIRECTION: ::flatbuffers::VOffsetT = 14;
+        pub const VT_SOURCE: ::flatbuffers::VOffsetT = 16;
+        pub const VT_REPEAT: ::flatbuffers::VOffsetT = 18;
+        pub const VT_CANCELLATION: ::flatbuffers::VOffsetT = 20;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          InputCaptureAction { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args InputCaptureActionArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<InputCaptureAction<'bldr>> {
+          let mut builder = InputCaptureActionBuilder::new(_fbb);
+          builder.add_device_id(args.device_id);
+          if let Some(x) = args.capture_id {
+            builder.add_capture_id(x);
+          }
+          builder.add_key(args.key);
+          builder.add_cancellation(args.cancellation);
+          builder.add_repeat(args.repeat);
+          builder.add_source(args.source);
+          builder.add_direction(args.direction);
+          builder.add_button(args.button);
+          builder.add_result(args.result);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn capture_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(InputCaptureAction::VT_CAPTURE_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn result(&self) -> InputCaptureResultKind {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<InputCaptureResultKind>(
+                InputCaptureAction::VT_RESULT,
+                Some(InputCaptureResultKind::Key),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn device_id(&self) -> i32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<i32>(InputCaptureAction::VT_DEVICE_ID, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn key(&self) -> PhysicalKey {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<PhysicalKey>(InputCaptureAction::VT_KEY, Some(PhysicalKey::Escape))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn button(&self) -> ControllerButton {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<ControllerButton>(InputCaptureAction::VT_BUTTON, Some(ControllerButton::South))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn direction(&self) -> ControllerDirection {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<ControllerDirection>(
+                InputCaptureAction::VT_DIRECTION,
+                Some(ControllerDirection::Left),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn source(&self) -> ControllerNavigationSource {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<ControllerNavigationSource>(
+                InputCaptureAction::VT_SOURCE,
+                Some(ControllerNavigationSource::Dpad),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn repeat(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(InputCaptureAction::VT_REPEAT, Some(false))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn cancellation(&self) -> InputCaptureCancellation {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<InputCaptureCancellation>(
+                InputCaptureAction::VT_CANCELLATION,
+                Some(InputCaptureCancellation::FocusLost),
+              )
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for InputCaptureAction<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("capture_id", Self::VT_CAPTURE_ID, true)?
+            .visit_field::<InputCaptureResultKind>("result", Self::VT_RESULT, false)?
+            .visit_field::<i32>("device_id", Self::VT_DEVICE_ID, false)?
+            .visit_field::<PhysicalKey>("key", Self::VT_KEY, false)?
+            .visit_field::<ControllerButton>("button", Self::VT_BUTTON, false)?
+            .visit_field::<ControllerDirection>("direction", Self::VT_DIRECTION, false)?
+            .visit_field::<ControllerNavigationSource>("source", Self::VT_SOURCE, false)?
+            .visit_field::<bool>("repeat", Self::VT_REPEAT, false)?
+            .visit_field::<InputCaptureCancellation>("cancellation", Self::VT_CANCELLATION, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct InputCaptureActionArgs<'a> {
+        pub capture_id: Option<&'a Uuid>,
+        pub result: InputCaptureResultKind,
+        pub device_id: i32,
+        pub key: PhysicalKey,
+        pub button: ControllerButton,
+        pub direction: ControllerDirection,
+        pub source: ControllerNavigationSource,
+        pub repeat: bool,
+        pub cancellation: InputCaptureCancellation,
+      }
+      impl<'a> Default for InputCaptureActionArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          InputCaptureActionArgs {
+            capture_id: None, // required field
+            result: InputCaptureResultKind::Key,
+            device_id: 0,
+            key: PhysicalKey::Escape,
+            button: ControllerButton::South,
+            direction: ControllerDirection::Left,
+            source: ControllerNavigationSource::Dpad,
+            repeat: false,
+            cancellation: InputCaptureCancellation::FocusLost,
+          }
+        }
+      }
+
+      pub struct InputCaptureActionBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InputCaptureActionBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_capture_id(&mut self, capture_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(InputCaptureAction::VT_CAPTURE_ID, capture_id);
+        }
+        #[inline]
+        pub fn add_result(&mut self, result: InputCaptureResultKind) {
+          self.fbb_.push_slot::<InputCaptureResultKind>(
+            InputCaptureAction::VT_RESULT,
+            result,
+            InputCaptureResultKind::Key,
+          );
+        }
+        #[inline]
+        pub fn add_device_id(&mut self, device_id: i32) {
+          self
+            .fbb_
+            .push_slot::<i32>(InputCaptureAction::VT_DEVICE_ID, device_id, 0);
+        }
+        #[inline]
+        pub fn add_key(&mut self, key: PhysicalKey) {
+          self
+            .fbb_
+            .push_slot::<PhysicalKey>(InputCaptureAction::VT_KEY, key, PhysicalKey::Escape);
+        }
+        #[inline]
+        pub fn add_button(&mut self, button: ControllerButton) {
+          self.fbb_.push_slot::<ControllerButton>(
+            InputCaptureAction::VT_BUTTON,
+            button,
+            ControllerButton::South,
+          );
+        }
+        #[inline]
+        pub fn add_direction(&mut self, direction: ControllerDirection) {
+          self.fbb_.push_slot::<ControllerDirection>(
+            InputCaptureAction::VT_DIRECTION,
+            direction,
+            ControllerDirection::Left,
+          );
+        }
+        #[inline]
+        pub fn add_source(&mut self, source: ControllerNavigationSource) {
+          self.fbb_.push_slot::<ControllerNavigationSource>(
+            InputCaptureAction::VT_SOURCE,
+            source,
+            ControllerNavigationSource::Dpad,
+          );
+        }
+        #[inline]
+        pub fn add_repeat(&mut self, repeat: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(InputCaptureAction::VT_REPEAT, repeat, false);
+        }
+        #[inline]
+        pub fn add_cancellation(&mut self, cancellation: InputCaptureCancellation) {
+          self.fbb_.push_slot::<InputCaptureCancellation>(
+            InputCaptureAction::VT_CANCELLATION,
+            cancellation,
+            InputCaptureCancellation::FocusLost,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> InputCaptureActionBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          InputCaptureActionBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<InputCaptureAction<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, InputCaptureAction::VT_CAPTURE_ID, "capture_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for InputCaptureAction<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("InputCaptureAction");
+          ds.field("capture_id", &self.capture_id());
+          ds.field("result", &self.result());
+          ds.field("device_id", &self.device_id());
+          ds.field("key", &self.key());
+          ds.field("button", &self.button());
+          ds.field("direction", &self.direction());
+          ds.field("source", &self.source());
+          ds.field("repeat", &self.repeat());
+          ds.field("cancellation", &self.cancellation());
+          ds.finish()
+        }
+      }
       pub enum GeometryActionOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -3029,6 +3561,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn body_as_input_capture_action(&self) -> Option<InputCaptureAction<'a>> {
+          if self.body_type() == CoreActionBody::InputCaptureAction {
+            let u = self.body();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { InputCaptureAction::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CoreAction<'_> {
@@ -3055,6 +3601,7 @@ pub mod battlement {
           CoreActionBody::ApplicationStateAction => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ApplicationStateAction>>("CoreActionBody::ApplicationStateAction", pos),
           CoreActionBody::ReducedMotionPreferenceAction => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ReducedMotionPreferenceAction>>("CoreActionBody::ReducedMotionPreferenceAction", pos),
           CoreActionBody::HostSettingsAction => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<HostSettingsAction>>("CoreActionBody::HostSettingsAction", pos),
+          CoreActionBody::InputCaptureAction => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<InputCaptureAction>>("CoreActionBody::InputCaptureAction", pos),
           _ => Ok(()),
         }
      })?
@@ -3263,6 +3810,16 @@ pub mod battlement {
             }
             CoreActionBody::HostSettingsAction => {
               if let Some(x) = self.body_as_host_settings_action() {
+                ds.field("body", &x)
+              } else {
+                ds.field(
+                  "body",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            CoreActionBody::InputCaptureAction => {
+              if let Some(x) = self.body_as_input_capture_action() {
                 ds.field("body", &x)
               } else {
                 ds.field(

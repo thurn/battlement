@@ -709,6 +709,101 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
+      pub const ENUM_MIN_INPUT_CAPTURE_OPERATION: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_INPUT_CAPTURE_OPERATION: u8 = 2;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_INPUT_CAPTURE_OPERATION: [InputCaptureOperation; 3] = [
+        InputCaptureOperation::BeginKeyboard,
+        InputCaptureOperation::BeginController,
+        InputCaptureOperation::End,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct InputCaptureOperation(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl InputCaptureOperation {
+        pub const BeginKeyboard: Self = Self(0);
+        pub const BeginController: Self = Self(1);
+        pub const End: Self = Self(2);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 2;
+        pub const ENUM_VALUES: &'static [Self] =
+          &[Self::BeginKeyboard, Self::BeginController, Self::End];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::BeginKeyboard => Some("BeginKeyboard"),
+            Self::BeginController => Some("BeginController"),
+            Self::End => Some("End"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for InputCaptureOperation {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for InputCaptureOperation {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for InputCaptureOperation {
+        type Output = InputCaptureOperation;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for InputCaptureOperation {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for InputCaptureOperation {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for InputCaptureOperation {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
       pub const ENUM_MIN_DEBUG_UI_SURFACE: u8 = 0;
       #[deprecated(
         since = "2.0.0",
@@ -12480,6 +12575,152 @@ pub mod battlement {
           let mut ds = f.debug_struct("PointerEventsPayload");
           ds.field("object_id", &self.object_id());
           ds.field("events", &self.events());
+          ds.finish()
+        }
+      }
+      pub enum InputCapturePayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct InputCapturePayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for InputCapturePayload<'a> {
+        type Inner = InputCapturePayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> InputCapturePayload<'a> {
+        pub const VT_CAPTURE_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_OPERATION: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          InputCapturePayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args InputCapturePayloadArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<InputCapturePayload<'bldr>> {
+          let mut builder = InputCapturePayloadBuilder::new(_fbb);
+          if let Some(x) = args.capture_id {
+            builder.add_capture_id(x);
+          }
+          builder.add_operation(args.operation);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn capture_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(InputCapturePayload::VT_CAPTURE_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn operation(&self) -> InputCaptureOperation {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<InputCaptureOperation>(
+                InputCapturePayload::VT_OPERATION,
+                Some(InputCaptureOperation::BeginKeyboard),
+              )
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for InputCapturePayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("capture_id", Self::VT_CAPTURE_ID, true)?
+            .visit_field::<InputCaptureOperation>("operation", Self::VT_OPERATION, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct InputCapturePayloadArgs<'a> {
+        pub capture_id: Option<&'a Uuid>,
+        pub operation: InputCaptureOperation,
+      }
+      impl<'a> Default for InputCapturePayloadArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          InputCapturePayloadArgs {
+            capture_id: None, // required field
+            operation: InputCaptureOperation::BeginKeyboard,
+          }
+        }
+      }
+
+      pub struct InputCapturePayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InputCapturePayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_capture_id(&mut self, capture_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(InputCapturePayload::VT_CAPTURE_ID, capture_id);
+        }
+        #[inline]
+        pub fn add_operation(&mut self, operation: InputCaptureOperation) {
+          self.fbb_.push_slot::<InputCaptureOperation>(
+            InputCapturePayload::VT_OPERATION,
+            operation,
+            InputCaptureOperation::BeginKeyboard,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> InputCapturePayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          InputCapturePayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<InputCapturePayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, InputCapturePayload::VT_CAPTURE_ID, "capture_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for InputCapturePayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("InputCapturePayload");
+          ds.field("capture_id", &self.capture_id());
+          ds.field("operation", &self.operation());
           ds.finish()
         }
       }

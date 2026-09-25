@@ -1,7 +1,9 @@
 use std::{mem, rc::Rc, thread};
 
 use battlement::application::{ApplicationState, ReducedMotionPreference};
-use battlement::{ActionId, ObjectId, ScreenSize, SessionId, Snapshot, UiEventDisposition};
+use battlement::{
+  ActionId, CommandBody, ObjectId, ScreenSize, SessionId, Snapshot, UiEventDisposition,
+};
 use battlement_native::{
   ConnectView, CoreActionBodyView, CoreClientMessageView, Engine, EngineError, EngineResponse,
   FlatBufferSubmitError, UiEventActionView, UiEventResult,
@@ -387,6 +389,14 @@ impl<G: 'static> App<G> {
         .replace_localizer(&mut self.model, localizer)
         .expect("localizer replacement failed to render");
       app_delivery::append(response, action, commit);
+    }
+    // Full refreshes must retain the latest mounted input subscriptions.
+    for queued in &commands {
+      match &queued.command.body {
+        CommandBody::InputSetGlobalKeys(value) => self.global_keys.clone_from(&value.keys),
+        CommandBody::InputSetController(value) => self.controller_input = Some(value.clone()),
+        _ => {}
+      }
     }
     if snapshot {
       let imperative = app_delivery::take_imperative(response);

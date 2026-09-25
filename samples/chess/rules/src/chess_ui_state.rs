@@ -61,6 +61,8 @@ pub enum UiAction {
   KeyDown(PhysicalKey),
   /// Releases a held key.
   KeyUp(PhysicalKey),
+  /// Clears held keys when native input ownership is interrupted.
+  ClearHeldKeys,
   /// Requests one host debug surface.
   ShowDebug(DebugUiSurface),
 }
@@ -289,6 +291,7 @@ impl ChessUiController {
           local.held.remove(&key);
         });
       }
+      UiAction::ClearHeldKeys => self.update(|local| local.held.clear()),
       UiAction::ShowDebug(surface) => {
         self.update(|local| Self::effect(local, LocalEffect::ShowDebug(surface)))
       }

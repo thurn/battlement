@@ -11,6 +11,7 @@ mod core_client;
 mod geometry;
 mod hit_region;
 mod host_settings;
+mod input_capture;
 pub use host_settings::HostSettingsView;
 mod limits;
 mod material;

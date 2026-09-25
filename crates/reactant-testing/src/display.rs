@@ -2,7 +2,9 @@ use battlement::application::ApplicationState;
 use battlement::host_settings::HostSettings;
 use std::{sync::Arc, time::Duration};
 
-use battlement::{CommandId, Connect, ObjectId, Vector3};
+use battlement::{
+  CommandId, Connect, ControllerNavigationPayload, InputCaptureDevice, ObjectId, Vector3,
+};
 use battlement_fake::{
   assets::FakeAssetCatalog,
   client::FakeClient,
@@ -255,6 +257,16 @@ where
       false,
     );
   }
+
+  /// Sends a navigation step with its original device, control, and repeat metadata.
+  pub fn controller_navigation(&mut self, input: ControllerNavigationPayload) {
+    self.client.controller_navigate(
+      input.controller_id,
+      input.direction,
+      input.source,
+      input.repeat,
+    );
+  }
   /// Cancels through the focused logical route, including a modal's dismiss behavior.
   pub fn cancel_navigation(&mut self) {
     self.client.cancel_navigation();
@@ -290,6 +302,16 @@ where
   #[must_use]
   pub fn ui(&mut self) -> battlement_fake::client::ui::UiClient<'_, E> {
     self.client.ui()
+  }
+
+  /// Releases a held physical controller direction without navigating again.
+  pub fn release_controller_navigation(&mut self) {
+    self.client.release_controller_navigation();
+  }
+
+  /// Simulates loss of the selected input device family.
+  pub fn disconnect_input_device(&mut self, device: InputCaptureDevice) {
+    self.client.disconnect_input_device(device);
   }
 
   /// Opens the fake world surface for detailed host assertions.
@@ -428,7 +450,8 @@ where
     self.client.advance_frame();
   }
 
-  /// Completes known work and finite presentation, stopping at a human choice.
+  /// Completes finite presentation using this display's driver.
+  /// For a plain mounted application, call `flush` first to apply queued engine work.
   pub fn settle(&mut self) -> crate::ActionResult {
     self.boundary = (self.drive)(self, None);
     self.boundary

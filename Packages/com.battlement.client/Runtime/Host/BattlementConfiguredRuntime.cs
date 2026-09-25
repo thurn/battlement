@@ -62,6 +62,10 @@ namespace Battlement
         internal BattlementKeyboardInput KeyboardInput =>
             Require(keyboardInput, nameof(KeyboardInput));
 
+        private BattlementInputCapture? inputCapture;
+
+        internal BattlementInputCapture InputCapture => Require(inputCapture, nameof(InputCapture));
+
         private BattlementControllerInput? controllerInput;
 
         internal BattlementControllerInput ControllerInput =>
@@ -133,6 +137,8 @@ namespace Battlement
         internal void SetPanelInput(BattlementPanelInputCoordinator value) => panelInput = value;
 
         internal void SetKeyboardInput(BattlementKeyboardInput value) => keyboardInput = value;
+
+        internal void SetInputCapture(BattlementInputCapture value) => inputCapture = value;
 
         internal void SetControllerInput(BattlementControllerInput value) =>
             controllerInput = value;

@@ -2,28 +2,34 @@
 
 use std::rc::Rc;
 
-use battlement::{ControllerButton, ControllerDirection, PhysicalKey, Vector3};
-use reactant_core::{app_runtime::ApplicationContext, hooks};
+use battlement::{ControllerButtonPayload, ControllerNavigationPayload, KeyPayload, Vector3};
+use reactant_core::{app_runtime::ApplicationContext, application, hooks};
 
-use crate::game_app::ServicesContext;
+use crate::{game_app::ServicesContext, host_settings};
 
 /// An unclaimed application-wide keyboard or controller action.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GlobalInput {
+  /// Clears held input after capture, subscription, device, or focus changes.
+  Reset,
   /// A configured physical key was pressed.
-  KeyDown(PhysicalKey),
+  KeyDown(KeyPayload),
   /// A configured physical key was released.
-  KeyUp(PhysicalKey),
+  KeyUp(KeyPayload),
   /// A configured controller button was pressed.
-  ControllerButtonDown(ControllerButton),
+  ControllerButtonDown(ControllerButtonPayload),
   /// A configured controller button was released.
-  ControllerButtonUp(ControllerButton),
+  ControllerButtonUp(ControllerButtonPayload),
   /// The native controller repeat/arbitration path produced one direction.
-  ControllerNavigate(ControllerDirection),
+  ControllerNavigate(ControllerNavigationPayload),
 }
 
 /// Subscribes for unclaimed global input while the component is mounted.
 pub fn use_global_input(handler: impl Fn(GlobalInput) + 'static) {
+  let application = application::use_application_state();
+  let host = host_settings::use_host_settings();
+  let devices = (host.keyboard_connected, host.controller_count);
+  let previous_devices = hooks::use_ref(devices);
   let services = hooks::use_required_context::<ApplicationContext>()
     .value::<ServicesContext>()
     .expect("use_global_input requires a Reactant Application root");
@@ -38,17 +44,37 @@ pub fn use_global_input(handler: impl Fn(GlobalInput) + 'static) {
   hooks::use_effect_always(move || {
     committed.replace(next);
   });
+  let reset = current.clone();
+  hooks::use_effect(
+    move || {
+      if !application.focused || application.paused {
+        reset.with(|handler| handler(GlobalInput::Reset));
+      }
+    },
+    application,
+  );
+  let reset = current.clone();
+  hooks::use_effect(
+    move || {
+      let previous = previous_devices.with(|previous| *previous);
+      previous_devices.replace(devices);
+      if previous != devices {
+        reset.with(|handler| handler(GlobalInput::Reset));
+      }
+    },
+    devices,
+  );
   let identity = hooks::use_id();
   hooks::use_effect(
     move || {
       let current = current.clone();
-      coordinator.register_global_input(
+      coordinator.input.register_global_input(
         identity.clone(),
         Rc::new(move |input| {
           current.with(|handler| handler(input));
         }),
       );
-      move || coordinator.unregister_global_input(&identity)
+      move || coordinator.input.unregister_global_input(&identity)
     },
     (),
   );
@@ -96,12 +122,12 @@ pub(crate) fn use_drag_callbacks(
         let object = reference
           .object_id()
           .expect("drag callback host must be committed before its effect");
-        let token = coordinator.register_drag(object, callbacks);
+        let token = coordinator.input.register_drag(object, callbacks);
         (coordinator, object, token)
       });
       move || {
         if let Some((coordinator, object, token)) = registration {
-          coordinator.unregister_drag(object, token);
+          coordinator.input.unregister_drag(object, token);
         }
       }
     },

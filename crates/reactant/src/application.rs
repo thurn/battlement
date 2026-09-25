@@ -36,7 +36,7 @@ impl Application {
     let coordinator = app.application_runtime(Coordinator::default);
     coordinator.bind(&coordinator);
     let input = coordinator.clone();
-    app = app.on_core_action(move |_, body| input.dispatch_core(body));
+    app = app.on_core_action(move |_, body| input.input.dispatch_core(body));
     Self { app, coordinator }
   }
 
@@ -99,12 +99,18 @@ impl Application {
 
   /// Declares keyboard keys delivered after native focus arbitration.
   pub fn global_keys(mut self, keys: impl IntoIterator<Item = PhysicalKey>) -> Self {
+    let keys = keys.into_iter().collect::<Vec<_>>();
+    self.coordinator.input_subscriptions.set_keys(keys.clone());
     self.app = self.app.global_keys(keys);
     self
   }
 
   /// Declares controller navigation and buttons for the application.
   pub fn controller_input(mut self, settings: ControllerInputSettings) -> Self {
+    self
+      .coordinator
+      .input_subscriptions
+      .set_controller(settings.clone());
     self.app = self.app.controller_input(settings);
     self
   }

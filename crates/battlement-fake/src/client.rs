@@ -12,10 +12,10 @@ use battlement::{
   Action, ActionBody, ActionId, ActivationPayload, Batch, BatchFailed, BatchId, Command, CommandId,
   Connect, ControllerButton, ControllerButtonPayload, ControllerDirection,
   ControllerNavigationPayload, ControllerNavigationSource, CoreErrorCode, DragPayload,
-  GeometryObservationBatch, GeometryRegistry, ImageState, PhysicalKey, PointerButton,
-  PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
-  ScreenSize, UiEvent, UiEventAction, UiEventDisposition, UiVisualElementProperties, Validate,
-  Vector3,
+  GeometryObservationBatch, GeometryRegistry, ImageState, InputCaptureCancellation,
+  InputCaptureDevice, InputCaptureResult, PhysicalKey, PointerButton, PointerButtonPayload,
+  PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition, ScreenSize, UiEvent,
+  UiEventAction, UiEventDisposition, UiVisualElementProperties, Validate, Vector3,
 };
 use battlement_cloud_fake::diagnostics::DiagnosticsFake;
 use battlement_native::Engine;
@@ -25,6 +25,7 @@ use uuid::Uuid;
 use crate::{
   assertions,
   assets::FakeAssetCatalog,
+  client::input_capture::Capture,
   client::ui::{
     MinMaxSliderInteraction, ScrollInteraction, ScrollerInteraction, SliderIntInteraction,
     TextFieldInteraction, UiClient,
@@ -37,6 +38,7 @@ use crate::{
   world::FakeWorld,
 };
 
+mod input_capture;
 mod navigation;
 mod pointer;
 mod pointer_legacy;
@@ -108,8 +110,10 @@ where
   hovered: Option<PointerState>,
   pressed: Option<PressedPointer>,
   drag: Option<ActiveDrag>,
+  pub(crate) capture: Capture,
+  held_navigation: Option<ControllerNavigationPayload>,
   held_keys: HashSet<PhysicalKey>,
-  held_controller_buttons: HashSet<ControllerButton>,
+  held_controller_buttons: HashSet<(i32, ControllerButton)>,
   pub(crate) clock: Option<ManualClock>,
   scroll_interactions: HashMap<battlement::ObjectId, ScrollInteraction>,
   scroller_interactions: HashMap<battlement::ObjectId, ScrollerInteraction>,
@@ -128,12 +132,30 @@ where
   /// Publishes application focus and suspension without advancing time.
   pub fn set_application_state(&mut self, state: ApplicationState) {
     self.connect.application_state = state;
+    if !state.focused || state.paused {
+      self.held_keys.clear();
+      self.held_controller_buttons.clear();
+      self.held_navigation = None;
+      self.complete_capture(InputCaptureResult::Cancelled(
+        InputCaptureCancellation::FocusLost,
+      ));
+    }
     self.submit_action(ActionBody::ApplicationStateChanged(state));
   }
 
   /// Publishes an explicit host observation and retains it for reconnects.
   pub fn set_host_settings(&mut self, settings: HostSettings) {
+    let keyboard_removed =
+      self.connect.host_settings.keyboard_connected && !settings.keyboard_connected;
+    let controllers_removed =
+      self.connect.host_settings.controller_count > 0 && settings.controller_count == 0;
     self.connect.host_settings = settings.clone();
+    if keyboard_removed {
+      self.remove_input_device(InputCaptureDevice::Keyboard);
+    }
+    if controllers_removed {
+      self.remove_input_device(InputCaptureDevice::Controller);
+    }
     self.submit_action(ActionBody::HostSettingsChanged(settings));
   }
 
@@ -278,6 +300,8 @@ where
       hovered: None,
       pressed: None,
       drag: None,
+      capture: Capture::default(),
+      held_navigation: None,
       held_keys: HashSet::new(),
       held_controller_buttons: HashSet::new(),
       clock: None,
@@ -337,6 +361,8 @@ where
     self.audio_occurrences.clear();
     self.particle_occurrences.clear();
     self.next_action_number = 1;
+    self.capture = Capture::default();
+    self.held_navigation = None;
     self.clear_device_state();
     self.scroll_interactions.clear();
     self.scroller_interactions.clear();
@@ -414,6 +440,7 @@ where
 
   /// Records one rendered-frame boundary without advancing virtual time.
   pub fn advance_frame(&mut self) {
+    self.capture_frame();
     self.frame = self
       .frame
       .checked_add(1)
@@ -663,6 +690,12 @@ where
   /// Sends a physical key-down transition when the key is enabled and unheld.
   pub fn key_down(&mut self, key: PhysicalKey) {
     self.require_input_enabled();
+    if self.capture.blocks() {
+      if self.held_keys.insert(key) {
+        self.capture_input(InputCaptureResult::Key { device_id: 0, key });
+      }
+      return;
+    }
     assert!(
       self.world.global_keys().contains(&key),
       "key is not enabled: {key:?}"
@@ -678,6 +711,11 @@ where
 
   /// Sends a physical key-up transition when the key is enabled and held.
   pub fn key_up(&mut self, key: PhysicalKey) {
+    if self.capture.blocks() {
+      self.held_keys.remove(&key);
+      self.capture_released();
+      return;
+    }
     if !self.world.input_enabled() {
       self.held_keys.remove(&key);
       return;
@@ -695,9 +733,18 @@ where
 
   /// Sends an enabled controller-button down transition when it is not already held.
   pub fn controller_button_down(&mut self, controller_id: i32, button: ControllerButton) {
+    if self.capture.blocks() {
+      if self.held_controller_buttons.insert((controller_id, button)) {
+        self.capture_input(InputCaptureResult::Button(ControllerButtonPayload {
+          controller_id,
+          button,
+        }));
+      }
+      return;
+    }
     self.require_input_enabled();
     self.require_controller_button(button);
-    if !self.held_controller_buttons.insert(button) {
+    if !self.held_controller_buttons.insert((controller_id, button)) {
       return;
     }
     if !self.route_controller_button(button) {
@@ -711,12 +758,24 @@ where
 
   /// Sends an enabled controller-button up transition when it is held.
   pub fn controller_button_up(&mut self, controller_id: i32, button: ControllerButton) {
+    if self.capture.blocks() {
+      self
+        .held_controller_buttons
+        .remove(&(controller_id, button));
+      self.capture_released();
+      return;
+    }
     if !self.world.input_enabled() {
-      self.held_controller_buttons.remove(&button);
+      self
+        .held_controller_buttons
+        .remove(&(controller_id, button));
       return;
     }
     self.require_controller_button(button);
-    if !self.held_controller_buttons.remove(&button) {
+    if !self
+      .held_controller_buttons
+      .remove(&(controller_id, button))
+    {
       return;
     }
     self.submit_action(ActionBody::ControllerButtonUp(ControllerButtonPayload {
@@ -735,6 +794,16 @@ where
     repeat: bool,
   ) {
     self.require_input_enabled();
+    let input = ControllerNavigationPayload {
+      controller_id,
+      direction,
+      source,
+      repeat,
+    };
+    self.held_navigation = Some(input);
+    if self.capture_input(InputCaptureResult::Direction(input)) {
+      return;
+    }
     assert!(
       self
         .world
@@ -1109,6 +1178,9 @@ where
   }
 
   pub(crate) fn submit_ui_event(&mut self, event: UiEvent) -> UiEventDisposition {
+    if self.suppress_captured_ui(&event.body) {
+      return UiEventDisposition::PreventDefault;
+    }
     let forwards_ui_events = self
       .world
       .object(event.target_id)
@@ -1325,8 +1397,11 @@ where
     self.hovered = None;
     self.pressed = None;
     self.drag = None;
-    self.held_keys.clear();
-    self.held_controller_buttons.clear();
+    if !self.capture.blocks() {
+      self.held_keys.clear();
+      self.held_controller_buttons.clear();
+      self.held_navigation = None;
+    }
   }
 
   pub(crate) fn reconcile_device_state(&mut self) {
@@ -1360,6 +1435,9 @@ where
     }) {
       self.drag = None;
     }
+    if self.capture.blocks() {
+      return;
+    }
     self
       .held_keys
       .retain(|key| self.world.global_keys().contains(key));
@@ -1370,7 +1448,7 @@ where
       .unwrap_or_default();
     self
       .held_controller_buttons
-      .retain(|button| enabled_buttons.contains(button));
+      .retain(|(_, button)| enabled_buttons.contains(button));
   }
 
   fn require_controller_button(&self, button: ControllerButton) {

@@ -11,13 +11,13 @@
     ],
     "schema_closure": {
       "accessibility.fbs": "9f1104e07fa863c8464ddd3e54a58280e2a47e57d78cb4034db4b550d5ced33c",
-      "client_message.fbs": "4bbdeb25907642c6a4855335eb576c6d1212db04be8be6a361f31b969418968d",
-      "command_core.fbs": "b06afa520aab1c901859a16c7c7062229ffbb55f44a4e06b519027e5bb68f41c",
+      "client_message.fbs": "22616a0320725d4c1714de14f6fad6930eba616d49efa1bed4908536b9e1a746",
+      "command_core.fbs": "156d29b73b4d13a197df3ca137f03e9e284e0d99bfbfbe046b8baba61984b465",
       "common.fbs": "7989ccfc4b8ed0c40ee69ad7fb7290dd29a562db4ffa8e2aa0799bc4b85faec3",
       "connect.fbs": "f5418395cde1ea37700ff020539b43b0cc702c0db7b5e2de3fdd2d54a68346c3",
       "geometry.fbs": "3a11ef8a65b37c9b4f8a3ce716756acfaf2cebfc44eb6af8508a7830e638286e",
       "motion.fbs": "bd1cd8b069fa1a4d26d1c1b61f1bd08c3f686cde8941ebd8a0b7d34ba75514de",
-      "response.fbs": "a54e592cdaf9d30ece470fa53d4a6ff58e4a2288434fd6e1a76326e45e37d6c7",
+      "response.fbs": "ca4f5551c0d17c7af6e96939418d791095eeb167e8b4c744e082398695e79edb",
       "ui.fbs": "e2249f3147b68c520fec9697ad979058fcd1c6ef393f60fea7b3011f16cbb795",
       "ui_event.fbs": "eba5eb77a44c688c9bb0734f9640e53f478121dad57e508c0c97d6db1784d40d",
       "world.fbs": "b773efbf055f59304fdbbd1fdf7a8948f8ec54745f8e645e3607df702f7ba538"

@@ -1872,6 +1872,7 @@ namespace Battlement
         PointerEvents,
         GlobalKeys,
         Controller,
+        Capture,
     }
 
     internal readonly struct BattlementDirectInputConfiguration
@@ -1880,6 +1881,7 @@ namespace Battlement
         private readonly Wire.PointerEventsPayload? pointerEvents;
         private readonly Wire.GlobalKeysPayload? globalKeys;
         private readonly Wire.ControllerInputSettings? controller;
+        private readonly Wire.InputCapturePayload? capture;
 
         internal BattlementDirectInputConfiguration(
             IBattlementFlatBufferViewOwner owner,
@@ -1887,16 +1889,18 @@ namespace Battlement
             ObjectId? objectId = null,
             Wire.PointerEventsPayload? pointerEvents = null,
             Wire.GlobalKeysPayload? globalKeys = null,
-            Wire.ControllerInputSettings? controller = null
+            Wire.ControllerInputSettings? controller = null,
+            Wire.InputCapturePayload? capture = null
         ) =>
-            (this.owner, Kind, ObjectId, this.pointerEvents, this.globalKeys, this.controller) = (
-                owner,
-                kind,
-                objectId,
-                pointerEvents,
-                globalKeys,
-                controller
-            );
+            (
+                this.owner,
+                Kind,
+                ObjectId,
+                this.pointerEvents,
+                this.globalKeys,
+                this.controller,
+                this.capture
+            ) = (owner, kind, objectId, pointerEvents, globalKeys, controller, capture);
 
         internal BattlementDirectInputConfigurationKind Kind { get; }
         internal ObjectId? ObjectId { get; }
@@ -1922,6 +1926,14 @@ namespace Battlement
             for (int index = 0; index < result.Length; index++)
                 result[index] = (PhysicalKey)(ushort)value.Keys(index);
             return result;
+        }
+
+        internal InputCaptureCommand ReadCapture()
+        {
+            owner.RequireLiveView();
+            return BattlementInputCaptureWire.Read(
+                capture ?? throw new InvalidDataException("Input capture is absent.")
+            );
         }
 
         internal ControllerInputSettings ReadController()
@@ -3563,6 +3575,19 @@ namespace Battlement
                 );
                 return true;
             }
+            if (command.Kind == Wire.CoreCommandKind.InputCapture)
+            {
+                execution = new BattlementCommandExecution(
+                    commandId,
+                    command.Blocking,
+                    new BattlementDirectInputConfiguration(
+                        owner,
+                        BattlementDirectInputConfigurationKind.Capture,
+                        capture: command.PayloadAsInputCapturePayload()
+                    )
+                );
+                return true;
+            }
             if (command.Kind == Wire.CoreCommandKind.InputSetController)
             {
                 execution = new BattlementCommandExecution(
@@ -4426,6 +4451,7 @@ namespace Battlement
                 case Wire.CoreCommandKind.InputSetGlobalKeys:
                     break;
                 case Wire.CoreCommandKind.InputSetController:
+                case Wire.CoreCommandKind.InputCapture:
                     break;
                 case Wire.CoreCommandKind.ControllerVibrate:
                     break;

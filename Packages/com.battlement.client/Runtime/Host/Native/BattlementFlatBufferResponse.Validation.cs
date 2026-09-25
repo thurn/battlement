@@ -702,6 +702,7 @@ namespace Battlement
                 case Wire.CoreCommandKind.InputSetGlobalKeys:
                     break;
                 case Wire.CoreCommandKind.InputSetController:
+                case Wire.CoreCommandKind.InputCapture:
                     break;
                 case Wire.CoreCommandKind.ControllerVibrate:
                     break;
@@ -893,6 +894,9 @@ namespace Battlement
                     }
                     return true;
                 }
+                case Wire.CoreCommandKind.InputCapture:
+                    BattlementInputCaptureWire.Read(value.PayloadAsInputCapturePayload());
+                    return true;
                 case Wire.CoreCommandKind.InputSetController:
                     ValidateDirectController(value.PayloadAsControllerInputSettings());
                     return true;
@@ -1907,6 +1911,7 @@ namespace Battlement
                 case Wire.CoreCommandKind.InputSetGlobalKeys:
                     break;
                 case Wire.CoreCommandKind.InputSetController:
+                case Wire.CoreCommandKind.InputCapture:
                     break;
                 case Wire.CoreCommandKind.ControllerVibrate:
                     break;
@@ -2283,6 +2288,7 @@ namespace Battlement
                 case Wire.CoreCommandKind.InputSetGlobalKeys:
                     break;
                 case Wire.CoreCommandKind.InputSetController:
+                case Wire.CoreCommandKind.InputCapture:
                     break;
                 case Wire.CoreCommandKind.ControllerVibrate:
                     break;
@@ -3688,6 +3694,7 @@ namespace Battlement
                     Wire.CoreCommandPayload.GlobalKeysPayload,
                 Wire.CoreCommandKind.InputSetController =>
                     Wire.CoreCommandPayload.ControllerInputSettings,
+                Wire.CoreCommandKind.InputCapture => Wire.CoreCommandPayload.InputCapturePayload,
                 Wire.CoreCommandKind.ControllerVibrate =>
                     Wire.CoreCommandPayload.ControllerVibrationPayload,
                 Wire.CoreCommandKind.DebugUi => Wire.CoreCommandPayload.DebugUiPayload,

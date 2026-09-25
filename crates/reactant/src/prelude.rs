@@ -11,6 +11,8 @@ pub use crate::{
   game_session::{DispatchResult, GameHandle, GameObservation, GameStatus},
   host_settings::use_host_settings,
   input::{GlobalInput, use_global_input},
+  input_capture::use_input_capture,
+  input_subscriptions::{InputSubscription, use_input_subscription},
   persistence::{
     PersistentState, use_host_module, use_persistent_state, use_persistent_state_with,
   },

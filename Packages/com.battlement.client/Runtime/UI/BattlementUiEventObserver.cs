@@ -31,6 +31,7 @@ namespace Battlement.UI
     {
         private readonly BattlementUiEventForwarder events;
         internal Func<int, bool> WorldCaptured { get; set; } = _ => false;
+        internal Func<bool> PhysicalInputCaptured { get; set; } = () => false;
         private readonly Func<VisualElement?, Guid?> nearestId;
         private readonly Func<Guid, IReadOnlyList<Guid>> route;
         private readonly Func<Guid, bool> isButton;
@@ -57,6 +58,8 @@ namespace Battlement.UI
             root.RegisterCallback<UnityNavigationSubmitEvent>(
                 eventValue =>
                 {
+                    if (SuppressPhysicalInput(eventValue))
+                        return;
                     Guid? targetId = nearestId(eventValue.target as VisualElement);
                     if (targetId is Guid id)
                         events.ForwardNavigationSubmit(
@@ -235,11 +238,31 @@ namespace Battlement.UI
             );
         }
 
+        private bool SuppressPhysicalInput(EventBase value)
+        {
+            bool physical =
+                value
+                is UnityKeyDownEvent
+                    or UnityKeyUpEvent
+                    or UnityNavigationMoveEvent
+                    or UnityNavigationSubmitEvent
+                    or UnityNavigationCancelEvent;
+            if (!physical || !PhysicalInputCaptured())
+                return false;
+#pragma warning disable CS0618
+            value.PreventDefault();
+#pragma warning restore CS0618
+            value.StopImmediatePropagation();
+            return true;
+        }
+
         private void ForwardRoot(
             EventBase eventValue,
             Action<ObjectId, IReadOnlyList<Guid>> forward
         )
         {
+            if (SuppressPhysicalInput(eventValue))
+                return;
             if (eventValue is IPointerEvent pointer && WorldCaptured(pointer.pointerId))
             {
                 eventValue.StopImmediatePropagation();

@@ -384,6 +384,7 @@ namespace Battlement
             Reset(() => configuredRuntime?.KeyboardInput.Reset(), ref failure);
             Reset(() => configuredRuntime?.ControllerInput.Reset(), ref failure);
             Reset(() => configuredRuntime?.ControllerInput.StopHaptics(), ref failure);
+            Reset(() => configuredRuntime?.InputCapture.Reset(), ref failure);
             Reset(() => configuredRuntime?.BatchScheduler.BeginSession(), ref failure);
             Reset(() => configuredRuntime?.GeometrySampler.Reset(), ref failure);
             Reset(geometryFrames.Reset, ref failure);
@@ -551,6 +552,12 @@ namespace Battlement
                 runtime.SetPointerInput(pointerInput);
                 BattlementPanelInputCoordinator panelInput = new BattlementPanelInputCoordinator();
                 runtime.SetPanelInput(panelInput);
+                var inputCapture = new BattlementInputCapture(value =>
+                {
+                    if (session.Phase == BattlementSessionPhase.Running)
+                        SubmitCoreAction(new ActionBody.InputCaptured(value));
+                });
+                runtime.SetInputCapture(inputCapture);
                 BattlementKeyboardInput keyboardInput = new BattlementKeyboardInput(
                     key => IsGlobalKeyEnabled(key) || worldFocus?.Enables(key) == true,
                     EmitAction
@@ -635,6 +642,7 @@ namespace Battlement
                     uiDocuments.ResetControlledPointer
                 );
                 uiDocuments.SetWorldCaptureResolver(pointerInput.IsWorldCaptured);
+                uiDocuments.SetPhysicalInputCapture(() => inputCapture.BlocksInput);
                 BattlementGeometrySampler geometrySampler = new BattlementGeometrySampler(
                     uiDocuments,
                     world: this,
@@ -681,6 +689,7 @@ namespace Battlement
                     particleEffects,
                     audioSources,
                     controllerInput,
+                    inputCapture,
                     customCommands,
                     dittoMotionClock,
                     SetInputEnabled,
@@ -1095,6 +1104,8 @@ namespace Battlement
             PublishHostSettings();
             bool physicalInputAvailable = CanEmitInput && !dittoInputActive;
             configuredRuntime.PointerInput.Update(CanEmitInput, !dittoInputActive);
+            configuredRuntime.InputCapture.Update(CanEmitInput, !dittoInputActive);
+            physicalInputAvailable &= !configuredRuntime.InputCapture.BlocksInput;
             configuredRuntime.KeyboardInput.Update(physicalInputAvailable);
             configuredRuntime.ControllerInput.Update(
                 physicalInputAvailable,
@@ -1324,6 +1335,7 @@ namespace Battlement
                     );
                 configuredRuntime?.KeyboardInput.Reset();
                 configuredRuntime?.ControllerInput.Reset();
+                configuredRuntime?.InputCapture.CancelForFocusLoss();
             }
             if (dittoInputActive)
             {
@@ -1349,6 +1361,7 @@ namespace Battlement
                 configuredRuntime?.PointerInput.CancelPresses();
                 configuredRuntime?.KeyboardInput.Reset();
                 configuredRuntime?.ControllerInput.Reset();
+                configuredRuntime?.InputCapture.CancelForFocusLoss();
                 Log(
                     BattlementLogSeverity.Information,
                     "battlement.input.pointer_presses_cancelled",
@@ -2200,6 +2213,7 @@ namespace Battlement
                 configuredRuntime.KeyboardInput.Reset();
                 configuredRuntime.ControllerInput.Reset();
                 configuredRuntime.ControllerInput.StopHaptics();
+                configuredRuntime.InputCapture.Reset();
                 configuredRuntime.BatchScheduler.BeginSession();
                 configuredRuntime.GeometrySampler.Reset();
                 geometryFrames.Reset();
@@ -2238,6 +2252,14 @@ namespace Battlement
             }
         }
 
+        private static bool IsPhysicalInput(ActionBody body) =>
+            body
+                is ActionBody.KeyDown
+                    or ActionBody.KeyUp
+                    or ActionBody.ControllerButtonDown
+                    or ActionBody.ControllerButtonUp
+                    or ActionBody.ControllerNavigate;
+
         private bool EmitAction(ActionBody body) => EmitAction(body, new ActionId(Guid.NewGuid()));
 
         private bool EmitAction(ActionBody body, ActionId actionId)
@@ -2251,6 +2273,8 @@ namespace Battlement
                 return false;
             }
 
+            if (configuredRuntime?.InputCapture.BlocksInput == true && IsPhysicalInput(body))
+                return CanEmitInput;
             if (worldFocus?.TryHandle(body) == true)
                 return CanEmitInput;
             SubmitCoreAction(body, actionId, currentSession);
