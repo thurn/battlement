@@ -66,6 +66,15 @@ pub struct PlayedCard {
 
 impl Suit {
   pub const ALL: [Self; 4] = [Self::Clubs, Self::Diamonds, Self::Spades, Self::Hearts];
+
+  pub const fn index(self) -> usize {
+    match self {
+      Self::Clubs => 0,
+      Self::Diamonds => 1,
+      Self::Spades => 2,
+      Self::Hearts => 3,
+    }
+  }
 }
 
 impl Rank {

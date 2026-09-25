@@ -26,6 +26,8 @@ pub enum Rejection {
   NoPassing,
   PassCount,
   DuplicatePassCard,
+  WrongPhase,
+  AlreadyPassed,
 }
 
 impl Display for Rejection {
@@ -40,6 +42,8 @@ impl Display for Rejection {
       Self::NoPassing => "Keep your cards on this hand; there is no pass.",
       Self::PassCount => "Choose exactly three cards to pass.",
       Self::DuplicatePassCard => "Choose three different cards to pass.",
+      Self::WrongPhase => "That action is not available in this phase.",
+      Self::AlreadyPassed => "Your pass is already submitted.",
     })
   }
 }
