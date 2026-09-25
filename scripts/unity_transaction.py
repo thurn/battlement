@@ -20,6 +20,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import process_priority
+import unity_metadata
 
 
 SOURCE_DIRECTORIES = ("Assets", "Packages", "ProjectSettings")
@@ -297,6 +298,9 @@ class UnityProjectTransaction:
             "directories": sorted(project_directories(self.repository, self.pathspecs)),
             "index_file": str(self.index_file),
             "index_tree": self.git(["write-tree"]).stdout.decode().strip(),
+            "metadata_sources": unity_metadata.staged_sources(
+                self.repository, self.pathspecs, self.index_file,
+            ),
             "untracked": before_untracked,
             "untracked_digests": {
                 relative: path_digest(self.repository / relative)
@@ -382,6 +386,7 @@ class UnityProjectTransaction:
         (directory / "created-untracked.json").write_text(
             json.dumps(created, indent=2) + "\n", encoding="utf-8"
         )
+        unity_metadata.retain(directory, journal, created)
         changed = []
         for relative, before_digest in journal["untracked_digests"].items():
             path = repository / relative

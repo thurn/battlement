@@ -21,6 +21,7 @@ CHECKS = (
     ("Test validation preparation", "scripts/tests/prepare-validation.test.py"),
     ("Test resource slots", "scripts/tests/resource-slots.test.py"),
     ("Test Unity transactions", "scripts/tests/unity-transaction.test.py"),
+    ("Test Unity metadata adoption", "scripts/tests/unity-metadata.test.py"),
     ("Test Web sample server", "scripts/tests/serve-web.test.py"),
     ("Test Web demo cache", "scripts/tests/prepare-web-demo.test.py"),
     ("Test sample deployment workflow", "scripts/tests/deploy.test.py"),

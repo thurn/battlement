@@ -75,6 +75,10 @@ def main() -> None:
         assert full.assemblies == FULL_ASSEMBLIES
         assert full.dotnet_diagnostics == (path != "scripts/web_selection.py")
 
+    metadata = select(REPOSITORY_ROOT, ["scripts/unity_metadata.py"])
+    assert metadata.scope == Scope.ALL
+    assert "scripts/unity_metadata.py" in metadata.cache_inputs
+
     for path in (
         ".config/dotnet-tools.json",
         ".editorconfig",

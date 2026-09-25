@@ -38,6 +38,7 @@ UNITY_RUNNER_INPUTS = (
     "scripts/resource_slots.py",
     "scripts/unity_test_selection.py",
     "scripts/unity_transaction.py",
+    "scripts/unity_metadata.py",
     "scripts/web_selection.py",
 )
 RUST_BUILD_INPUTS = (

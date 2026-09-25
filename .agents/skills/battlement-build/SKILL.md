@@ -12,7 +12,10 @@ options; the parser is `crates/rt/src/command.rs`.
 Before building, run `python3 scripts/prepare_validation.py check`. When it
 identifies stale generated inputs, run `python3 scripts/prepare_validation.py
 generate --sample <sample>`, inspect the returned manifest and patch, then
-stage only the intended files. Command help owns selection and output details.
+stage only the intended files. For staged C# additions, Unity transactions retain
+generated metadata; inspect `generated-metadata.json`, then use
+`scripts/unity_metadata.py --help` for explicit adoption before staging it.
+Command help owns selection and output details.
 
 After editing wire schemas, run `python3 scripts/generate_flatbuffers.py` to
 refresh bindings and contract fingerprints together; `--check` verifies both
