@@ -11,7 +11,7 @@ use crate::{
   cursor,
   reactant_game::ChessGame,
   settings::{
-    self, ChessSettings,
+    self, SettingsChange, SettingsContext,
     bindings::{self, ControllerBinding, GameplayAction},
   },
 };
@@ -51,10 +51,11 @@ pub fn configure_application(application: Application) -> Application {
 
 /// Subscribes to the current saved maps and routes unclaimed physical input.
 pub fn use_chess_input(control: ChessUiController, game: Option<GameHandle<ChessGame>>) {
-  let settings = settings::use_settings().desired;
+  let settings = settings::use_settings();
+  let desired = settings.desired;
   reactant::use_input_subscription(InputSubscription {
-    keys: settings.keyboard.values().to_vec(),
-    buttons: settings
+    keys: desired.keyboard.values().to_vec(),
+    buttons: desired
       .controller
       .values()
       .into_iter()
@@ -64,18 +65,22 @@ pub fn use_chess_input(control: ChessUiController, game: Option<GameHandle<Chess
   });
   reactant::use_global_input(move |input| match input {
     GlobalInput::Reset => control.dispatch(game.as_ref(), UiAction::ClearHeldKeys),
-    GlobalInput::KeyDown(input) => self::key_down(&control, game.as_ref(), settings, input.key),
+    GlobalInput::KeyDown(input) => self::key_down(&control, game.as_ref(), &settings, input.key),
     GlobalInput::KeyUp(input) => control.dispatch(game.as_ref(), UiAction::KeyUp(input.key)),
     GlobalInput::ControllerButtonDown(input) => {
       if input.button == ControllerButton::East {
         self::cancel(&control, game.as_ref());
       } else if let Some(binding) = ControllerBinding::from_button(input.button) {
-        if let Some(action) = settings.controller.action(binding) {
+        if let Some(action) = desired.controller.action(binding) {
           self::perform(&control, game.as_ref(), action);
         } else if control.current().pause_open() {
           match input.button {
-            ControllerButton::LeftShoulder => self::adjust_volume(&control, game.as_ref(), -0.1),
-            ControllerButton::RightShoulder => self::adjust_volume(&control, game.as_ref(), 0.1),
+            ControllerButton::LeftShoulder => {
+              self::adjust_volume(&control, game.as_ref(), &settings, -10)
+            }
+            ControllerButton::RightShoulder => {
+              self::adjust_volume(&control, game.as_ref(), &settings, 10)
+            }
             _ => {}
           }
         }
@@ -85,7 +90,7 @@ pub fn use_chess_input(control: ChessUiController, game: Option<GameHandle<Chess
       let action = if input.source == ControllerNavigationSource::LeftStick {
         Some(GameplayAction::from_direction(input.direction))
       } else {
-        settings
+        desired
           .controller
           .action(ControllerBinding::from_direction(input.direction))
       };
@@ -102,7 +107,7 @@ pub fn use_chess_input(control: ChessUiController, game: Option<GameHandle<Chess
 fn key_down(
   control: &ChessUiController,
   game: Option<&GameHandle<ChessGame>>,
-  settings: ChessSettings,
+  settings: &SettingsContext,
   key: PhysicalKey,
 ) {
   if control.current().held.contains(&key) {
@@ -135,14 +140,14 @@ fn key_down(
       return;
     }
   }
-  if let Some(action) = settings.keyboard.action(key) {
+  if let Some(action) = settings.desired.keyboard.action(key) {
     self::perform(control, game, action);
     return;
   }
   match key {
     PhysicalKey::KeyL => control.dispatch(game, UiAction::ShowDebug(DebugUiSurface::LogViewer)),
-    PhysicalKey::Equal => self::adjust_volume(control, game, 0.1),
-    PhysicalKey::Minus => self::adjust_volume(control, game, -0.1),
+    PhysicalKey::Equal => self::adjust_volume(control, game, settings, 10),
+    PhysicalKey::Minus => self::adjust_volume(control, game, settings, -10),
     _ => {}
   }
 }
@@ -195,9 +200,12 @@ fn perform(
   }
 }
 
-fn adjust_volume(control: &ChessUiController, game: Option<&GameHandle<ChessGame>>, delta: f64) {
-  control.dispatch(
-    game,
-    UiAction::SetVolume((control.current().volume + delta).clamp(0.0, 1.0)),
-  );
+fn adjust_volume(
+  control: &ChessUiController,
+  game: Option<&GameHandle<ChessGame>>,
+  settings: &SettingsContext,
+  delta: i32,
+) {
+  settings.change(SettingsChange::AdjustMasterVolume(delta));
+  control.dispatch(game, UiAction::VolumeFeedback(delta > 0));
 }

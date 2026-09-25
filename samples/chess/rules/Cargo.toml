@@ -73,3 +73,7 @@ path = "tests/erase_progress_tests.rs"
 [[test]]
 name = "bindings"
 path = "tests/bindings_tests.rs"
+
+[[test]]
+name = "audio"
+path = "tests/audio_tests.rs"

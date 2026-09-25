@@ -1,6 +1,7 @@
 async (page, context) => {
   const { url, evidencePrefix, waitForLog } = context;
-  await page.setViewportSize({ width: 1280, height: 720 });
+  const startupDeadline = Date.now() + 90000;
+  await page.setViewportSize(context.viewport ?? { width: 1280, height: 720 });
   await page.goto(url);
   await waitForLog('battlement.host.connected');
   if (!await page.evaluate(() => crossOriginIsolated && typeof SharedArrayBuffer === 'function')) {
@@ -12,6 +13,7 @@ async (page, context) => {
   const differences = [], captures = [];
   return {
     canvas,
+    startupDeadline,
     async click(x, y) {
       const box = await canvas.boundingBox();
       if (!box || x < 0 || y < 0 || x >= box.width || y >= box.height) throw new Error('Canvas input is outside the viewport');

@@ -72,9 +72,9 @@ pub const CHECK_SOUND: AudioClipAddress = sfx::ALARM;
 pub const START_SOUND: AudioClipAddress = sfx::ACCEPT;
 /// Sound that accompanies a board reset.
 pub const RESET_SOUND: AudioClipAddress = sfx::SCENE_TRANSITION;
-/// Feedback for increasing music volume.
+/// Feedback for increasing master volume.
 pub const VOLUME_UP_SOUND: AudioClipAddress = sfx::CHIRP_A;
-/// Feedback for decreasing music volume.
+/// Feedback for decreasing master volume.
 pub const VOLUME_DOWN_SOUND: AudioClipAddress = sfx::CHIRP_CRUNCH;
 /// Terminal sound when the human player wins.
 pub const PLAYER_WIN_SOUND: AudioClipAddress = sfx::LAP_COMPLETE;

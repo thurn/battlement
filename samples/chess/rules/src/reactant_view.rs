@@ -27,7 +27,7 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessContext, ChessGame, ChessPolicy, ChessState},
   saved_progress,
-  settings::{self, Language, SettingsRoot},
+  settings::{self, Language, SettingsRoot, audio::AudioSettings},
 };
 use crate::{
   opponent::Opponent,
@@ -75,7 +75,10 @@ pub fn application(config: ChessConfig) -> Application {
     .child(SettingsRoot {
       backend: config.persistence.clone(),
       children: LocalizationRoot {
-        children: ChessAssembly { config }.into(),
+        children: AudioSettings {
+          children: ChessAssembly { config }.into(),
+        }
+        .into(),
       }
       .into(),
     })

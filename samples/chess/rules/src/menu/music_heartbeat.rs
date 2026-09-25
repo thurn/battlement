@@ -25,7 +25,7 @@ pub fn use_control_heartbeat(reduced_motion: bool) -> ControlHeartbeat {
   ControlHeartbeat(
     music
       .filter(|music| !reduced_motion && music.status == BackgroundMusicStatus::Playing)
-      .filter(|music| !music.muted && music.effective_volume > 0.0)
+      .filter(|music| !music.muted && music.master_volume > 0 && music.music_volume > 0)
       .map(|music| music.heartbeat),
   )
 }

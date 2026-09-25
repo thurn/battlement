@@ -2,11 +2,11 @@
 
 use std::time::Duration;
 
-use battlement::{AudioClipAddress, ObjectId};
+use battlement::{AudioBus, AudioClipAddress, ObjectId};
 use reactant::{application, context::ContextProvider, hooks, prelude::*};
 
 use crate::menu::music_heartbeat::{self, Heartbeat};
-use crate::settings::{self, SettingsChange, SettingsContext};
+use crate::settings::{self, SettingsChange, SettingsContext, audio::AudioContext};
 
 /// Address of the source application's looping background track.
 pub const BACKGROUND_MUSIC: AudioClipAddress =
@@ -26,14 +26,12 @@ pub struct BackgroundMusicContext {
   pub master_volume: u32,
   /// Controlled music-volume percentage.
   pub music_volume: u32,
-  /// Whether hidden applications should silence background music.
+  /// Whether inactive applications should silence all sound.
   pub mute_in_background: bool,
   /// Whether the shared sound toggle has muted music.
   pub sound_muted: bool,
-  /// Whether the host currently reports the application as visible.
+  /// Whether the host reports the application as focused and unpaused.
   pub visible: bool,
-  /// Effective unmuted volume after combining both sliders.
-  pub effective_volume: f64,
   /// Whether either sound policy currently silences output.
   pub muted: bool,
   /// Current playback lifecycle state.
@@ -46,6 +44,7 @@ pub struct BackgroundMusicContext {
   set_sound_muted: StateSetter<bool>,
   set_playing: StateSetter<bool>,
   playback_active: hooks::Ref<bool>,
+  active: bool,
 }
 
 /// Provides one source-shaped background-music context to its descendants.
@@ -75,7 +74,8 @@ impl BackgroundMusicContext {
       self.audio.play_command(
         BACKGROUND_MUSIC,
         AudioPlaybackOptions::new()
-          .volume(self.output_volume())
+          .bus(AudioBus::Music)
+          .volume(if self.active { 1.0 } else { 0.0 })
           .looping(true),
       ),
     );
@@ -101,14 +101,6 @@ impl BackgroundMusicContext {
   pub fn set_sound_muted(&self, muted: bool) {
     self.set_sound_muted.set(muted);
   }
-
-  fn output_volume(&self) -> f64 {
-    if self.muted {
-      0.0
-    } else {
-      self.effective_volume
-    }
-  }
 }
 
 impl Component for BackgroundMusicProvider {
@@ -127,26 +119,23 @@ fn use_background_music_provider(autoplay: bool, active: bool) -> BackgroundMusi
   let master_volume = settings.desired.master_volume;
   let music_volume = settings.desired.music_volume;
   let mute_in_background = settings.desired.mute_in_background;
-  let (sound_muted, set_sound_muted) = hooks::use_state(false);
+  let music = hooks::use_required_context::<AudioContext>();
+  let sound_muted = music.music_muted;
+  let set_sound_muted = music.set_music_muted;
   let (playing, set_playing) = hooks::use_state(autoplay);
   let playback_active = hooks::use_ref(false);
   let audio = hooks::use_memo(|| AudioPlayback::new(ObjectId::new_v4()), ());
   let audio_time = use_motion_time(MotionTimeSource::Audio(audio));
   let heartbeat = music_heartbeat::use_heartbeat(audio_time);
 
-  let visible = !application.paused;
-  let effective_volume = f64::from(master_volume) * f64::from(music_volume) / 10_000.0;
+  let visible = application.is_active();
   let muted = sound_muted || (mute_in_background && !visible);
   let status = if playing {
     BackgroundMusicStatus::Playing
   } else {
     BackgroundMusicStatus::Stopped
   };
-  let output_volume = if muted || !active {
-    0.0
-  } else {
-    effective_volume
-  };
+  let output_volume = if active { 1.0 } else { 0.0 };
 
   hooks::use_effect(
     {
@@ -181,7 +170,6 @@ fn use_background_music_provider(autoplay: bool, active: bool) -> BackgroundMusi
     mute_in_background,
     sound_muted,
     visible,
-    effective_volume,
     muted,
     status,
     heartbeat,
@@ -191,5 +179,6 @@ fn use_background_music_provider(autoplay: bool, active: bool) -> BackgroundMusi
     set_sound_muted,
     set_playing,
     playback_active,
+    active,
   }
 }

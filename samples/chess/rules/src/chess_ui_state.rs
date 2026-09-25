@@ -9,8 +9,6 @@ use reactant::{DispatchResult, GameHandle, GameStatus as RulesStatus, hooks};
 use crate::reactant_game::{ChessAction, ChessGame, ChessState};
 use crate::{reactant_effects, visual_state::VisualState};
 
-const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
-
 /// Application screen selected independently of rules state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AppScreen {
@@ -53,8 +51,8 @@ pub enum UiAction {
   RequestNewGame { cursor_visible: bool },
   /// Returns from the confirmation state to the ordinary pause overlay.
   DismissNewGameConfirmation,
-  /// Sets normalized music volume.
-  SetVolume(f64),
+  /// Plays directional feedback after changing the root master volume.
+  VolumeFeedback(bool),
   /// Records a held key before handling chords.
   KeyDown(PhysicalKey),
   /// Releases a held key.
@@ -116,8 +114,6 @@ pub struct ChessUiState {
   pub cursor_visible: bool,
   /// Current app-owned overlay.
   pub overlay: Option<Overlay>,
-  /// Normalized music volume.
-  pub volume: f64,
   /// Dependency token that delivers repeated equal one-shot effects.
   pub effect_serial: u64,
   /// Most recently requested app-local effect.
@@ -185,7 +181,6 @@ impl Default for ChessUiState {
       cursor: crate::cursor::START,
       cursor_visible: false,
       overlay: None,
-      volume: DEFAULT_MUSIC_VOLUME,
       effect_serial: 0,
       effect: None,
       music_generation: 0,
@@ -275,7 +270,7 @@ impl ChessUiController {
           confirm_new_game: false,
         });
       }),
-      UiAction::SetVolume(volume) => self.set_volume(volume),
+      UiAction::VolumeFeedback(increased) => self.volume_feedback(increased),
       UiAction::KeyDown(key) => {
         self.update(|local| {
           local.held.insert(key);
@@ -318,7 +313,6 @@ impl ChessUiController {
       opening_generation,
       opening: Some(mode),
       cursor_visible,
-      volume: previous.volume,
       music_generation: previous.music_generation,
       music_track: previous.music_track,
       ..ChessUiState::default()
@@ -564,11 +558,8 @@ impl ChessUiController {
     });
   }
 
-  /// Stores clamped volume and emits directional audible feedback.
-  fn set_volume(&self, volume: f64) {
+  fn volume_feedback(&self, increased: bool) {
     self.update(|local| {
-      let increased = volume > local.volume;
-      local.volume = volume.clamp(0.0, 1.0);
       Self::effect(
         local,
         LocalEffect::Sound(if increased {

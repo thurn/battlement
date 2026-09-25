@@ -1,5 +1,6 @@
 //! Root preference ownership and stable chess setting identities.
 
+pub(crate) mod audio;
 pub mod bindings;
 mod context;
 mod model;

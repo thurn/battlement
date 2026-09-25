@@ -33,3 +33,8 @@ samples = ["basic"]
 paths = ["crates/reactant-rules/src/computation.rs", "crates/reactant-rules/src/worker.rs", "crates/reactant-rules/src/worker_observer.rs", "crates/reactant-rules/src/platform_proof.rs", "scripts/webgl_worker_proof.py", "fixtures/webgl-worker-proof/*"]
 reason = "Cooperative computation cleanup and latest-only replacement under a finite WebGL worker pool"
 kind = "worker"
+
+[[risks]]
+paths = ["samples/chess/rules/src/settings/audio.rs", "samples/chess/rules/src/menu/background_music.rs", "samples/chess/rules/src/menu/sound_settings.rs", "crates/reactant-core/src/audio.rs"]
+reason = "Chess browser audio gains, background mute and resume feedback"
+samples = ["chess"]

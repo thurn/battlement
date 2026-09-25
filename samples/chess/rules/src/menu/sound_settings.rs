@@ -1,6 +1,6 @@
 //! Controlled Sound settings composition backed by the shared music provider.
 
-use battlement::Style;
+use battlement::{Color, Style, WhiteSpace, host_settings::HostPlatform};
 use reactant::{control_behavior, prelude::*};
 use trox::tx;
 
@@ -31,6 +31,7 @@ pub struct SoundSettings {
 impl Component for SoundSettings {
   fn render(&self) -> impl Render {
     let selected_scale = font_scale::use_font_scale();
+    let browser = use_host_settings().platform == HostPlatform::Web;
     View::new()
       .name("sound-settings")
       .style(Style::new().min_height(971))
@@ -63,6 +64,21 @@ impl Component for SoundSettings {
           .row_height(self::multiline_row_height(selected_scale))
           .checked(self.mute_in_background)
           .on_change(self.on_mute_in_background_change.clone()),
+        browser.then(|| {
+          Text::new(tx(
+            "Your browser may pause audio. Click or tap the game if sound does not resume.",
+            "Browser audio resume limitation below sound preferences.",
+          ))
+          .style(
+            Style::new()
+              .width(800)
+              .margin_top(32)
+              .min_height(100.0 * selected_scale.factor())
+              .font_size(28.0 * selected_scale.factor())
+              .white_space(WhiteSpace::Normal)
+              .color(Color::WHITE),
+          )
+        }),
       ))
   }
 }

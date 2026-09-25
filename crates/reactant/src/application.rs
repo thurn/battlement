@@ -234,6 +234,11 @@ impl ApplicationEngine {
       .is_inline()
   }
 
+  /// Reports committed component effects or hook updates awaiting application.
+  pub fn has_ready_changes(&self) -> bool {
+    self.app.as_ref().is_some_and(|app| app.has_ready_changes())
+  }
+
   /// Takes one already-completed inline publication or a known context change.
   /// No worker discovery, clocks, or polling entry points are involved.
   pub fn take_inline_output(&mut self) -> Option<EngineResponse> {

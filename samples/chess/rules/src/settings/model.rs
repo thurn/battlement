@@ -67,6 +67,7 @@ pub enum SettingsChange {
   Screenshake(bool),
   Vsync(bool),
   MasterVolume(u32),
+  AdjustMasterVolume(i32),
   MusicVolume(u32),
   EffectsVolume(u32),
   MuteInBackground(bool),
@@ -162,6 +163,9 @@ impl SettingsChange {
       Self::Screenshake(next) => value.screenshake = next,
       Self::Vsync(next) => value.vsync = next,
       Self::MasterVolume(next) if next <= 100 => value.master_volume = next,
+      Self::AdjustMasterVolume(delta) => {
+        value.master_volume = value.master_volume.saturating_add_signed(delta).min(100);
+      }
       Self::MusicVolume(next) if next <= 100 => value.music_volume = next,
       Self::EffectsVolume(next) if next <= 100 => value.effects_volume = next,
       Self::MuteInBackground(next) => value.mute_in_background = next,

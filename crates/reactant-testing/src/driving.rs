@@ -67,6 +67,13 @@ fn drive_application<G: Game>(display: &mut Display, target: Option<Duration>) -
       }
     } else {
       display.flush();
+      if display.client.engine_mut().has_ready_changes() {
+        assert!(
+          Instant::now() < deadline.unwrap(),
+          "application component work did not settle"
+        );
+        continue;
+      }
     }
     let presentation = display.client.next_presentation_in();
     // A worker publication belongs to the current instant. Receive it before

@@ -188,6 +188,43 @@ fn reconnect_discards_old_output_and_mounts_a_fresh_inline_session() {
   );
 }
 
+struct MountGate(Children);
+
+impl Component for MountGate {
+  fn render(&self) -> impl Render {
+    let (ready, set_ready) = reactant::hooks::use_state(false);
+    reactant::hooks::use_effect(move || set_ready.set(true), ());
+    ready.then(|| self.0.render())
+  }
+}
+
+#[test]
+fn nested_initialization_effects_settle_before_the_game_mounts() {
+  for worker in [RulesWorker::inline(), RulesWorker::default()] {
+    let mut display = Display::connect_application::<Counter>(
+      move |clock| {
+        ApplicationEngine::with_clock(
+          move || {
+            let mut children: Children = Session(Rc::default()).into();
+            for _ in 0..8 {
+              children = MountGate(children).into();
+            }
+            Application::new("inline/scene")
+              .rules_worker(worker.clone())
+              .child(children.render())
+          },
+          move || clock.now(),
+        )
+      },
+      self::assets(),
+      self::connect(),
+    );
+    display.expect_button("Run");
+    assert_eq!(display.game_state::<Counter>(), Some(0));
+    assert_eq!(display.presentation_time(), Duration::ZERO);
+  }
+}
+
 struct ExternalResource(Resource<(), u32>);
 impl Component for ExternalResource {
   fn render(&self) -> impl Render {

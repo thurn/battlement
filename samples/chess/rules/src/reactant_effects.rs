@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use battlement::{
-  AudioClipAddress, Command, CommandBody, ControllerVibrationPayload, DebugUiPayload,
+  AudioBus, AudioClipAddress, Command, CommandBody, ControllerVibrationPayload, DebugUiPayload,
 };
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use reactant::{
@@ -71,7 +71,7 @@ impl GameEffects {
 impl Component for GameEffects {
   /// Declares effects keyed by the smallest state that should retrigger them.
   ///
-  /// Music depends on generation, track, and volume, while one-shot feedback
+  /// Music depends on generation, track, and screen, while one-shot feedback
   /// depends on a monotonically increasing serial. Explicit dependencies prevent
   /// ordinary rerenders from replaying host commands.
   fn render(&self) -> impl Render {
@@ -96,7 +96,7 @@ impl Component for GameEffects {
             let (next, command) = AudioPlayback::play(
               MUSIC_TRACKS[local.music_track].clone(),
               AudioPlaybackOptions::new()
-                .volume(local.volume)
+                .bus(AudioBus::Music)
                 .looping(true)
                 .fade_in(if prior.is_some() {
                   MUSIC_CROSSFADE
@@ -109,17 +109,10 @@ impl Component for GameEffects {
               app.send(old.stop(MUSIC_CROSSFADE));
             }
             previous_music.replace(Some((local.music_generation, local.music_track, next)));
-          } else if let Some((_, _, active)) = prior {
-            app.send(active.set_volume(local.volume));
           }
         }
       },
-      (
-        local.music_generation,
-        local.music_track,
-        local.volume,
-        local.screen,
-      ),
+      (local.music_generation, local.music_track, local.screen),
     );
     hooks::use_effect(
       {
