@@ -62,12 +62,12 @@ These are starting points, not instructions to load whole directories.
 | Unity editor preparation boundary | [BattlementEditorPreparation.cs](../../Packages/com.battlement.client/Editor/BattlementEditorPreparation.cs), [ReactantGeneratedAssets.cs](../../Packages/com.battlement.client/Editor/Reactant/ReactantGeneratedAssets.cs) |
 | Reactant asset declarations and generation pipeline | [asset_generator.rs](../../crates/reactant-core/src/asset_generator.rs), [source_scan.rs](../../crates/battlement-reactant-assets/src/source_scan.rs), [command entry](../../crates/rt/src/assets.rs) |
 | Reactant laboratory selection and reset | [fixture catalog](../../samples/reactant/rules/src/fixture_catalog.rs), [native entry](../../samples/reactant/rules/src/app_setup.rs), [Ditto scenarios](../../samples/reactant/ditto.toml) |
-| Chess UI application and semantic scenarios | [native entry](../../samples/chess-ui/rules/src/engine.rs), [settings composition](../../samples/chess-ui/rules/src/settings_screen.rs), [input bindings](../../samples/chess-ui/rules/src/input_settings.rs), [public display scenarios](../../samples/chess-ui/rules/tests/arcade_screen_router.rs), [Ditto scenarios](../../samples/chess-ui/ditto.toml) |
+| Chess UI application and semantic scenarios | [native entry](../../samples/chess/rules/src/app.rs), [settings composition](../../samples/chess/rules/src/menu/settings_screen.rs), [input bindings](../../samples/chess/rules/src/menu/input_settings.rs), [public display scenarios](../../samples/chess/rules/tests/menu_tests.rs), [Ditto scenarios](../../samples/chess/ditto.toml) |
 | Repository sample command mapping | [justfile](../../justfile) |
 | Repository validation | [ci.py](../../scripts/ci.py), [durable jobs](../../scripts/ci_job.py), [dependency selection](../../scripts/ci_selection.py), [browser risks](../../web/contracts.toml), [CI skill](../../.agents/skills/battlement-ci/SKILL.md) |
-| Existing game tests | [tic-tac-toe](../../samples/tictactoe/rules/tests/gameplay.rs), [chess](../../samples/chess/rules/tests/reactant_app.rs) |
+| Existing game tests | [tic-tac-toe](../../samples/tictactoe/rules/tests/gameplay.rs), [chess](../../samples/chess/rules/tests/outcomes_tests.rs) |
 | Chess AI and saves | [ai.rs](../../samples/chess/rules/src/ai.rs), [persistence.rs](../../samples/chess/rules/src/persistence.rs) |
-| Chess Reactant app flow | [app lifecycle](../../samples/chess/rules/src/reactant_app.rs), [rules worker](../../samples/chess/rules/src/reactant_game.rs), [logical position](../../samples/chess/rules/src/position.rs), [world and checkpoints](../../samples/chess/rules/src/reactant_view.rs), [piece Motion](../../samples/chess/rules/src/motion.rs), [public scenarios](../../samples/chess/rules/tests/reactant_app.rs) |
+| Chess Reactant app flow | [app lifecycle](../../samples/chess/rules/src/app.rs), [rules worker](../../samples/chess/rules/src/reactant_game.rs), [logical position](../../samples/chess/rules/src/position.rs), [world and checkpoints](../../samples/chess/rules/src/reactant_view.rs), [piece Motion](../../samples/chess/rules/src/motion.rs), [public scenarios](../../samples/chess/rules/tests/outcomes_tests.rs) |
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |
 
 Reusable project mechanics are Battlement-owned. `rt` resolves Reactant project
@@ -87,8 +87,8 @@ The numbered tasks introduce the following code:
 - `rt`: the sole Reactant project CLI, with general build, run, author, Ditto,
   plugin, Addressables, and Reactant asset commands; repository sample selection
   remains in `justfile`.
-- samples/hearts: rules/context/policies, snapshot-driven components, explicit
-  save/load, authoring inputs, tests, and Ditto configuration.
+- samples/hearts: the [Hearts design](hearts.md) owns pure transitions, private
+  observations, reducer/task hooks, presentation, autosave, and sample evidence.
 - Snapshot rendering through existing ordered Battlement batches and Motion
   adapters for existing command operations; no completion notification protocol.
 - Host-neutral Motion property adapters and completion-relative scheduling.

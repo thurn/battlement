@@ -8,6 +8,10 @@ similarly named API exists.
 Related pages: [overview and task order](README.md), [test scenes](fixtures.md),
 [validation](validation.md), and [sample migration](migration.md).
 
+Hearts-specific assignments and acceptance are superseded by the
+[Hearts design](hearts.md) and [native work graph](hearts-work-graph.md).
+Lower-level engine requirements below continue to describe that separate surface.
+
 ## Authoring and ownership
 
 Games should be simple to register, and every layer should have one clear owner.
@@ -254,8 +258,8 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
   the new accepted state. Capacity-blocked final output remains Busy. Save/reload that
   state without replaying queued commands.
 
-- Explicit persistence outside rules, no v1 autosave/acceptance callback; a
-  write failure does not undo accepted gameplay.
+- Persistence outside rules; a write failure does not undo accepted gameplay.
+  Hearts uses the [asynchronous autosave contract](hearts.md#durable-storage-and-resume).
 
   **Tasks:** [11](tasks/11-accepted-action-runtime.md),
   [32](tasks/32-chess-cutover.md), [43](tasks/43-hearts-save-resume.md).
@@ -723,28 +727,14 @@ scenes](fixtures.md), and [validation](validation.md).
   **Verify:** Retain native initial/changed/reset captures and current
   input/localization behavior.
 
-- Hearts: complete fixed rules, hidden-information display, three AI opponents,
-  all input modes.
+- Hearts: the [standalone design](hearts.md) and
+  [native work graph](hearts-work-graph.md) own game rules, private observations,
+  fair opponents, all input modes, presentation, automatic resume, engine reuse,
+  and blocking introspection. Their acceptance matrix replaces tasks 35–43.
 
-  **Tasks:** [35](tasks/35-hearts-assets-shell.md),
-  [36](tasks/36-hearts-rules.md), [37](tasks/37-hearts-card-layout.md),
-  [38](tasks/38-hearts-passing.md), [39](tasks/39-hearts-play-scoring.md),
-  [40](tasks/40-hearts-simulation-ai.md),
-  [41](tasks/41-hearts-pointer-touch.md),
-  [42](tasks/42-hearts-navigation-menus.md).
-
-  **Verify:** Complete match, rare-rule deals, simultaneous passing, and
-  phase-correct next-hand flow.
-
-- Hearts persistence: explicit Save captures accepted_state, one write at a
-  time, durable native/WebGL storage, retry/resume; no implicit saves.
-
-  **Tasks:** [43](tasks/43-hearts-save-resume.md).
-
-  **Verify:** New Game/acceptance/Exit start no save. A pending explicit write
-  acknowledges only its captured state; corrupted data is explained. After forced
-  termination, loading a complete durable write whose success message was never
-  shown is valid.
+  **Verify:** Complete match, rare-rule fixtures, deterministic simulation,
+  durable resume/failure recovery, reference fidelity, and user-owned device
+  performance and aesthetic sign-off against exact delivered builds.
 
 - Public display scenarios with virtual interpolation, labels/effects, input,
   anchors, prompts, and worker barriers.

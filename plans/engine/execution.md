@@ -286,9 +286,9 @@ the previous accepted state. Host failures never roll accepted state backward.
 
 `accepted_state()` copies the most recently completed rules action. During rules
 execution it returns the previous action; during playback it may return a state
-Unity has not yet reached visually. Explicit saves capture that logical state.
-There is no v1 autosave or implicit save-on-exit, and write failures do not undo
-accepted gameplay. See [Hearts save/load](hearts.md#explicit-save-and-resume).
+Unity has not yet reached visually. Persistence captures that logical state,
+and write failures do not undo accepted gameplay. The current Hearts autosave
+contract is defined in [durable storage and resume](hearts.md#durable-storage-and-resume).
 
 ## Manual QA
 

@@ -108,13 +108,12 @@ extends them only for missing measurements and the new workloads.
 
 Tasks 03-05 establish actual Rust/Unity worker cancellation and release-build
 plumbing early. Desktop native and threaded desktop WebGL are required
-functional integration targets. Preserve existing macOS/Windows support. The mobile gate is minimal: build the cancellation fixture and Hearts for iOS
-and Android, run the fixture on one iOS Simulator and one Android emulator, and
-smoke-test Hearts launch, a pass/card play, menu pause/resume, and restart on each.
-Task 05 establishes the fixture path; task 47 adds the completed Hearts smoke.
-Keep existing sample regression coverage, without adding an all-sample mobile
-matrix. Missing required SDKs/modules are explicit blockers. Physical
-iPhone 17/Galaxy S25 execution is separate certification.
+functional integration targets. Preserve existing sample support. The earlier
+engine sequence's mobile fixture gate uses iOS Simulator and Android emulator;
+missing required SDKs/modules are explicit blockers. The Hearts benchmark has
+its own stricter [device and acceptance contract](hearts.md#validation-and-completion)
+and [native work graph](hearts-work-graph.md), including user-owned physical
+performance sign-off. Do not substitute fixture smoke for that acceptance.
 
 For each supported release build, verify panic=unwind configuration. Native and
 threaded WebGL fixtures must demonstrate nested rules unwinding, destructor

@@ -1,5 +1,9 @@
 # Rules and session API
 
+This page describes the lower-level engine API. Its Hearts-named examples
+illustrate that API; the [Hearts benchmark design](hearts.md) defines the current
+sample authoring contract above it.
+
 A game supplies ordinary state, synchronous rules, and a domain-specific
 context. That context embeds Reactant's reusable execution mode alongside any
 game-specific data and logic. Reactant supplies the live session, a connection

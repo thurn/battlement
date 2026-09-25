@@ -24,6 +24,9 @@ inside the same execution without waiting for animation; downstream capacity
 can backpressure the snapshot consumer and worker. MCTS calls the same rules
 with a simulation context and an index-returning policy.
 
+For Hearts, the [Hearts design](hearts.md) defines the higher-level reducer,
+observation, task, and autosave contracts over this machinery.
+
 The [rules/session contract](interfaces.md) and its [compiling
 sketch](interfaces.md#complete-contract-sketch) are the complete
 public contract for this part of the system. The topic pages and tasks below use
@@ -91,9 +94,9 @@ sample that exercises the engine as an application.
   and the implemented chess-ui gallery. Keep basic and ui as direct Battlement
   examples. Preserve player-visible tests, replacing assertions about obsolete
   commands with assertions about the behavior those commands produced.
-- **Hearts:** one human and three AI players, a 3D table, full mouse/touch and
-  keyboard/controller input, scoring, and explicit durable save/load. V1 has no
-  autosave.
+- **Hearts:** the [engine benchmark design](hearts.md) specifies one human and
+  three fair AI opponents, the forest reference, all input methods, automatic
+  resume, and mandatory library/workflow improvements.
 - **Project tools:** one Reactant-owned `rt` command for general project build,
   run, authoring, Ditto, plugin, Addressables, and Reactant asset workflows.
   Repository `just` recipes select and run Battlement samples without teaching
@@ -105,16 +108,16 @@ Reactant depends on Battlement in this repository. Battlement supplies generic
 Unity execution and reusable lower-level build support, and must not depend on
 Reactant. The Reactant-owned `rt` command may use that support. Repository
 sample selection and defaults belong in [justfile](../../justfile), not in the
-public CLI. Chess may keep its opaque piece prefabs. Rust builds the Hearts
-cards and the richer card-composition examples from primitives. Typed access to
+public CLI. Chess may keep its opaque piece prefabs. The Hearts design selects
+its owned card assets; richer card-composition examples use primitives. Typed access to
 prefab parts, humanoid root motion, developer seek/replay, and live-scene copying
 are outside v1. `rt` is a standalone CLI, not an SDK distribution project.
 
 Desktop native and threaded desktop WebGL must pass functional validation. Mobile
-validation is a minimal cancellation-fixture and Hearts smoke on iOS Simulator
-and Android emulator, with reproducible mobile builds; see
-[the platform contract](validation.md#platform-evidence). Physical iPhone 17 and
-Galaxy S25 certification is tracked separately. The numerical performance
+validation for the earlier engine sequence is a minimal cancellation fixture
+on iOS Simulator and Android emulator, with reproducible mobile builds; see
+[the platform contract](validation.md#platform-evidence). The Hearts design separately requires native device builds and user-owned
+iPhone 12 / Pixel 6 class performance sign-off. The numerical performance
 targets in [test scenes and performance](fixtures.md) guide measurement and
 improvement; missed targets must be reported without changing the workload.
 [Measured regressions against existing rendering](validation.md#rendering-regression-gate)
@@ -237,39 +240,13 @@ archive; earlier engine work does not depend on those assets.
 34. [Migrate the currently implemented chess UI
     gallery](tasks/34-chess-ui-migration.md)
 
-### Playable Hearts reference
+### Hearts engine benchmark
 
-35. [Prepare Hearts assets and its 3D sample
-    shell](tasks/35-hearts-assets-shell.md)
-36. [Implement fixed Hearts rules through the shared context
-    contract](tasks/36-hearts-rules.md)
-37. [Compose Hearts cards, hands, tricks, and inspection
-    views](tasks/37-hearts-card-layout.md)
-38. [Connect Hearts passing prompts and simultaneous
-    transfers](tasks/38-hearts-passing.md)
-39. [Complete Hearts card play, trick collection, and
-    scoring](tasks/39-hearts-play-scoring.md)
-40. [Choose Hearts moves by simulating possible
-    hands](tasks/40-hearts-simulation-ai.md) — serial task group
-41. [Finish Hearts pointer, touch, drag, and inspection
-    behavior](tasks/41-hearts-pointer-touch.md)
-42. [Finish Hearts keyboard/controller navigation and
-    menus](tasks/42-hearts-navigation-menus.md)
-43. [Save Hearts explicitly and resume accepted
-    state](tasks/43-hearts-save-resume.md) — serial task group
-
-### Complete coverage and integration
-
-44. [Complete component, layout, and input test
-    scenes](tasks/44-identity-composition-laboratory.md) — serial task group
-45. [Complete animation, cancellation, and failure test
-    scenes](tasks/45-effects-failures-laboratory.md) — serial task group
-46. [Measure complete-card workloads and repair structural
-    hotspots](tasks/46-performance-workloads.md) — serial task group
-47. [Validate native, threaded WebGL, and mobile
-    builds](tasks/47-release-conformance.md)
-48. [Remove transitional machinery and audit the finished
-    architecture](tasks/48-retire-adapters-final-audit.md)
+The former tasks 35–43 are superseded by the [standalone Hearts design](hearts.md)
+and [native work graph](hearts-work-graph.md). That graph splits implementation
+into bounded assignments with blocking introspection after every change.
+Its execution hold must be explicitly released; the earlier serial migration
+sequence does not authorize or automatically schedule Hearts implementation.
 
 ## Manual QA
 

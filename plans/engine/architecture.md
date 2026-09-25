@@ -1,5 +1,9 @@
 # Writing a game with Reactant
 
+This page describes the lower-level engine API. Its Hearts-named examples
+illustrate that API; the [Hearts benchmark design](hearts.md) defines the current
+sample authoring contract above it.
+
 Reactant lets Rust components describe a game's world objects and UI. A game
 implements `Game`, supplies its own context struct with an embedded
 `ExecutionMode`, and uses the same synchronous rules for interactive execution
