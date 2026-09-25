@@ -158,3 +158,24 @@ fn denied_replacement_preserves_the_previous_complete_file() {
     Some(b"previous complete bytes".to_vec())
   );
 }
+
+#[test]
+fn derived_updates_preserve_each_field_of_latest_queued_intent() {
+  let backend = Rc::new(DelayedStorage::default());
+  let store = PersistenceStore::<[u32; 2]>::new(Some("settings.json".into()), backend.clone());
+  let (read, done) = backend.next();
+  done(read.id, Ok(Some(b"[1,2]".to_vec())));
+  store.update_with(|value| [3, value.unwrap()[1]]);
+  let (first, complete_first) = backend.next();
+  store.update_with(|value| [value.unwrap()[0], 4]);
+  store.update_with(|value| [5, value.unwrap()[1]]);
+  assert_eq!(store.snapshot().desired, Some([5, 4]));
+  complete_first(first.id, Ok(None));
+  let (last, complete_last) = backend.next();
+  let PersistenceOperation::Store(bytes) = last.operation else {
+    panic!("expected write")
+  };
+  assert_eq!(serde_json::from_slice::<[u32; 2]>(&bytes).unwrap(), [5, 4]);
+  complete_last(last.id, Ok(None));
+  assert_eq!(store.snapshot().durable, Some([5, 4]));
+}

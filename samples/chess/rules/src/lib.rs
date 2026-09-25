@@ -19,6 +19,7 @@ mod reactant_effects;
 mod reactant_game;
 mod reactant_input;
 mod reactant_view;
+pub mod settings;
 mod visual_state;
 
 pub use chess_prompt::ChessPrompt;

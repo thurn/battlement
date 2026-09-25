@@ -21,7 +21,7 @@ const AI_THINK_TIME: Duration = Duration::from_secs(2);
 
 /// External services used to construct an opaque chess engine.
 pub struct EngineDependencies {
-  /// Raw saved-game storage.
+  /// Raw storage for saved progress and local preferences.
   pub persistence: Option<Rc<dyn PersistenceBackend>>,
   /// Logical position mounted directly; None opens the title screen.
   pub position: Option<Board>,

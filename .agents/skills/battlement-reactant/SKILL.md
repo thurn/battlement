@@ -25,7 +25,7 @@ host interaction or rendering. Do not infer browser behavior from familiar
 React names or CSS-like properties.
 
 Use `samples/reactant/rules/src/` for focused examples and
-`samples/chess-ui/rules/src/` for composed application UI. Select the relevant
+`samples/chess/rules/src/` for composed application UI. Select the relevant
 component or test; do not read every screen or reconstruct a feature ledger.
 
 `crates/reactant-core/tests/` exercises authoring and runtime behavior.

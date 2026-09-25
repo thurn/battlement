@@ -66,6 +66,7 @@ dependencies = [
  "battlement-cloud",
  "battlement-types",
  "battlement-ui",
+ "serde",
  "uuid",
 ]
 
@@ -144,6 +145,7 @@ dependencies = [
 name = "battlement-types"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "uuid",
 ]
 

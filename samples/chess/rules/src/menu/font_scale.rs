@@ -1,22 +1,8 @@
 //! Shared text-size state and source growth formulas.
 
-use reactant::{hooks, prelude::*};
+use crate::settings::{self, TextSize};
 
-/// Owns the complete application's text-size selection.
-#[builder]
-pub struct FontScaleProvider {
-  #[builder(required, into)]
-  children: Children,
-}
-
-/// Player-selectable text sizes from the source application.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum FontScale {
-  #[default]
-  Percent100,
-  Percent150,
-  Percent200,
-}
+pub type FontScale = TextSize;
 
 /// Text roles with distinct source growth rates.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -28,28 +14,7 @@ pub enum FontScaleRole {
 
 /// Reads the complete application's current text size.
 pub fn use_font_scale() -> FontScale {
-  hooks::use_required_context::<FontScaleContext>().scale
-}
-
-/// Reads the complete application's text-size value and setter.
-pub fn use_font_scale_state() -> (FontScale, StateSetter<FontScale>) {
-  let context = hooks::use_required_context::<FontScaleContext>();
-  (context.scale, context.set_scale)
-}
-
-#[derive(Clone, PartialEq)]
-struct FontScaleContext {
-  scale: FontScale,
-  set_scale: StateSetter<FontScale>,
-}
-
-impl Component for FontScaleProvider {
-  fn render(&self) -> impl Render {
-    let (scale, set_scale) = hooks::use_state(FontScale::Percent100);
-    ContextProvider::new()
-      .context(FontScaleContext { scale, set_scale })
-      .child(self.children.render())
-  }
+  settings::use_settings().desired.text_size
 }
 
 impl FontScale {

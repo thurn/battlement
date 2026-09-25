@@ -153,7 +153,12 @@ impl PersistenceBackend for DelayedLoad {
   }
 
   fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
-    if request.operation == PersistenceOperation::Load {
+    if request.operation == PersistenceOperation::Load
+      && request
+        .path
+        .file_name()
+        .is_some_and(|name| name == chess_rules::persistence::SAVE_FILE_NAME)
+    {
       self.read.replace(Some((request, complete)));
     } else {
       self.memory.start(request, complete);

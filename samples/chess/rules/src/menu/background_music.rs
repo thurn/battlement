@@ -6,6 +6,7 @@ use battlement::{AudioClipAddress, ObjectId};
 use reactant::{application, context::ContextProvider, hooks, prelude::*};
 
 use crate::menu::music_heartbeat::{self, Heartbeat};
+use crate::settings::{self, SettingsChange, SettingsContext};
 
 /// Address of the source application's looping background track.
 pub const BACKGROUND_MUSIC: AudioClipAddress =
@@ -41,9 +42,7 @@ pub struct BackgroundMusicContext {
   pub heartbeat: Heartbeat,
   app: AppHandle,
   audio: AudioPlayback,
-  set_master_volume: StateSetter<u32>,
-  set_music_volume: StateSetter<u32>,
-  set_mute_in_background: StateSetter<bool>,
+  settings: SettingsContext,
   set_sound_muted: StateSetter<bool>,
   set_playing: StateSetter<bool>,
   playback_active: hooks::Ref<bool>,
@@ -86,17 +85,16 @@ impl BackgroundMusicContext {
 
   /// Replaces the controlled master-volume percentage.
   pub fn set_master_volume(&self, volume: u32) {
-    self.set_master_volume.set(volume.min(100));
+    self
+      .settings
+      .change(SettingsChange::MasterVolume(volume.min(100)));
   }
 
   /// Replaces the controlled music-volume percentage.
   pub fn set_music_volume(&self, volume: u32) {
-    self.set_music_volume.set(volume.min(100));
-  }
-
-  /// Changes the hidden-application mute policy.
-  pub fn set_mute_in_background(&self, muted: bool) {
-    self.set_mute_in_background.set(muted);
+    self
+      .settings
+      .change(SettingsChange::MusicVolume(volume.min(100)));
   }
 
   /// Changes the explicit sound mute used by the playback indicator.
@@ -125,9 +123,10 @@ impl Component for BackgroundMusicProvider {
 fn use_background_music_provider(autoplay: bool, active: bool) -> BackgroundMusicContext {
   let app = use_app();
   let application = application::use_application_state();
-  let (master_volume, set_master_volume) = hooks::use_state(80_u32);
-  let (music_volume, set_music_volume) = hooks::use_state(65_u32);
-  let (mute_in_background, set_mute_in_background) = hooks::use_state(false);
+  let settings = settings::use_settings();
+  let master_volume = settings.desired.master_volume;
+  let music_volume = settings.desired.music_volume;
+  let mute_in_background = settings.desired.mute_in_background;
   let (sound_muted, set_sound_muted) = hooks::use_state(false);
   let (playing, set_playing) = hooks::use_state(autoplay);
   let playback_active = hooks::use_ref(false);
@@ -188,9 +187,7 @@ fn use_background_music_provider(autoplay: bool, active: bool) -> BackgroundMusi
     heartbeat,
     app,
     audio,
-    set_master_volume,
-    set_music_volume,
-    set_mute_in_background,
+    settings,
     set_sound_muted,
     set_playing,
     playback_active,

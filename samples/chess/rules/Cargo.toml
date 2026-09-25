@@ -53,3 +53,7 @@ path = "tests/performance_tests.rs"
 [[test]]
 name = "menu"
 path = "tests/menu_tests.rs"
+
+[[test]]
+name = "settings"
+path = "tests/settings_tests.rs"

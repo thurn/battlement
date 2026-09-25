@@ -1,5 +1,7 @@
 //! Host-observed settings capabilities and applied state.
 
+use serde::{Deserialize, Serialize};
+
 use crate::CommandId;
 
 /// Platform classes with supported settings policies.
@@ -31,7 +33,8 @@ pub enum SettingAvailability {
 }
 
 /// Stable display mode identity, independent of presentation labels.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DisplayMode {
   #[default]
   /// Resizable desktop window.
@@ -43,7 +46,7 @@ pub enum DisplayMode {
 }
 
 /// Pixel dimensions and exact refresh ratio reported by the host.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DisplayResolution {
   /// Pixel width.
   pub width: u32,
@@ -56,7 +59,7 @@ pub struct DisplayResolution {
 }
 
 /// A coupled display mode and resolution.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DisplayConfiguration {
   /// Window presentation mode.
   pub mode: DisplayMode,

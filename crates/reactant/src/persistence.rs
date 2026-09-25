@@ -98,6 +98,10 @@ impl<T: Clone + PartialEq + Serialize + DeserializeOwned + 'static> PersistentSt
   pub fn update(&self, value: T) {
     self.store.update(value);
   }
+  /// Derives a replacement from current intent rather than a captured render snapshot.
+  pub fn update_with(&self, update: impl FnOnce(Option<T>) -> T) {
+    self.store.update_with(update);
+  }
   /// Queues deletion after the active operation.
   pub fn clear(&self) {
     self.store.clear();

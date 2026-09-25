@@ -78,6 +78,11 @@ impl<T: Clone + PartialEq + Serialize + DeserializeOwned + 'static> PersistenceS
     self.enqueue(Some(value));
   }
 
+  /// Derives a replacement from the latest intent, including queued unsaved changes.
+  pub fn update_with(&self, update: impl FnOnce(Option<T>) -> T) {
+    self.update(update(self.snapshot().desired));
+  }
+
   /// Orders deletion after any operation already in flight.
   pub fn clear(&self) {
     self.enqueue(None);

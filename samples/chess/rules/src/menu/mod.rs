@@ -54,8 +54,7 @@ use reactant::{host::Stack, overlay::OverlayHost, prelude::*};
 
 use crate::menu::{
   arcade_route_transition::ArcadeRouteTransition, arcade_screen_router::ArcadeScreenRouter,
-  background_music::BackgroundMusicProvider, font_scale::FontScaleProvider,
-  portrait_viewport::PortraitViewport,
+  background_music::BackgroundMusicProvider, portrait_viewport::PortraitViewport,
 };
 
 /// Presents the main menu and settings over the chess world.
@@ -70,27 +69,23 @@ impl Component for ChessMenu {
     BackgroundMusicProvider::new()
       .autoplay(true)
       .active(self.active)
-      .children(
-        FontScaleProvider::new().children(ArcadeRouteTransition::new().children(self.active.then(
-          || {
-            Stack::new()
-              .style(
-                Style::new()
-                  .width(100.pct())
-                  .height(100.pct())
-                  .overflow(Overflow::Hidden)
-                  .background_color(Color::BLACK),
-              )
-              .child(
-                PortraitViewport::new().child(
-                  ArcadeScreenRouter::new()
-                    .overlay(overlay.clone())
-                    .on_play(self.on_play.clone()),
-                ),
-              )
-              .child(OverlayHost::new(overlay))
-          },
-        ))),
-      )
+      .children(ArcadeRouteTransition::new().children(self.active.then(|| {
+        Stack::new()
+          .style(
+            Style::new()
+              .width(100.pct())
+              .height(100.pct())
+              .overflow(Overflow::Hidden)
+              .background_color(Color::BLACK),
+          )
+          .child(
+            PortraitViewport::new().child(
+              ArcadeScreenRouter::new()
+                .overlay(overlay.clone())
+                .on_play(self.on_play.clone()),
+            ),
+          )
+          .child(OverlayHost::new(overlay))
+      })))
   }
 }

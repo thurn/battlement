@@ -22,6 +22,7 @@ use crate::{
   persistence::SavedGame,
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
+  settings::SettingsRoot,
 };
 use crate::{
   opponent::Opponent,
@@ -54,7 +55,7 @@ pub struct ChessConfig {
   pub opponent: Opponent,
   /// Optional seed for presentation-only sound selection.
   pub seed: Option<u64>,
-  /// Raw storage used for the saved game.
+  /// Raw storage used for saved progress and local preferences.
   pub persistence: Option<Rc<dyn PersistenceBackend>>,
 }
 
@@ -64,7 +65,10 @@ pub struct ChessConfig {
 /// and can focus on state, events, and effects.
 pub fn application(config: ChessConfig) -> Application {
   let app = Application::new(crate::assets::CONTENT)
-    .child(ChessAssembly { config })
+    .child(SettingsRoot {
+      backend: config.persistence.clone(),
+      children: ChessAssembly { config }.into(),
+    })
     .document(|mut document| {
       document.root_id = crate::visual_state::ROOT_ID;
       document.element.picking_mode = Prop::Set(PickingMode::Ignore);

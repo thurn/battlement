@@ -41,6 +41,11 @@ impl MemoryPersistence {
     self.fail_store.set(true);
   }
 
+  /// Restores successful writes after an injected failure.
+  pub fn recover_store(&self) {
+    self.fail_store.set(false);
+  }
+
   /// Fails subsequent deletes.
   pub fn fail_remove(&self) {
     self.fail_remove.set(true);

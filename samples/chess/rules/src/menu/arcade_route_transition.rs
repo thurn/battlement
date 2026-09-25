@@ -3,6 +3,7 @@
 use reactant::{hooks, prelude::*};
 
 use crate::menu::arcade_frame_pulse::ArcadeScreen;
+use crate::settings;
 
 /// Values and actions exposed by [`use_arcade_navigation`].
 #[derive(Clone, PartialEq)]
@@ -15,7 +16,6 @@ pub struct ArcadeNavigationContext {
   pub reduce_motion: bool,
   set_active_screen: StateSetter<ArcadeScreen>,
   set_has_navigated: StateSetter<bool>,
-  set_reduce_motion: StateSetter<bool>,
 }
 
 /// Provides the two-route application state to the complete screen tree.
@@ -46,18 +46,14 @@ impl ArcadeNavigationContext {
     let navigation = self.clone();
     EventCallback::new(move |()| navigation.navigate(screen))
   }
-
-  /// Builds a controlled callback for the reduced-motion setting.
-  pub fn reduce_motion_callback(&self) -> EventCallback<bool> {
-    self.set_reduce_motion.callback()
-  }
 }
 
 impl Component for ArcadeRouteTransition {
   fn render(&self) -> impl Render {
     let (active_screen, set_active_screen) = hooks::use_state(self.initial_screen);
     let (has_navigated, set_has_navigated) = hooks::use_state(false);
-    let (reduce_motion, set_reduce_motion) = hooks::use_state(false);
+    let settings = settings::use_settings();
+    let reduce_motion = settings.desired.reduce_motion;
     ContextProvider::new()
       .context(ArcadeNavigationContext {
         active_screen,
@@ -65,7 +61,6 @@ impl Component for ArcadeRouteTransition {
         reduce_motion,
         set_active_screen,
         set_has_navigated,
-        set_reduce_motion,
       })
       .child(
         MotionConfig::new(self.children.render()).reduced_motion(if reduce_motion {

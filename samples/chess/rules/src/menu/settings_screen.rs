@@ -7,12 +7,12 @@ use battlement::{
 use reactant::{control_behavior, hooks, portal::PortalTarget, prelude::*};
 use trox::{ls, tx};
 
+use crate::menu::arcade_route_transition;
 use crate::menu::{
   arcade_modal::ArcadeModal,
   arcade_tab_transition::ArcadeTabTransition,
-  background_music,
   erase_control::EraseControl,
-  font_scale::{self, FontScale},
+  font_scale::FontScale,
   graphics_settings::GraphicsSettings,
   input_settings::InputSettings,
   privacy_policy::PrivacyPolicyHelp,
@@ -24,8 +24,9 @@ use crate::menu::{
   sound_settings::SoundSettings,
   toggle_control::ToggleControl,
 };
-use crate::menu::{arcade_route_transition, background_music::BackgroundMusicContext};
+use crate::settings::{self, Language, SettingsChange, SettingsContext, SettingsSaveStatus};
 use battlement::Overflow;
+use battlement::host_settings::{DisplayMode, DisplayResolution, HostSettings};
 
 /// The source settings screen; the host owns routing and external URL requests.
 #[builder]
@@ -49,20 +50,11 @@ impl Component for SettingsScreen {
   fn render(&self) -> impl Render {
     let (active_tab, set_active_tab) = hooks::use_state(SettingsTab::Gameplay);
     let (tab_direction, set_tab_direction) = hooks::use_state(1_i32);
-    let (font_scale, set_font_scale) = font_scale::use_font_scale_state();
-    let (language, set_language) = hooks::use_state(String::from("English"));
+    let settings = settings::use_settings();
+    let host = reactant::use_host_settings();
     let navigation = arcade_route_transition::use_arcade_navigation();
-    let (increase_move_duration, set_increase_move_duration) = hooks::use_state(true);
-    let (upload_crash_reports, set_upload_crash_reports) = hooks::use_state(true);
-    let (resolution, set_resolution) = hooks::use_state(String::from("1920 × 1080"));
-    let (max_framerate, set_max_framerate) = hooks::use_state(String::from("144 FPS"));
-    let (display_mode, set_display_mode) = hooks::use_state(String::from("Borderless"));
-    let (screenshake, set_screenshake) = hooks::use_state(true);
-    let (vsync, set_vsync) = hooks::use_state(true);
-    let (effects_volume, set_effects_volume) = hooks::use_state(75_u32);
     let (panel_scrolled, set_panel_scrolled) = hooks::use_state([false; 3]);
     let (active_modal, set_active_modal) = hooks::use_state(None::<SettingsModal>);
-    let music = background_music::use_background_music();
 
     Region::new(ls(format!("{} settings", active_tab.label_text())))
       .host_name("settings-screen")
@@ -109,36 +101,16 @@ impl Component for SettingsScreen {
                 .reduce_motion(navigation.reduce_motion)
                 .children(self::panel(
                   active_tab,
-                  font_scale,
-                  &set_font_scale,
-                  &language,
-                  &set_language,
-                  navigation.reduce_motion,
-                  &navigation.reduce_motion_callback(),
-                  increase_move_duration,
-                  &set_increase_move_duration,
-                  upload_crash_reports,
-                  &set_upload_crash_reports,
-                  &resolution,
-                  &set_resolution,
-                  &max_framerate,
-                  &set_max_framerate,
-                  &display_mode,
-                  &set_display_mode,
-                  screenshake,
-                  &set_screenshake,
-                  vsync,
-                  &set_vsync,
-                  effects_volume,
-                  &set_effects_volume,
+                  &settings,
+                  &host,
                   panel_scrolled,
                   &set_panel_scrolled,
-                  &music,
                   &set_active_modal,
                   self.overlay.clone(),
                 )),
             ),
           )),
+        SettingsSaveStatus,
         ReturnButton::new()
           .reduced_motion(navigation.reduce_motion)
           .on_press(self.on_return.clone()),
@@ -169,34 +141,15 @@ impl Component for SettingsScreen {
 #[allow(clippy::too_many_arguments)]
 fn panel(
   active_tab: SettingsTab,
-  font_scale: FontScale,
-  set_font_scale: &StateSetter<FontScale>,
-  language: &str,
-  set_language: &StateSetter<String>,
-  reduce_motion: bool,
-  set_reduce_motion: &EventCallback<bool>,
-  increase_move_duration: bool,
-  set_increase_move_duration: &StateSetter<bool>,
-  upload_crash_reports: bool,
-  set_upload_crash_reports: &StateSetter<bool>,
-  resolution: &str,
-  set_resolution: &StateSetter<String>,
-  max_framerate: &str,
-  set_max_framerate: &StateSetter<String>,
-  display_mode: &str,
-  set_display_mode: &StateSetter<String>,
-  screenshake: bool,
-  set_screenshake: &StateSetter<bool>,
-  vsync: bool,
-  set_vsync: &StateSetter<bool>,
-  effects_volume: u32,
-  set_effects_volume: &StateSetter<u32>,
+  settings: &SettingsContext,
+  host: &HostSettings,
   panel_scrolled: [bool; 3],
   set_panel_scrolled: &StateSetter<[bool; 3]>,
-  music: &BackgroundMusicContext,
   set_active_modal: &StateSetter<Option<SettingsModal>>,
   overlay: PortalTarget,
 ) -> impl Render {
+  let value = settings.desired;
+  let font_scale = value.text_size;
   if active_tab == SettingsTab::Input {
     return Either::Left(InputSettings::new().overlay(overlay));
   }
@@ -240,53 +193,64 @@ fn panel(
     .style(Style::new().width(839).height(971))
     .child(match active_tab {
       SettingsTab::Gameplay => Either::Left(self::gameplay(
-        font_scale,
-        set_font_scale,
-        language,
-        set_language,
-        reduce_motion,
-        set_reduce_motion,
-        increase_move_duration,
-        set_increase_move_duration,
-        upload_crash_reports,
-        set_upload_crash_reports,
+        settings,
         set_panel_scrolled,
         set_active_modal,
         overlay,
       )),
       SettingsTab::Graphics => Either::Right(Either::Left(
         GraphicsSettings::new()
-          .resolution(resolution.to_owned())
-          .max_framerate(max_framerate.to_owned())
-          .display_mode(display_mode.to_owned())
-          .screenshake(screenshake)
-          .vsync(vsync)
+          .resolution(
+            value
+              .resolution(host)
+              .map(|resolution| format!("{} × {}", resolution.width, resolution.height))
+              .unwrap_or_else(|| "Current display".to_owned()),
+          )
+          .max_framerate(format!("{} FPS", value.framerate(host)))
+          .display_mode(
+            match value.display_mode {
+              DisplayMode::Borderless => "Borderless",
+              DisplayMode::Fullscreen => "Fullscreen",
+              DisplayMode::Windowed => "Windowed",
+            }
+            .to_owned(),
+          )
+          .screenshake(value.screenshake)
+          .vsync(value.vsync)
           .overlay(overlay)
-          .on_resolution_change(set_resolution.clone())
-          .on_max_framerate_change(set_max_framerate.clone())
-          .on_display_mode_change(set_display_mode.clone())
-          .on_screenshake_change(set_screenshake.clone())
-          .on_vsync_change(set_vsync.clone()),
+          .on_resolution_change(
+            settings
+              .callback(SettingsChange::Resolution)
+              .map_input(self::resolution_from_label),
+          )
+          .on_max_framerate_change(settings.callback(SettingsChange::MaxFramerate).map_input(
+            |label: String| {
+              label
+                .trim_end_matches(" FPS")
+                .parse::<u32>()
+                .expect("framerate option")
+            },
+          ))
+          .on_display_mode_change(settings.callback(SettingsChange::DisplayMode).map_input(
+            |label: String| match label.as_str() {
+              "Fullscreen" => DisplayMode::Fullscreen,
+              "Windowed" => DisplayMode::Windowed,
+              _ => DisplayMode::Borderless,
+            },
+          ))
+          .on_screenshake_change(settings.callback(SettingsChange::Screenshake))
+          .on_vsync_change(settings.callback(SettingsChange::Vsync)),
       )),
       SettingsTab::Sound => Either::Right(Either::Right(
         SoundSettings::new()
-          .master_volume(music.master_volume)
-          .music_volume(music.music_volume)
-          .effects_volume(effects_volume)
-          .mute_in_background(music.mute_in_background)
-          .on_master_volume_change({
-            let music = music.clone();
-            move |value| music.set_master_volume(value)
-          })
-          .on_music_volume_change({
-            let music = music.clone();
-            move |value| music.set_music_volume(value)
-          })
-          .on_effects_volume_change(set_effects_volume.clone())
-          .on_mute_in_background_change({
-            let music = music.clone();
-            move |value| music.set_mute_in_background(value)
-          }),
+          .master_volume(value.master_volume)
+          .music_volume(value.music_volume)
+          .effects_volume(value.effects_volume)
+          .mute_in_background(value.mute_in_background)
+          .on_master_volume_change(settings.callback(SettingsChange::MasterVolume))
+          .on_music_volume_change(settings.callback(SettingsChange::MusicVolume))
+          .on_effects_volume_change(settings.callback(SettingsChange::EffectsVolume))
+          .on_mute_in_background_change(settings.callback(SettingsChange::MuteInBackground)),
       )),
       SettingsTab::Input => unreachable!(),
     }),
@@ -295,34 +259,39 @@ fn panel(
 
 #[allow(clippy::too_many_arguments)]
 fn gameplay(
-  font_scale: FontScale,
-  set_font_scale: &StateSetter<FontScale>,
-  language: &str,
-  set_language: &StateSetter<String>,
-  reduce_motion: bool,
-  set_reduce_motion: &EventCallback<bool>,
-  increase_move_duration: bool,
-  set_increase_move_duration: &StateSetter<bool>,
-  upload_crash_reports: bool,
-  set_upload_crash_reports: &StateSetter<bool>,
+  settings: &SettingsContext,
   set_panel_scrolled: &StateSetter<[bool; 3]>,
   set_active_modal: &StateSetter<Option<SettingsModal>>,
   overlay: PortalTarget,
 ) -> impl Render {
+  let value = settings.desired;
+  let font_scale = value.text_size;
   (
     SelectControl::new()
       .label(control_behavior::name_source_text(tx(
         "Language",
         "Gameplay language setting label.",
       )))
-      .value(language.to_owned())
-      .options(
-        ["English", "Español", "Français", "Deutsch"]
-          .map(String::from)
-          .to_vec(),
+      .value(
+        match value.language {
+          Language::English => "English",
+          Language::French => "Français",
+        }
+        .to_owned(),
       )
+      .options(["English", "Français"].map(String::from).to_vec())
       .overlay(overlay.clone())
-      .on_change(set_language.clone())
+      .on_change(
+        settings
+          .callback(SettingsChange::Language)
+          .map_input(|label: String| {
+            if label == "Français" {
+              Language::French
+            } else {
+              Language::English
+            }
+          }),
+      )
       .first(true),
     SelectControl::new()
       .label(control_behavior::name_source_text(tx(
@@ -337,8 +306,8 @@ fn gameplay(
       )
       .overlay(overlay)
       .on_change(
-        set_font_scale
-          .callback()
+        settings
+          .callback(SettingsChange::TextSize)
           .map_input(|label: String| match label.as_str() {
             "150%" => FontScale::Percent150,
             "200%" => FontScale::Percent200,
@@ -351,8 +320,8 @@ fn gameplay(
         "Reduce Motion",
         "Gameplay reduced-motion setting label.",
       )))
-      .checked(reduce_motion)
-      .on_change(set_reduce_motion.clone()),
+      .checked(value.reduce_motion)
+      .on_change(settings.callback(SettingsChange::ReduceMotion)),
     ToggleControl::new()
       .label(control_behavior::name_source_text(tx(
         "Increase Move\nDuration",
@@ -363,8 +332,8 @@ fn gameplay(
         "Gameplay duration checkbox accessibility label.",
       ))
       .row_height(self::multiline_row_height(font_scale))
-      .checked(increase_move_duration)
-      .on_change(set_increase_move_duration.clone()),
+      .checked(value.increase_move_duration)
+      .on_change(settings.callback(SettingsChange::IncreaseMoveDuration)),
     ToggleControl::new()
       .label(control_behavior::name_source_text(tx(
         "Upload Crash\nReports",
@@ -375,14 +344,14 @@ fn gameplay(
         "Crash-report checkbox accessibility label.",
       ))
       .row_height(self::multiline_row_height(font_scale))
-      .checked(upload_crash_reports)
+      .checked(value.upload_crash_reports)
       .with_info(true)
       .on_info_click(
         set_active_modal
           .callback()
           .map_input(|_| Some(SettingsModal::Privacy)),
       )
-      .on_change(set_upload_crash_reports.clone()),
+      .on_change(settings.callback(SettingsChange::UploadCrashReports)),
     EraseControl::new().on_click(
       set_active_modal
         .callback()
@@ -407,5 +376,15 @@ fn content_height(tab: SettingsTab, scale: FontScale) -> f32 {
     SettingsTab::Graphics => 5.0 * 159.0 * scale.factor(),
     SettingsTab::Sound => 971.0 * scale.factor(),
     SettingsTab::Input => 971.0,
+  }
+}
+
+fn resolution_from_label(label: String) -> DisplayResolution {
+  let (width, height) = label.split_once(" × ").expect("resolution option");
+  DisplayResolution {
+    width: width.parse().expect("resolution width"),
+    height: height.parse().expect("resolution height"),
+    refresh_numerator: 60,
+    refresh_denominator: 1,
   }
 }

@@ -29,6 +29,11 @@ use crate::menu::{
   setting_row::DISPLAY_FONT,
 };
 
+use crate::settings::{
+  self, SettingsChange, SettingsContext,
+  bindings::{self, Bindings},
+};
+
 const INPUT_WIDTH: f32 = 839.0;
 const HEADER_HEIGHT: f32 = 100.0;
 const ROW_HEIGHT: f32 = 159.0;
@@ -42,15 +47,6 @@ const ACTIONS: [&str; 7] = [
   "Move Piece",
   "Pause",
   "Restart",
-];
-const DEFAULT_KEYBOARD: [PhysicalKey; 7] = [
-  PhysicalKey::ArrowLeft,
-  PhysicalKey::ArrowRight,
-  PhysicalKey::ArrowUp,
-  PhysicalKey::ArrowDown,
-  PhysicalKey::Space,
-  PhysicalKey::Escape,
-  PhysicalKey::KeyR,
 ];
 const CONTROLLER: [&str; 7] = [
   "D-pad left",
@@ -72,7 +68,8 @@ pub struct InputSettings {
 impl Component for InputSettings {
   fn render(&self) -> impl Render {
     let (scrolled, set_scrolled) = hooks::use_state(false);
-    let (bindings, set_bindings) = hooks::use_state(DEFAULT_KEYBOARD);
+    let set_bindings = settings::use_settings();
+    let bindings = set_bindings.desired.keyboard.values();
     let (capture, set_capture) = hooks::use_state(None::<usize>);
     let (status, set_status) = hooks::use_state(None::<String>);
     let capture_focus = use_element_ref();
@@ -158,7 +155,7 @@ impl Component for InputSettings {
 fn capture_modal(
   index: usize,
   bindings: [PhysicalKey; 7],
-  set_bindings: hooks::StateSetter<[PhysicalKey; 7]>,
+  set_bindings: SettingsContext,
   set_capture: hooks::StateSetter<Option<usize>>,
   set_status: hooks::StateSetter<Option<String>>,
   status: Option<String>,
@@ -178,7 +175,7 @@ fn capture_modal(
       let Some(key) = self::captured_key(event.payload()) else {
         return;
       };
-      if self::is_bare_modifier(key) {
+      if bindings::is_modifier(key) {
         return;
       }
       event.prevent_default();
@@ -291,13 +288,15 @@ fn capture_modal(
     .on_confirm(EventCallback::new({
       let set_capture = set_capture.clone();
       move |()| {
-        reset_bindings.update(move |mut current| {
-          current[index] = DEFAULT_KEYBOARD[index];
-          current
-        });
-        reset_status.set(None);
-        set_capture.set(None);
-        announce.send(ls(format!("{action} reset to default")));
+        self::apply_key(
+          Bindings::<PhysicalKey>::default().values()[index],
+          index,
+          bindings,
+          &reset_bindings,
+          &set_capture,
+          &reset_status,
+          announce,
+        );
       }
     }))
     .on_close(
@@ -442,20 +441,6 @@ fn controller_cell(index: usize) -> impl Render {
     ))
 }
 
-fn is_bare_modifier(key: PhysicalKey) -> bool {
-  matches!(
-    key,
-    PhysicalKey::ShiftLeft
-      | PhysicalKey::ShiftRight
-      | PhysicalKey::ControlLeft
-      | PhysicalKey::ControlRight
-      | PhysicalKey::AltLeft
-      | PhysicalKey::AltRight
-      | PhysicalKey::MetaLeft
-      | PhysicalKey::MetaRight
-  )
-}
-
 fn captured_key(event: &KeyEvent) -> Option<PhysicalKey> {
   event.physical_key.or_else(|| self::text_key(&event.text))
 }
@@ -501,7 +486,7 @@ fn apply_key(
   key: PhysicalKey,
   index: usize,
   bindings: [PhysicalKey; 7],
-  set_bindings: &hooks::StateSetter<[PhysicalKey; 7]>,
+  set_bindings: &SettingsContext,
   set_capture: &hooks::StateSetter<Option<usize>>,
   set_status: &hooks::StateSetter<Option<String>>,
   announce: Announce,
@@ -516,10 +501,16 @@ fn apply_key(
     announce.send(ls(message));
     return;
   }
-  set_bindings.update(move |mut current| {
-    current[index] = key;
-    current
-  });
+  let mut current = bindings;
+  current[index] = key;
+  let updated = Bindings::from_values(current);
+  if !bindings::valid_keyboard(updated) {
+    let message = "Escape is reserved for Pause";
+    set_status.set(Some(message.to_owned()));
+    announce.send(ls(message));
+    return;
+  }
+  set_bindings.change(SettingsChange::Keyboard(updated));
   set_status.set(None);
   set_capture.set(None);
   announce.send(ls(format!(

@@ -1,5 +1,7 @@
 //! Reusable scalar, mathematical, animation, and input values shared by protocol domains.
 
+use serde::{Deserialize, Serialize};
+
 /// A three-dimensional value in Unity world units.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Vector3 {
@@ -638,7 +640,7 @@ pub enum TweenRepeat {
 }
 
 /// A physical W3C `KeyboardEvent.code` supported by Battlement.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum PhysicalKey {
   /// Escape.
   Escape,
@@ -851,7 +853,7 @@ pub enum PhysicalKey {
 }
 
 /// A named controller button independent of platform-specific glyphs.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum ControllerButton {
   /// Bottom face button: A on Xbox-style controllers, Cross on PlayStation controllers.
   South,
@@ -876,7 +878,7 @@ pub enum ControllerButton {
 }
 
 /// A cardinal controller-navigation direction.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum ControllerDirection {
   /// Move left.
   Left,
