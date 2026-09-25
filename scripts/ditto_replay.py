@@ -67,17 +67,22 @@ def semantic_hash(result: dict) -> str:
 
 def event_transcript_hash(path: Path) -> str:
     """Hash ordered event meaning while excluding generated identity and timing fields."""
-    def normalized(value):
+    def normalized(value, path=()):
         if isinstance(value, dict):
-            return {
-                key: normalized(item)
+            fields = {
+                key: normalized(item, (*path, key))
                 for key, item in sorted(value.items())
                 if key not in TRANSCRIPT_VOLATILE_FIELDS
                 and key != "duration_ms"
                 and not key.endswith("_duration_ms")
             }
+            if path == ("body", "artifact_kind", "render_commit"):
+                # Receipt counters observe the render loop, not scenario advancement.
+                fields.pop("frame", None)
+                fields.pop("render_generation", None)
+            return fields
         if isinstance(value, list):
-            return [normalized(item) for item in value]
+            return [normalized(item, path) for item in value]
         return value
 
     events = [

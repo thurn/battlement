@@ -13,10 +13,52 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ditto_replay
 
 
+def check_render_receipts(root: Path) -> None:
+    """Receipt timing is incidental; pixels, action frames and order remain meaningful."""
+    first = root / "receipt-first.jsonl"
+    second = root / "receipt-second.jsonl"
+    receipt = {
+        "event_name": "ditto.context", "source": "ditto-player",
+        "body": {"context": "artifact-accepted", "artifact_kind": {
+            "kind": "screenshot", "checkpoint": "board",
+            "render_commit": {"frame": 28, "render_generation": 417,
+                              "pixel_fingerprint": 1234},
+        }},
+    }
+    advance = {"event_name": "ditto.context", "body": {
+        "context": "step-started", "advance": {"frames": 10}, "frame": 28,
+        "render_generation": 417,
+    }}
+    first.write_text("\n".join(map(json.dumps, [receipt, advance])) + "\n")
+    expected = ditto_replay.event_transcript_hash(first)
+
+    def observe(events):
+        second.write_text("\n".join(map(json.dumps, events)) + "\n")
+        return ditto_replay.event_transcript_hash(second)
+
+    commit = receipt["body"]["artifact_kind"]["render_commit"]
+    commit.update(frame=27, render_generation=416)
+    assert observe([receipt, advance]) == expected
+    assert observe([advance, receipt]) != expected
+    commit["pixel_fingerprint"] += 1
+    assert observe([receipt, advance]) != expected
+    commit["pixel_fingerprint"] -= 1
+    for key in ("frame", "render_generation"):
+        advance["body"][key] += 1
+        assert observe([receipt, advance]) != expected
+        advance["body"][key] -= 1
+    advance["body"]["advance"]["frames"] += 1
+    assert observe([receipt, advance]) != expected
+    advance["body"]["advance"]["frames"] -= 1
+    receipt["body"]["artifact_kind"]["checkpoint"] = "other-board"
+    assert observe([receipt, advance]) != expected
+
+
 def main() -> None:
     scripts = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix="ditto-replay-test.") as temporary:
         root = Path(temporary)
+        check_render_receipts(root)
         (root / "scripts").mkdir()
         for name in (
             "ditto_ci.py", "ditto_replay.py", "ditto_evidence.py", "operation_log.py",
