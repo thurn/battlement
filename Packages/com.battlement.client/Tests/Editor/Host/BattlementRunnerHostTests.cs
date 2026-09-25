@@ -44,8 +44,10 @@ namespace Battlement.Tests
                         new[]
                         {
                             "battlement.host.settings",
+                            "battlement.host.storage",
                             "battlement.host.connected",
                             "battlement.host.settings",
+                            "battlement.host.storage",
                             "battlement.host.reconnected",
                             "battlement.host.stopped",
                         }
@@ -202,6 +204,12 @@ namespace Battlement.Tests
             Assert.That(
                 connect.PersistentDataPath,
                 Is.EqualTo(Absolute(Application.persistentDataPath))
+            );
+            Assert.That(
+                harness
+                    .Logger.Records.Single(record => record.EventName == "battlement.host.storage")
+                    .Fields!["persistent_data_path"],
+                Is.EqualTo(connect.PersistentDataPath)
             );
             Assert.That(
                 connect.StreamingAssetsPath,

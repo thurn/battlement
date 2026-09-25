@@ -1766,12 +1766,19 @@ namespace Battlement
             publishedHostSettings = ReadHostSettings(configured);
             BattlementHostSettings.Report(configured.Logger, publishedHostSettings);
             nextHostSettingsPoll = 0;
+            string persistentDataPath = Path.GetFullPath(Application.persistentDataPath);
+            Log(
+                BattlementLogSeverity.Information,
+                "battlement.host.storage",
+                "Persistent storage path supplied to rules.",
+                new Dictionary<string, string> { ["persistent_data_path"] = persistentDataPath }
+            );
             return new Connect(
                 PlatformName(Application.platform),
                 Application.unityVersion,
                 BattlementLogicalPixels.ScreenSize,
                 new List<string>(commandTypes),
-                Path.GetFullPath(Application.persistentDataPath),
+                persistentDataPath,
                 Path.GetFullPath(Application.streamingAssetsPath),
                 configuredRuntime.Modules.ModuleIds
             )

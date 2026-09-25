@@ -44,7 +44,9 @@ this deliberately samples that animation time. Infinite motion is sampled at a
 frozen controlled-time phase and does not prevent otherwise-ready capture.
 
 Inspect the terminal result, screenshots, and retained logs; keep their paths
-and run identity. `review` opens the retained run; stop its owned server after use.
+and run identity. Before persistence QA, read `battlement.host.storage` in retained
+`logs/events.jsonl` for the actual `persistent_data_path`; sample project settings
+may differ from the assembled player. `review` opens the retained run; stop its owned server after use.
 A passing screenshot comparison is not evidence of fidelity to a supplied
 reference: compare the intended result directly before accepting new images.
 
