@@ -1,7 +1,7 @@
 //! Menu scenarios exercise the same public host interface as gameplay.
 mod support;
 
-use battlement::{CheckedState, SemanticRole};
+use battlement::{CheckedState, Length, Prop, SemanticRole, StyleValue};
 use cozy_chess::{Color, Piece, Square};
 use support::game::ChessTest;
 
@@ -71,4 +71,104 @@ fn settings_keep_player_choices_across_menu_navigation() {
     chess.display.semantic_node("Reduce Motion").state.checked,
     Some(CheckedState::True)
   );
+}
+
+#[test]
+fn every_text_size_keeps_localized_settings_and_binding_dialog_operable() {
+  for french in [false, true] {
+    let mut chess = ChessTest::title();
+    chess.display.activate_accessible("SETTINGS");
+    if french {
+      chess.display.activate_accessible("Language English");
+      chess.display.activate_accessible("Français");
+    }
+    let size_label = if french {
+      "Taille du texte"
+    } else {
+      "Text Size"
+    };
+    let input = if french { "Entrées" } else { "Input" };
+    let sound = if french { "Son" } else { "Sound" };
+    let return_label = if french { "RETOUR" } else { "RETURN" };
+    let settings = if french { "PARAMÈTRES" } else { "SETTINGS" };
+    let binding = if french {
+      "Modifier la touche pour « \u{2068}Gauche\u{2069} »"
+    } else {
+      "Change \u{2068}Left\u{2069} keyboard binding"
+    };
+    let mut previous = "100%";
+    for size in ["100%", "150%", "200%", "100%"] {
+      chess
+        .display
+        .activate_accessible(&format!("{size_label} {previous}"));
+      chess.display.activate_accessible(size);
+      assert_eq!(
+        chess.display.focused(),
+        Some(
+          chess
+            .display
+            .semantic_node(&format!("{size_label} {size}"))
+            .object_id
+        )
+      );
+      let factor = size.trim_end_matches('%').parse::<f32>().unwrap() / 100.0;
+      let selected = chess
+        .display
+        .semantic_node(&format!("{size_label} {size}"))
+        .object_id;
+      assert_eq!(
+        chess.display.ui_element(selected).style().font_size,
+        Prop::Set(StyleValue::Value(Length::Px(60.0 * factor)))
+      );
+      let value = chess.display.find_ui(selected, "select-value");
+      assert_eq!(
+        chess.display.ui_element(value).style().font_size,
+        Prop::Unset,
+        "the value inherits the scaled size exactly once"
+      );
+      chess.display.activate_accessible(input);
+      chess.display.activate_accessible(binding);
+      chess
+        .display
+        .expect_button(if french { "Réinitialiser" } else { "Reset" });
+      chess
+        .display
+        .activate_accessible(if french { "Annuler" } else { "Cancel" });
+      chess.display.expect_button(binding);
+      chess.display.activate_accessible(sound);
+      assert_eq!(
+        chess
+          .display
+          .semantic_node(if french {
+            "Volume général"
+          } else {
+            "Master Volume"
+          })
+          .role,
+        SemanticRole::Slider
+      );
+      chess.display.activate_accessible(return_label);
+      chess.display.activate_accessible(settings);
+      chess.display.expect_button(&format!("{size_label} {size}"));
+      chess.display.activate_accessible(return_label);
+      chess
+        .display
+        .activate_accessible(if french { "JOUER" } else { "PLAY" });
+      chess.pause();
+      let menu = if french {
+        "Menu principal"
+      } else {
+        "Main menu"
+      };
+      let menu_button = chess.display.semantic_node(menu).object_id;
+      assert_eq!(
+        chess.display.ui_element(menu_button).style().font_size,
+        Prop::Set(StyleValue::Value(Length::Px(14.0 * factor)))
+      );
+      chess.pause();
+      chess.display.activate_accessible(menu);
+      chess.display.activate_accessible(settings);
+      previous = size;
+    }
+  }
 }

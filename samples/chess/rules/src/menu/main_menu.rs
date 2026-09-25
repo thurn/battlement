@@ -92,47 +92,65 @@ impl Component for MainMenuContent {
         ScreenHeader::new()
           .variant(HeaderVariant::Game)
           .autofocus(self.autofocus_heading),
-        Region::new(tx("Main navigation", "Main menu navigation label."))
+        ScrollRegion::new(tx("Main navigation", "Main menu navigation label."))
           .host_name("main-menu-actions")
           .style(
             Style::new()
               .position(Position::Absolute)
-              .left(MENU_LEFT)
-              .top(MENU_TOP + (scale.factor() - 1.0) * 64.0)
-              .width(MENU_WIDTH),
+              .left(if scale.factor() > 1.0 {
+                8.0
+              } else {
+                MENU_LEFT - 24.0
+              })
+              .top(MENU_TOP - 24.0)
+              .width(if scale.factor() > 1.0 {
+                1008.0
+              } else {
+                MENU_WIDTH + 48.0
+              })
+              .height(if scale.factor() > 1.0 { 638.0 } else { 748.0 }),
           )
           .child(
             Flex::new()
               .direction(FlexDirection::Column)
               .gap(MENU_GAP * (1.0 + (scale.factor() - 1.0) * 0.1))
-              .style(Style::new().width(MENU_WIDTH).align_items(Align::Stretch))
+              .style(
+                Style::new()
+                  .width(if scale.factor() > 1.0 {
+                    1008.0
+                  } else {
+                    MENU_WIDTH + 48.0
+                  })
+                  .padding(24)
+                  .align_items(Align::Stretch),
+              )
               .child((
                 self::action(
                   self,
                   "PLAY",
                   ActionLabel::Play,
-                  1.0 + (scale.factor() - 1.0) * 0.12,
+                  scale.factor(),
                   self.on_play.clone(),
                 ),
                 self::action(
                   self,
                   "SETTINGS",
                   ActionLabel::Settings,
-                  1.0 + (scale.factor() - 1.0) * 0.12,
+                  scale.factor(),
                   self.on_settings.clone(),
                 ),
                 self::action(
                   self,
                   "ABOUT",
                   ActionLabel::About,
-                  1.0 + (scale.factor() - 1.0) * 0.12,
+                  scale.factor(),
                   EventCallback::noop(),
                 ),
                 self::action(
                   self,
                   "QUIT",
                   ActionLabel::Quit,
-                  1.0 + (scale.factor() - 1.0) * 0.12,
+                  scale.factor(),
                   self.on_exit.clone(),
                 ),
               )),
@@ -144,8 +162,8 @@ impl Component for MainMenuContent {
               .position(Position::Absolute)
               .left(80)
               .right(80)
-              .bottom(218)
-              .height(114),
+              .bottom(if scale.factor() > 1.0 { 170 } else { 218 })
+              .height(114.0 * scale.factor()),
           )
           .child(MusicPlaybackIndicator::new().reduced_motion(self.reduce_motion)),
       ))
@@ -163,14 +181,13 @@ fn action(
     .name(format!("main-menu-action-{}", label.to_ascii_lowercase()))
     .style(
       Style::new()
-        .width(MENU_WIDTH)
+        .width(if scale > 1.0 { 960.0 } else { MENU_WIDTH })
         .height(MENU_BUTTON_HEIGHT * scale),
     )
     .child(
       ActionButton::new()
         .artwork(artwork)
         .children(control_behavior::name_source_text(artwork.label()))
-        .max_text_scale(1.2)
         .disabled(component.exiting)
         .reduced_motion(component.reduce_motion)
         .on_press(on_press),

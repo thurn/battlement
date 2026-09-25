@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Battlement.UI
@@ -44,15 +43,13 @@ namespace Battlement.UI
             };
             if (direction is UiNavigationDirection.Next or UiNavigationDirection.Previous)
             {
-                using KeyDownEvent key = KeyDownEvent.GetPooled(
-                    '\t',
-                    KeyCode.Tab,
+                using NavigationMoveEvent move = NavigationMoveEvent.GetPooled(
                     direction == UiNavigationDirection.Previous
-                        ? EventModifiers.Shift
-                        : EventModifiers.None
+                        ? NavigationMoveEvent.Direction.Previous
+                        : NavigationMoveEvent.Direction.Next
                 );
-                key.target = target;
-                target.SendEvent(key);
+                move.target = target;
+                target.SendEvent(move);
             }
             else
             {

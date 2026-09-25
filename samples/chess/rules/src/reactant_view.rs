@@ -23,7 +23,7 @@ use crate::{
   persistence::SavedGame,
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessContext, ChessGame, ChessPolicy, ChessState},
-  settings::{Language, SettingsRoot},
+  settings::{self, Language, SettingsRoot},
 };
 use crate::{
   opponent::Opponent,
@@ -364,6 +364,7 @@ impl Component for ChessScreen {
   /// hooks. They avoid one monolithic render function and make dependencies clear.
   fn render(&self) -> impl Render {
     let local = self.control.snapshot();
+    let text_scale = settings::use_settings().desired.text_size.factor();
     let menu = self.control.clone();
     let activate = {
       let control = self.control.clone();
@@ -418,8 +419,9 @@ impl Component for ChessScreen {
               .position(Position::Absolute)
               .top(16)
               .left(16)
-              .width(140)
-              .height(48)
+              .width(140.0 * text_scale)
+              .height(48.0 * text_scale)
+              .font_size(14.0 * text_scale)
               .background_color(UiColor::rgb(0.03, 0.09, 0.18))
               .color(UiColor::WHITE),
           )

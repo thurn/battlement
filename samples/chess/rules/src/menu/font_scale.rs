@@ -1,16 +1,8 @@
-//! Shared text-size state and source growth formulas.
+//! Shared application text-size selection.
 
 use crate::settings::{self, TextSize};
 
 pub type FontScale = TextSize;
-
-/// Text roles with distinct source growth rates.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum FontScaleRole {
-  Control,
-  Navigation,
-  Heading,
-}
 
 /// Reads the complete application's current text size.
 pub fn use_font_scale() -> FontScale {
@@ -37,17 +29,5 @@ impl FontScale {
       Self::Percent150 => "150%",
       Self::Percent200 => "200%",
     }
-  }
-
-  /// Applies the source growth curve for a text role.
-  pub fn dynamic(self, role: FontScaleRole) -> f32 {
-    let growth = self.factor() - 1.0;
-    1.0
-      + growth
-        * match role {
-          FontScaleRole::Control => 0.65,
-          FontScaleRole::Navigation => 0.45,
-          FontScaleRole::Heading => 0.2,
-        }
   }
 }

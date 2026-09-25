@@ -11,7 +11,6 @@ use battlement::{
   Align, Color, FlexDirection, ImageScaleMode, Length, LengthUnits, MotionProperty, PickingMode,
   Position, Style, TextAnchor, Translate, UiFontAddress, WhiteSpace,
 };
-use font_scale::FontScaleRole;
 use reactant::prelude::{Children, EventCallback, builder};
 use reactant::{
   component::Component,
@@ -50,8 +49,6 @@ pub struct ActionButton {
   disabled: bool,
   /// Suppresses spatial feedback in addition to the platform motion preference.
   reduced_motion: bool,
-  /// Caps the label size relative to its authored arcade typography.
-  max_text_scale: Option<f32>,
   /// Handles an accepted button activation.
   #[builder(required)]
   on_press: EventCallback<()>,
@@ -81,14 +78,12 @@ impl ActionLabel {
 
 impl ActionButton {
   fn label_style(&self, font_scale: FontScale, show_artwork: bool) -> Style {
-    let scale = font_scale
-      .dynamic(FontScaleRole::Navigation)
-      .min(self.max_text_scale.unwrap_or(f32::INFINITY));
+    let scale = font_scale.factor();
     Style::new()
       .position(Position::Relative)
       .flex_direction(FlexDirection::Row)
       .align_items(Align::Center)
-      .height(81.9 * scale)
+      .min_height(81.9 * scale)
       .padding_right(10.92 * scale)
       .color(if show_artwork {
         Color::TRANSPARENT
@@ -97,7 +92,7 @@ impl ActionButton {
       })
       .unity_font_definition(ACTION_FONT)
       .font_size(91.0 * scale)
-      .white_space(WhiteSpace::NoWrap)
+      .white_space(WhiteSpace::Normal)
       .letter_spacing(-2)
       .unity_text_align(TextAnchor::MiddleCenter)
       .translate(Translate::two_dimensional(
@@ -106,16 +101,13 @@ impl ActionButton {
       ))
   }
 
-  fn artwork_style(&self, font_scale: FontScale) -> Style {
-    let scale = font_scale
-      .dynamic(FontScaleRole::Navigation)
-      .min(self.max_text_scale.unwrap_or(f32::INFINITY));
+  fn artwork_style(&self) -> Style {
     Style::new()
       .position(Position::Absolute)
       .left(50.pct())
       .top(50.pct())
-      .width(480.0 * scale)
-      .height(146.0 * scale)
+      .width(480.0)
+      .height(146.0)
       .translate(Translate::two_dimensional(
         Length::Percent(-50.0),
         Length::Percent(-50.0),
@@ -129,7 +121,9 @@ impl Component for ActionButton {
     interaction.state.reduced_motion |= self.reduced_motion;
     let font_scale = font_scale::use_font_scale();
     let language = settings::use_settings().desired.language;
-    let artwork = self.artwork.filter(|_| language == Language::English);
+    let artwork = self
+      .artwork
+      .filter(|_| language == Language::English && font_scale.factor() == 1.0);
     let (burst_generation, set_burst_generation) = hooks::use_state(0_u32);
     let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let particles = element_ref::use_element_ref();
@@ -171,7 +165,7 @@ impl Component for ActionButton {
                   .name(format!("action-label-artwork-{}", artwork.slug()))
                   .picking_mode(PickingMode::Ignore)
                   .scale_mode(ImageScaleMode::ScaleToFit)
-                  .style(self.artwork_style(font_scale))
+                  .style(self.artwork_style())
               }),
               self.children.render(),
             )),

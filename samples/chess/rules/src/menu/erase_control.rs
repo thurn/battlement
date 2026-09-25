@@ -15,7 +15,7 @@ use trox::{ls, tx};
 use crate::menu::{
   action_skin, control_effects, font_scale, setting_row::SettingRow, use_interaction,
 };
-use crate::menu::{font_scale::FontScaleRole, music_heartbeat, use_interaction::InteractionState};
+use crate::menu::{music_heartbeat, use_interaction::InteractionState};
 
 /// A red arcade action whose visible row label supplies its accessible name.
 #[builder]
@@ -44,8 +44,8 @@ impl Component for EraseControl {
           .style(
             Style::new()
               .position(Position::Relative)
-              .width(362.0 * (1.0 + (scale.factor() - 1.0) * 0.25))
-              .height(114.0 * (1.0 + (scale.factor() - 1.0) * 0.35))
+              .width(362.0 * scale.factor())
+              .height(114.0 * scale.factor())
               .margin_left(21)
               .translate(Translate::two_dimensional(
                 Length::Px(0.0),
@@ -64,7 +64,7 @@ impl Component for EraseControl {
                         .full_size()
                         .color(Color::hex(0xff3553))
                         .unity_font_definition(crate::menu::action_button::ACTION_FONT)
-                        .font_size(67.0 * scale.dynamic(FontScaleRole::Control))
+                        .font_size(67.0 * scale.factor())
                         .unity_text_align(TextAnchor::MiddleCenter),
                     ),
                   ),

@@ -2,6 +2,8 @@
 
 use trox::tx;
 
+use crate::menu::font_scale;
+
 use crate::menu::{
   action_button::{ActionButton, ActionLabel},
   action_skin,
@@ -29,15 +31,16 @@ pub struct ReturnButton {
 
 impl Component for ReturnButton {
   fn render(&self) -> impl Render {
+    let enlarged = font_scale::use_font_scale().factor() > 1.0;
     View::new()
       .name("return-button")
       .style(
         Style::new()
           .position(Position::Absolute)
-          .left(328)
-          .top(1358)
-          .width(368)
-          .height(120),
+          .left(if enlarged { 132 } else { 328 })
+          .top(if enlarged { 1310 } else { 1358 })
+          .width(if enlarged { 760 } else { 368 })
+          .height(if enlarged { 210 } else { 120 }),
       )
       .child((
         View::decorative()
@@ -53,7 +56,6 @@ impl Component for ReturnButton {
             "RETURN",
             "Return navigation action.",
           )))
-          .max_text_scale(1.35)
           .disabled(self.disabled)
           .reduced_motion(self.reduced_motion)
           .on_press(self.on_press.clone()),

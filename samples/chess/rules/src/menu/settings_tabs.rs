@@ -7,8 +7,8 @@ use crate::menu::{
 };
 use crate::menu::{music_heartbeat, use_interaction::InteractionState};
 use battlement::{
-  Align, Color, FlexDirection, MotionProperty, Overflow, PickingMode, Position, Style, TextAnchor,
-  TextShadow, WhiteSpace,
+  Align, Color, FlexDirection, FlexWrap, MotionProperty, Overflow, PickingMode, Position, Style,
+  TextAnchor, TextShadow, WhiteSpace,
 };
 use reactant::{
   hooks,
@@ -79,6 +79,7 @@ impl SettingsTab {
 
 impl Component for SettingsTabs {
   fn render(&self) -> impl Render {
+    let enlarged = font_scale::use_font_scale().factor() > 1.0;
     let references = self::use_references();
     let (bursts, set_bursts) = hooks::use_state([0_u32; 4]);
     TabStrip::new()
@@ -105,9 +106,14 @@ impl Component for SettingsTabs {
         View::new().name("settings-tabs").style(
           Style::new()
             .width(887)
-            .height(129)
+            .height(if enlarged { 230 } else { 129 })
             .flex_shrink(0)
             .flex_direction(FlexDirection::Row)
+            .flex_wrap(if enlarged {
+              FlexWrap::Wrap
+            } else {
+              FlexWrap::NoWrap
+            })
             .align_items(Align::FlexEnd)
             .overflow(Overflow::Visible),
         ),
@@ -159,9 +165,19 @@ impl Component for SettingsTabButton {
           ))
           .style(
             Style::new()
-              .width(self.tab.width())
+              .width(if font_scale.factor() > 1.0 {
+                440.0
+              } else {
+                self.tab.width()
+              })
               .flex_shrink(0)
-              .height(if self.active { 130 } else { 127 })
+              .height(if font_scale.factor() > 1.0 {
+                114
+              } else if self.active {
+                130
+              } else {
+                127
+              })
               .margin(0)
               .margin_right(if self.tab == SettingsTab::Input { 0 } else { 2 })
               .padding(0)
@@ -170,17 +186,7 @@ impl Component for SettingsTabButton {
               .center_content()
               .overflow(Overflow::Visible)
               .unity_font_definition(select_control::VALUE_FONT)
-              .font_size(
-                (if self.active { 55.0 } else { 51.0 })
-                  * (1.0 + (font_scale.factor() - 1.0) * 0.25)
-                  * if font_scale.factor() > 1.0
-                    && matches!(self.tab, SettingsTab::Gameplay | SettingsTab::Graphics)
-                  {
-                    0.92
-                  } else {
-                    1.0
-                  },
-              )
+              .font_size((if self.active { 55.0 } else { 51.0 }) * font_scale.factor())
               .letter_spacing(1)
               .color(Color::hex(0xf7f7fb))
               .white_space(WhiteSpace::NoWrap)

@@ -2,7 +2,7 @@
 
 use trox::tx;
 
-use crate::menu::{arcade_modal::ArcadeModal, select_control::VALUE_FONT};
+use crate::menu::{arcade_modal::ArcadeModal, font_scale, select_control::VALUE_FONT};
 use battlement::{Align, Color, Style, TextAnchor, TextShadow, WhiteSpace};
 use reactant::{control_behavior, portal::PortalTarget, prelude::*};
 
@@ -26,6 +26,7 @@ pub struct PrivacyPolicyHelp {
 
 impl Component for PrivacyPolicyHelp {
   fn render(&self) -> impl Render {
+    let scale = font_scale::use_font_scale().factor();
     ArcadeModal::new()
       .open(self.open)
       .aria_label(tx(
@@ -43,14 +44,14 @@ impl Component for PrivacyPolicyHelp {
             .style(
               Style::new()
                 .width(620)
-                .font_size(47)
+                .font_size(47.0 * scale)
                 .white_space(WhiteSpace::Normal)
                 .unity_font_definition(VALUE_FONT)
                 .unity_text_align(TextAnchor::MiddleCenter),
             ),
             Link::new(tx("Privacy Policy", "Privacy policy link label."))
               .host_name("privacy-policy-link")
-              .style(self::privacy_link_style())
+              .style(self::privacy_link_style(scale))
               .on_press(
                 self
                   .on_open_url
@@ -66,7 +67,7 @@ impl Component for PrivacyPolicyHelp {
   }
 }
 
-fn privacy_link_style() -> Style {
+fn privacy_link_style(scale: f32) -> Style {
   Style::new()
     .margin_top(34)
     .padding(0)
@@ -76,7 +77,7 @@ fn privacy_link_style() -> Style {
     .border_bottom_color(Color::rgba8(255, 88, 210, 204))
     .background_color(Color::TRANSPARENT)
     .color(Color::hex(0x70efff))
-    .font_size(42)
+    .font_size(42.0 * scale)
     .unity_font_definition(VALUE_FONT)
     .unity_text_align(TextAnchor::MiddleCenter)
     .text_shadow(TextShadow::new(

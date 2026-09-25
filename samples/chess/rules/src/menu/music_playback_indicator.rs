@@ -3,12 +3,13 @@
 use crate::menu::music_heartbeat::ControlHeartbeat;
 use crate::menu::{
   background_music::{BackgroundMusicContext, BackgroundMusicStatus, use_background_music},
-  music_heartbeat,
+  font_scale, music_heartbeat,
   setting_row::DISPLAY_FONT,
 };
 use battlement::FontStyle;
 use battlement::{
-  Align, Color, FlexDirection, Length, LengthUnits, Position, Rotate, Style, TextAnchor, TextShadow,
+  Align, Color, FlexDirection, Length, LengthOrAuto, LengthUnits, Position, Rotate, Style,
+  TextAnchor, TextShadow,
 };
 use reactant::{
   control_behavior,
@@ -27,11 +28,16 @@ impl Component for MusicPlaybackIndicator {
   fn render(&self) -> impl Render {
     let music = use_background_music();
     let heartbeat = music_heartbeat::use_control_heartbeat(self.reduced_motion);
-    self::button(&music, &heartbeat)
+    let scale = font_scale::use_font_scale().factor();
+    self::button(&music, &heartbeat, scale)
   }
 }
 
-fn button(music: &BackgroundMusicContext, heartbeat: &ControlHeartbeat) -> impl Render + use<> {
+fn button(
+  music: &BackgroundMusicContext,
+  heartbeat: &ControlHeartbeat,
+  scale: f32,
+) -> impl Render + use<> {
   Button::content(
     View::new()
       .style(
@@ -49,6 +55,7 @@ fn button(music: &BackgroundMusicContext, heartbeat: &ControlHeartbeat) -> impl 
             "First line of music recommendation; followed by is recommended!.",
           ),
           "first",
+          scale,
         ),
         self::recommendation_line(
           tx(
@@ -56,6 +63,7 @@ fn button(music: &BackgroundMusicContext, heartbeat: &ControlHeartbeat) -> impl 
             "Second line of music recommendation; follows Playing with sound.",
           ),
           "second",
+          scale,
         ),
         (!self::sound_enabled(music)).then(self::speaker_slash),
       )),
@@ -109,14 +117,19 @@ fn toggle_sound(music: &BackgroundMusicContext) {
   music.start_music();
 }
 
-fn recommendation_line(text: LocalizedString, key: &'static str) -> impl Render {
+fn recommendation_line(text: LocalizedString, key: &'static str, scale: f32) -> impl Render {
   control_behavior::static_label(text).key(key).style(
     Style::new()
       .color(Color::WHITE)
       .unity_font_definition(DISPLAY_FONT)
-      .font_size(56)
+      .font_size(56.0 * scale)
       .unity_font_style_and_weight(FontStyle::Bold)
-      .height(57)
+      .height(if scale == 1.0 {
+        LengthOrAuto::Px(57.0)
+      } else {
+        LengthOrAuto::Auto
+      })
+      .min_height(57.0 * scale)
       .letter_spacing(0.3)
       .unity_text_align(TextAnchor::MiddleCenter)
       .text_shadow(TextShadow::new(0.0, 3.0, 8.0, Color::BLACK)),

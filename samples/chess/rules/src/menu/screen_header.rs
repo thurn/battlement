@@ -3,10 +3,7 @@
 use trox::tx;
 
 use crate::menu::action_button::ACTION_FONT;
-use crate::menu::{
-  font_scale::{self, FontScaleRole},
-  header_artwork,
-};
+use crate::menu::{font_scale, header_artwork};
 use crate::settings::{self, Language};
 use battlement::{Color, Length, PickingMode, Position, Style, TextAnchor, Translate};
 use reactant::{control_behavior, element_behavior, focus::FocusProps, prelude::*};
@@ -31,7 +28,8 @@ impl Component for ScreenHeader {
   fn render(&self) -> impl Render {
     let font_scale = font_scale::use_font_scale();
     let language = settings::use_settings().desired.language;
-    let live_heading = self.variant == HeaderVariant::Settings && language == Language::French;
+    let live_heading = self.variant == HeaderVariant::Settings
+      && (language == Language::French || font_scale.factor() > 1.0);
     let heading = element_behavior::use_focus_when(self.autofocus.then_some(()));
     View::new()
       .name("screen-header")
@@ -49,7 +47,7 @@ impl Component for ScreenHeader {
           .height(if self.variant == HeaderVariant::Game {
             330
           } else {
-            122
+            (122.0 * font_scale.factor()) as i32
           }),
       )
       .child((
@@ -83,13 +81,19 @@ impl Component for ScreenHeader {
             },
             1,
           ))
-          .style(Style::new().position(Position::Absolute).inset(0))
+          .style(
+            Style::new()
+              .position(Position::Absolute)
+              .inset(0)
+              .left(if font_scale.factor() > 1.0 { -80 } else { 0 })
+              .right(if font_scale.factor() > 1.0 { -80 } else { 0 }),
+          )
           .child((
             live_heading.then(|| {
               Text::new(tx("SETTINGS", "Main menu settings action.")).style(
                 Style::new()
                   .full_size()
-                  .font_size(94.0 * font_scale.dynamic(FontScaleRole::Heading))
+                  .font_size(94.0 * font_scale.factor())
                   .unity_font_definition(ACTION_FONT)
                   .color(Color::WHITE)
                   .unity_text_align(TextAnchor::MiddleCenter),
@@ -113,14 +117,12 @@ impl Component for ScreenHeader {
                   } else {
                     62
                   })
-                  .width(854.0 * font_scale.dynamic(FontScaleRole::Heading))
-                  .height(
-                    (if self.variant == HeaderVariant::Game {
-                      330.0
-                    } else {
-                      240.0
-                    }) * font_scale.dynamic(FontScaleRole::Heading),
-                  )
+                  .width(854.0)
+                  .height(if self.variant == HeaderVariant::Game {
+                    330.0
+                  } else {
+                    240.0
+                  })
                   .translate(Translate::two_dimensional(
                     Length::Percent(-50.0),
                     Length::Percent(-50.0),

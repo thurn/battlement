@@ -104,3 +104,83 @@ accessibility_action = { target = { role = "button", name = "⁨White Pawn⁩ at
 accessibility_action = { target = { role = "button", name = "Move to ⁨e4⁩" }, action = "activate" }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "⁨White Pawn⁩ at ⁨e4⁩" }, role = "button", name = "⁨White Pawn⁩ at ⁨e4⁩" }
+
+[[scenarios]]
+name = "large localized keyboard focus"
+fixture = "title"
+motion = "controlled"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Language English" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "Français" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Taille du texte 100%" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "200%" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Son" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Entrées" }, action = "activate" }
+
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Modifier la touche pour « ⁨Gauche⁩ »" }, action = "click" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Modifier le raccourci" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Annuler" }, action = "click" }
+
+[[scenarios.steps]]
+navigation = { action = "next" }
+
+[[scenarios.steps]]
+navigation = { action = "next" }
+
+[[scenarios.steps]]
+navigation = { action = "next" }
+
+[[scenarios.steps]]
+navigation = { action = "next" }
+
+[[scenarios.steps]]
+navigation = { action = "next" }
+
+[[scenarios.steps]]
+navigation = { action = "next" }
+
+[[scenarios.steps]]
+navigation = { action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Appuyez sur une touche pour « ⁨Recommencer⁩ »" }, role = "static-text", name = "Appuyez sur une touche pour « ⁨Recommencer⁩ »" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Annuler" }, action = "activate" }
+
+[[scenarios.steps]]
+navigation = { action = "up" }
+
+[[scenarios.steps]]
+navigation = { action = "down" }
+
+[[scenarios.steps]]
+navigation = { action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Appuyez sur une touche pour « ⁨Recommencer⁩ »" }, role = "static-text", name = "Appuyez sur une touche pour « ⁨Recommencer⁩ »" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Annuler" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RETOUR" }, action = "activate" }

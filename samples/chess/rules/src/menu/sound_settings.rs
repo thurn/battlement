@@ -33,7 +33,7 @@ impl Component for SoundSettings {
     let selected_scale = font_scale::use_font_scale();
     View::new()
       .name("sound-settings")
-      .style(Style::new().height(971.0 * selected_scale.factor()))
+      .style(Style::new().min_height(971))
       .child((
         VolumeControl::new()
           .label(tx("Master Volume", "Sound master-volume setting label."))

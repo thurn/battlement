@@ -3,13 +3,8 @@
 use trox::{LocalizedString, ls};
 
 use crate::menu::{
-  caret::Caret,
-  control_effects,
-  font_scale::{self, FontScaleRole},
-  select_navigation,
-  select_popover::SelectPopover,
-  setting_row::SettingRow,
-  use_interaction,
+  caret::Caret, control_effects, font_scale, select_navigation, select_popover::SelectPopover,
+  setting_row::SettingRow, use_interaction,
 };
 use crate::menu::{music_heartbeat, use_interaction::InteractionState};
 use battlement::{
@@ -155,7 +150,7 @@ impl Component for SelectControl {
             Style::new()
               .position(Position::Relative)
               .width(396.0 + (font_scale.factor() - 1.0) * 300.0)
-              .height(106.0 * (1.0 + (font_scale.factor() - 1.0) * 0.35))
+              .height(106.0 * font_scale.factor())
               .flex_shrink(0.0)
               .align_items(Align::Center)
               .translate(Translate::two_dimensional(
@@ -171,7 +166,7 @@ impl Component for SelectControl {
                 Style::new()
                   .position(Position::Relative)
                   .width(396.0 + (font_scale.factor() - 1.0) * 300.0)
-                  .height(106.0 * (1.0 + (font_scale.factor() - 1.0) * 0.35)),
+                  .height(106.0 * font_scale.factor()),
               )
               .child(
                 interaction
@@ -230,13 +225,13 @@ impl Component for SelectControl {
                       .margin(0)
                       .padding_top(0)
                       .padding_bottom(0)
-                      .padding_left(39.0 * font_scale.dynamic(FontScaleRole::Control))
-                      .padding_right(74.0 * font_scale.dynamic(FontScaleRole::Control))
+                      .padding_left(39.0 * font_scale.factor())
+                      .padding_right(74.0 * font_scale.factor())
                       .border_width(0)
                       .background_color(Color::TRANSPARENT)
                       .color(Color::rgb8(245, 246, 251))
                       .unity_font_definition(VALUE_FONT)
-                      .font_size(60.0 * font_scale.dynamic(FontScaleRole::Control))
+                      .font_size(60.0 * font_scale.factor())
                       .unity_text_align(TextAnchor::MiddleLeft),
                   )
                   .paint(

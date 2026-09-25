@@ -1,6 +1,6 @@
 //! Visible storage acknowledgement and recovery action.
 
-use battlement::{Color, FlexDirection, Position, Style};
+use battlement::{Color, FlexDirection, Position, Style, WhiteSpace};
 use reactant::{announcement, hooks, prelude::*};
 use trox::tx;
 
@@ -11,6 +11,7 @@ pub struct SettingsSaveStatus;
 impl Component for SettingsSaveStatus {
   fn render(&self) -> impl Render {
     let settings = settings::use_settings();
+    let scale = settings.desired.text_size.factor();
     let announce = announcement::use_announce();
     hooks::use_effect(
       move || {
@@ -32,11 +33,11 @@ impl Component for SettingsSaveStatus {
           Style::new()
             .position(Position::Absolute)
             .left(68)
-            .top(1480)
+            .top(if scale > 1.0 { 1090 } else { 1480 })
             .width(887)
-            .height(56)
+            .min_height(56.0 * scale)
             .flex_direction(FlexDirection::Row)
-            .font_size(40)
+            .font_size(40.0 * scale)
             .color(Color::WHITE),
         )
         .child(if settings.failed {
@@ -45,13 +46,14 @@ impl Component for SettingsSaveStatus {
               "Changes aren’t saved.",
               "Visible settings storage failure status.",
             ))
-            .style(Style::new().width(640)),
+            .style(Style::new().width(640).white_space(WhiteSpace::Normal)),
             Button::new(tx("Retry", "Retry saving current settings."))
               .style(
                 Style::new()
                   .width(230)
-                  .height(56)
-                  .font_size(40)
+                  .min_height(56.0 * scale)
+                  .font_size(40.0 * scale)
+                  .white_space(WhiteSpace::Normal)
                   .color(Color::WHITE)
                   .background_color(Color::rgb(0.03, 0.09, 0.18))
                   .border_width(2)

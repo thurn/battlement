@@ -2,9 +2,9 @@
 
 use crate::menu::input_labels;
 use battlement::{
-  AccessibilityScrollAxis, AccessibilityScrollDirection, Align, AnimationDirection,
-  AnimationIterations, Color, FlexDirection, Gradient, GridTrack, KeyEvent, PhysicalKey, Position,
-  ScrollerVisibility, SemanticRole, Shadow, Sticky, Style, TextAnchor, Vector, WhiteSpace,
+  Align, AnimationDirection, AnimationIterations, Color, FlexDirection, Gradient, GridItem,
+  GridTrack, KeyEvent, LengthUnits, PhysicalKey, Position, SemanticRole, Shadow, Sticky, Style,
+  TextAnchor, WhiteSpace,
 };
 use reactant::{
   announcement::{Announce, use_announce},
@@ -20,10 +20,12 @@ use reactant::{
 };
 use trox::{LocalizedString, opaque, tx, tx_args, txa};
 
+use crate::menu::settings_panel;
+
 use crate::menu::{
   action_skin,
   arcade_modal::ArcadeModal,
-  font_scale::{self, FontScaleRole},
+  font_scale,
   input_binding_icons::{
     ControllerButtonIcon, ControllerLabel, DPadIcon, InputDirection, KeyboardArrow,
   },
@@ -38,7 +40,6 @@ use crate::settings::{
 const INPUT_WIDTH: f32 = 839.0;
 const HEADER_HEIGHT: f32 = 100.0;
 const ROW_HEIGHT: f32 = 159.0;
-const SCROLL_OFFSET: f32 = 470.0;
 
 const ACTIONS: [&str; 7] = [
   "Left",
@@ -59,73 +60,45 @@ pub struct InputSettings {
 
 impl Component for InputSettings {
   fn render(&self) -> impl Render {
-    let (scrolled, set_scrolled) = hooks::use_state(false);
     let set_bindings = settings::use_settings();
     let bindings = set_bindings.desired.keyboard.values();
     let (capture, set_capture) = hooks::use_state(None::<usize>);
     let (status, set_status) = hooks::use_state(None::<LocalizedString>);
     let capture_focus = use_element_ref();
+    let binding_refs: [ElementRef; 7] = std::array::from_fn(|_| use_element_ref());
     let announce = use_announce();
     let font_scale = font_scale::use_font_scale();
 
     (
-      ScrollArea::new(
-        Some(tx("Input bindings", "Input bindings table label.")),
-        AccessibilityScrollAxis::Vertical,
-        !scrolled,
-        scrolled,
-      )
-      .on_scroll(move |direction| {
-        set_scrolled.set(direction == AccessibilityScrollDirection::Forward)
-      })
-      .host_name("input-bindings-scroll")
-      .configure_host(|host| {
-        host
-          .scroll_offset(Vector::new(
-            0.0,
-            if scrolled {
-              if font_scale.factor() == 1.0 {
-                SCROLL_OFFSET
-              } else {
-                HEADER_HEIGHT * font_scale.dynamic(FontScaleRole::Control)
-                  + 7.0 * ROW_HEIGHT * font_scale.factor()
-                  - 720.0
-              }
-            } else {
-              0.0
-            },
-          ))
-          .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
-          .vertical_scroller_visibility(ScrollerVisibility::Auto)
-          .content_container_style(Style::new().align_items(Align::Center))
-      })
-      .style(
-        Style::new()
-          .width(INPUT_WIDTH)
-          .height(971)
-          .margin_top(0)
-          .background_color(Color::rgb8(4, 17, 38)),
-      )
-      .child(
-        Table::new(tx("Input bindings", "Input bindings table label."))
-          .style(Style::new().width(INPUT_WIDTH))
-          .child((
-            self::header(
-              font_scale.factor(),
-              font_scale.dynamic(FontScaleRole::Control),
-            ),
-            std::array::from_fn::<_, 7, _>(|index| {
-              self::binding_row(
-                index,
-                bindings[index],
-                set_capture.clone(),
-                set_status.clone(),
-                font_scale.factor(),
-                font_scale.dynamic(FontScaleRole::Control),
-              )
-            }),
-          )),
-      ),
+      ScrollRegion::new(tx("Input bindings", "Input bindings table label."))
+        .host_name("input-bindings-scroll")
+        .style(
+          Style::new()
+            .width(INPUT_WIDTH)
+            .height(settings_panel::content_height(
+              font_scale,
+              set_bindings.failed || set_bindings.pending,
+            ))
+            .background_color(Color::rgb8(4, 17, 38)),
+        )
+        .child(
+          Table::new(tx("Input bindings", "Input bindings table label."))
+            .style(Style::new().width(INPUT_WIDTH))
+            .child((
+              self::header(font_scale.factor(), font_scale.factor()),
+              std::array::from_fn::<_, 7, _>(|index| {
+                self::binding_row(
+                  index,
+                  bindings[index],
+                  binding_refs[index].clone(),
+                  set_capture.clone(),
+                  set_status.clone(),
+                  font_scale.factor(),
+                  font_scale.factor(),
+                )
+              }),
+            )),
+        ),
       capture.map(|index| {
         self::capture_modal(
           index,
@@ -137,6 +110,7 @@ impl Component for InputSettings {
           announce,
           self.overlay.clone(),
           capture_focus.clone(),
+          binding_refs[index].clone(),
         )
       }),
     )
@@ -154,7 +128,9 @@ fn capture_modal(
   announce: Announce,
   overlay: PortalTarget,
   capture_focus: ElementRef,
+  restore_focus: ElementRef,
 ) -> impl Render {
+  let scale = set_bindings.desired.text_size.factor();
   let close_capture = set_capture.callback().map_input(|_| None);
   let reset_bindings = set_bindings.clone();
   let reset_status = set_status.clone();
@@ -199,7 +175,7 @@ fn capture_modal(
             tx_args![action => opaque(input_labels::action(index))],
             "Keyboard capture prompt.",
           ))
-          .style(self::capture_prompt_style()),
+          .style(self::capture_prompt_style(scale)),
           TextField::new()
             .value("●")
             .select_all_on_focus(false)
@@ -251,7 +227,7 @@ fn capture_modal(
                 "Keyboard shortcut capture status.",
               ))),
             )
-            .style(self::waiting_marker_style())
+            .style(self::waiting_marker_style(scale))
             .input_style(
               Style::new()
                 .padding(0)
@@ -272,7 +248,7 @@ fn capture_modal(
           status.map(|message| {
             Text::new(message)
               .host_name("shortcut-status")
-              .style(self::status_style())
+              .style(self::status_style(scale))
           }),
         )),
     )
@@ -281,6 +257,7 @@ fn capture_modal(
     .close_on_escape(false)
     .reduce_motion(false)
     .initial_focus(capture_focus)
+    .restore_focus(restore_focus)
     .on_confirm(EventCallback::new({
       let set_capture = set_capture.clone();
       move |()| {
@@ -310,22 +287,41 @@ fn header(font_scale: f32, control_scale: f32) -> TableRow {
     .style(
       Style::new()
         .width(INPUT_WIDTH)
-        .height(HEADER_HEIGHT * control_scale)
+        .min_height(HEADER_HEIGHT * control_scale)
         .background_color(Color::rgb8(4, 17, 38))
         .border_bottom_width(2)
         .border_bottom_color(Color::rgb8(43, 74, 123).with_alpha(0.3)),
     )
     .child(
       Grid::new()
-        .columns([
-          GridTrack::px(if font_scale > 1.0 { 260.0 } else { 310.0 }),
-          GridTrack::px(if font_scale > 1.0 { 340.0 } else { 310.0 }),
-          GridTrack::fr(1.0),
-        ])
+        .columns(if font_scale > 1.0 {
+          vec![GridTrack::fr(1.0), GridTrack::fr(1.0)]
+        } else {
+          vec![
+            GridTrack::px(310.0),
+            GridTrack::px(310.0),
+            GridTrack::fr(1.0),
+          ]
+        })
+        .rows(if font_scale > 1.0 {
+          vec![
+            GridTrack::px(65.0 * font_scale),
+            GridTrack::px(65.0 * font_scale),
+          ]
+        } else {
+          Vec::new()
+        })
         .align_items(Align::Center)
-        .style(Style::new().full_size())
+        .style(if font_scale > 1.0 {
+          Style::new().width(100.pct())
+        } else {
+          Style::new().full_size()
+        })
         .child([
           ColumnHeader::new(tx("Action", "Input bindings table label."))
+            .configure_host(|host| {
+              host.grid_item(GridItem::new().span_columns(if font_scale > 1.0 { 2 } else { 1 }))
+            })
             .style(self::heading_style(font_scale)),
           ColumnHeader::new(tx("Keyboard", "Input bindings table label."))
             .style(self::heading_style(font_scale)),
@@ -338,6 +334,7 @@ fn header(font_scale: f32, control_scale: f32) -> TableRow {
 fn binding_row(
   index: usize,
   keyboard: PhysicalKey,
+  reference: ElementRef,
   set_capture: hooks::StateSetter<Option<usize>>,
   set_status: hooks::StateSetter<Option<LocalizedString>>,
   font_scale: f32,
@@ -352,28 +349,45 @@ fn binding_row(
     .style(
       Style::new()
         .width(INPUT_WIDTH)
-        .height(ROW_HEIGHT * font_scale)
+        .min_height(ROW_HEIGHT * font_scale)
         .border_bottom_width(2)
         .border_bottom_color(Color::rgb8(43, 74, 123).with_alpha(0.25)),
     )
     .child(
       Grid::new()
-        .columns([
-          GridTrack::px(if font_scale > 1.0 { 260.0 } else { 310.0 }),
-          GridTrack::px(if font_scale > 1.0 { 340.0 } else { 310.0 }),
-          GridTrack::fr(1.0),
-        ])
+        .columns(if font_scale > 1.0 {
+          vec![GridTrack::fr(1.0), GridTrack::fr(1.0)]
+        } else {
+          vec![
+            GridTrack::px(310.0),
+            GridTrack::px(310.0),
+            GridTrack::fr(1.0),
+          ]
+        })
+        .rows(if font_scale > 1.0 {
+          vec![
+            GridTrack::px(70.0 * font_scale),
+            GridTrack::px(110.0 * font_scale),
+          ]
+        } else {
+          Vec::new()
+        })
         .align_items(Align::Center)
-        .style(Style::new().full_size())
+        .style(if font_scale > 1.0 {
+          Style::new().width(100.pct())
+        } else {
+          Style::new().full_size()
+        })
         .child((
-          RowHeader::new(input_labels::action(index)).style(self::action_style(
-            action,
-            font_scale,
-            control_scale,
-          )),
+          RowHeader::new(input_labels::action(index))
+            .configure_host(|host| {
+              host.grid_item(GridItem::new().span_columns(if font_scale > 1.0 { 2 } else { 1 }))
+            })
+            .style(self::action_style(action, font_scale, control_scale)),
           self::keyboard_cell(
             index,
             keyboard,
+            reference,
             set_capture,
             set_status,
             font_scale,
@@ -387,6 +401,7 @@ fn binding_row(
 fn keyboard_cell(
   index: usize,
   keyboard: PhysicalKey,
+  reference: ElementRef,
   set_capture: hooks::StateSetter<Option<usize>>,
   set_status: hooks::StateSetter<Option<LocalizedString>>,
   font_scale: f32,
@@ -421,6 +436,7 @@ fn keyboard_cell(
         set_status.set(None);
         set_capture.set(Some(index));
       })
+      .element_ref(reference)
       .host_name(format!("keyboard-binding-{index}"))
       .style(self::keycap_style(compact, font_scale, control_scale))
       .paint(self::keycap_paint()),
@@ -627,7 +643,8 @@ fn heading_style(font_scale: f32) -> Style {
   Style::new()
     .color(Color::rgb8(244, 245, 250))
     .unity_font_definition(DISPLAY_FONT)
-    .font_size(47.0 * (1.0 + (font_scale - 1.0) * 0.2))
+    .font_size(47.0 * font_scale)
+    .white_space(WhiteSpace::Normal)
     .letter_spacing(1.2)
     .unity_text_align(TextAnchor::MiddleCenter)
 }
@@ -646,38 +663,39 @@ fn action_style(action: &str, font_scale: f32, control_scale: f32) -> Style {
         },
     )
     .letter_spacing(1.3)
+    .white_space(WhiteSpace::Normal)
     .unity_text_align(TextAnchor::MiddleLeft)
 }
 
-fn capture_prompt_style() -> Style {
+fn capture_prompt_style(scale: f32) -> Style {
   Style::new()
     .color(Color::rgb8(246, 246, 250))
     .unity_font_definition(DISPLAY_FONT)
-    .font_size(46)
+    .font_size(46.0 * scale)
     .white_space(WhiteSpace::Normal)
     .unity_text_align(TextAnchor::MiddleCenter)
 }
 
-fn waiting_marker_style() -> Style {
+fn waiting_marker_style(scale: f32) -> Style {
   Style::new()
     .width(100)
-    .height(82)
+    .height(82.0 * scale)
     .margin_top(18)
     .padding(0)
     .border_width(0)
     .background_color(Color::TRANSPARENT)
     .color(Color::hex(0x5cecff))
     .unity_font_definition(DISPLAY_FONT)
-    .font_size(62)
+    .font_size(62.0 * scale)
     .unity_text_align(TextAnchor::MiddleCenter)
 }
 
-fn status_style() -> Style {
+fn status_style(scale: f32) -> Style {
   Style::new()
     .margin_top(12)
     .color(Color::hex(0xff5ca8))
     .unity_font_definition(DISPLAY_FONT)
-    .font_size(36)
+    .font_size(36.0 * scale)
     .white_space(WhiteSpace::Normal)
     .unity_text_align(TextAnchor::MiddleCenter)
 }

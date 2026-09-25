@@ -37,7 +37,7 @@ impl Component for GraphicsSettings {
   fn render(&self) -> impl Render {
     View::new()
       .name("graphics-settings")
-      .style(Style::new().position(Position::Relative).height(971))
+      .style(Style::new().position(Position::Relative).min_height(971))
       .child((
         SelectControl::new()
           .label(control_behavior::name_source_text(tx(

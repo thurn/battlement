@@ -3,19 +3,23 @@
 use std::{cell::RefCell, rc::Rc};
 
 use battlement::{
-  Connect, KeyEvent, ObjectId, PhysicalKey, ScreenSize, UiDocument, UiEvent, UiEventBody,
+  Connect, KeyEvent, Length, ObjectId, PhysicalKey, Prop, ScreenSize, StyleValue, UiDocument,
+  UiEvent, UiEventBody,
 };
 use cozy_chess::{Board, BoardBuilder, Color, Piece, Square};
 use reactant::{
-  ApplicationEngine,
+  ApplicationEngine, PersistenceBackend,
   app_context::{self, AppHandle},
   asset_generator, hooks,
   prelude::*,
   rules::RulesWorker,
 };
-use reactant_testing::{Display, assets as testing_assets};
+use reactant_testing::{Display, MemoryPersistence, assets as testing_assets};
 
-use chess_rules::{self, ChessGame, EngineDependencies, Opponent, assets, settings::Language};
+use chess_rules::{
+  self, ChessGame, EngineDependencies, Opponent, assets,
+  settings::{ChessSettings, Language, TextSize},
+};
 use trox::{Bundle, Localizer};
 
 #[derive(Clone)]
@@ -35,6 +39,13 @@ impl Component for ObserveApplication {
 }
 
 fn display(board: Option<Board>) -> (Display, Rc<RefCell<Option<AppHandle>>>) {
+  self::display_with_settings(board, None)
+}
+
+fn display_with_settings(
+  board: Option<Board>,
+  persistence: Option<Rc<dyn PersistenceBackend>>,
+) -> (Display, Rc<RefCell<Option<AppHandle>>>) {
   let handle = Rc::new(RefCell::new(None));
   let observer = handle.clone();
   let mut catalog = testing_assets::catalog(assets::ASSET_CATALOG);
@@ -45,7 +56,7 @@ fn display(board: Option<Board>) -> (Display, Rc<RefCell<Option<AppHandle>>>) {
         move || {
           chess_rules::create_application(&EngineDependencies {
             position: board.clone(),
-            persistence: None,
+            persistence: persistence.clone(),
             rules_worker: RulesWorker::default(),
             now: Rc::new(std::time::Instant::now),
             opponent: Opponent::scripted(),
@@ -60,7 +71,7 @@ fn display(board: Option<Board>) -> (Display, Rc<RefCell<Option<AppHandle>>>) {
       )
     },
     catalog,
-    Connect::new("test", "test", ScreenSize::new(1920, 1080)),
+    Connect::new("test", "test", ScreenSize::new(1920, 1080)).persistent_data_path("memory"),
   );
   (display, handle)
 }
@@ -149,6 +160,61 @@ fn language_replacement_keeps_binding_dialog_focus_and_conflict() {
   display.semantic_node("Already used by \u{2068}Right\u{2069}");
   display.activate_accessible("Cancel");
   display.expect_button("Change \u{2068}Left\u{2069} keyboard binding");
+}
+
+#[test]
+fn promotion_choices_remain_operable_at_every_language_and_text_size() {
+  for language in [Language::English, Language::French] {
+    for text_size in [
+      TextSize::Percent100,
+      TextSize::Percent150,
+      TextSize::Percent200,
+    ] {
+      let preferences = ChessSettings {
+        language,
+        text_size,
+        ..ChessSettings::default()
+      };
+      let storage = MemoryPersistence::with_file(
+        "memory/chess-settings.json",
+        &serde_json::to_vec(&preferences).unwrap(),
+      );
+      let board: Board = "1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1".parse().unwrap();
+      let (mut display, _) = self::display_with_settings(Some(board), Some(storage));
+      let french = language == Language::French;
+      display.activate_accessible(if french {
+        "\u{2068}Pion blanc\u{2069} en \u{2068}a7\u{2069}"
+      } else {
+        "\u{2068}White Pawn\u{2069} at \u{2068}a7\u{2069}"
+      });
+      display.activate_accessible(if french {
+        "Aller en \u{2068}b8\u{2069}"
+      } else {
+        "Move to \u{2068}b8\u{2069}"
+      });
+      for label in if french {
+        ["Dame", "Tour", "Fou", "Cavalier"]
+      } else {
+        ["Queen", "Rook", "Bishop", "Knight"]
+      } {
+        display.expect_button(label);
+        let choice = display.semantic_node(label).object_id;
+        assert_eq!(
+          display.ui_element(choice).style().font_size,
+          Prop::Set(StyleValue::Value(Length::Px(14.0 * text_size.factor())))
+        );
+      }
+      display.click_button(if french { "Cavalier" } else { "Knight" });
+      assert_eq!(
+        display
+          .game_state::<ChessGame>()
+          .unwrap()
+          .board()
+          .piece_on(Square::B8),
+        Some(Piece::Knight)
+      );
+    }
+  }
 }
 
 fn localizer(language: Language) -> Localizer {

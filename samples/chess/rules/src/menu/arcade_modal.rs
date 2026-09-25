@@ -3,14 +3,16 @@
 use crate::settings::{self, Language};
 use trox::{LocalizedString, tx};
 
-use crate::menu::{action_button, action_skin};
+use crate::menu::{action_button, action_skin, font_scale};
 use battlement::{
   Align, Color, FlexDirection, Gradient, Justify, KeyEvent, LengthUnits, Overflow, PhysicalKey,
   PickingMode, Position, Shadow, Style, TextAnchor, WhiteSpace,
 };
 use reactant::{
+  app_context,
   component::Component,
   components::Button,
+  components::ScrollRegion,
   element_ref::{ElementRef, use_element_ref},
   event::ReactantEvent,
   hooks,
@@ -23,6 +25,7 @@ use reactant::{
     PaintDropShadow, PaintFilterList, Repeat, StyleTarget, Transition, builder, use_is_present,
   },
   render::Render,
+  scale_to_fit::ScaleToFit,
   semantics::SemanticName,
 };
 
@@ -48,6 +51,7 @@ pub struct ArcadeModal {
   #[builder(required)]
   on_close: EventCallback<()>,
   initial_focus: Option<ElementRef>,
+  restore_focus: Option<ElementRef>,
   #[builder(required)]
   overlay: PortalTarget,
 }
@@ -71,6 +75,7 @@ struct OpenArcadeModal {
   on_close: EventCallback<()>,
   #[builder(required)]
   initial_focus: Option<ElementRef>,
+  restore_focus: Option<ElementRef>,
   #[builder(required)]
   overlay: PortalTarget,
 }
@@ -124,6 +129,7 @@ impl Component for ArcadeModal {
       .on_confirm(self.on_confirm.clone())
       .on_close(self.on_close.clone())
       .initial_focus(self.initial_focus.clone())
+      .restore_focus(self.restore_focus.clone())
       .overlay(self.overlay.clone())
   }
 }
@@ -143,6 +149,11 @@ impl OpenArcadeModal {
         .host_name("arcade-modal");
       let overlay = if let Some(initial_focus) = self.initial_focus.clone() {
         overlay.initial_focus(initial_focus)
+      } else {
+        overlay
+      };
+      let overlay = if let Some(restore_focus) = self.restore_focus.clone() {
+        overlay.restore_focus(restore_focus)
       } else {
         overlay
       };
@@ -210,9 +221,13 @@ impl Component for OpenArcadeModal {
 
 impl Component for ModalBody {
   fn render(&self) -> impl Render {
+    let scale = font_scale::use_font_scale().factor();
+    let viewport = app_context::use_viewport_size();
+    let fit = ((viewport.width as f32 - 150.0) / 840.0).clamp(0.01, 1.0);
+    let height = (viewport.height as f32 - 80.0).max(1.0) / fit;
     let cancel = use_element_ref();
     let confirm = use_element_ref();
-    self::panel_motion(View::new(), self.reduce_motion)
+    let panel = self::panel_motion(View::new(), self.reduce_motion)
       .name("arcade-modal-panel")
       .on_click_event(|event| event.stop_propagation())
       .on_pointer_down_event(|event| event.stop_propagation())
@@ -222,17 +237,17 @@ impl Component for ModalBody {
       .child(self.title.as_ref().map(|title| {
         TextElement::new(title.clone())
           .picking_mode(PickingMode::Ignore)
-          .style(self::title_style(self.danger))
+          .style(self::title_style(self.danger, scale))
       }))
       .child(
         View::new()
           .name("arcade-modal-description")
-          .style(self::description_style(self.title.is_some()))
+          .style(self::description_style(self.title.is_some(), scale))
           .child(self.children.render()),
       )
       .child(
         View::new()
-          .style(self::actions_style())
+          .style(self::actions_style(scale))
           .child(self.cancel_label.as_ref().map(|label| {
             ModalButton::new()
               .label(label.clone())
@@ -252,6 +267,23 @@ impl Component for ModalBody {
               .on_close(self.on_close.clone())
               .close_on_escape(self.close_on_escape),
           ),
+      );
+    ScaleToFit::new(840.0, height)
+      .viewport_style(|style| style.width(100.pct()))
+      .child(
+        ScrollRegion::new(
+          self
+            .title
+            .clone()
+            .unwrap_or_else(|| tx("Dialog", "Scrollable dialog content.")),
+        )
+        .host_name("arcade-modal-scroll")
+        .style(Style::new().width(840).height(height))
+        .child(
+          View::new()
+            .style(Style::new().width(840).min_height(height).center_content())
+            .child(panel),
+        ),
       )
   }
 }
@@ -402,6 +434,7 @@ fn shine_gradient() -> Gradient {
 impl Component for ModalButton {
   fn render(&self) -> impl Render {
     let french = settings::use_settings().desired.language == Language::French;
+    let scale = font_scale::use_font_scale().factor();
     let is_present = use_is_present();
     hooks::use_effect(
       {
@@ -420,7 +453,7 @@ impl Component for ModalButton {
         Button::content(
           TextElement::new(self.label.clone())
             .picking_mode(PickingMode::Ignore)
-            .style(self::button_label_style(self.danger)),
+            .style(self::button_label_style(self.danger, scale)),
         )
         .semantic_name(SemanticName::Text(self.label.clone()))
         .host_name(if self.danger {
@@ -435,14 +468,14 @@ impl Component for ModalButton {
             .on_key_down_event_callback(self.on_close.clone().filter_map_input(self::escape))
             .on_navigation_cancel(self.on_close.clone())
         })
-        .style(self::button_style(french))
+        .style(self::button_style(french, scale))
         .paint(self::button_paint(self.danger)),
       ),
       false => Either::right(
         Button::content(
           TextElement::new(self.label.clone())
             .picking_mode(PickingMode::Ignore)
-            .style(self::button_label_style(self.danger)),
+            .style(self::button_label_style(self.danger, scale)),
         )
         .semantic_name(SemanticName::Text(self.label.clone()))
         .host_name(if self.danger {
@@ -452,7 +485,7 @@ impl Component for ModalButton {
         })
         .element_ref(self.reference.clone())
         .on_press(self.on_press.clone())
-        .style(self::button_style(french))
+        .style(self::button_style(french, scale))
         .paint(self::button_paint(self.danger)),
       ),
     }
@@ -523,21 +556,21 @@ fn panel_paint() -> PaintStyle {
     )
 }
 
-fn title_style(danger: bool) -> Style {
+fn title_style(danger: bool, scale: f32) -> Style {
   Style::new()
-    .font_size(86)
+    .font_size(86.0 * scale)
     .letter_spacing(3)
-    .white_space(WhiteSpace::NoWrap)
+    .white_space(WhiteSpace::Normal)
     .unity_font_definition(action_button::ACTION_FONT)
     .unity_text_align(TextAnchor::MiddleCenter)
     .color(Color::hex(if danger { 0xff496b } else { 0x6eeeff }))
 }
 
-fn description_style(has_title: bool) -> Style {
+fn description_style(has_title: bool, scale: f32) -> Style {
   Style::new()
     .max_width(620)
     .margin_top(if has_title { 42 } else { 0 })
-    .font_size(47)
+    .font_size(47.0 * scale)
     .letter_spacing(1)
     .white_space(WhiteSpace::Normal)
     .unity_font_definition(action_button::ACTION_FONT)
@@ -545,20 +578,30 @@ fn description_style(has_title: bool) -> Style {
     .color(Color::hex(0xf5f7ff))
 }
 
-fn actions_style() -> Style {
+fn actions_style(scale: f32) -> Style {
   Style::new()
     .width(100.pct())
     .margin_top(58)
-    .flex_direction(FlexDirection::Row)
+    .flex_direction(if scale > 1.0 {
+      FlexDirection::Column
+    } else {
+      FlexDirection::Row
+    })
     .justify_content(Justify::Center)
 }
 
-fn button_style(french: bool) -> Style {
+fn button_style(french: bool, scale: f32) -> Style {
   Style::new()
     .position(Position::Relative)
-    .width(if french { 300 } else { 250 })
-    .height(94)
-    .margin(0)
+    .width(if scale > 1.0 {
+      620
+    } else if french {
+      300
+    } else {
+      250
+    })
+    .min_height(94.0 * scale)
+    .margin(if scale > 1.0 { 8 } else { 0 })
     .margin_left(14)
     .margin_right(14)
     .padding(0)
@@ -566,10 +609,12 @@ fn button_style(french: bool) -> Style {
     .center_content()
 }
 
-fn button_label_style(danger: bool) -> Style {
+fn button_label_style(danger: bool, scale: f32) -> Style {
   Style::new()
-    .full_size()
-    .font_size(56)
+    .width(100.pct())
+    .min_height(94.0 * scale)
+    .white_space(WhiteSpace::Normal)
+    .font_size(56.0 * scale)
     .letter_spacing(2)
     .unity_font_definition(action_button::ACTION_FONT)
     .unity_text_align(TextAnchor::MiddleCenter)

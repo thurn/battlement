@@ -4,11 +4,7 @@ use crate::settings::{self, Language};
 use trox::{LocalizedString, tx};
 
 use crate::menu::{
-  check_mark::CheckMark,
-  control_effects,
-  font_scale::{self, FontScaleRole},
-  setting_row::SettingRow,
-  use_interaction,
+  check_mark::CheckMark, control_effects, font_scale, setting_row::SettingRow, use_interaction,
 };
 use crate::menu::{music_heartbeat, use_interaction::InteractionState};
 use battlement::{
@@ -88,7 +84,7 @@ impl Component for ToggleControl {
     });
     View::new()
       .name("toggle-control-label")
-      .style(Style::new().height(self.row_height.map(|height| height * font_scale.factor())))
+      .style(Style::new().min_height(self.row_height.map(|height| height * font_scale.factor())))
       .child(
         SettingRow::new()
           .label_width(french.then_some(620.0))
@@ -105,8 +101,8 @@ impl Component for ToggleControl {
                 Style::new()
                   .position(Position::Relative)
                   .align_items(Align::Center)
-                  .width(77.0 * font_scale.dynamic(FontScaleRole::Control))
-                  .height(77.0 * font_scale.dynamic(FontScaleRole::Control))
+                  .width(77.0 * font_scale.factor())
+                  .height(77.0 * font_scale.factor())
                   .margin_left(8)
                   .translate(Translate::two_dimensional(
                     Length::Px(0.0),
@@ -119,8 +115,8 @@ impl Component for ToggleControl {
                   .picking_mode(PickingMode::Ignore)
                   .style(
                     Style::new()
-                      .width(77.0 * font_scale.dynamic(FontScaleRole::Control))
-                      .height(77.0 * font_scale.dynamic(FontScaleRole::Control))
+                      .width(77.0 * font_scale.factor())
+                      .height(77.0 * font_scale.factor())
                       .border_radius(11),
                   )
                   .paint(self::surface_paint())
@@ -148,8 +144,8 @@ impl Component for ToggleControl {
                       .position(Position::Absolute)
                       .left(0)
                       .top(0)
-                      .width(77.0 * font_scale.dynamic(FontScaleRole::Control))
-                      .height(77.0 * font_scale.dynamic(FontScaleRole::Control))
+                      .width(77.0 * font_scale.factor())
+                      .height(77.0 * font_scale.factor())
                       .margin(0)
                       .padding(0)
                       .border_width(0)
@@ -294,20 +290,20 @@ impl Component for InfoBadge {
           .left(if french {
             0.0
           } else {
-            205.0 * font_scale.factor()
+            209.0 * font_scale.factor()
           })
           .bottom(if french { 0 } else { 37 })
           .margin_left(if french { 16 } else { 0 })
           .flex_shrink(0.0)
-          .width(38.0 * font_scale.dynamic(FontScaleRole::Control))
-          .height(38.0 * font_scale.dynamic(FontScaleRole::Control))
+          .width(38.0 * font_scale.factor())
+          .height(38.0 * font_scale.factor())
           .padding(0)
           .border_width(2)
           .border_color(Color::rgb8(85, 184, 255))
           .border_radius(19)
           .background_color(Color::TRANSPARENT)
           .color(Color::rgb8(188, 244, 255))
-          .font_size(27.0 * font_scale.dynamic(FontScaleRole::Control))
+          .font_size(27.0 * font_scale.factor())
           .unity_font_style_and_weight(FontStyle::Bold)
           .unity_text_align(TextAnchor::MiddleCenter)
           .align_items(Align::Center)

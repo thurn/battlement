@@ -39,6 +39,7 @@ mod choice;
 mod effect_group;
 mod press;
 mod range;
+mod scroll_region;
 mod structure;
 mod toggle;
 
@@ -46,6 +47,7 @@ pub use choice::{Radio, RadioGroup, Tab, TabPanel, Tabs};
 pub use effect_group::EffectGroup;
 pub use press::{Button, Disclosure, Link, ListBoxOption, PopupButton};
 pub use range::{Progress, ScrollArea, Slider};
+pub use scroll_region::ScrollRegion;
 pub use structure::{
   ColumnHeader, Group, Heading, Image, ListBox, Navigation, Region, RowHeader, Table, TableCell,
   TableRow, Text,

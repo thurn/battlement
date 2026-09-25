@@ -12,6 +12,7 @@ using ProtocolScrollMode = Battlement.UiScrollViewMode;
 using ProtocolTouchBehavior = Battlement.UiTouchScrollBehavior;
 using UnityDirection = UnityEngine.UIElements.SliderDirection;
 using UnityNestedInteraction = UnityEngine.UIElements.ScrollView.NestedInteractionKind;
+using UnityRect = UnityEngine.Rect;
 using UnityScrollerVisibility = UnityEngine.UIElements.ScrollerVisibility;
 using UnityScrollMode = UnityEngine.UIElements.ScrollViewMode;
 using UnityTouchBehavior = UnityEngine.UIElements.ScrollView.TouchScrollBehavior;
@@ -32,7 +33,8 @@ namespace Battlement.UI
             Func<TimeSpan> currentTime
         ) => (events, now) = (eventForwarder, currentTime);
 
-        internal bool HasPendingSettlement => scrolls.Values.Any(state => state.Armed);
+        internal bool HasPendingSettlement =>
+            scrolls.Values.Any(state => state.Armed || state.RevealPending);
 
         public void ApplyCreate(VisualElement target, ObjectId objectId, UiElement value)
         {
@@ -56,7 +58,11 @@ namespace Battlement.UI
             {
                 ScrollState state = scrolls[objectId.Value];
                 if (!scroll.ScrollOffset.IsUnset)
+                {
+                    bool revealPending = state.RevealPending;
                     state.Cancel();
+                    state.RevealPending = revealPending;
+                }
                 state.CommandOrigin = true;
                 try
                 {
@@ -114,6 +120,33 @@ namespace Battlement.UI
                 {
                     state.Cancel();
                     continue;
+                }
+                VisualElement? focused =
+                    state.Target.panel.focusController.focusedElement as VisualElement;
+                if (focused is not null && !state.Target.contentContainer.Contains(focused))
+                    focused = null;
+                UnityRect bounds = focused is null
+                    ? default
+                    : focused.ChangeCoordinatesTo(
+                        state.Target.contentContainer,
+                        new UnityRect(Vector2.zero, focused.layout.size)
+                    );
+                Vector2 viewportSize = state.Target.contentViewport.layout.size;
+                bool layoutChanged =
+                    Different(bounds, state.LastFocusedBounds)
+                    || (viewportSize - state.LastViewportSize).sqrMagnitude > 0.01f;
+                if (focused != state.LastFocused || layoutChanged)
+                {
+                    state.LastFocused = focused;
+                    state.LastFocusedBounds = bounds;
+                    state.LastViewportSize = viewportSize;
+                    state.RevealPending = focused is not null;
+                }
+                if (state.RevealPending)
+                {
+                    state.RevealPending = false;
+                    if (focused is not null)
+                        state.Target.ScrollTo(focused);
                 }
                 if (state.ChangedPending)
                 {
@@ -223,6 +256,18 @@ namespace Battlement.UI
                 if (!BattlementPointerCaptureTransfer.IsMoving(state.Target))
                     state.Cancel();
             };
+            state.FocusIn = _ => state.RevealPending = true;
+            state.GeometryChanged = _ =>
+            {
+                if (
+                    target.panel?.focusController.focusedElement is VisualElement focused
+                    && target.contentContainer.Contains(focused)
+                )
+                    state.RevealPending = true;
+            };
+            target.RegisterCallback(state.FocusIn);
+            target.RegisterCallback(state.GeometryChanged);
+            target.contentContainer.RegisterCallback(state.GeometryChanged);
             target.horizontalScroller.valueChanged += state.ValueChanged;
             target.verticalScroller.valueChanged += state.ValueChanged;
             target.RegisterCallback(state.Capture, TrickleDown.TrickleDown);
@@ -429,6 +474,10 @@ namespace Battlement.UI
                 _ => UnityScrollerVisibility.Auto,
             };
 
+        private static bool Different(UnityRect left, UnityRect right) =>
+            (left.position - right.position).sqrMagnitude > 0.01f
+            || (left.size - right.size).sqrMagnitude > 0.01f;
+
         private static void ReleaseCaptures(Dictionary<int, VisualElement> captures)
         {
             var owned = new Dictionary<int, VisualElement>(captures);
@@ -452,18 +501,27 @@ namespace Battlement.UI
             public EventCallback<PointerCaptureEvent> Capture { get; set; } = null!;
             public EventCallback<PointerCaptureOutEvent> CaptureOut { get; set; } = null!;
             public EventCallback<DetachFromPanelEvent> Detach { get; set; } = null!;
+            public EventCallback<FocusInEvent> FocusIn { get; set; } = null!;
+            public EventCallback<GeometryChangedEvent> GeometryChanged { get; set; } = null!;
+            public bool RevealPending { get; set; }
+            public VisualElement? LastFocused { get; set; }
+            public UnityRect LastFocusedBounds { get; set; }
+            public Vector2 LastViewportSize { get; set; }
             public Vector2 Latest { get; set; }
             public TimeSpan LastChanged { get; set; }
             public bool ChangedPending { get; set; }
             public bool Armed { get; set; }
             public bool CommandOrigin { get; set; }
 
-            public void Cancel() => (ChangedPending, Armed) = (false, false);
+            public void Cancel() => (ChangedPending, Armed, RevealPending) = (false, false, false);
 
             public void Dispose()
             {
                 Cancel();
                 ReleaseCaptures(Captures);
+                Target.UnregisterCallback(FocusIn);
+                Target.UnregisterCallback(GeometryChanged);
+                Target.contentContainer.UnregisterCallback(GeometryChanged);
                 Target.horizontalScroller.valueChanged -= ValueChanged;
                 Target.verticalScroller.valueChanged -= ValueChanged;
                 Target.UnregisterCallback(Capture, TrickleDown.TrickleDown);

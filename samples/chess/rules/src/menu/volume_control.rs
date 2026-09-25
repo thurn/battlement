@@ -10,8 +10,8 @@ use crate::menu::{
   volume_skin::{VolumeThumb, VolumeTicks, VolumeTrack},
 };
 use battlement::{
-  Align, Color, FlexDirection, Length, PickingMode, Position, Scale, Style, TextAnchor,
-  TransformOrigin, WhiteSpace,
+  Align, Color, FlexDirection, Length, PickingMode, Position, Style, TextAnchor, TransformOrigin,
+  WhiteSpace,
 };
 use reactant::prelude::StyleTarget;
 use reactant::prelude::{EventCallback, builder, use_control_label};
@@ -72,11 +72,10 @@ impl Component for VolumeControl {
           .style(
             Style::new()
               .position(Position::Relative)
-              .width(398)
-              .height(82)
+              .width(398.0 + 96.0 * (font_scale.factor() - 1.0))
+              .height(82.0 * font_scale.factor())
               .flex_shrink(0)
               .align_items(Align::Center)
-              .scale(Scale::uniform(1.0 + (font_scale.factor() - 1.0) * 0.35))
               .transform_origin(TransformOrigin::two_dimensional(
                 Length::Px(0.0),
                 Length::Percent(50.0),
@@ -166,12 +165,12 @@ impl Component for VolumeControl {
             .picking_mode(PickingMode::Ignore)
             .style(
               Style::new()
-                .width(96)
-                .height(55)
+                .width(96.0 * font_scale.factor())
+                .height(55.0 * font_scale.factor())
                 .flex_shrink(0)
                 .color(Color::rgb8(245, 245, 248))
                 .unity_font_definition(setting_row::DISPLAY_FONT)
-                .font_size(55.0 * font_scale.factor() / (1.0 + (font_scale.factor() - 1.0) * 0.35))
+                .font_size(55.0 * font_scale.factor())
                 .white_space(WhiteSpace::NoWrap)
                 .letter_spacing(1)
                 .unity_text_align(TextAnchor::MiddleLeft),

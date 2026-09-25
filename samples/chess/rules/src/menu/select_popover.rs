@@ -3,9 +3,7 @@
 use trox::{LocalizedString, tx};
 
 use crate::menu::{
-  dropdown_motion,
-  font_scale::{FontScale, FontScaleRole},
-  select_control, select_navigation,
+  dropdown_motion, font_scale::FontScale, select_control, select_navigation,
   select_option::SelectOption,
 };
 use battlement::{Color, Gradient, Length, PopoverPlacement, Scale, Style, TransformOrigin};
@@ -161,7 +159,7 @@ impl SelectPopover {
   fn option(&self, index: usize, option: &str) -> SelectOption {
     SelectOption::new()
       .active(index == self.active_index)
-      .control_scale(self.font_scale.dynamic(FontScaleRole::Control))
+      .control_scale(self.font_scale.factor())
       .font_scale(self.font_scale.factor())
       .index(index)
       .label((self.option_label)(option))
@@ -193,7 +191,7 @@ fn width(font_scale: FontScale) -> f32 {
 }
 
 fn height(font_scale: FontScale, options: usize) -> f32 {
-  22.0 + options as f32 * 76.0 * font_scale.dynamic(FontScaleRole::Control)
+  22.0 + options as f32 * 76.0 * font_scale.factor()
 }
 
 fn popover_paint() -> PaintStyle {

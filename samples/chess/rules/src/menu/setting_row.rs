@@ -1,16 +1,11 @@
 //! Two-column settings layout and optional visible-label associations.
 
 use battlement::{
-  Align, Color, FlexDirection, GridTrack, Length, LengthOrAuto, Position, Scale, Style,
-  TransformOrigin, UiFontAddress,
+  Align, Color, FlexDirection, Length, LengthOrAuto, LengthUnits, Position, Scale, Style,
+  TransformOrigin, UiFontAddress, WhiteSpace,
 };
 use reactant::prelude::{Child, Children, builder};
-use reactant::{
-  component::Component,
-  host::{Grid, View},
-  label_binding::AssociatedLabel,
-  render::Render,
-};
+use reactant::{component::Component, host::View, label_binding::AssociatedLabel, render::Render};
 
 use crate::menu::font_scale;
 
@@ -42,25 +37,16 @@ pub struct SettingRow {
 impl Component for SettingRow {
   fn render(&self) -> impl Render {
     let font_scale = font_scale::use_font_scale();
-    Grid::new()
+    View::new()
       .name("setting-row")
-      .columns(if font_scale.factor() > 1.0 {
-        vec![GridTrack::fr(1.0)]
-      } else {
-        vec![
-          GridTrack::px(self.label_width.unwrap_or(422.0)),
-          GridTrack::fr(1.0),
-        ]
-      })
-      .rows(if font_scale.factor() > 1.0 {
-        vec![GridTrack::auto(), GridTrack::auto()]
-      } else {
-        Vec::new()
-      })
-      .gap(if font_scale.factor() > 1.0 { 18.0 } else { 0.0 })
-      .align_items(Align::Center)
       .style(
         Style::new()
+          .flex_direction(if font_scale.factor() > 1.0 {
+            FlexDirection::Column
+          } else {
+            FlexDirection::Row
+          })
+          .align_items(Align::Center)
           .min_height(self.row_height.unwrap_or(SETTINGS_ROW_HEIGHT) * font_scale.factor())
           .padding(if font_scale.factor() > 1.0 {
             (24, 18, 28, 18)
@@ -79,6 +65,13 @@ impl Component for SettingRow {
               .flex_direction(FlexDirection::Row)
               .align_items(Align::Center)
               .min_width(0)
+              .width(if font_scale.factor() > 1.0 {
+                Length::Percent(100.0)
+              } else {
+                Length::Px(self.label_width.unwrap_or(422.0))
+              })
+              .flex_shrink(0)
+              .margin_bottom(if font_scale.factor() > 1.0 { 18 } else { 0 })
               .height(if font_scale.factor() > 1.0 {
                 LengthOrAuto::Auto
               } else {
@@ -88,6 +81,11 @@ impl Component for SettingRow {
               .color(Color::rgb8(245, 245, 248))
               .unity_font_definition(DISPLAY_FONT)
               .font_size(LABEL_FONT_SIZE * font_scale.factor())
+              .white_space(if font_scale.factor() > 1.0 {
+                WhiteSpace::Normal
+              } else {
+                WhiteSpace::NoWrap
+              })
               .letter_spacing(1.3)
               .scale(Scale::new(
                 if font_scale.factor() > 1.0 {
@@ -104,7 +102,13 @@ impl Component for SettingRow {
           )
           .associated_label(self.associated_label.clone())
           .child(self.label.render()),
-        self.children.render(),
+        View::new()
+          .style(if font_scale.factor() > 1.0 {
+            Style::new().width(100.pct()).flex_shrink(0)
+          } else {
+            Style::new().min_width(0).flex_grow(1).flex_basis(0)
+          })
+          .child(self.children.render()),
       ))
   }
 }

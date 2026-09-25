@@ -69,8 +69,8 @@ pub use crate::{
   components::{
     Button, Checkbox, ColumnHeader, Disclosure, EffectGroup, Group, Heading, Image, Link, ListBox,
     ListBoxOption, Navigation, PopupButton, Progress, Radio, RadioGroup, Region, RowHeader,
-    ScrollArea, Slider, Switch, Tab, TabButton, TabPanel, TabStrip, Table, TableCell, TableRow,
-    Tabs, Text,
+    ScrollArea, ScrollRegion, Slider, Switch, Tab, TabButton, TabPanel, TabStrip, Table, TableCell,
+    TableRow, Tabs, Text,
   },
   context::{ContextProvider, Provided},
   display_store::DisplayStore,
