@@ -1,10 +1,9 @@
-use battlement_ditto::cli::{CleanCommand, Command, StorageCommand, parse_from};
+use battlement_ditto::cli::{self, CleanCommand, Command, StorageCommand};
 use std::{
   fs,
   io::Write,
-  path::PathBuf,
   process::{Command as ProcessCommand, Stdio},
-  sync::{Mutex, OnceLock},
+  sync::Mutex,
 };
 #[cfg(target_os = "macos")]
 use std::{os::unix::fs::PermissionsExt, path::Path};
@@ -14,7 +13,7 @@ static NATIVE_EXECUTION: Mutex<()> = Mutex::new(());
 #[test]
 fn core_command_matrix_parses_complete_options() {
   assert!(matches!(
-    parse_from([
+    cli::parse_from([
       "ditto",
       "build",
       "--profile",
@@ -30,7 +29,7 @@ fn core_command_matrix_parses_complete_options() {
         && options.json
         && options.retain_until_fd_closed == Some(7)
   ));
-  let run = parse_from([
+  let run = cli::parse_from([
     "ditto",
     "--config",
     "suite.toml",
@@ -62,7 +61,7 @@ fn core_command_matrix_parses_complete_options() {
   assert_eq!(run.bail_after, Some(3));
   assert_eq!(run.output.unwrap().to_str(), Some("result.json"));
 
-  let capture = parse_from([
+  let capture = cli::parse_from([
     "ditto",
     "capture",
     "--fragment=-",
@@ -80,7 +79,7 @@ fn core_command_matrix_parses_complete_options() {
   assert_eq!(capture.bail_after, Some(1));
   assert!(capture.no_build && capture.json && capture.review);
 
-  let profile = parse_from([
+  let profile = cli::parse_from([
     "ditto",
     "profile",
     "settings*",
@@ -99,12 +98,12 @@ fn core_command_matrix_parses_complete_options() {
   assert!(profile.no_build && profile.json);
   assert_eq!(profile.output.unwrap().to_str(), Some("performance.json"));
 
-  let Command::Run(watch) = parse_from(["ditto", "run", "-w"]).unwrap().command else {
+  let Command::Run(watch) = cli::parse_from(["ditto", "run", "-w"]).unwrap().command else {
     panic!("watch run was not parsed")
   };
   assert!(watch.watch);
   let Command::Capture(watch) =
-    parse_from(["ditto", "capture", "--fragment=cycle.toml", "--watch"])
+    cli::parse_from(["ditto", "capture", "--fragment=cycle.toml", "--watch"])
       .unwrap()
       .command
   else {
@@ -113,7 +112,7 @@ fn core_command_matrix_parses_complete_options() {
   assert!(watch.watch);
 
   assert!(matches!(
-    parse_from(["ditto", "review", "39e15c94-f631-454e-86a0-2659299d1637"])
+    cli::parse_from(["ditto", "review", "39e15c94-f631-454e-86a0-2659299d1637"])
       .unwrap()
       .command,
     Command::Review(options)
@@ -121,7 +120,7 @@ fn core_command_matrix_parses_complete_options() {
   ));
 
   assert!(matches!(
-    parse_from([
+    cli::parse_from([
       "ditto",
       "gallery",
       "--profile",
@@ -139,39 +138,45 @@ fn core_command_matrix_parses_complete_options() {
   ));
 
   assert!(matches!(
-    parse_from(["ditto", "fetch", "--all"]).unwrap().command,
+    cli::parse_from(["ditto", "fetch", "--all"]).unwrap().command,
     Command::Fetch(options) if options.all
   ));
   assert!(matches!(
-    parse_from(["ditto", "list", "menu*"]).unwrap().command,
+    cli::parse_from(["ditto", "list", "menu*"]).unwrap().command,
     Command::List(options) if options.includes == ["menu*"]
   ));
   assert!(matches!(
-    parse_from(["ditto", "doctor", "--profile", "ios"]).unwrap().command,
+    cli::parse_from(["ditto", "doctor", "--profile", "ios"]).unwrap().command,
     Command::Doctor(options) if options.profile.as_deref() == Some("ios")
   ));
   assert!(matches!(
-    parse_from(["ditto", "clean", "runs", "--global"])
+    cli::parse_from(["ditto", "clean", "runs", "--global"])
       .unwrap()
       .command,
     Command::Clean(CleanCommand::Runs { global: true })
   ));
   assert!(matches!(
-    parse_from(["ditto", "clean", "builds"]).unwrap().command,
+    cli::parse_from(["ditto", "clean", "builds"])
+      .unwrap()
+      .command,
     Command::Clean(CleanCommand::Builds { global: false })
   ));
   assert!(matches!(
-    parse_from(["ditto", "clean", "baselines"]).unwrap().command,
+    cli::parse_from(["ditto", "clean", "baselines"])
+      .unwrap()
+      .command,
     Command::Clean(CleanCommand::Baselines)
   ));
   assert!(matches!(
-    parse_from(["ditto", "clean", "storage", "--apply"])
+    cli::parse_from(["ditto", "clean", "storage", "--apply"])
       .unwrap()
       .command,
     Command::Clean(CleanCommand::Storage { apply: true })
   ));
   assert!(matches!(
-    parse_from(["ditto", "storage", "publish"]).unwrap().command,
+    cli::parse_from(["ditto", "storage", "publish"])
+      .unwrap()
+      .command,
     Command::Storage(StorageCommand::Publish)
   ));
 }
@@ -185,7 +190,7 @@ fn unavailable_and_ambiguous_forms_are_rejected() {
     vec!["ditto", "fetch", "--all", "--profile", "macos"],
     vec!["ditto", "clean", "baselines", "--global"],
   ] {
-    assert!(parse_from(arguments.clone()).is_err(), "{arguments:?}");
+    assert!(cli::parse_from(arguments.clone()).is_err(), "{arguments:?}");
   }
 }
 
@@ -533,45 +538,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
 }
 
 fn ditto_command() -> ProcessCommand {
-  static DITTO_BINARY: OnceLock<PathBuf> = OnceLock::new();
-  let mut command = ProcessCommand::new(DITTO_BINARY.get_or_init(|| {
-    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-      .join("../..")
-      .join("Cargo.toml");
-    assert!(
-      ProcessCommand::new(env!("CARGO"))
-        .args(["build", "--quiet", "--manifest-path"])
-        .arg(&manifest)
-        .args(["--package", "rt", "--bin", "rt"])
-        .status()
-        .unwrap()
-        .success()
-    );
-    let metadata = ProcessCommand::new(env!("CARGO"))
-      .args([
-        "metadata",
-        "--format-version",
-        "1",
-        "--no-deps",
-        "--manifest-path",
-      ])
-      .arg(manifest)
-      .output()
-      .unwrap();
-    assert!(metadata.status.success());
-    let target =
-      serde_json::from_slice::<serde_json::Value>(&metadata.stdout).unwrap()["target_directory"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    PathBuf::from(target)
-      .join(if cfg!(debug_assertions) {
-        "debug"
-      } else {
-        "release"
-      })
-      .join(if cfg!(windows) { "rt.exe" } else { "rt" })
-  }));
+  let mut command = ProcessCommand::new(env!("CARGO_BIN_EXE_rt"));
   command.arg("ditto");
   command
 }

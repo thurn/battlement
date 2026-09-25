@@ -3,12 +3,41 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Battlement.Tests
 {
     public sealed class DittoNativeCaptureAdapterTests
     {
+        [Test]
+        public void FullFrameFingerprintObservesEveryChannelAcrossTheImage()
+        {
+            var pixels = new NativeArray<byte>(1280 * 720 * 4, Allocator.Temp);
+            try
+            {
+                ulong original = DittoPixelFingerprint.Compute(pixels);
+                foreach (int pixel in new[] { 0, 1280 * 360 + 640, 1280 * 720 - 1 })
+                {
+                    for (int channel = 0; channel < 4; channel++)
+                    {
+                        int index = pixel * 4 + channel;
+                        pixels[index] = 1;
+                        Assert.That(
+                            DittoPixelFingerprint.Compute(pixels),
+                            Is.Not.EqualTo(original)
+                        );
+                        pixels[index] = 0;
+                        Assert.That(DittoPixelFingerprint.Compute(pixels), Is.EqualTo(original));
+                    }
+                }
+            }
+            finally
+            {
+                pixels.Dispose();
+            }
+        }
+
         [Test]
         public void TimingEnrichmentPreservesRenderCommitIdentity()
         {

@@ -2,8 +2,10 @@
 
 """Verify dependency-scoped Rust and Reactant validation decisions."""
 
+from contextlib import nullcontext
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 from unittest.mock import patch
 
@@ -12,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import ci_selection
+import ci
 
 
 workspaces = [
@@ -81,6 +84,8 @@ with tempfile.TemporaryDirectory() as directory:
         "builder": '[build-dependencies]\nrules = { path = "../rules" }\n',
         "optional": '[dependencies]\nrules = { path = "../rules", optional = true }\n',
         "targeted": '[target.\'cfg(target_os = "windows")\'.dependencies]\nrules = { path = "../rules" }\n',
+        "runtime": '[package.metadata.battlement-ci]\nruntime-test-dependencies = ["display", "consumer"]\n',
+        "consumer": '[dependencies]\nruntime = { path = "../runtime" }\n',
         "unrelated": "",
     }
     for name, dependencies in manifests.items():
@@ -92,13 +97,62 @@ with tempfile.TemporaryDirectory() as directory:
             + dependencies
         )
     selection = ci_selection.select_rust(repository, ["crates/rules/src/lib.rs"], [])
-    assert selection.packages == ("app", "builder", "display", "optional", "rules", "targeted")
+    assert selection.packages == ("app", "builder", "consumer", "display", "optional", "rules", "runtime", "targeted")
     assert ci_selection.root_arguments(selection) == [
         argument for package in selection.packages for argument in ("-p", package)
     ]
     assert ci_selection.select_rust(repository, ["crates/unrelated/src/lib.rs"], []).packages == ("unrelated",)
     unknown = ci_selection.select_rust(repository, ["crates/deleted/src/lib.rs"], [])
     assert ci_selection.root_arguments(unknown) == ["--workspace"]
-    assert ci_selection.select_rust(repository, ["Cargo.lock", "crates/rules/src/lib.rs"], []).packages is None
+    for global_input in ("Cargo.lock", "scripts/ci.py", "scripts/ci_selection.py"):
+        assert ci_selection.select_rust(repository, [global_input], []).packages is None
+
+    runtime = repository / "crates/runtime"
+    (runtime / "src/lib.rs").write_text(
+        '#[test] fn runtime_fixture_is_current() { '
+        'let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../rules/src/lib.rs"); '
+        'assert!(!std::fs::read_to_string(fixture).unwrap().contains("broken")); }'
+    )
+    (repository / "crates/unrelated/src/lib.rs").write_text(
+        '#[test] fn unrelated_failure() { panic!("outside the selected graph"); }'
+    )
+
+    subprocess.run(["git", "init", "--quiet"], cwd=repository, check=True)
+    subprocess.run(["git", "add", "Cargo.toml", "Cargo.lock", "crates"], cwd=repository, check=True)
+    cache = ci.CiCache(repository, repository / "cache", {})
+
+    # Exercise selection and real cache keys: an unrelated failing package must
+    # run when selected, and a changed runtime fixture must invalidate its consumer.
+    with (
+        patch.object(ci, "REPOSITORY_ROOT", repository),
+        patch.object(ci, "CI_CACHE_ROOT", repository / "cache"),
+        patch.object(cache, "maintain", return_value=False),
+        patch.object(cache, "invocation", side_effect=nullcontext),
+    ):
+        ci.test_root_workspace(cache, selection)
+        unrelated = ci_selection.select_rust(repository, ["crates/unrelated/src/lib.rs"], [])
+        try:
+            ci.test_root_workspace(cache, unrelated)
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            raise AssertionError("package selection reused another selection's cached pass")
+        (repository / "crates/rules/src/lib.rs").write_text("// broken runtime fixture\n")
+        subprocess.run(["git", "add", "crates"], cwd=repository, check=True)
+        try:
+            ci.test_root_workspace(cache, selection)
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            raise AssertionError("runtime consumer did not detect the changed fixture")
+
+    manifest = runtime / "Cargo.toml"
+    manifest.write_text(manifest.read_text().replace('"display", "consumer"', '"missing"'))
+    try:
+        ci_selection.select_rust(repository, ["crates/rules/src/lib.rs"], [])
+    except RuntimeError as error:
+        assert "Unknown runtime test dependency" in str(error)
+    else:
+        raise AssertionError("unknown runtime dependency silently lost coverage")
 
 print("CI selection tests passed")

@@ -17,6 +17,8 @@ GLOBAL_RUST_INPUTS = (
     "Cargo.lock",
     "Cargo.toml",
     "rust-toolchain.toml",
+    "scripts/ci.py",
+    "scripts/ci_selection.py",
 )
 TOOLING_RUST_INPUTS = (
     "scripts/unity_transaction.py",
@@ -52,6 +54,7 @@ class RustSelection:
             "reasons": list(self.reasons),
             "root": self.root,
             "lint_packages": list(self.packages) if self.packages is not None else None,
+            "test_packages": list(self.packages) if self.packages is not None else None,
             "samples": [str(path.parent) for path in self.samples],
         }
 
@@ -109,11 +112,10 @@ def select_rust(
 
 
 def affected_root_packages(repository: Path, changed_crates: set[str]) -> tuple[str, ...] | None:
-    """Select lint packages through normal, build, optional and dev dependencies.
+    """Select dependents, including fixtures declared in package CI metadata.
 
-    Tests retain workspace coverage for runtime-built fixtures outside Cargo edges.
-    Unknown crate paths retain full-workspace linting, including deleted crates.
-    Cargo remains authoritative for feature and target-specific dependency edges.
+    Unknown crate paths retain workspace coverage, including deleted crates.
+    Cargo supplies normal, build, optional, dev and target-specific edges.
     """
     result = subprocess.run(
         ["cargo", "metadata", "--format-version", "1", "--all-features"],
@@ -133,11 +135,25 @@ def affected_root_packages(repository: Path, changed_crates: set[str]) -> tuple[
             found.add(path.parts[0])
     if found != changed_crates:
         return None
-    nodes = metadata["resolve"]["nodes"]
+    dependencies = {
+        node["id"]: {dependency["pkg"] for dependency in node["deps"]}
+        for node in metadata["resolve"]["nodes"]
+    }
+    members_by_name = {
+        packages[identity]["name"]: identity for identity in metadata["workspace_members"]
+    }
+    for identity in members_by_name.values():
+        runtime = (packages[identity].get("metadata") or {}).get("battlement-ci", {})
+        fixtures = runtime.get("runtime-test-dependencies", [])
+        if not isinstance(fixtures, list):
+            raise RuntimeError("runtime-test-dependencies must be a list of workspace packages")
+        for name in fixtures:
+            if not isinstance(name, str) or name not in members_by_name:
+                raise RuntimeError(f"Unknown runtime test dependency: {name!r}")
+            dependencies[identity].add(members_by_name[name])
     while True:
         dependents = {
-            node["id"] for node in nodes
-            if any(dependency["pkg"] in changed for dependency in node["deps"])
+            identity for identity, required in dependencies.items() if required & changed
         }
         expanded = changed | dependents
         if expanded == changed:

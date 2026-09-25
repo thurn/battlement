@@ -102,14 +102,8 @@ impl Fixture {
 }
 
 fn ditto_command() -> Command {
-  let mut command = Command::new(env!("CARGO"));
-  command.args(["run", "--quiet", "--manifest-path"]);
-  command.arg(
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-      .join("../..")
-      .join("Cargo.toml"),
-  );
-  command.args(["--package", "rt", "--bin", "rt", "--", "ditto"]);
+  let mut command = Command::new(env!("CARGO_BIN_EXE_rt"));
+  command.arg("ditto");
   command
 }
 

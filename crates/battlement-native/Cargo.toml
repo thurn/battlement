@@ -26,3 +26,7 @@ uuid.workspace = true
 battlement-flatbuffers = { workspace = true, features = ["test-support"] }
 libloading = "0.8.9"
 sha2.workspace = true
+
+# Packages compiled by subprocesses in integration tests.
+[package.metadata.battlement-ci]
+runtime-test-dependencies = ["battlement-native-export-fixture"]

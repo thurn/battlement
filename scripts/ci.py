@@ -383,7 +383,7 @@ def test_rust_workspaces(
     if selection.root:
         steps.append((
             "root workspace",
-            lambda: test_root_workspace(ci_cache),
+            lambda: test_root_workspace(ci_cache, selection),
         ))
     steps.extend(
         (
@@ -407,17 +407,26 @@ def test_rust_workspaces(
     run_parallel_steps(steps, workers=RUST_WORKSPACE_WORKERS)
 
 
-def test_root_workspace(ci_cache: CiCache) -> None:
-    """Keep live baseline coverage in Ditto's cache without invalidating unrelated tests."""
-    groups = (
-        ("rust-test-root-without-ditto",
-         (*ROOT_RUST_INPUTS, ":(glob,exclude)samples/*/ditto.lock"),
-         ["--workspace", "--exclude", "battlement-ditto"]),
-        ("rust-test-ditto", ROOT_RUST_INPUTS, ["--package", "battlement-ditto"]),
-    )
+def test_root_workspace(ci_cache: CiCache, selection: ci_selection.RustSelection) -> None:
+    """Run affected packages with a separate live-baseline cache for Ditto."""
+    if selection.packages is None:
+        other_arguments = ["--workspace", "--exclude", "battlement-ditto"]
+    else:
+        other_arguments = [
+            argument for package in selection.packages if package != "battlement-ditto"
+            for argument in ("-p", package)
+        ]
+    groups = []
+    if other_arguments:
+        groups.append((
+            "rust-test-root-without-ditto",
+            (*ROOT_RUST_INPUTS, ":(glob,exclude)samples/*/ditto.lock"), other_arguments,
+        ))
+    if selection.packages is None or "battlement-ditto" in selection.packages:
+        groups.append(("rust-test-ditto", ROOT_RUST_INPUTS, ["--package", "battlement-ditto"]))
     for name, inputs, arguments in groups:
         ci_cache.run(
-            name, inputs,
+            root_cache_name(name, selection), inputs,
             lambda: process_priority.run(
                 ["cargo", "test", *arguments], cwd=REPOSITORY_ROOT,
                 env=cargo_environment(None), check=True,

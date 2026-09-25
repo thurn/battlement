@@ -783,9 +783,14 @@ namespace Battlement
                     Unity.Collections.NativeArray<byte> pixels =
                         fingerprint.GetRawTextureData<byte>();
                     ulong fullHash = offset;
-                    foreach (byte value in pixels)
+                    if (region is null || fullFrameDiagnostic)
                     {
-                        fullHash = (fullHash ^ value) * prime;
+                        fullHash = DittoPixelFingerprint.Compute(pixels);
+                    }
+                    else
+                    {
+                        foreach (byte value in pixels)
+                            fullHash = (fullHash ^ value) * prime;
                     }
                     ulong hash =
                         fullFrameDiagnostic && region is not null
