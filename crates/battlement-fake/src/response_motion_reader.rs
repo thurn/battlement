@@ -193,6 +193,7 @@ fn sequence_entry(
           .effect_address()
           .ok_or_else(|| "Motion sequence sound address is missing".to_owned())?
           .to_owned(),
+        bus: crate::response_command::audio_bus(value.effect_bus())?,
         volume: value.effect_volume(),
         pitch: value.effect_pitch(),
         looping: value.effect_loop(),

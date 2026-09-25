@@ -2331,32 +2331,36 @@ public struct AudioPlayPayload : IFlatbufferObject
   public ArraySegment<byte>? GetAddressBytes() { return __p.__vector_as_arraysegment(4); }
 #endif
   public byte[] GetAddressArray() { return __p.__vector_as_array<byte>(4); }
-  public double Volume { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
-  public double Pitch { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
-  public bool Loop { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
-  public ulong FadeInMs { get { int o = __p.__offset(12); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
+  public Battlement.FlatBuffers.Generated.AudioBus Bus { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.AudioBus)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.AudioBus.Effects; } }
+  public double Volume { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
+  public double Pitch { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
+  public bool Loop { get { int o = __p.__offset(12); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public ulong FadeInMs { get { int o = __p.__offset(14); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.AudioPlayPayload> CreateAudioPlayPayload(FlatBufferBuilder builder,
       StringOffset addressOffset = default(StringOffset),
+      Battlement.FlatBuffers.Generated.AudioBus bus = Battlement.FlatBuffers.Generated.AudioBus.Effects,
       double volume = 1.0,
       double pitch = 1.0,
       bool loop = false,
       ulong fade_in_ms = 0) {
-    builder.StartTable(5);
+    builder.StartTable(6);
     AudioPlayPayload.AddFadeInMs(builder, fade_in_ms);
     AudioPlayPayload.AddPitch(builder, pitch);
     AudioPlayPayload.AddVolume(builder, volume);
     AudioPlayPayload.AddAddress(builder, addressOffset);
     AudioPlayPayload.AddLoop(builder, loop);
+    AudioPlayPayload.AddBus(builder, bus);
     return AudioPlayPayload.EndAudioPlayPayload(builder);
   }
 
-  public static void StartAudioPlayPayload(FlatBufferBuilder builder) { builder.StartTable(5); }
+  public static void StartAudioPlayPayload(FlatBufferBuilder builder) { builder.StartTable(6); }
   public static void AddAddress(FlatBufferBuilder builder, StringOffset addressOffset) { builder.AddOffset(0, addressOffset.Value, 0); }
-  public static void AddVolume(FlatBufferBuilder builder, double volume) { builder.AddDouble(1, volume, 1.0); }
-  public static void AddPitch(FlatBufferBuilder builder, double pitch) { builder.AddDouble(2, pitch, 1.0); }
-  public static void AddLoop(FlatBufferBuilder builder, bool loop) { builder.AddBool(3, loop, false); }
-  public static void AddFadeInMs(FlatBufferBuilder builder, ulong fadeInMs) { builder.AddUlong(4, fadeInMs, 0); }
+  public static void AddBus(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.AudioBus bus) { builder.AddByte(1, (byte)bus, 1); }
+  public static void AddVolume(FlatBufferBuilder builder, double volume) { builder.AddDouble(2, volume, 1.0); }
+  public static void AddPitch(FlatBufferBuilder builder, double pitch) { builder.AddDouble(3, pitch, 1.0); }
+  public static void AddLoop(FlatBufferBuilder builder, bool loop) { builder.AddBool(4, loop, false); }
+  public static void AddFadeInMs(FlatBufferBuilder builder, ulong fadeInMs) { builder.AddUlong(5, fadeInMs, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.AudioPlayPayload> EndAudioPlayPayload(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 4);  // address
@@ -2371,10 +2375,63 @@ static public class AudioPlayPayloadVerify
   {
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyString(tablePos, 4 /*Address*/, true)
-      && verifier.VerifyField(tablePos, 6 /*Volume*/, 8 /*double*/, 8, false)
-      && verifier.VerifyField(tablePos, 8 /*Pitch*/, 8 /*double*/, 8, false)
-      && verifier.VerifyField(tablePos, 10 /*Loop*/, 1 /*bool*/, 1, false)
-      && verifier.VerifyField(tablePos, 12 /*FadeInMs*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyField(tablePos, 6 /*Bus*/, 1 /*Battlement.FlatBuffers.Generated.AudioBus*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*Volume*/, 8 /*double*/, 8, false)
+      && verifier.VerifyField(tablePos, 10 /*Pitch*/, 8 /*double*/, 8, false)
+      && verifier.VerifyField(tablePos, 12 /*Loop*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyField(tablePos, 14 /*FadeInMs*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
+public struct AudioMixPayload : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static AudioMixPayload GetRootAsAudioMixPayload(ByteBuffer _bb) { return GetRootAsAudioMixPayload(_bb, new AudioMixPayload()); }
+  public static AudioMixPayload GetRootAsAudioMixPayload(ByteBuffer _bb, AudioMixPayload obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public AudioMixPayload __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public double Master { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
+  public double Music { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
+  public double Effects { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)1.0; } }
+  public bool Muted { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+
+  public static Offset<Battlement.FlatBuffers.Generated.AudioMixPayload> CreateAudioMixPayload(FlatBufferBuilder builder,
+      double master = 1.0,
+      double music = 1.0,
+      double effects = 1.0,
+      bool muted = false) {
+    builder.StartTable(4);
+    AudioMixPayload.AddEffects(builder, effects);
+    AudioMixPayload.AddMusic(builder, music);
+    AudioMixPayload.AddMaster(builder, master);
+    AudioMixPayload.AddMuted(builder, muted);
+    return AudioMixPayload.EndAudioMixPayload(builder);
+  }
+
+  public static void StartAudioMixPayload(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void AddMaster(FlatBufferBuilder builder, double master) { builder.AddDouble(0, master, 1.0); }
+  public static void AddMusic(FlatBufferBuilder builder, double music) { builder.AddDouble(1, music, 1.0); }
+  public static void AddEffects(FlatBufferBuilder builder, double effects) { builder.AddDouble(2, effects, 1.0); }
+  public static void AddMuted(FlatBufferBuilder builder, bool muted) { builder.AddBool(3, muted, false); }
+  public static Offset<Battlement.FlatBuffers.Generated.AudioMixPayload> EndAudioMixPayload(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<Battlement.FlatBuffers.Generated.AudioMixPayload>(o);
+  }
+}
+
+
+static public class AudioMixPayloadVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Master*/, 8 /*double*/, 8, false)
+      && verifier.VerifyField(tablePos, 6 /*Music*/, 8 /*double*/, 8, false)
+      && verifier.VerifyField(tablePos, 8 /*Effects*/, 8 /*double*/, 8, false)
+      && verifier.VerifyField(tablePos, 10 /*Muted*/, 1 /*bool*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

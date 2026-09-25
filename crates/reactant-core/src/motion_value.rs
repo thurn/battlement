@@ -101,6 +101,7 @@ impl AudioPlayback {
 /// Options used when creating one stable audio playback operation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AudioPlaybackOptions {
+  bus: battlement::AudioBus,
   volume: f64,
   pitch: f64,
   looping: bool,

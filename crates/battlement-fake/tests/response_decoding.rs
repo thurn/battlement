@@ -84,6 +84,7 @@ fn decodes_every_motion_command_from_verified_response_bytes() {
           },
           battlement::MotionSequenceEntry::Sound {
             sound: battlement::MotionSoundOccurrence {
+              bus: battlement::AudioBus::Music,
               address: "audio/chime".to_owned(),
               volume: 0.75,
               pitch: 1.25,
@@ -262,4 +263,40 @@ fn decodes_nested_ui_state_from_verified_response_bytes() {
   let decoded = battlement_fake::read_response(bytes.as_bytes()).expect("decode response");
 
   assert_eq!(decoded, expected);
+}
+
+#[test]
+fn shared_audio_mix_round_trips_and_rejects_invalid_gains() {
+  let session = battlement::SessionId::new_v4();
+  let mix = battlement::AudioMix {
+    master: 0.25,
+    music: 0.5,
+    effects: 0.75,
+    muted: true,
+  };
+  let response = Response::commands(session, [CommandBody::AudioSetMix(mix)]);
+  let bytes = battlement_flatbuffers::test_support::core_response(&response).unwrap();
+  assert_eq!(
+    battlement_fake::read_response(bytes.as_bytes()).unwrap(),
+    response
+  );
+  for invalid in [-0.01, 1.01, f64::NAN, f64::INFINITY] {
+    for bad_mix in [
+      battlement::AudioMix {
+        master: invalid,
+        ..mix
+      },
+      battlement::AudioMix {
+        music: invalid,
+        ..mix
+      },
+      battlement::AudioMix {
+        effects: invalid,
+        ..mix
+      },
+    ] {
+      let response = Response::commands(session, [CommandBody::AudioSetMix(bad_mix)]);
+      assert!(battlement_flatbuffers::test_support::core_response(&response).is_err());
+    }
+  }
 }

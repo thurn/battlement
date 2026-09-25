@@ -189,6 +189,7 @@ fn duplicate_delivery_records_one_audio_and_particle_occurrence() {
   let audio = Command::new(
     command(301),
     CommandBody::AudioPlay(battlement::AudioPlayPayload {
+      bus: battlement::AudioBus::Effects,
       address: "temporal/audio".into(),
       volume: 0.25,
       pitch: 1.0,
@@ -263,4 +264,90 @@ fn frame_advance_and_finite_settle_leave_infinite_cosmetic_work_running() {
   assert_eq!(client.presentation_time(), Duration::from_millis(250));
   client.settle();
   client.assert_world_position(object(2), Vector3::new(2.0, 0.0, 0.0), 0.0);
+}
+
+#[test]
+fn shared_audio_gains_update_live_and_future_sources_without_replaying_them() {
+  let session_id = session(5);
+  let play = |id, bus, volume| {
+    Command::new(
+      command(id),
+      CommandBody::AudioPlay(battlement::AudioPlayPayload {
+        address: "temporal/audio".into(),
+        bus,
+        volume,
+        pitch: 1.0,
+        r#loop: true,
+        fade_in_ms: 0,
+      }),
+    )
+    .nonblocking()
+  };
+  let mix = |id, muted| {
+    Command::new(
+      command(id),
+      CommandBody::AudioSetMix(battlement::AudioMix {
+        master: 0.5,
+        music: 0.25,
+        effects: 0.8,
+        muted,
+      }),
+    )
+  };
+  let engine = ScriptedEngine::new(
+    [initial(session_id)],
+    [],
+    [
+      Some(response(
+        session_id,
+        501,
+        vec![vec![
+          mix(501, false),
+          play(502, battlement::AudioBus::Music, 0.8),
+          play(503, battlement::AudioBus::Effects, 0.5),
+        ]],
+      )),
+      Some(response(
+        session_id,
+        504,
+        vec![vec![
+          mix(504, true),
+          play(505, battlement::AudioBus::Music, 1.0),
+        ]],
+      )),
+      Some(response(session_id, 506, vec![vec![mix(506, false)]])),
+    ],
+  );
+  let mut client = FakeClient::connect(engine, catalog());
+  client.poll();
+  assert_eq!(
+    client.world().audio(command(502)).unwrap().output_volume(),
+    0.1
+  );
+  assert_eq!(
+    client.world().audio(command(503)).unwrap().output_volume(),
+    0.2
+  );
+  client.poll();
+  for id in [502, 503, 505] {
+    assert_eq!(
+      client.world().audio(command(id)).unwrap().output_volume(),
+      0.0
+    );
+  }
+  client.poll();
+  assert_eq!(client.world().audio(command(502)).unwrap().volume(), 0.8);
+  assert_eq!(
+    client.world().audio(command(502)).unwrap().output_volume(),
+    0.1
+  );
+  assert_eq!(
+    client.world().audio(command(505)).unwrap().output_volume(),
+    0.125
+  );
+  assert_eq!(client.audio_occurrences().len(), 3);
+  assert_eq!(
+    client.world().audio(command(505)).unwrap().bus(),
+    battlement::AudioBus::Music
+  );
 }

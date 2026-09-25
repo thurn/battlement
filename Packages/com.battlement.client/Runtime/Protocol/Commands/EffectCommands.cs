@@ -45,13 +45,18 @@ namespace Battlement
             /// <param name="Pitch">Playback pitch in (0, 3].</param>
             /// <param name="Loop">Whether playback loops until explicitly stopped.</param>
             /// <param name="FadeIn">Fade-in duration.</param>
+            /// <param name="Bus">Shared music or effects routing.</param>
             public sealed record Play(
                 AudioClipAddress Address,
                 double Volume = 1,
                 double Pitch = 1,
                 bool Loop = false,
-                TimeSpan FadeIn = default
+                TimeSpan FadeIn = default,
+                AudioBus Bus = AudioBus.Effects
             ) : CommandBody;
+
+            /// <summary>Update shared gains without restarting sounds or canceling fades.</summary>
+            public sealed record SetMix(AudioMix Mix) : CommandBody;
 
             /// <summary>Stop audio started by a previous audio-play command.</summary>
             /// <param name="AudioCommandId">Identity of the audio playback command.</param>

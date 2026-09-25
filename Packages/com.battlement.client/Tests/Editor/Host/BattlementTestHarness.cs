@@ -84,11 +84,12 @@ namespace Battlement.Tests
             IBattlementFlatBufferClientSchema? flatBufferClientSchema = null
         )
         {
-            Scene scene = EditorSceneManager.NewScene(
-                NewSceneSetup.EmptyScene,
-                NewSceneMode.Single
-            );
-            scene.name = $"Battlement test {Guid.NewGuid():N}";
+            string sceneName = $"Battlement test {Guid.NewGuid():N}";
+            Scene scene = Application.isPlaying
+                ? SceneManager.CreateScene(sceneName)
+                : EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            if (!Application.isPlaying)
+                scene.name = sceneName;
             var hostObject = new GameObject("Battlement host");
             SceneManager.MoveGameObjectToScene(hostObject, scene);
             BattlementRunner runner = hostObject.AddComponent<BattlementRunner>();
@@ -117,7 +118,10 @@ namespace Battlement.Tests
             Runner.Stop();
             Runner.Dispose();
             Object.DestroyImmediate(hostObject);
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            if (Application.isPlaying)
+                SceneManager.UnloadSceneAsync(Scene);
+            else
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             isDisposed = true;
         }
     }
@@ -565,12 +569,23 @@ namespace Battlement.Tests
             this.lease = lease;
             this.onDispose = onDispose;
             Asset = (PreparedAsset.Scene)lease.Asset;
-            Scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            Scene = Application.isPlaying
+                ? EditorSceneManager.LoadSceneInPlayMode(
+                    scenePath,
+                    new LoadSceneParameters(LoadSceneMode.Additive)
+                )
+                : EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
         }
 
         public PreparedAsset.Scene Asset { get; }
 
-        public bool IsLoaded { get; private set; } = true;
+        private bool loadCompleted = true;
+
+        public bool IsLoaded
+        {
+            get => loadCompleted && (!Application.isPlaying || Scene.isLoaded);
+            private set => loadCompleted = value;
+        }
 
         public Scene Scene { get; }
 
@@ -609,7 +624,10 @@ namespace Battlement.Tests
 
             if (Scene.IsValid() && Scene.isLoaded)
             {
-                EditorSceneManager.CloseScene(Scene, true);
+                if (Application.isPlaying)
+                    SceneManager.UnloadSceneAsync(Scene);
+                else
+                    EditorSceneManager.CloseScene(Scene, true);
             }
 
             IsLoaded = false;

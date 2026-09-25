@@ -1276,6 +1276,7 @@ pub(crate) fn write_command<'a>(
         builder,
         &command_wire::AudioPlayPayloadArgs {
           address: Some(address),
+          bus: crate::audio::bus(body.bus),
           volume: body.volume,
           pitch: body.pitch,
           loop_: body.r#loop,
@@ -1285,6 +1286,14 @@ pub(crate) fn write_command<'a>(
       (
         wire::CoreCommandKind::AudioPlay,
         wire::CoreCommandPayload::AudioPlayPayload,
+        payload.as_union_value(),
+      )
+    }
+    CommandBody::AudioSetMix(body) => {
+      let payload = crate::audio::write_mix(builder, *body)?;
+      (
+        wire::CoreCommandKind::AudioSetMix,
+        wire::CoreCommandPayload::AudioMixPayload,
         payload.as_union_value(),
       )
     }
@@ -3292,6 +3301,7 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     wire::CoreCommandKind::ParticleStop => wire::CoreCommandPayload::ParticleStopPayload,
     wire::CoreCommandKind::ParticleSpawn => wire::CoreCommandPayload::ParticleSpawnPayload,
     wire::CoreCommandKind::AudioPlay => wire::CoreCommandPayload::AudioPlayPayload,
+    wire::CoreCommandKind::AudioSetMix => wire::CoreCommandPayload::AudioMixPayload,
     wire::CoreCommandKind::AudioStop => wire::CoreCommandPayload::AudioStopPayload,
     wire::CoreCommandKind::AudioPause | wire::CoreCommandKind::AudioResume => {
       wire::CoreCommandPayload::AudioPlaybackPayload
@@ -3351,6 +3361,40 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     return Err(ProtocolError::new("response command kind/payload mismatch"));
   }
   match value.kind() {
+    wire::CoreCommandKind::AudioPlay => {
+      crate::audio::validate_bus(
+        value
+          .payload_as_audio_play_payload()
+          .expect("kind/payload checked")
+          .bus(),
+      )?;
+    }
+    wire::CoreCommandKind::AudioSetMix => {
+      let body = value
+        .payload_as_audio_mix_payload()
+        .expect("kind/payload checked");
+      crate::audio::validate_mix(battlement::AudioMix {
+        master: body.master(),
+        music: body.music(),
+        effects: body.effects(),
+        muted: body.muted(),
+      })?;
+    }
+    wire::CoreCommandKind::MotionScope => {
+      let body = value
+        .payload_as_motion_scope_operation()
+        .expect("kind/payload checked");
+      if let Some(entries) = body.entries() {
+        for entry in entries {
+          crate::audio::validate_bus(entry.effect_bus())?;
+          if entry.kind() != crate::motion_generated::MotionSequenceEntryKind::Sound
+            && entry.effect_bus() != common::AudioBus::Effects
+          {
+            return Err(ProtocolError::new("only sound entries carry audio routing"));
+          }
+        }
+      }
+    }
     wire::CoreCommandKind::BoxHitRegionSetGeometry => {
       let body = value
         .payload_as_box_hit_region_payload()

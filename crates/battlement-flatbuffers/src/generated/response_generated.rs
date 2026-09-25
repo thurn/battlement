@@ -156,13 +156,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 100;
+      pub const ENUM_MAX_CORE_COMMAND_KIND: u8 = 101;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 101] = [
+      pub const ENUM_VALUES_CORE_COMMAND_KIND: [CoreCommandKind; 102] = [
         CoreCommandKind::ApplicationOpenUrl,
         CoreCommandKind::Diagnostics,
         CoreCommandKind::AssetsReplaceSet,
@@ -264,6 +264,7 @@ pub mod battlement {
         CoreCommandKind::BoxHitRegionSetGeometry,
         CoreCommandKind::InputSetWorldPointer,
         CoreCommandKind::MotionSetWorldDescriptor,
+        CoreCommandKind::AudioSetMix,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -372,9 +373,10 @@ pub mod battlement {
         pub const BoxHitRegionSetGeometry: Self = Self(98);
         pub const InputSetWorldPointer: Self = Self(99);
         pub const MotionSetWorldDescriptor: Self = Self(100);
+        pub const AudioSetMix: Self = Self(101);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 100;
+        pub const ENUM_MAX: u8 = 101;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::ApplicationOpenUrl,
           Self::Diagnostics,
@@ -477,6 +479,7 @@ pub mod battlement {
           Self::BoxHitRegionSetGeometry,
           Self::InputSetWorldPointer,
           Self::MotionSetWorldDescriptor,
+          Self::AudioSetMix,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -582,6 +585,7 @@ pub mod battlement {
             Self::BoxHitRegionSetGeometry => Some("BoxHitRegionSetGeometry"),
             Self::InputSetWorldPointer => Some("InputSetWorldPointer"),
             Self::MotionSetWorldDescriptor => Some("MotionSetWorldDescriptor"),
+            Self::AudioSetMix => Some("AudioSetMix"),
             _ => None,
           }
         }
@@ -646,13 +650,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 88;
+      pub const ENUM_MAX_CORE_COMMAND_PAYLOAD: u8 = 89;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 89] = [
+      pub const ENUM_VALUES_CORE_COMMAND_PAYLOAD: [CoreCommandPayload; 90] = [
         CoreCommandPayload::NONE,
         CoreCommandPayload::ExternalUrlPayload,
         CoreCommandPayload::DiagnosticsPayload,
@@ -742,6 +746,7 @@ pub mod battlement {
         CoreCommandPayload::BoxHitRegionPayload,
         CoreCommandPayload::WorldPointerPayload,
         CoreCommandPayload::WorldMotionPayload,
+        CoreCommandPayload::AudioMixPayload,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -838,9 +843,10 @@ pub mod battlement {
         pub const BoxHitRegionPayload: Self = Self(86);
         pub const WorldPointerPayload: Self = Self(87);
         pub const WorldMotionPayload: Self = Self(88);
+        pub const AudioMixPayload: Self = Self(89);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 88;
+        pub const ENUM_MAX: u8 = 89;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ExternalUrlPayload,
@@ -931,6 +937,7 @@ pub mod battlement {
           Self::BoxHitRegionPayload,
           Self::WorldPointerPayload,
           Self::WorldMotionPayload,
+          Self::AudioMixPayload,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -1024,6 +1031,7 @@ pub mod battlement {
             Self::BoxHitRegionPayload => Some("BoxHitRegionPayload"),
             Self::WorldPointerPayload => Some("WorldPointerPayload"),
             Self::WorldMotionPayload => Some("WorldMotionPayload"),
+            Self::AudioMixPayload => Some("AudioMixPayload"),
             _ => None,
           }
         }
@@ -2649,6 +2657,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn payload_as_audio_mix_payload(&self) -> Option<AudioMixPayload<'a>> {
+          if self.payload_type() == CoreCommandPayload::AudioMixPayload {
+            let u = self.payload();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { AudioMixPayload::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CoreCommand<'_> {
@@ -2751,6 +2773,7 @@ pub mod battlement {
           CoreCommandPayload::BoxHitRegionPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BoxHitRegionPayload>>("CoreCommandPayload::BoxHitRegionPayload", pos),
           CoreCommandPayload::WorldPointerPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WorldPointerPayload>>("CoreCommandPayload::WorldPointerPayload", pos),
           CoreCommandPayload::WorldMotionPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WorldMotionPayload>>("CoreCommandPayload::WorldMotionPayload", pos),
+          CoreCommandPayload::AudioMixPayload => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<AudioMixPayload>>("CoreCommandPayload::AudioMixPayload", pos),
           _ => Ok(()),
         }
      })?
@@ -3721,6 +3744,16 @@ pub mod battlement {
             }
             CoreCommandPayload::WorldMotionPayload => {
               if let Some(x) = self.payload_as_world_motion_payload() {
+                ds.field("payload", &x)
+              } else {
+                ds.field(
+                  "payload",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            CoreCommandPayload::AudioMixPayload => {
+              if let Some(x) = self.payload_as_audio_mix_payload() {
                 ds.field("payload", &x)
               } else {
                 ds.field(

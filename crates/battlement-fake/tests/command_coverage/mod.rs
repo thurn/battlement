@@ -690,10 +690,16 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
       lifetime_ms: 1,
     }),
   );
+  push_body(
+    &mut commands,
+    &mut next,
+    CommandBody::AudioSetMix(battlement::AudioMix::default()),
+  );
   let audio_command_id = push_body(
     &mut commands,
     &mut next,
     CommandBody::AudioPlay(battlement::AudioPlayPayload {
+      bus: battlement::AudioBus::Effects,
       address: "test/audio".into(),
       volume: 0.5,
       pitch: 1.0,

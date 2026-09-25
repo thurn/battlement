@@ -227,7 +227,8 @@ namespace Battlement
         double Volume,
         double Pitch,
         bool Looping,
-        ulong FadeInMilliseconds
+        ulong FadeInMilliseconds,
+        AudioBus Bus = AudioBus.Effects
     );
 
     /// <summary>Immutable particle parameters captured by a sequence.</summary>

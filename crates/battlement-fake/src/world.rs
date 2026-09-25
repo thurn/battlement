@@ -26,6 +26,8 @@ pub struct WorldTransform {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FakeAudio {
   pub(crate) address: battlement::AudioClipAddress,
+  bus: battlement::AudioBus,
+  mix_gain: f64,
   pub(crate) volume: f64,
   pub(crate) pitch: f64,
   pub(crate) looping: bool,
@@ -34,12 +36,15 @@ pub struct FakeAudio {
 impl FakeAudio {
   pub(crate) fn new(
     address: battlement::AudioClipAddress,
+    bus: battlement::AudioBus,
     volume: f64,
     pitch: f64,
     looping: bool,
   ) -> Self {
     Self {
       address,
+      bus,
+      mix_gain: 1.0,
       volume,
       pitch,
       looping,
@@ -56,6 +61,18 @@ impl FakeAudio {
   #[must_use]
   pub fn volume(&self) -> f64 {
     self.volume
+  }
+
+  /// Returns the shared routing category.
+  #[must_use]
+  pub fn bus(&self) -> battlement::AudioBus {
+    self.bus
+  }
+
+  /// Returns the logical volume after shared mixer gains.
+  #[must_use]
+  pub fn output_volume(&self) -> f64 {
+    self.volume * self.mix_gain
   }
 
   /// Returns the requested playback pitch.
@@ -269,6 +286,7 @@ pub struct FakeWorld {
   debug_log_viewer_visible: bool,
   debug_fps_viewer_visible: bool,
   audio: HashMap<battlement::CommandId, FakeAudio>,
+  audio_mix: battlement::AudioMix,
 }
 
 impl FakeWorld {
@@ -486,6 +504,7 @@ impl FakeWorld {
       debug_log_viewer_visible: false,
       debug_fps_viewer_visible: false,
       audio: HashMap::new(),
+      audio_mix: battlement::AudioMix::default(),
     };
 
     for object in snapshot.objects {
@@ -970,7 +989,21 @@ impl FakeWorld {
     }
   }
 
-  pub(crate) fn audio_play(&mut self, command_id: battlement::CommandId, audio: FakeAudio) {
+  /// Returns the host mixer state.
+  #[must_use]
+  pub fn audio_mix(&self) -> battlement::AudioMix {
+    self.audio_mix
+  }
+
+  pub(crate) fn set_audio_mix(&mut self, mix: battlement::AudioMix) {
+    self.audio_mix = mix;
+    for audio in self.audio.values_mut() {
+      audio.mix_gain = mix.gain(audio.bus);
+    }
+  }
+
+  pub(crate) fn audio_play(&mut self, command_id: battlement::CommandId, mut audio: FakeAudio) {
+    audio.mix_gain = self.audio_mix.gain(audio.bus);
     assert!(
       self.audio.insert(command_id, audio).is_none(),
       "duplicate audio command"

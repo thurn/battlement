@@ -264,6 +264,7 @@ namespace Battlement.Tests
                 CommandBody.Particle.Stop value => ParticleStop(builder, value),
                 CommandBody.Particle.Spawn value => ParticleSpawn(builder, value),
                 CommandBody.Audio.Play value => AudioPlay(builder, value),
+                CommandBody.Audio.SetMix value => AudioMix(builder, value),
                 CommandBody.Audio.Stop value => AudioStop(builder, value),
                 CommandBody.Audio.Pause value => AudioPlayback(
                     builder,

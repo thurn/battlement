@@ -13,6 +13,8 @@ use crate::*;
 pub enum ValidationError {
   /// A floating-point value was NaN or infinite.
   NonFiniteNumber,
+  /// Shared audio gains were outside the inclusive range zero through one.
+  InvalidAudioMix,
   /// A prepared asset address appeared more than once.
   DuplicatePreparedAddress,
   /// A scene identifier or address appeared more than once.
@@ -45,6 +47,7 @@ impl fmt::Display for ValidationError {
   fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
     formatter.write_str(match self {
       Self::NonFiniteNumber => "all numeric values must be finite",
+      Self::InvalidAudioMix => "audio mixer gains must be between zero and one",
       Self::DuplicatePreparedAddress => "prepared asset addresses must be unique",
       Self::DuplicateScene => "scene identifiers and addresses must be unique",
       Self::InvalidPrimaryScene => "the primary scene must name a listed scene",
@@ -240,6 +243,13 @@ impl Validate for Command {
       CommandBody::TransformTweenLocalRotation(value)
       | CommandBody::TransformTweenWorldRotation(value) => {
         validate_quaternion(value.payload.rotation)?;
+      }
+      CommandBody::AudioSetMix(value)
+        if [value.master, value.music, value.effects]
+          .iter()
+          .any(|gain| !(0.0..=1.0).contains(gain)) =>
+      {
+        return Err(ValidationError::InvalidAudioMix);
       }
       CommandBody::AudioPlay(value) if value.r#loop && self.blocking => {
         return Err(ValidationError::InvalidBlocking);
@@ -790,6 +800,7 @@ fn validate_command_numbers(body: &CommandBody) -> Result<(), ValidationError> {
       ParticleSpawnLocation::GameObject(_) => Ok(()),
     },
     CommandBody::AudioPlay(value) => finite_all(&[value.volume, value.pitch]),
+    CommandBody::AudioSetMix(value) => finite_all(&[value.master, value.music, value.effects]),
     CommandBody::AudioSetVolume(value) => finite(value.payload.volume.is_finite()),
     CommandBody::AudioTweenVolume(value) => finite(value.payload.volume.is_finite()),
     CommandBody::InputSetController(value) => {

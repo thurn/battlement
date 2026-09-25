@@ -1,7 +1,7 @@
 use battlement_cloud::diagnostics::DiagnosticsCommand;
 
 use crate::{
-  AccessibilityUpdate, GameObject, GeometryObservationUpdate, MotionControlOperation,
+  AccessibilityUpdate, AudioMix, GameObject, GeometryObservationUpdate, MotionControlOperation,
   MotionControlledClockOperation, MotionDragControlOperation, MotionPlaybackOperation,
   MotionScopeOperation, MotionValueOperation, MotionValuePlaybackOperation, ObjectId,
   VisualElementCreate, VisualElementDestroy, VisualElementPerformAction, VisualElementUpdate,
@@ -157,6 +157,8 @@ pub enum CommandBody {
   ParticleSpawn(ParticleSpawnPayload),
   /// Play a prepared audio clip.
   AudioPlay(AudioPlayPayload),
+  /// Update shared audio gains without changing playback or fade timing.
+  AudioSetMix(AudioMix),
   /// Stop audio started by a previous audio-play command.
   AudioStop(AudioStopPayload),
   /// Pause one playing audio operation.

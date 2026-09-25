@@ -10381,10 +10381,11 @@ pub mod battlement {
 
       impl<'a> AudioPlayPayload<'a> {
         pub const VT_ADDRESS: ::flatbuffers::VOffsetT = 4;
-        pub const VT_VOLUME: ::flatbuffers::VOffsetT = 6;
-        pub const VT_PITCH: ::flatbuffers::VOffsetT = 8;
-        pub const VT_LOOP_: ::flatbuffers::VOffsetT = 10;
-        pub const VT_FADE_IN_MS: ::flatbuffers::VOffsetT = 12;
+        pub const VT_BUS: ::flatbuffers::VOffsetT = 6;
+        pub const VT_VOLUME: ::flatbuffers::VOffsetT = 8;
+        pub const VT_PITCH: ::flatbuffers::VOffsetT = 10;
+        pub const VT_LOOP_: ::flatbuffers::VOffsetT = 12;
+        pub const VT_FADE_IN_MS: ::flatbuffers::VOffsetT = 14;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -10408,6 +10409,7 @@ pub mod battlement {
             builder.add_address(x);
           }
           builder.add_loop_(args.loop_);
+          builder.add_bus(args.bus);
           builder.finish()
         }
 
@@ -10420,6 +10422,18 @@ pub mod battlement {
             self
               ._tab
               .get::<::flatbuffers::ForwardsUOffset<&str>>(AudioPlayPayload::VT_ADDRESS, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn bus(&self) -> AudioBus {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<AudioBus>(AudioPlayPayload::VT_BUS, Some(AudioBus::Effects))
               .unwrap()
           }
         }
@@ -10481,6 +10495,7 @@ pub mod battlement {
         ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
           v.visit_table(pos)?
             .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("address", Self::VT_ADDRESS, true)?
+            .visit_field::<AudioBus>("bus", Self::VT_BUS, false)?
             .visit_field::<f64>("volume", Self::VT_VOLUME, false)?
             .visit_field::<f64>("pitch", Self::VT_PITCH, false)?
             .visit_field::<bool>("loop_", Self::VT_LOOP_, false)?
@@ -10491,6 +10506,7 @@ pub mod battlement {
       }
       pub struct AudioPlayPayloadArgs<'a> {
         pub address: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub bus: AudioBus,
         pub volume: f64,
         pub pitch: f64,
         pub loop_: bool,
@@ -10501,6 +10517,7 @@ pub mod battlement {
         fn default() -> Self {
           AudioPlayPayloadArgs {
             address: None, // required field
+            bus: AudioBus::Effects,
             volume: 1.0,
             pitch: 1.0,
             loop_: false,
@@ -10519,6 +10536,12 @@ pub mod battlement {
           self
             .fbb_
             .push_slot_always::<::flatbuffers::WIPOffset<_>>(AudioPlayPayload::VT_ADDRESS, address);
+        }
+        #[inline]
+        pub fn add_bus(&mut self, bus: AudioBus) {
+          self
+            .fbb_
+            .push_slot::<AudioBus>(AudioPlayPayload::VT_BUS, bus, AudioBus::Effects);
         }
         #[inline]
         pub fn add_volume(&mut self, volume: f64) {
@@ -10568,10 +10591,195 @@ pub mod battlement {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
           let mut ds = f.debug_struct("AudioPlayPayload");
           ds.field("address", &self.address());
+          ds.field("bus", &self.bus());
           ds.field("volume", &self.volume());
           ds.field("pitch", &self.pitch());
           ds.field("loop_", &self.loop_());
           ds.field("fade_in_ms", &self.fade_in_ms());
+          ds.finish()
+        }
+      }
+      pub enum AudioMixPayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct AudioMixPayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for AudioMixPayload<'a> {
+        type Inner = AudioMixPayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> AudioMixPayload<'a> {
+        pub const VT_MASTER: ::flatbuffers::VOffsetT = 4;
+        pub const VT_MUSIC: ::flatbuffers::VOffsetT = 6;
+        pub const VT_EFFECTS: ::flatbuffers::VOffsetT = 8;
+        pub const VT_MUTED: ::flatbuffers::VOffsetT = 10;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          AudioMixPayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args AudioMixPayloadArgs,
+        ) -> ::flatbuffers::WIPOffset<AudioMixPayload<'bldr>> {
+          let mut builder = AudioMixPayloadBuilder::new(_fbb);
+          builder.add_effects(args.effects);
+          builder.add_music(args.music);
+          builder.add_master(args.master);
+          builder.add_muted(args.muted);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn master(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(AudioMixPayload::VT_MASTER, Some(1.0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn music(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(AudioMixPayload::VT_MUSIC, Some(1.0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn effects(&self) -> f64 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<f64>(AudioMixPayload::VT_EFFECTS, Some(1.0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn muted(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(AudioMixPayload::VT_MUTED, Some(false))
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for AudioMixPayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<f64>("master", Self::VT_MASTER, false)?
+            .visit_field::<f64>("music", Self::VT_MUSIC, false)?
+            .visit_field::<f64>("effects", Self::VT_EFFECTS, false)?
+            .visit_field::<bool>("muted", Self::VT_MUTED, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct AudioMixPayloadArgs {
+        pub master: f64,
+        pub music: f64,
+        pub effects: f64,
+        pub muted: bool,
+      }
+      impl<'a> Default for AudioMixPayloadArgs {
+        #[inline]
+        fn default() -> Self {
+          AudioMixPayloadArgs {
+            master: 1.0,
+            music: 1.0,
+            effects: 1.0,
+            muted: false,
+          }
+        }
+      }
+
+      pub struct AudioMixPayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> AudioMixPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_master(&mut self, master: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(AudioMixPayload::VT_MASTER, master, 1.0);
+        }
+        #[inline]
+        pub fn add_music(&mut self, music: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(AudioMixPayload::VT_MUSIC, music, 1.0);
+        }
+        #[inline]
+        pub fn add_effects(&mut self, effects: f64) {
+          self
+            .fbb_
+            .push_slot::<f64>(AudioMixPayload::VT_EFFECTS, effects, 1.0);
+        }
+        #[inline]
+        pub fn add_muted(&mut self, muted: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(AudioMixPayload::VT_MUTED, muted, false);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> AudioMixPayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          AudioMixPayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<AudioMixPayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for AudioMixPayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("AudioMixPayload");
+          ds.field("master", &self.master());
+          ds.field("music", &self.music());
+          ds.field("effects", &self.effects());
+          ds.field("muted", &self.muted());
           ds.finish()
         }
       }

@@ -58,7 +58,8 @@ namespace Battlement
                             value.EffectVolume,
                             value.EffectPitch,
                             value.EffectLoop,
-                            value.EffectFadeInMillis
+                            value.EffectFadeInMillis,
+                            (AudioBus)value.EffectBus
                         ),
                         schedule
                     ),

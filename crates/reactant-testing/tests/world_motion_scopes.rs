@@ -23,11 +23,15 @@ const WORLD: ObjectId = object_id!("321a0000-0000-4000-8000-000000000031");
 const OUTSIDE: ObjectId = object_id!("321a0000-0000-4000-8000-000000000032");
 
 #[derive(Clone, Default)]
-struct Probe(Rc<RefCell<Option<(AnimationScope, AnimationScope)>>>);
+struct Probe(
+  Rc<RefCell<Option<(AnimationScope, AnimationScope)>>>,
+  Rc<RefCell<Option<reactant::app_context::AppHandle>>>,
+);
 struct ScopedScene(Probe);
 
 impl Component for ScopedScene {
   fn render(&self) -> impl Render {
+    self.0.1.replace(Some(reactant::app_context::use_app()));
     let ui_scope = animation_controls::use_animation_scope();
     let world_scope = animation_controls::use_animation_scope();
     self
@@ -329,4 +333,44 @@ fn explicit_sequence_replacement_preserves_unrelated_property_motion() {
   };
   assert_eq!(translate.x, battlement::Length::Px(10.0));
   assert!(completed.get());
+}
+
+#[test]
+fn scheduled_sounds_use_their_bus_and_the_mix_when_they_start() {
+  let (mut display, _, probe) = fixture();
+  let (_, scope) = probe.0.borrow().as_ref().unwrap().clone();
+  scope.start(
+    AnimationSequence::new()
+      .play_sound_with(
+        "motion/chime",
+        animation_controls::SequenceSoundOptions {
+          bus: AudioBus::Music,
+          ..Default::default()
+        },
+      )
+      .at(SequencePosition::Absolute(Duration::from_millis(100)))
+      .play_sound("motion/chime")
+      .at(SequencePosition::Absolute(Duration::from_millis(100))),
+  );
+  display.poll();
+  assert!(display.audio_occurrences().is_empty());
+  probe
+    .1
+    .borrow()
+    .as_ref()
+    .unwrap()
+    .send(reactant::audio::set_mix(AudioMix {
+      master: 0.5,
+      music: 0.25,
+      effects: 0.8,
+      muted: false,
+    }));
+  display.poll();
+  Clock::advance(&mut display, Duration::from_millis(100));
+  let sounds = display.audio_occurrences();
+  assert_eq!(sounds.len(), 2);
+  assert_eq!(sounds[0].bus, AudioBus::Music);
+  assert_eq!(sounds[0].mix_gain, 0.125);
+  assert_eq!(sounds[1].bus, AudioBus::Effects);
+  assert_eq!(sounds[1].mix_gain, 0.4);
 }

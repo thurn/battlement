@@ -381,6 +381,8 @@ namespace Battlement
             }
             if (command.DirectParticleStop is BattlementDirectParticleStop particleStop)
                 return LaunchDirect(() => particleEffects.Stop(particleStop));
+            if (command.DirectAudioMix is AudioMix audioMix)
+                return LaunchDirect(() => audioSources.SetMix(audioMix));
             if (command.DirectAudioStop is BattlementDirectAudioStop audioStop)
                 return LaunchDirect(() => audioSources.Stop(audioStop, now));
             if (command.DirectAudioVolume is BattlementDirectAudioVolume audioVolume)

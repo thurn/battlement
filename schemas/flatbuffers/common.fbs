@@ -1,5 +1,7 @@
 namespace Battlement.FlatBuffers.Generated;
 
+enum AudioBus:ubyte { Music, Effects }
+
 struct Uuid {
   bytes:[ubyte:16];
 }

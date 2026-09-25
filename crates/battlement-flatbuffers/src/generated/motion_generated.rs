@@ -14694,12 +14694,13 @@ pub mod battlement {
         pub const VT_CONFLICT: ::flatbuffers::VOffsetT = 16;
         pub const VT_LABEL: ::flatbuffers::VOffsetT = 18;
         pub const VT_EFFECT_ADDRESS: ::flatbuffers::VOffsetT = 20;
-        pub const VT_EFFECT_VOLUME: ::flatbuffers::VOffsetT = 22;
-        pub const VT_EFFECT_PITCH: ::flatbuffers::VOffsetT = 24;
-        pub const VT_EFFECT_LOOP: ::flatbuffers::VOffsetT = 26;
-        pub const VT_EFFECT_FADE_IN_MILLIS: ::flatbuffers::VOffsetT = 28;
-        pub const VT_EFFECT_POSITION: ::flatbuffers::VOffsetT = 30;
-        pub const VT_EFFECT_LIFETIME_MILLIS: ::flatbuffers::VOffsetT = 32;
+        pub const VT_EFFECT_BUS: ::flatbuffers::VOffsetT = 22;
+        pub const VT_EFFECT_VOLUME: ::flatbuffers::VOffsetT = 24;
+        pub const VT_EFFECT_PITCH: ::flatbuffers::VOffsetT = 26;
+        pub const VT_EFFECT_LOOP: ::flatbuffers::VOffsetT = 28;
+        pub const VT_EFFECT_FADE_IN_MILLIS: ::flatbuffers::VOffsetT = 30;
+        pub const VT_EFFECT_POSITION: ::flatbuffers::VOffsetT = 32;
+        pub const VT_EFFECT_LIFETIME_MILLIS: ::flatbuffers::VOffsetT = 34;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14745,6 +14746,7 @@ pub mod battlement {
             builder.add_selector(x);
           }
           builder.add_effect_loop(args.effect_loop);
+          builder.add_effect_bus(args.effect_bus);
           builder.add_conflict(args.conflict);
           builder.add_kind(args.kind);
           builder.finish()
@@ -14875,6 +14877,18 @@ pub mod battlement {
           }
         }
         #[inline]
+        pub fn effect_bus(&self) -> AudioBus {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<AudioBus>(MotionSequenceEntry::VT_EFFECT_BUS, Some(AudioBus::Effects))
+              .unwrap()
+          }
+        }
+        #[inline]
         pub fn effect_volume(&self) -> f64 {
           // Safety:
           // Created from valid Table for this object
@@ -14990,6 +15004,7 @@ pub mod battlement {
               Self::VT_EFFECT_ADDRESS,
               false,
             )?
+            .visit_field::<AudioBus>("effect_bus", Self::VT_EFFECT_BUS, false)?
             .visit_field::<f64>("effect_volume", Self::VT_EFFECT_VOLUME, false)?
             .visit_field::<f64>("effect_pitch", Self::VT_EFFECT_PITCH, false)?
             .visit_field::<bool>("effect_loop", Self::VT_EFFECT_LOOP, false)?
@@ -15022,6 +15037,7 @@ pub mod battlement {
         pub conflict: MotionSequenceConflict,
         pub label: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub effect_address: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub effect_bus: AudioBus,
         pub effect_volume: f64,
         pub effect_pitch: f64,
         pub effect_loop: bool,
@@ -15042,6 +15058,7 @@ pub mod battlement {
             conflict: MotionSequenceConflict::Reject,
             label: None,
             effect_address: None,
+            effect_bus: AudioBus::Effects,
             effect_volume: 1.0,
             effect_pitch: 1.0,
             effect_loop: false,
@@ -15141,6 +15158,14 @@ pub mod battlement {
           );
         }
         #[inline]
+        pub fn add_effect_bus(&mut self, effect_bus: AudioBus) {
+          self.fbb_.push_slot::<AudioBus>(
+            MotionSequenceEntry::VT_EFFECT_BUS,
+            effect_bus,
+            AudioBus::Effects,
+          );
+        }
+        #[inline]
         pub fn add_effect_volume(&mut self, effect_volume: f64) {
           self
             .fbb_
@@ -15218,6 +15243,7 @@ pub mod battlement {
           ds.field("conflict", &self.conflict());
           ds.field("label", &self.label());
           ds.field("effect_address", &self.effect_address());
+          ds.field("effect_bus", &self.effect_bus());
           ds.field("effect_volume", &self.effect_volume());
           ds.field("effect_pitch", &self.effect_pitch());
           ds.field("effect_loop", &self.effect_loop());

@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace Battlement
 {
@@ -13,12 +12,13 @@ namespace Battlement
         private readonly BattlementPreparedAssets preparedAssets;
         private readonly DittoMotionClock motionClock;
         private readonly Transform poolRoot;
-        private readonly Dictionary<Guid, AudioInstance> live = new();
+        private readonly Dictionary<Guid, BattlementAudioInstance> live = new();
         private readonly Dictionary<Guid, TimeSpan> releasedPlayheads = new();
         private readonly HashSet<Guid> suppressed = new();
-        private readonly Stack<AudioInstance> inactive = new();
+        private readonly Stack<BattlementAudioInstance> inactive = new();
         private Camera? inputCamera;
         private bool isDisposed;
+        private AudioMix mix = AudioMix.FullVolume;
 
         public BattlementAudioSources(
             BattlementWorld world,
@@ -44,6 +44,7 @@ namespace Battlement
             TimeSpan now
         )
         {
+            RequireBus(command.Bus);
             float volume = RequireVolume(command.Volume);
             float pitch = RequirePitch(command.Pitch);
             TimeSpan fadeIn = RequireDuration(
@@ -67,6 +68,7 @@ namespace Battlement
             IBattlementAssetLease lease
         )
         {
+            RequireBus(command.Bus);
             float volume = RequireVolume(command.Volume);
             float pitch = RequirePitch(command.Pitch);
             TimeSpan fadeIn = RequireDuration(
@@ -92,7 +94,7 @@ namespace Battlement
             TimeSpan fadeIn
         )
         {
-            AudioInstance? instance = null;
+            BattlementAudioInstance? instance = null;
             try
             {
                 if (lease.Value is not AudioClip clip)
@@ -100,7 +102,8 @@ namespace Battlement
                         CoreErrorCode.AssetTypeMismatch,
                         $"Prepared audio clip '{command.Address}' is not an AudioClip."
                     );
-                instance = inactive.Count == 0 ? AudioInstance.Create(poolRoot) : inactive.Pop();
+                instance =
+                    inactive.Count == 0 ? BattlementAudioInstance.Create(poolRoot) : inactive.Pop();
                 instance.Acquire(
                     commandId.Value,
                     lease,
@@ -110,7 +113,9 @@ namespace Battlement
                     pitch,
                     command.Loop,
                     fadeIn,
-                    now
+                    now,
+                    command.Bus,
+                    mix
                 );
                 lease = null!;
                 live.Add(commandId.Value, instance);
@@ -145,7 +150,7 @@ namespace Battlement
             {
                 return null;
             }
-            AudioInstance instance = Require(audioCommandId);
+            BattlementAudioInstance instance = Require(audioCommandId);
             instance.CancelFadeIn();
             if (fadeOut == TimeSpan.Zero)
             {
@@ -190,7 +195,7 @@ namespace Battlement
             TimeSpan now
         )
         {
-            AudioInstance instance = Require(audioCommandId);
+            BattlementAudioInstance instance = Require(audioCommandId);
             var asset = new PreparedAsset.AudioClip(new AudioClipAddress(address));
             IBattlementAssetLease lease = preparedAssets.Acquire(asset);
             try
@@ -210,6 +215,23 @@ namespace Battlement
             {
                 lease?.Dispose();
             }
+        }
+
+        public IBattlementCommandOperation? SetMix(AudioMix value)
+        {
+            RequireVolume(value.Master);
+            RequireVolume(value.Music);
+            RequireVolume(value.Effects);
+            mix = value;
+            foreach (BattlementAudioInstance instance in live.Values)
+                instance.SetMix(value);
+            return null;
+        }
+
+        private static void RequireBus(AudioBus bus)
+        {
+            if (bus != AudioBus.Music && bus != AudioBus.Effects)
+                throw Invalid("Audio bus is unknown.");
         }
 
         public IBattlementCommandOperation? SetVolume(BattlementDirectAudioVolume command) =>
@@ -238,7 +260,7 @@ namespace Battlement
                 tweens.ValidateOnly(command.Tween);
                 return null;
             }
-            AudioInstance instance = Require(command.AudioCommandId);
+            BattlementAudioInstance instance = Require(command.AudioCommandId);
             instance.CancelFadeIn();
             IBattlementCommandOperation? operation = tweens.Float(
                 instance.Transform,
@@ -253,7 +275,7 @@ namespace Battlement
 
         public (TimeSpan Elapsed, bool Discontinuity) MotionTime(ObjectId playbackId)
         {
-            if (live.TryGetValue(playbackId.Value, out AudioInstance instance))
+            if (live.TryGetValue(playbackId.Value, out BattlementAudioInstance instance))
             {
                 return instance.MotionTime();
             }
@@ -264,7 +286,8 @@ namespace Battlement
         }
 
         public bool HasMotionPlayback(ObjectId playbackId) =>
-            live.TryGetValue(playbackId.Value, out AudioInstance instance) && instance.IsActive;
+            live.TryGetValue(playbackId.Value, out BattlementAudioInstance instance)
+            && instance.IsActive;
 
         public float ReadMotionVolume(ObjectId playbackId) =>
             Require(new CommandId(playbackId.Value)).Volume;
@@ -293,7 +316,9 @@ namespace Battlement
 
             Application.lowMemory -= HandleLowMemory;
             world.InputCameraChanged -= Reassociate;
-            foreach (AudioInstance instance in new List<AudioInstance>(live.Values))
+            foreach (
+                BattlementAudioInstance instance in new List<BattlementAudioInstance>(live.Values)
+            )
             {
                 instance.Destroy();
             }
@@ -304,7 +329,7 @@ namespace Battlement
             ClearInactive();
             if (poolRoot != null)
             {
-                DestroyUnityObject(poolRoot.gameObject);
+                BattlementAudioInstance.DestroyUnityObject(poolRoot.gameObject);
             }
 
             isDisposed = true;
@@ -313,13 +338,13 @@ namespace Battlement
         private void Reassociate(Camera? camera)
         {
             inputCamera = camera;
-            foreach (AudioInstance instance in live.Values)
+            foreach (BattlementAudioInstance instance in live.Values)
             {
                 instance.Reassociate(camera);
             }
         }
 
-        private void Release(AudioInstance instance)
+        private void Release(BattlementAudioInstance instance)
         {
             if (!instance.IsActive)
             {
@@ -333,9 +358,12 @@ namespace Battlement
             inactive.Push(instance);
         }
 
-        private AudioInstance Require(CommandId id)
+        private BattlementAudioInstance Require(CommandId id)
         {
-            if (live.TryGetValue(id.Value, out AudioInstance instance) && instance.IsActive)
+            if (
+                live.TryGetValue(id.Value, out BattlementAudioInstance instance)
+                && instance.IsActive
+            )
             {
                 return instance;
             }
@@ -390,248 +418,19 @@ namespace Battlement
         private static BattlementCommandException Invalid(string message) =>
             new(CoreErrorCode.InvalidProperty, message);
 
-        private sealed class AudioInstance
-        {
-            private readonly AudioSource source;
-            private IBattlementAssetLease? lease;
-            private TimeSpan started;
-            private TimeSpan fadeIn;
-            private TimeSpan completion;
-            private float requestedVolume;
-            private int previousTimeSamples;
-            private bool discontinuity;
-            private bool paused;
-            private bool buffering;
-
-            private AudioInstance(AudioSource source) => this.source = source;
-
-            public Guid CommandId { get; private set; }
-
-            public bool IsActive => CommandId != Guid.Empty;
-
-            public bool IsLooping => source.loop;
-
-            public bool IsPaused => paused;
-
-            public Transform Transform => source.transform;
-
-            public float Volume => source.volume;
-
-            public static AudioInstance Create(Transform poolRoot)
-            {
-                var gameObject = new GameObject("Battlement Audio Source");
-                gameObject.transform.SetParent(poolRoot, false);
-                AudioSource source = gameObject.AddComponent<AudioSource>();
-                source.playOnAwake = false;
-                source.spatialBlend = 0f;
-                source.dopplerLevel = 0f;
-                gameObject.SetActive(false);
-                return new AudioInstance(source);
-            }
-
-            public void Acquire(
-                Guid commandId,
-                IBattlementAssetLease assetLease,
-                AudioClip clip,
-                Camera? camera,
-                float volume,
-                float pitch,
-                bool loop,
-                TimeSpan fadeDuration,
-                TimeSpan now
-            )
-            {
-                CommandId = commandId;
-                lease = assetLease;
-                requestedVolume = volume;
-                fadeIn = fadeDuration;
-                started = now;
-                completion = now + TimeSpan.FromSeconds(clip.length / pitch);
-                source.clip = clip;
-                source.pitch = pitch;
-                source.loop = loop;
-                source.volume = fadeDuration == TimeSpan.Zero ? volume : 0f;
-                Reassociate(camera);
-                source.gameObject.SetActive(true);
-                source.Play();
-                previousTimeSamples = 0;
-                discontinuity = true;
-                paused = false;
-                buffering = false;
-            }
-
-            public (TimeSpan Elapsed, bool Discontinuity) MotionTime()
-            {
-                int sample = source.timeSamples;
-                bool jumped = discontinuity || (source.loop && sample < previousTimeSamples);
-                discontinuity = false;
-                previousTimeSamples = sample;
-                int frequency = source.clip == null ? 0 : source.clip.frequency;
-                return frequency <= 0
-                    ? (TimeSpan.Zero, jumped)
-                    : (TimeSpan.FromSeconds((double)sample / frequency), jumped);
-            }
-
-            public bool UpdatePlayback(TimeSpan now)
-            {
-                if (!IsActive)
-                {
-                    return true;
-                }
-
-                if (fadeIn > TimeSpan.Zero)
-                {
-                    double progress = (now - started).TotalMilliseconds / fadeIn.TotalMilliseconds;
-                    source.volume = Mathf.Lerp(0f, requestedVolume, Mathf.Clamp01((float)progress));
-                    if (progress >= 1)
-                    {
-                        fadeIn = TimeSpan.Zero;
-                    }
-                }
-
-                return !source.loop
-                    && !paused
-                    && !buffering
-                    && (now >= completion || (Application.isPlaying && !source.isPlaying));
-            }
-
-            public void CancelFadeIn() => fadeIn = TimeSpan.Zero;
-
-            public void Pause()
-            {
-                paused = true;
-                source.Pause();
-            }
-
-            public void Resume()
-            {
-                paused = false;
-                if (!buffering)
-                    source.UnPause();
-            }
-
-            public void ShiftTiming(TimeSpan offset)
-            {
-                started += offset;
-                completion += offset;
-            }
-
-            public void SetBuffering(bool value)
-            {
-                buffering = value;
-                if (value)
-                    source.Pause();
-                else if (!paused)
-                    source.UnPause();
-            }
-
-            public void Seek(TimeSpan position, TimeSpan now)
-            {
-                if (position < TimeSpan.Zero)
-                    throw Invalid("Audio seek position must be nonnegative.");
-                AudioClip clip = source.clip;
-                double seconds = position.TotalSeconds;
-                if (source.loop && clip.length > 0)
-                    seconds %= clip.length;
-                else
-                    seconds = Math.Min(seconds, clip.length);
-                int sample = Math.Min(
-                    Math.Max(0, clip.samples - 1),
-                    checked((int)Math.Round(seconds * clip.frequency))
-                );
-                source.timeSamples = sample;
-                previousTimeSamples = sample;
-                completion = now + TimeSpan.FromSeconds((clip.length - seconds) / source.pitch);
-                discontinuity = true;
-            }
-
-            public void Replace(IBattlementAssetLease assetLease, AudioClip clip, TimeSpan now)
-            {
-                source.Stop();
-                lease?.Dispose();
-                lease = assetLease;
-                source.clip = clip;
-                source.timeSamples = 0;
-                started = now;
-                completion = now + TimeSpan.FromSeconds(clip.length / source.pitch);
-                previousTimeSamples = 0;
-                discontinuity = true;
-                source.Play();
-                if (paused || buffering)
-                    source.Pause();
-            }
-
-            public void SetVolume(float value)
-            {
-                CancelFadeIn();
-                source.volume = value;
-                requestedVolume = value;
-            }
-
-            public void TrySetVolume(float value)
-            {
-                if (IsActive)
-                {
-                    source.volume = value;
-                    requestedVolume = value;
-                }
-            }
-
-            public void Reassociate(Camera? camera)
-            {
-                source.transform.SetParent(camera == null ? null : camera.transform, false);
-                source.transform.SetLocalPositionAndRotation(
-                    UnityEngine.Vector3.zero,
-                    UnityEngine.Quaternion.identity
-                );
-                source.transform.localScale = UnityEngine.Vector3.one;
-            }
-
-            public void Reset(Transform poolRoot)
-            {
-                source.Stop();
-                source.clip = null;
-                source.loop = false;
-                source.pitch = 1f;
-                source.volume = 1f;
-                paused = false;
-                buffering = false;
-                source.transform.SetParent(poolRoot, false);
-                source.gameObject.SetActive(false);
-                CommandId = Guid.Empty;
-                lease?.Dispose();
-                lease = null;
-            }
-
-            public void Destroy()
-            {
-                if (IsActive)
-                {
-                    source.Stop();
-                    source.clip = null;
-                    CommandId = Guid.Empty;
-                    lease?.Dispose();
-                    lease = null;
-                }
-
-                if (source != null)
-                {
-                    DestroyUnityObject(source.gameObject);
-                }
-            }
-        }
-
         private sealed class PlaybackOperation
             : IBattlementCommandOperation,
                 IBattlementPausableCommandOperation
         {
             private readonly BattlementAudioSources owner;
-            private readonly AudioInstance instance;
+            private readonly BattlementAudioInstance instance;
             private bool pausedByScope;
             private TimeSpan? pausedAt;
 
-            public PlaybackOperation(BattlementAudioSources owner, AudioInstance instance) =>
-                (this.owner, this.instance) = (owner, instance);
+            public PlaybackOperation(
+                BattlementAudioSources owner,
+                BattlementAudioInstance instance
+            ) => (this.owner, this.instance) = (owner, instance);
 
             public bool IsInfinite => instance.IsActive && instance.IsLooping;
 
@@ -672,23 +471,23 @@ namespace Battlement
         private sealed class FadeOutOperation : IBattlementCommandOperation
         {
             private readonly BattlementAudioSources owner;
-            private readonly AudioInstance instance;
+            private readonly BattlementAudioInstance instance;
             private readonly TimeSpan started;
             private readonly TimeSpan duration;
-            private readonly float initialVolume;
+            private readonly float initialEnvelope;
 
             public FadeOutOperation(
                 BattlementAudioSources owner,
-                AudioInstance instance,
+                BattlementAudioInstance instance,
                 TimeSpan started,
                 TimeSpan duration
             ) =>
-                (this.owner, this.instance, this.started, this.duration, initialVolume) = (
+                (this.owner, this.instance, this.started, this.duration, initialEnvelope) = (
                     owner,
                     instance,
                     started,
                     duration,
-                    instance.Volume
+                    instance.FadeEnvelope
                 );
 
             public bool IsInfinite => false;
@@ -703,7 +502,7 @@ namespace Battlement
                 float progress = Mathf.Clamp01(
                     (float)((now - started).TotalMilliseconds / duration.TotalMilliseconds)
                 );
-                instance.TrySetVolume(Mathf.Lerp(initialVolume, 0f, progress));
+                instance.SetFadeEnvelope(Mathf.Lerp(initialEnvelope, 0f, progress));
                 if (progress < 1f)
                 {
                     return false;
@@ -718,11 +517,11 @@ namespace Battlement
 
         private sealed class ActiveAudioOperation : IBattlementCommandOperation
         {
-            private readonly AudioInstance instance;
+            private readonly BattlementAudioInstance instance;
             private readonly IBattlementCommandOperation inner;
 
             public ActiveAudioOperation(
-                AudioInstance instance,
+                BattlementAudioInstance instance,
                 IBattlementCommandOperation inner
             ) => (this.instance, this.inner) = (instance, inner);
 
@@ -740,18 +539,6 @@ namespace Battlement
             }
 
             public void Cancel() => inner.Cancel();
-        }
-
-        private static void DestroyUnityObject(Object value)
-        {
-            if (Application.isPlaying)
-            {
-                Object.Destroy(value);
-            }
-            else
-            {
-                Object.DestroyImmediate(value);
-            }
         }
     }
 }

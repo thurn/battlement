@@ -610,7 +610,16 @@ fn direct_transform_response(session_id: [u8; 16]) -> Result<EngineResponse, Eng
       .spawn_particle_at_world_position([0x8a; 16], true, "fixture-effect", [9.0, 10.0, 11.0], 750)
       .map_err(writer_error)?,
     writer
-      .play_audio([0x8b; 16], false, "fixture-audio", 0.75, 1.25, true, 125)
+      .play_audio(
+        [0x8b; 16],
+        false,
+        "fixture-audio",
+        0.75,
+        1.25,
+        true,
+        125,
+        battlement::AudioBus::Effects,
+      )
       .map_err(writer_error)?,
     writer
       .play_particles([0x8c; 16], false, object_id, true)

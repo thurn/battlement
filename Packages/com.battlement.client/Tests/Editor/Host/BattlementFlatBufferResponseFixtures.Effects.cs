@@ -215,6 +215,7 @@ namespace Battlement.Tests
                 Wire.AudioPlayPayload.CreateAudioPlayPayload(
                     builder,
                     builder.CreateString(value.Address.Value),
+                    (Wire.AudioBus)value.Bus,
                     value.Volume,
                     value.Pitch,
                     value.Loop,
@@ -222,6 +223,22 @@ namespace Battlement.Tests
                 ).Value
             );
         }
+
+        private static Payload AudioMix(
+            FlatBufferBuilder builder,
+            CommandBody.Audio.SetMix value
+        ) =>
+            new(
+                Wire.CoreCommandKind.AudioSetMix,
+                Wire.CoreCommandPayload.AudioMixPayload,
+                Wire.AudioMixPayload.CreateAudioMixPayload(
+                    builder,
+                    value.Mix.Master,
+                    value.Mix.Music,
+                    value.Mix.Effects,
+                    value.Mix.Muted
+                ).Value
+            );
 
         private static Payload AudioStop(FlatBufferBuilder builder, CommandBody.Audio.Stop value)
         {

@@ -143,6 +143,8 @@ where
       CommandBody::AudioPlay(value) => self.audio_occurrences.push(AudioOccurrence {
         command_id: command.command_id,
         address: value.address.clone(),
+        bus: value.bus,
+        mix_gain: self.world.audio_mix().gain(value.bus),
         volume: value.volume,
         pitch: value.pitch,
         looping: value.r#loop,
@@ -595,12 +597,14 @@ where
           command_id,
           world::FakeAudio::new(
             value.address.clone(),
+            value.bus,
             value.volume,
             value.pitch,
             value.r#loop,
           ),
         );
       }
+      CommandBody::AudioSetMix(value) => self.world.set_audio_mix(*value),
       CommandBody::AudioStop(value) => self.world.audio_remove(value.audio_command_id),
       CommandBody::AudioPause(_)
       | CommandBody::AudioResume(_)

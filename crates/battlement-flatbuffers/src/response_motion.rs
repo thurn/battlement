@@ -697,6 +697,7 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
   let mut conflict = wire::MotionSequenceConflict::Reject;
   let mut label = None;
   let mut effect_address = None;
+  let mut effect_bus = common::AudioBus::Effects;
   let mut effect_volume = 1.0;
   let mut effect_pitch = 1.0;
   let mut effect_loop = false;
@@ -730,6 +731,7 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
     }
     battlement::MotionSequenceEntry::Sound { sound, schedule } => {
       effect_address = Some(builder.create_string(&sound.address));
+      effect_bus = crate::audio::bus(sound.bus);
       effect_volume = sound.volume;
       effect_pitch = sound.pitch;
       effect_loop = sound.looping;
@@ -756,6 +758,7 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
       conflict,
       label,
       effect_address,
+      effect_bus,
       effect_volume,
       effect_pitch,
       effect_loop,

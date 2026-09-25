@@ -142,6 +142,8 @@ enum SequenceEntry {
 /// Captured playback parameters for one sequence sound occurrence.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SequenceSoundOptions {
+  /// Shared routing category.
+  pub bus: battlement::AudioBus,
   /// Initial linear volume.
   pub volume: f64,
   /// Positive playback pitch.
@@ -155,6 +157,7 @@ pub struct SequenceSoundOptions {
 impl Default for SequenceSoundOptions {
   fn default() -> Self {
     Self {
+      bus: battlement::AudioBus::Effects,
       volume: 1.0,
       pitch: 1.0,
       looping: false,
@@ -726,6 +729,7 @@ impl AnimationSequence {
         } => MotionSequenceEntry::Sound {
           sound: battlement::MotionSoundOccurrence {
             address: address.as_str().to_owned(),
+            bus: options.bus,
             volume: options.volume,
             pitch: options.pitch,
             looping: options.looping,

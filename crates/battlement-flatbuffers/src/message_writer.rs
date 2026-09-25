@@ -2217,6 +2217,7 @@ impl MessageWriter {
     pitch: f64,
     loop_: bool,
     fade_in_ms: u64,
+    bus: battlement::AudioBus,
   ) -> Result<CoreCommandOffset, ProtocolError> {
     require_finite(&[volume, pitch], "audio volume and pitch")?;
     if !(0.0..=1.0).contains(&volume) {
@@ -2238,6 +2239,7 @@ impl MessageWriter {
       &mut self.builder,
       &command_wire::AudioPlayPayloadArgs {
         address: Some(address),
+        bus: crate::audio::bus(bus),
         volume,
         pitch,
         loop_,
@@ -2249,6 +2251,23 @@ impl MessageWriter {
       blocking,
       wire::CoreCommandKind::AudioPlay,
       wire::CoreCommandPayload::AudioPlayPayload,
+      payload.as_union_value(),
+    )
+  }
+
+  /// Updates shared gains without changing any playback timeline.
+  pub fn set_audio_mix(
+    &mut self,
+    command_id: [u8; 16],
+    blocking: bool,
+    mix: battlement::AudioMix,
+  ) -> Result<CoreCommandOffset, ProtocolError> {
+    let payload = crate::audio::write_mix(&mut self.builder, mix)?;
+    self.core_command(
+      command_id,
+      blocking,
+      wire::CoreCommandKind::AudioSetMix,
+      wire::CoreCommandPayload::AudioMixPayload,
       payload.as_union_value(),
     )
   }

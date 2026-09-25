@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use battlement_types::{ObjectId, Vector3};
+use battlement_types::{AudioBus, ObjectId, Vector3};
 
 use crate::{
   MotionClockSource, MotionProperty, MotionTargetDescriptor, MotionValue, SpringConfiguration,
@@ -332,6 +332,8 @@ pub struct MotionPositionReference {
 pub struct MotionSoundOccurrence {
   /// Prepared audio-clip address.
   pub address: String,
+  /// Shared routing category.
+  pub bus: AudioBus,
   /// Initial linear volume in the inclusive range zero through one.
   pub volume: f64,
   /// Positive playback pitch.

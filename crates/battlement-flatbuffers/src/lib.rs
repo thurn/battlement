@@ -3,6 +3,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
 
+mod audio;
 mod connect;
 mod core_action_geometry;
 mod core_action_motion;

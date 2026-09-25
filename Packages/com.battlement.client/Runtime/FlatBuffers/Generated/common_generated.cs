@@ -11,6 +11,12 @@ using global::System;
 using global::System.Collections.Generic;
 using global::Google.FlatBuffers;
 
+public enum AudioBus : byte
+{
+  Music = 0,
+  Effects = 1,
+};
+
 public enum ReducedMotionPreference : byte
 {
   Unavailable = 0,

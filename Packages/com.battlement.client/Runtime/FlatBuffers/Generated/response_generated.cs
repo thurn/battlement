@@ -121,6 +121,7 @@ public enum CoreCommandKind : byte
   BoxHitRegionSetGeometry = 98,
   InputSetWorldPointer = 99,
   MotionSetWorldDescriptor = 100,
+  AudioSetMix = 101,
 };
 
 public enum CoreCommandPayload : byte
@@ -214,6 +215,7 @@ public enum CoreCommandPayload : byte
   BoxHitRegionPayload = 86,
   WorldPointerPayload = 87,
   WorldMotionPayload = 88,
+  AudioMixPayload = 89,
 };
 
 
@@ -489,6 +491,9 @@ static public class CoreCommandPayloadVerify
       case CoreCommandPayload.WorldMotionPayload:
         result = Battlement.FlatBuffers.Generated.WorldMotionPayloadVerify.Verify(verifier, tablePos);
         break;
+      case CoreCommandPayload.AudioMixPayload:
+        result = Battlement.FlatBuffers.Generated.AudioMixPayloadVerify.Verify(verifier, tablePos);
+        break;
       default: result = true;
         break;
     }
@@ -653,6 +658,7 @@ public struct CoreCommand : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.BoxHitRegionPayload PayloadAsBoxHitRegionPayload() { return Payload<Battlement.FlatBuffers.Generated.BoxHitRegionPayload>().Value; }
   public Battlement.FlatBuffers.Generated.WorldPointerPayload PayloadAsWorldPointerPayload() { return Payload<Battlement.FlatBuffers.Generated.WorldPointerPayload>().Value; }
   public Battlement.FlatBuffers.Generated.WorldMotionPayload PayloadAsWorldMotionPayload() { return Payload<Battlement.FlatBuffers.Generated.WorldMotionPayload>().Value; }
+  public Battlement.FlatBuffers.Generated.AudioMixPayload PayloadAsAudioMixPayload() { return Payload<Battlement.FlatBuffers.Generated.AudioMixPayload>().Value; }
 
   public static void StartCoreCommand(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddCommandId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> commandIdOffset) { builder.AddStruct(0, commandIdOffset.Value, 0); }

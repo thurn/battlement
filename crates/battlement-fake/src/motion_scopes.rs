@@ -326,6 +326,8 @@ impl MotionWorld {
                   .push(crate::effects::AudioOccurrence {
                     command_id: occurrence_id(sequence.playback_id, index),
                     address: battlement::AudioClipAddress::from(sound.address),
+                    bus: sound.bus,
+                    mix_gain: world.audio_mix().gain(sound.bus),
                     volume: sound.volume,
                     pitch: sound.pitch,
                     looping: sound.looping,

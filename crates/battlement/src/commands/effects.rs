@@ -1,4 +1,4 @@
-use crate::{AudioClipAddress, CommandId, ObjectId, PrefabAddress, Tween, Vector3};
+use crate::{AudioBus, AudioClipAddress, CommandId, ObjectId, PrefabAddress, Tween, Vector3};
 
 /// Recursively plays particle systems rooted at an object.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -43,6 +43,8 @@ pub enum ParticleSpawnLocation {
 pub struct AudioPlayPayload {
   /// Prepared audio-clip address.
   pub address: AudioClipAddress,
+  /// Shared routing category.
+  pub bus: AudioBus,
   /// Initial volume in the inclusive range `[0, 1]`.
   pub volume: f64,
   /// Playback pitch in the range `(0, 3]`.

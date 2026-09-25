@@ -650,10 +650,20 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
       let body = value.payload_as_audio_play_payload().ok_or_else(missing)?;
       CommandBody::AudioPlay(battlement::AudioPlayPayload {
         address: body.address().into(),
+        bus: audio_bus(body.bus())?,
         volume: body.volume(),
         pitch: body.pitch(),
         r#loop: body.loop_(),
         fade_in_ms: body.fade_in_ms(),
+      })
+    }
+    Kind::AudioSetMix => {
+      let body = value.payload_as_audio_mix_payload().ok_or_else(missing)?;
+      CommandBody::AudioSetMix(battlement::AudioMix {
+        master: body.master(),
+        music: body.music(),
+        effects: body.effects(),
+        muted: body.muted(),
       })
     }
     Kind::AudioStop => {
@@ -1488,4 +1498,12 @@ fn read_geometry_update(
     .map(|value| Ok(battlement::GeometryObservationId(object_id(value)?)))
     .collect::<Result<_, String>>()?;
   Ok(battlement::GeometryObservationUpdate { added, removed })
+}
+
+pub(crate) fn audio_bus(value: common::AudioBus) -> Result<battlement::AudioBus, String> {
+  match value {
+    common::AudioBus::Music => Ok(battlement::AudioBus::Music),
+    common::AudioBus::Effects => Ok(battlement::AudioBus::Effects),
+    _ => Err("audio bus is unknown".to_owned()),
+  }
 }

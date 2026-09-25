@@ -218,6 +218,7 @@ fn command_validation_rejects_cross_field_and_blocking_failures() {
   let blocking_loop = Command::new(
     command_id,
     CommandBody::AudioPlay(AudioPlayPayload {
+      bus: battlement::AudioBus::Effects,
       address: AudioClipAddress::new("audio/loop"),
       volume: 1.0,
       pitch: 1.0,

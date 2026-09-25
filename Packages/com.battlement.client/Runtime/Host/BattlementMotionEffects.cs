@@ -96,7 +96,8 @@ namespace Battlement
                             value.Occurrence.Volume,
                             value.Occurrence.Pitch,
                             value.Occurrence.Looping,
-                            value.Occurrence.FadeInMilliseconds
+                            value.Occurrence.FadeInMilliseconds,
+                            value.Occurrence.Bus
                         ),
                         clock.Elapsed,
                         lease

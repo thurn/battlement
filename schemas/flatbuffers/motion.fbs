@@ -342,6 +342,7 @@ table MotionSequenceEntry {
   conflict:MotionSequenceConflict;
   label:string;
   effect_address:string;
+  effect_bus:AudioBus = Effects;
   effect_volume:double = 1.0;
   effect_pitch:double = 1.0;
   effect_loop:bool;

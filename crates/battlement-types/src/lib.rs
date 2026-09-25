@@ -4,11 +4,13 @@
 #![warn(missing_docs)]
 
 mod assets;
+mod audio;
 mod ids;
 mod value_builders;
 mod values;
 
 pub use assets::*;
+pub use audio::*;
 pub use ids::*;
 pub use values::*;
 

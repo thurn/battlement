@@ -9,6 +9,7 @@
     "Google.FlatBuffers",
     "Battlement.Cloud.Diagnostics",
     "Battlement.CustomFixtures",
+    "Unity.Collections",
     "Unity.InputSystem",
     "Unity.InputSystem.TestFramework",
     "Unity.TextMeshPro"

@@ -51,6 +51,7 @@ impl AudioPlayback {
       self.command_id(),
       CommandBody::AudioPlay(AudioPlayPayload {
         address,
+        bus: options.bus,
         volume: options.volume,
         pitch: options.pitch,
         r#loop: options.looping,
@@ -128,11 +129,19 @@ impl AudioPlaybackOptions {
   #[must_use]
   pub const fn new() -> Self {
     Self {
+      bus: battlement::AudioBus::Effects,
       volume: 1.0,
       pitch: 1.0,
       looping: false,
       fade_in: Duration::ZERO,
     }
+  }
+
+  /// Routes playback through the shared music or effects bus.
+  #[must_use]
+  pub const fn bus(mut self, value: battlement::AudioBus) -> Self {
+    self.bus = value;
+    self
   }
 
   /// Sets initial volume.

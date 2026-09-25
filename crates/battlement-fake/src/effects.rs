@@ -7,6 +7,10 @@ pub struct AudioOccurrence {
   pub command_id: battlement::CommandId,
   /// Prepared audio clip that was played.
   pub address: battlement::AudioClipAddress,
+  /// Shared routing category.
+  pub bus: battlement::AudioBus,
+  /// Shared mixer gain when this occurrence started.
+  pub mix_gain: f64,
   /// Requested initial volume.
   pub volume: f64,
   /// Requested playback pitch.

@@ -51,6 +51,7 @@ namespace Battlement
             DirectObjectReparent = null;
             DirectParticleSpawn = null;
             DirectAudioPlay = null;
+            DirectAudioMix = null;
             DirectParticlePlay = null;
             DirectAudioStop = null;
             DirectAudioVolume = null;
@@ -243,6 +244,9 @@ namespace Battlement
             BattlementDirectAudioPlay directAudioPlay
         )
             : this(id, isBlocking) => DirectAudioPlay = directAudioPlay;
+
+        internal BattlementCommandExecution(CommandId id, bool isBlocking, AudioMix mix)
+            : this(id, isBlocking) => DirectAudioMix = mix;
 
         internal BattlementCommandExecution(
             CommandId id,
@@ -536,6 +540,7 @@ namespace Battlement
         internal BattlementDirectObjectReparent? DirectObjectReparent { get; }
         internal BattlementDirectParticleSpawn? DirectParticleSpawn { get; }
         internal BattlementDirectAudioPlay? DirectAudioPlay { get; }
+        internal AudioMix? DirectAudioMix { get; }
         internal BattlementDirectParticlePlay? DirectParticlePlay { get; }
         internal BattlementDirectAudioStop? DirectAudioStop { get; }
         internal BattlementDirectAudioVolume? DirectAudioVolume { get; }
@@ -1701,14 +1706,16 @@ namespace Battlement
             double volume,
             double pitch,
             bool loop,
-            ulong fadeInMilliseconds
+            ulong fadeInMilliseconds,
+            AudioBus bus = AudioBus.Effects
         ) =>
-            (Address, Volume, Pitch, Loop, FadeInMilliseconds) = (
+            (Address, Volume, Pitch, Loop, FadeInMilliseconds, Bus) = (
                 address,
                 volume,
                 pitch,
                 loop,
-                fadeInMilliseconds
+                fadeInMilliseconds,
+                bus
             );
 
         internal string Address { get; }
@@ -1716,6 +1723,7 @@ namespace Battlement
         internal double Pitch { get; }
         internal bool Loop { get; }
         internal ulong FadeInMilliseconds { get; }
+        internal AudioBus Bus { get; }
     }
 
     internal readonly struct BattlementDirectParticlePlay
@@ -3322,8 +3330,19 @@ namespace Battlement
                         payload.Volume,
                         payload.Pitch,
                         payload.Loop,
-                        payload.FadeInMs
+                        payload.FadeInMs,
+                        (AudioBus)payload.Bus
                     )
+                );
+                return true;
+            }
+            if (command.Kind == Wire.CoreCommandKind.AudioSetMix)
+            {
+                Wire.AudioMixPayload payload = command.PayloadAsAudioMixPayload();
+                execution = new BattlementCommandExecution(
+                    commandId,
+                    command.Blocking,
+                    new AudioMix(payload.Master, payload.Music, payload.Effects, payload.Muted)
                 );
                 return true;
             }
@@ -4366,6 +4385,8 @@ namespace Battlement
                 case Wire.CoreCommandKind.ParticleStop:
                     break;
                 case Wire.CoreCommandKind.ParticleSpawn:
+                    break;
+                case Wire.CoreCommandKind.AudioSetMix:
                     break;
                 case Wire.CoreCommandKind.AudioPlay:
                     break;

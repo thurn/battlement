@@ -229,10 +229,18 @@ table ParticleSpawnPayload {
 
 table AudioPlayPayload {
   address:string (required);
+  bus:AudioBus = Effects;
   volume:double = 1.0;
   pitch:double = 1.0;
   loop:bool;
   fade_in_ms:ulong;
+}
+
+table AudioMixPayload {
+  master:double = 1.0;
+  music:double = 1.0;
+  effects:double = 1.0;
+  muted:bool;
 }
 
 table AudioStopPayload { audio_command_id:Uuid (required); fade_out_ms:ulong; }

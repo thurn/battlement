@@ -670,6 +670,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ParticleSpawn:
                     break;
+                case Wire.CoreCommandKind.AudioSetMix:
                 case Wire.CoreCommandKind.AudioPlay:
                     break;
                 case Wire.CoreCommandKind.AudioStop:
@@ -1074,6 +1075,7 @@ namespace Battlement
                 {
                     Wire.AudioPlayPayload payload = value.PayloadAsAudioPlayPayload();
                     _ = payload.Address;
+                    RequireAudioBus(payload.Bus);
                     RequireUnit(payload.Volume, "Audio volume");
                     RequireFinite(payload.Pitch);
                     if (payload.Pitch <= 0 || payload.Pitch > 3)
@@ -1084,6 +1086,14 @@ namespace Battlement
                         throw new InvalidDataException("Audio fade-in cannot exceed one day.");
                     if (value.Blocking && payload.Loop)
                         throw new InvalidDataException("Looping audio must be nonblocking.");
+                    return true;
+                }
+                case Wire.CoreCommandKind.AudioSetMix:
+                {
+                    Wire.AudioMixPayload payload = value.PayloadAsAudioMixPayload();
+                    RequireUnit(payload.Master, "Audio master gain");
+                    RequireUnit(payload.Music, "Audio music gain");
+                    RequireUnit(payload.Effects, "Audio effects gain");
                     return true;
                 }
                 case Wire.CoreCommandKind.AudioStop:
@@ -1398,6 +1408,14 @@ namespace Battlement
                     for (int index = 0; index < value.EntriesLength; index++)
                     {
                         Wire.MotionSequenceEntry entry = value.Entries(index)!.Value;
+                        RequireAudioBus(entry.EffectBus);
+                        if (
+                            entry.Kind != Wire.MotionSequenceEntryKind.Sound
+                            && entry.EffectBus != Wire.AudioBus.Effects
+                        )
+                            throw new InvalidDataException(
+                                "Only sound entries carry audio routing."
+                            );
                         if (!entry.Schedule.HasValue)
                             throw new InvalidDataException(
                                 "A motion sequence entry schedule is absent."
@@ -1852,6 +1870,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ParticleSpawn:
                     break;
+                case Wire.CoreCommandKind.AudioSetMix:
                 case Wire.CoreCommandKind.AudioPlay:
                     break;
                 case Wire.CoreCommandKind.AudioStop:
@@ -2227,6 +2246,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ParticleSpawn:
                     break;
+                case Wire.CoreCommandKind.AudioSetMix:
                 case Wire.CoreCommandKind.AudioPlay:
                     break;
                 case Wire.CoreCommandKind.AudioStop:
@@ -2652,6 +2672,12 @@ namespace Battlement
         {
             if (!double.IsFinite(value) || value <= 0 || !float.IsFinite((float)value))
                 throw new InvalidDataException($"{name} must be finite and positive.");
+        }
+
+        private static void RequireAudioBus(Wire.AudioBus bus)
+        {
+            if (bus != Wire.AudioBus.Music && bus != Wire.AudioBus.Effects)
+                throw new InvalidDataException("Audio bus is unknown.");
         }
 
         private static void RequireUnit(double value, string name)
@@ -3635,6 +3661,7 @@ namespace Battlement
                 Wire.CoreCommandKind.ParticleStop => Wire.CoreCommandPayload.ParticleStopPayload,
                 Wire.CoreCommandKind.ParticleSpawn => Wire.CoreCommandPayload.ParticleSpawnPayload,
                 Wire.CoreCommandKind.AudioPlay => Wire.CoreCommandPayload.AudioPlayPayload,
+                Wire.CoreCommandKind.AudioSetMix => Wire.CoreCommandPayload.AudioMixPayload,
                 Wire.CoreCommandKind.AudioStop => Wire.CoreCommandPayload.AudioStopPayload,
                 Wire.CoreCommandKind.AudioPause or Wire.CoreCommandKind.AudioResume =>
                     Wire.CoreCommandPayload.AudioPlaybackPayload,
