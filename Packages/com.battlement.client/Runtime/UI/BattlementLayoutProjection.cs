@@ -13,6 +13,7 @@ namespace Battlement.UI
         BattlementLayoutDomain Domain { get; }
         ViewportRect VisibleBounds { get; }
         bool IsComplete { get; }
+        bool IsPaused { get; }
         void CaptureDestination();
         void Sample(ulong clockMicros, bool reducedMotion = false);
         void Pause(ulong clockMicros);
@@ -117,6 +118,8 @@ namespace Battlement.UI
                 : projectionSpace(target).ToViewport(target.worldBound);
 
         public bool IsComplete => completed;
+
+        public bool IsPaused => paused;
 
         public void CaptureDestination()
         {

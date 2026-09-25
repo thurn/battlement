@@ -63,7 +63,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void ControlledMotionAdvancesOneBatchStepPerFrame()
+        public void ControlledImmediateBatchesPreserveDependenciesWithoutAdvancingTime()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             SessionId session = Connect(harness);
@@ -80,11 +80,8 @@ namespace Battlement.Tests
             SubmitResponse(harness, Response(session, first, dependent));
 
             Assert.That(HasIdentity(firstId), Is.True);
-            Assert.That(HasIdentity(dependentId), Is.False);
-
-            harness.Runner.PrepareDittoFrame();
-            harness.Runner.RunFrame();
             Assert.That(HasIdentity(dependentId), Is.True);
+            Assert.That(harness.Runner.DittoElapsed, Is.EqualTo(TimeSpan.Zero));
         }
 
         [Test]

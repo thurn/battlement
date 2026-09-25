@@ -29,7 +29,11 @@ namespace Battlement.UI
         public int LastEvaluationCount { get; private set; }
 
         internal int ActiveFiniteTimelineCount =>
-            playbacks.Values.Count(playback => playback.IsFiniteActive);
+            playbacks.Values.Count(playback => playback.IsFiniteActive)
+            + nodes.Values.Count(node =>
+                node.IsSpringActive
+                && !IsTimeDerived(node.Descriptor.ValueId.Value, new HashSet<Guid>())
+            );
 
         internal int ActiveInfiniteTimelineCount =>
             playbacks.Values.Count(playback => playback.IsInfiniteActive)
@@ -806,6 +810,11 @@ namespace Battlement.UI
 
             public bool Changed { get; set; } = true;
 
+            public bool IsSpringActive =>
+                scalar
+                    ? ScalarSpringActive()
+                    : springTarget is not null && !Equals(Value, springTarget);
+
             public bool TryScalar(out double value)
             {
                 value = scalarValue;
@@ -834,8 +843,7 @@ namespace Battlement.UI
                     MotionValueSource.Range value => ChangedInput(value.Source, graph),
                     MotionValueSource.Spring value => graph[value.Source.Value].Changed
                         || graph[value.Source.Value].Discontinuity
-                        || ScalarSpringActive()
-                        || !scalar && springTarget is not null && !Equals(Value, springTarget),
+                        || IsSpringActive,
                     MotionValueSource.Expression value => AnyChanged(value, graph),
                     _ => false,
                 };

@@ -3,6 +3,7 @@
 using System;
 using System.Collections;
 using System.Linq;
+using Battlement.UI;
 using NUnit.Framework;
 using Unity.Collections;
 using UnityEditor.SceneManagement;
@@ -69,6 +70,54 @@ namespace Battlement.Tests
             Assert.That(effect.Source.volume, Is.Zero);
             fixture.Mix(new AudioMix(1, 0, 0.5));
             Assert.That(effect.Source.volume, Is.EqualTo(0.15f).Within(0.001f));
+        }
+
+        [Test]
+        public void ControlledAudioGraphsIgnoreDeviceTimeAndHonorPlaybackControls()
+        {
+            using var fixture = new Fixture();
+            fixture.BeginControlled();
+            var audio = fixture.Play(AudioBus.Music, 1, pitch: 2);
+            fixture.BindAudioTime(audio.Command.Id, audio.Source);
+            fixture.Step(15);
+            Assert.That(audio.Source.transform.localPosition.x, Is.EqualTo(1).Within(0.00001));
+            audio.Source.timeSamples = 8000;
+            fixture.Advance(90000);
+            fixture.Step(1, advance: false);
+            Assert.That(audio.Source.transform.localPosition.x, Is.EqualTo(1).Within(0.00001));
+            fixture.Submit(new CommandBody.Audio.Pause(audio.Command.Id));
+            fixture.Step(30);
+            Assert.That(audio.Source.transform.localPosition.x, Is.EqualTo(1).Within(0.00001));
+            fixture.Submit(new CommandBody.Audio.Resume(audio.Command.Id));
+            fixture.Step(15);
+            Assert.That(audio.Source.transform.localPosition.x, Is.EqualTo(2).Within(0.00001));
+            fixture.Submit(new CommandBody.Audio.SetBuffering(audio.Command.Id, true));
+            fixture.Step(30);
+            Assert.That(audio.Source.transform.localPosition.x, Is.EqualTo(2).Within(0.00001));
+            fixture.Submit(new CommandBody.Audio.SetBuffering(audio.Command.Id, false));
+            fixture.Submit(new CommandBody.Audio.Seek(audio.Command.Id, TimeSpan.FromSeconds(9.5)));
+            fixture.Step(15);
+            Assert.That(audio.Source.transform.localPosition.x, Is.EqualTo(0.5).Within(0.00001));
+            fixture.Submit(new CommandBody.Audio.Replace(audio.Command.Id, Fixture.Replacement));
+            fixture.Step(1, advance: false);
+            Assert.That(audio.Source.transform.localPosition.x, Is.Zero);
+        }
+
+        [Test]
+        public void ControlledFiniteAudioCompletesAtLogicalDurationAfterPause()
+        {
+            using var fixture = new Fixture();
+            fixture.BeginControlled();
+            var audio = fixture.Play(AudioBus.Effects, 1, pitch: 2, loop: false);
+            fixture.Step(30);
+            fixture.Submit(new CommandBody.Audio.Pause(audio.Command.Id));
+            fixture.Step(300);
+            Assert.That(audio.Source.gameObject.activeSelf, Is.True);
+            fixture.Submit(new CommandBody.Audio.Resume(audio.Command.Id));
+            fixture.Step(119);
+            Assert.That(audio.Source.gameObject.activeSelf, Is.True);
+            fixture.Step(1);
+            Assert.That(audio.Source.gameObject.activeSelf, Is.False);
         }
 
         [UnityTest]
@@ -168,6 +217,7 @@ namespace Battlement.Tests
                 useInstantAnimations: false
             );
             private readonly SessionId session = new(Guid.NewGuid());
+            private DittoMotionController? motion;
             private readonly AudioClip clip = AudioClip.Create("mix", 10000, 1, 1000, false);
 
             internal AudioClip ReplacementClip { get; } =
@@ -218,12 +268,73 @@ namespace Battlement.Tests
                 }
             }
 
+            internal void BeginControlled()
+            {
+                motion = new DittoMotionController(harness.Runner);
+                motion.Begin(DittoMotion.Controlled);
+            }
+
+            internal void BindAudioTime(CommandId playback, AudioSource source)
+            {
+                var host = new ObjectId(Guid.NewGuid());
+                var value = new ObjectId(Guid.NewGuid());
+                MotionDescriptor descriptor = SharedMotionDriverTests.Descriptor(
+                    host,
+                    host,
+                    MotionProperty.LocalPositionX,
+                    1
+                ) with
+                {
+                    Slots = Array.Empty<MotionSlotDescriptor>(),
+                    Values = new[]
+                    {
+                        new MotionValueDescriptor(
+                            value,
+                            new MotionValue.Scalar(0),
+                            new MotionValueSource.Time(
+                                new MotionClockSource.Audio(new ObjectId(playback.Value))
+                            )
+                        ),
+                    },
+                    ValueBindings = new[]
+                    {
+                        new MotionValueBinding(MotionProperty.LocalPositionX, value),
+                    },
+                };
+                harness
+                    .Runner.UiDocumentsForTests.MotionWorldForTests.Prepare(
+                        new BattlementWorldMotionTarget(source.transform),
+                        host,
+                        descriptor
+                    )!
+                    .Commit();
+            }
+
+            internal void Step(int frames, bool advance = true)
+            {
+                for (int index = 0; index < frames; index++)
+                {
+                    motion!.PrepareFrame(forceAdvance: advance);
+                    harness.Runner.RunFrame();
+                    BattlementMotionWorld world = harness
+                        .Runner
+                        .UiDocumentsForTests
+                        .MotionWorldForTests;
+                    world.PreLayout();
+                    world.PostLayout();
+                    harness.Runner.CompleteNativeFrame();
+                    motion.ObserveCommittedFrame();
+                }
+            }
+
             internal void Mix(AudioMix mix) => Submit(new CommandBody.Audio.SetMix(mix));
 
             internal (Command Command, AudioSource Source) Play(
                 AudioBus bus,
                 double volume,
-                double fadeMilliseconds = 0
+                double fadeMilliseconds = 0,
+                double pitch = 1,
+                bool loop = true
             )
             {
                 AudioSource[] existing = ActiveSources();
@@ -231,7 +342,8 @@ namespace Battlement.Tests
                     new CommandBody.Audio.Play(
                         Address,
                         volume,
-                        Loop: true,
+                        Pitch: pitch,
+                        Loop: loop,
                         FadeIn: TimeSpan.FromMilliseconds(fadeMilliseconds),
                         Bus: bus
                     )

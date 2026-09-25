@@ -40,8 +40,10 @@ Every ordinary action, semantic wait, assertion, and screenshot observes readine
 only after Rust responses, deferred UI work, finite motion, layout, and the rendered
 frame are complete. Do not add elapsed frames to make one pass. For a controlled
 animation checkpoint, place `advance = { frames = N }` immediately after the action;
-this deliberately samples that animation time. Infinite motion is sampled at a
-frozen controlled-time phase and does not prevent otherwise-ready capture.
+this deliberately samples that animation time. Instant mode completes direct tweens
+immediately and steps remaining finite Motion work deterministically. Infinite motion
+freezes once other work is ready in both instant and controlled modes. Asset and
+scene preparation freeze logical time, including during explicit frame advances.
 
 Inspect the terminal result, screenshots, and retained logs; keep their paths
 and run identity. Before persistence QA, read `battlement.host.storage` in retained

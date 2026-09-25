@@ -75,6 +75,14 @@ accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "bu
 screenshot = { name = "returned-menu" }
 
 [[scenarios]]
+name = "instant title settlement"
+fixture = "title"
+motion = "instant"
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "button", name = "PLAY" }
+
+[[scenarios]]
 name = "computer win"
 fixture = "computer win"
 motion = "controlled"

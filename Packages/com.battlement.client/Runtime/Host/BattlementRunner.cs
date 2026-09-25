@@ -321,7 +321,9 @@ namespace Battlement
         internal TimeSpan PrepareDittoFrame(bool advance = true)
         {
             EnsureMainThread();
-            return configuredRuntime!.DittoMotionClock.PrepareFrame(advance);
+            bool preparing =
+                configuredRuntime!.PreparedAssets.IsPending || configuredRuntime.Scenes.IsPending;
+            return configuredRuntime.DittoMotionClock.PrepareFrame(advance && !preparing);
         }
 
         internal void CompleteDittoPresentedFrame()
@@ -331,13 +333,19 @@ namespace Battlement
             dittoStateVersion += checked((ulong)completed);
         }
 
+        private int ActiveDittoFiniteTimelineCount =>
+            (configuredRuntime?.UiDocuments.DittoActiveFiniteTimelineCount ?? 0)
+            + (configuredRuntime?.BatchScheduler.FiniteOperationCount ?? 0)
+            + (configuredRuntime?.World.DittoParticles.FiniteCount ?? 0);
+
+        internal bool DittoClockNeedsAdvance =>
+            ActiveDittoFiniteTimelineCount > 0
+            || configuredRuntime?.UiDocuments.DittoHasTimedSettlement == true;
+
         internal DittoWorkObservation ObserveDittoWork()
         {
             EnsureMainThread();
-            int finiteMotion =
-                (configuredRuntime?.UiDocuments.DittoActiveFiniteTimelineCount ?? 0)
-                + (configuredRuntime?.BatchScheduler.FiniteOperationCount ?? 0)
-                + (configuredRuntime?.World.DittoParticles.FiniteCount ?? 0);
+            int finiteMotion = ActiveDittoFiniteTimelineCount;
             int infiniteMotion =
                 (configuredRuntime?.UiDocuments.DittoActiveInfiniteTimelineCount ?? 0)
                 + (configuredRuntime?.BatchScheduler.InfiniteOperationCount ?? 0)

@@ -894,6 +894,8 @@ namespace Battlement
                     Capture(step);
                     break;
                 case Phase.FrameAdvance:
+                    if (!frame.TimeAdvanced)
+                        break;
                     advanceFrames--;
                     if (advanceFrames == 0)
                     {

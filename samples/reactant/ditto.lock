@@ -375,11 +375,11 @@ source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
 profile = "macos"
 scenario = "queued destruction"
 checkpoint = "first-move"
-sha256 = "c24d49a5438db931677857f4750c001a65bc7a038e74937ce6de6a54f0f66684"
+sha256 = "c3eb8f8e152a10e4aee9a14e9d61538eecc1eeac4b5e8e2b314cc312782450aa"
 width = 1280
 height = 720
-size_bytes = 29714
-source = "f1693fe53a3cd310320e8eea3fe687680a5135343536cc0868d6aa415fb1da17"
+size_bytes = 29452
+source = "bfbc9be8b56512d8daf3487b4e11889c5216d3e340e03aab0e7856a69999f5e2"
 
 [[baselines]]
 profile = "macos"
@@ -405,21 +405,21 @@ source = "2ade7a3d1614cc6cf15fc06f34e091b42269e6c668d3b7f6fd60b76c594cd53b"
 profile = "macos"
 scenario = "queued destruction"
 checkpoint = "second-move"
-sha256 = "0c6aec264a02ff57aa789d7445e78b1640d846404e4e689fdebe2c4a5455cf37"
+sha256 = "c409a1d75e0675de8c373ed20f261c54cce866d681d6ffc8edf86d9dbabc6833"
 width = 1280
 height = 720
-size_bytes = 29771
-source = "f1693fe53a3cd310320e8eea3fe687680a5135343536cc0868d6aa415fb1da17"
+size_bytes = 29791
+source = "bfbc9be8b56512d8daf3487b4e11889c5216d3e340e03aab0e7856a69999f5e2"
 
 [[baselines]]
 profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "accepted-before-playback"
-sha256 = "767005b76c450f1798f43b9a52944ac9ee1d2506bbbc21d686e640bbca91d0ef"
+sha256 = "0b0f9e7dab78b5e363958adb9a4f408940c2fb07f0869dc654b4a1fd28abaeb6"
 width = 1280
 height = 720
-size_bytes = 44816
-source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
+size_bytes = 44745
+source = "bfbc9be8b56512d8daf3487b4e11889c5216d3e340e03aab0e7856a69999f5e2"
 
 [[baselines]]
 profile = "macos"
@@ -435,11 +435,11 @@ source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "second-prompt"
-sha256 = "1e6d44fc0fe3a3fd73e22e4dfdb01c1b21d20d5bfd7412e6a45f023028afe595"
+sha256 = "fa11d720e2585f1f4e3a93e1e9bbe70b75421fcf4f2f636a8404c391928d3c55"
 width = 1280
 height = 720
-size_bytes = 44585
-source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
+size_bytes = 44677
+source = "bfbc9be8b56512d8daf3487b4e11889c5216d3e340e03aab0e7856a69999f5e2"
 
 [[baselines]]
 profile = "macos"
@@ -455,11 +455,11 @@ source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
 profile = "macos"
 scenario = "queued prompt controls"
 checkpoint = "stopped-menu"
-sha256 = "8bef7f1e6d2a003885a5e8b3c2884ea60b41956eaaddf8771ada05d87e8a5212"
+sha256 = "676382f812034e73c051868105c7826e64c8f8450e72605cea45c21094c61cd7"
 width = 1280
 height = 720
-size_bytes = 36429
-source = "0749bfa8b5946f366e44519a2569727f0f81e660dc81a0ed3e7616df259584e0"
+size_bytes = 36496
+source = "bfbc9be8b56512d8daf3487b4e11889c5216d3e340e03aab0e7856a69999f5e2"
 
 [[baselines]]
 profile = "macos"

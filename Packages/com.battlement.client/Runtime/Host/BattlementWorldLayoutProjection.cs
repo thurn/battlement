@@ -133,6 +133,8 @@ namespace Battlement
 
         public bool IsComplete => completed;
 
+        public bool IsPaused => paused;
+
         public void CaptureDestination()
         {
             if (captured)

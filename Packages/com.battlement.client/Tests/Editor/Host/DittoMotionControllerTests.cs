@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Battlement.UI;
 using NUnit.Framework;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -47,6 +48,40 @@ namespace Battlement.Tests
             Assert.That(settled.HasPendingWork, Is.False);
             Assert.That(settled.HasInfiniteOperations, Is.False);
             TestContext.Progress.WriteLine(string.Join(Environment.NewLine, journal));
+        }
+
+        [Test]
+        public void ControlledBatchesDrainImmediateGroupsBeforeSamplingFiniteMotion()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create(
+                useInstantAnimations: false
+            );
+            (SessionId session, ObjectId objectId, Transform target) = Connect(harness);
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+            Command Position(int x) =>
+                new(
+                    new CommandId(Guid.NewGuid()),
+                    new CommandBody.Transform.SetLocalPosition(objectId, new Vector3(x, 0, 0))
+                );
+            Submit(
+                harness,
+                session,
+                Enumerable
+                    .Range(1, 40)
+                    .Select(Position)
+                    .Append(Tween(objectId, 60) with { IsBlocking = true })
+                    .Append(Position(100))
+                    .ToArray()
+            );
+            Assert.That(target.localPosition.x, Is.EqualTo(40));
+            Assert.That(harness.Runner.DittoElapsed, Is.EqualTo(TimeSpan.Zero));
+            for (int frame = 0; frame < 15; frame++)
+                Advance(harness, motion, target);
+            Assert.That(target.localPosition.x, Is.EqualTo(50).Within(0.001));
+            for (int frame = 0; frame < 15; frame++)
+                Advance(harness, motion, target);
+            Assert.That(target.localPosition.x, Is.EqualTo(100));
         }
 
         [Test]
@@ -189,6 +224,138 @@ namespace Battlement.Tests
             Assert.That(realTarget.localPosition.x, Is.EqualTo(15f).Within(0.001f));
         }
 
+        [TestCase(true, false, 13)]
+        [TestCase(true, true, 91)]
+        [TestCase(false, false, 13)]
+        [TestCase(false, true, 91)]
+        public void DeterministicClockGraphsIgnoreWallTimeAndSettleAfterFiniteMotion(
+            bool instant,
+            bool scaled,
+            int wallSeconds
+        )
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create(
+                useInstantAnimations: false
+            );
+            harness.Clock.Advance(TimeSpan.FromSeconds(wallSeconds));
+            var controller = new DittoMotionController(harness.Runner);
+            controller.Begin(instant ? DittoMotion.Instant : DittoMotion.Controlled);
+            for (int index = 0; index < wallSeconds; index++)
+                _ = Advance(harness, controller, 10);
+            Assert.That(harness.Runner.DittoElapsed, Is.EqualTo(TimeSpan.Zero));
+            (_, ObjectId host, Transform target) = Connect(harness);
+            var value = new ObjectId(Guid.NewGuid());
+            MotionClockSource source = scaled
+                ? new MotionClockSource.Scaled()
+                : new MotionClockSource.Unscaled();
+            MotionDescriptor descriptor = SharedMotionDriverTests.Descriptor(
+                host,
+                host,
+                MotionProperty.LocalPositionY,
+                1
+            ) with
+            {
+                Clock = source,
+                Values = new[]
+                {
+                    new MotionValueDescriptor(
+                        value,
+                        new MotionValue.Scalar(0),
+                        new MotionValueSource.Time(source)
+                    ),
+                },
+                ValueBindings = new[]
+                {
+                    new MotionValueBinding(MotionProperty.LocalPositionX, value),
+                },
+            };
+            harness
+                .Runner.UiDocumentsForTests.MotionWorldForTests.Prepare(
+                    new BattlementWorldMotionTarget(target),
+                    host,
+                    descriptor
+                )!
+                .Commit();
+
+            MotionFrame frame = Advance(harness, controller, target);
+            Assert.That(frame.Position, Is.EqualTo(1f / 30).Within(0.00001));
+            Assert.That(frame.Frame.HasInfiniteOperations, Is.True);
+            Assert.That(frame.Frame.HasPendingWork, Is.True);
+            for (int index = 0; index < 40 && !frame.Frame.IsSettled; index++)
+            {
+                harness.Clock.Advance(TimeSpan.FromSeconds(wallSeconds));
+                frame = Advance(harness, controller, target);
+            }
+
+            Assert.That(frame.Frame.IsSettled, Is.True);
+            Assert.That(frame.Frame.HasPendingWork, Is.False);
+            Assert.That(target.localPosition.y, Is.EqualTo(1).Within(0.00001));
+            Assert.That(frame.Position, Is.EqualTo(1).Within(0.00001));
+            harness.Clock.Advance(TimeSpan.FromDays(1));
+            MotionFrame frozen = Advance(harness, controller, target);
+            Assert.That(frozen.Frame.Elapsed, Is.EqualTo(frame.Frame.Elapsed));
+            Assert.That(frozen.Position, Is.EqualTo(frame.Position));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void PassiveSpringFinishesBeforeDeterministicCapture(bool instant)
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var controller = new DittoMotionController(harness.Runner);
+            controller.Begin(instant ? DittoMotion.Instant : DittoMotion.Controlled);
+            (_, ObjectId host, Transform target) = Connect(harness);
+            var source = new ObjectId(Guid.NewGuid());
+            var spring = new ObjectId(Guid.NewGuid());
+            MotionDescriptor descriptor = SharedMotionDriverTests.Descriptor(
+                host,
+                host,
+                MotionProperty.LocalPositionX,
+                1
+            ) with
+            {
+                Slots = Array.Empty<MotionSlotDescriptor>(),
+                Clock = new MotionClockSource.Unscaled(),
+                Values = new[]
+                {
+                    new MotionValueDescriptor(
+                        source,
+                        new MotionValue.Scalar(0),
+                        new MotionValueSource.Mutable()
+                    ),
+                    new MotionValueDescriptor(
+                        spring,
+                        new MotionValue.Scalar(0),
+                        new MotionValueSource.Spring(
+                            source,
+                            new SpringConfiguration.Physical(100, 10, 1, null, null, null)
+                        )
+                    ),
+                },
+                ValueBindings = new[]
+                {
+                    new MotionValueBinding(MotionProperty.LocalPositionX, spring),
+                },
+            };
+            BattlementMotionWorld world = harness.Runner.UiDocumentsForTests.MotionWorldForTests;
+            world.Prepare(new BattlementWorldMotionTarget(target), host, descriptor)!.Commit();
+            world.ApplyValue(
+                source,
+                MotionValueOperationKind.Set,
+                new MotionValue.Scalar(1),
+                default,
+                0,
+                null
+            );
+            MotionFrame frame = Advance(harness, controller, target);
+            Assert.That(frame.Frame.HasPendingWork, Is.True);
+            for (int index = 0; index < 300 && !frame.Frame.IsSettled; index++)
+                frame = Advance(harness, controller, target);
+            Assert.That(frame.Frame.IsSettled, Is.True);
+            Assert.That(frame.Position, Is.EqualTo(1).Within(0.00001));
+            Assert.That(frame.Frame.HasPendingWork, Is.False);
+        }
+
         private static float[] ControlledSamples()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create(
@@ -214,6 +381,9 @@ namespace Battlement.Tests
         {
             motion.PrepareFrame();
             harness.Runner.RunFrame();
+            BattlementMotionWorld world = harness.Runner.UiDocumentsForTests.MotionWorldForTests;
+            world.PreLayout();
+            world.PostLayout();
             harness.Runner.CompleteNativeFrame();
             return new MotionFrame(motion.ObserveCommittedFrame(), target.localPosition.x);
         }
@@ -287,13 +457,15 @@ namespace Battlement.Tests
         private static void Submit(
             BattlementTestHarness harness,
             SessionId session,
-            Command command
+            params Command[] commands
         )
         {
             var batch = new Batch(
                 new BatchId(Guid.NewGuid()),
                 session,
-                new[] { new ParallelCommandGroup<Command>(new[] { command }) }
+                commands
+                    .Select(command => new ParallelCommandGroup<Command>(new[] { command }))
+                    .ToArray()
             );
             harness.Transport.EnqueueSubmit(
                 FakeBattlementTransport.ResponseResult(

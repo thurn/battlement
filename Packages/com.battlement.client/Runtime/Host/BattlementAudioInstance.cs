@@ -9,6 +9,10 @@ namespace Battlement
     internal sealed class BattlementAudioInstance
     {
         private readonly AudioSource source;
+        private readonly DittoMotionClock clock;
+        private TimeSpan playheadAnchor;
+        private TimeSpan playheadOffset;
+        private TimeSpan previousPlayhead;
         private IBattlementAssetLease? lease;
         private TimeSpan started;
         private TimeSpan fadeIn;
@@ -22,7 +26,8 @@ namespace Battlement
         private bool paused;
         private bool buffering;
 
-        private BattlementAudioInstance(AudioSource source) => this.source = source;
+        private BattlementAudioInstance(AudioSource source, DittoMotionClock clock) =>
+            (this.source, this.clock) = (source, clock);
 
         public Guid CommandId { get; private set; }
 
@@ -32,13 +37,15 @@ namespace Battlement
 
         public bool IsPaused => paused;
 
+        public bool IsHeld => paused || buffering;
+
         public Transform Transform => source.transform;
 
         public float Volume => requestedVolume;
 
         public float FadeEnvelope => fadeEnvelope;
 
-        public static BattlementAudioInstance Create(Transform poolRoot)
+        public static BattlementAudioInstance Create(Transform poolRoot, DittoMotionClock clock)
         {
             var gameObject = new GameObject("Battlement Audio Source");
             gameObject.transform.SetParent(poolRoot, false);
@@ -47,7 +54,7 @@ namespace Battlement
             source.spatialBlend = 0f;
             source.dopplerLevel = 0f;
             gameObject.SetActive(false);
-            return new BattlementAudioInstance(source);
+            return new BattlementAudioInstance(source, clock);
         }
 
         public void Acquire(
@@ -71,6 +78,9 @@ namespace Battlement
             mixGain = mix.Gain(bus);
             fadeIn = fadeDuration;
             started = now;
+            playheadAnchor = now;
+            playheadOffset = TimeSpan.Zero;
+            previousPlayhead = TimeSpan.Zero;
             completion = now + TimeSpan.FromSeconds(clip.length / pitch);
             source.clip = clip;
             source.pitch = pitch;
@@ -88,6 +98,23 @@ namespace Battlement
 
         public (TimeSpan Elapsed, bool Discontinuity) MotionTime()
         {
+            if (clock.IsControlled)
+            {
+                TimeSpan current = LogicalPlayhead;
+                long length = TimeSpan.FromSeconds(source.clip.length).Ticks;
+                bool wrapped =
+                    source.loop
+                    && length > 0
+                    && current.Ticks / length != previousPlayhead.Ticks / length;
+                bool changed = discontinuity || wrapped;
+                discontinuity = false;
+                previousPlayhead = current;
+                long ticks =
+                    source.loop && length > 0
+                        ? current.Ticks % length
+                        : Math.Min(current.Ticks, length);
+                return (TimeSpan.FromTicks(ticks), changed);
+            }
             int sample = source.timeSamples;
             bool jumped = discontinuity || (source.loop && sample < previousTimeSamples);
             discontinuity = false;
@@ -116,10 +143,31 @@ namespace Battlement
                 }
             }
 
-            return !source.loop
-                && !paused
-                && !buffering
-                && (now >= completion || (Application.isPlaying && !source.isPlaying));
+            if (source.loop || IsHeld)
+                return false;
+            return clock.IsControlled
+                ? LogicalPlayhead >= TimeSpan.FromSeconds(source.clip.length)
+                : now >= completion || (Application.isPlaying && !source.isPlaying);
+        }
+
+        private TimeSpan LogicalPlayhead =>
+            playheadOffset
+            + (
+                IsHeld
+                    ? TimeSpan.Zero
+                    : TimeSpan.FromTicks(
+                        checked(
+                            (long)((clock.Elapsed - playheadAnchor).Ticks * (double)source.pitch)
+                        )
+                    )
+            );
+
+        private void PreservePlayhead()
+        {
+            if (!clock.IsControlled)
+                return;
+            playheadOffset = LogicalPlayhead;
+            playheadAnchor = clock.Elapsed;
         }
 
         public void CancelFadeIn()
@@ -146,12 +194,14 @@ namespace Battlement
 
         public void Pause()
         {
+            PreservePlayhead();
             paused = true;
             source.Pause();
         }
 
         public void Resume()
         {
+            PreservePlayhead();
             paused = false;
             if (!buffering)
                 source.UnPause();
@@ -165,6 +215,7 @@ namespace Battlement
 
         public void SetBuffering(bool value)
         {
+            PreservePlayhead();
             buffering = value;
             if (value)
                 source.Pause();
@@ -190,6 +241,8 @@ namespace Battlement
                 checked((int)Math.Round(seconds * clip.frequency))
             );
             source.timeSamples = sample;
+            playheadOffset = TimeSpan.FromSeconds(seconds);
+            playheadAnchor = now;
             previousTimeSamples = sample;
             completion = now + TimeSpan.FromSeconds((clip.length - seconds) / source.pitch);
             discontinuity = true;
@@ -202,6 +255,9 @@ namespace Battlement
             lease = assetLease;
             source.clip = clip;
             source.timeSamples = 0;
+            playheadOffset = TimeSpan.Zero;
+            playheadAnchor = now;
+            previousPlayhead = TimeSpan.Zero;
             completion = now + TimeSpan.FromSeconds(clip.length / source.pitch);
             previousTimeSamples = 0;
             discontinuity = true;

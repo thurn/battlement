@@ -31,6 +31,8 @@ namespace Battlement
         private Replacement? pending;
         private bool isDisposed;
 
+        public bool IsPending => pending is not null;
+
         public BattlementPreparedAssets(IBattlementAssetStorage storage) => this.storage = storage;
 
         /// <summary>

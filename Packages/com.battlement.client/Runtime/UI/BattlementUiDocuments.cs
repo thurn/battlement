@@ -576,6 +576,8 @@ namespace Battlement.UI
             || stickyCoordinator.HasPendingWork
             || repeatControls.HasPendingSettlement;
 
+        internal bool DittoHasTimedSettlement => scrollControls.HasPendingSettlement;
+
         internal IReadOnlyCollection<AccessibilityNodeSnapshot> ActiveAccessibility =>
             accessibility.Active;
 

@@ -218,7 +218,7 @@ namespace Battlement
                     {
                         bool progressed = AdvanceBatch(batch, now, ref commitStarted);
                         madeProgress |= progressed;
-                        if (IsControlled && progressed)
+                        if (IsControlled && progressed && operations.HasFiniteOperations)
                         {
                             return;
                         }

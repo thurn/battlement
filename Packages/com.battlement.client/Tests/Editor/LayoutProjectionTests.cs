@@ -353,13 +353,15 @@ namespace Battlement.Tests
 
             public bool IsComplete { get; private set; }
 
+            public bool IsPaused { get; private set; }
+
             public void CaptureDestination() { }
 
             public void Sample(ulong clockMicros, bool reducedMotion = false) { }
 
-            public void Pause(ulong clockMicros) { }
+            public void Pause(ulong clockMicros) => IsPaused = true;
 
-            public void Resume(ulong clockMicros) { }
+            public void Resume(ulong clockMicros) => IsPaused = false;
 
             public void Complete() => IsComplete = true;
 

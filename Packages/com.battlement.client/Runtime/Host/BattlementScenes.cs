@@ -20,6 +20,8 @@ namespace Battlement
         private BattlementAssetException? sessionResetError;
         private bool isDisposed;
 
+        public bool IsPending => pending is not null;
+
         public BattlementScenes(
             IBattlementAssetStorage storage,
             BattlementPreparedAssets preparedAssets,

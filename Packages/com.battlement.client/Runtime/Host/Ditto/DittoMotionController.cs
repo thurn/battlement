@@ -7,6 +7,7 @@ namespace Battlement
     internal sealed record DittoCommittedFrame(
         ulong Index,
         TimeSpan Elapsed,
+        bool TimeAdvanced,
         bool HasPendingWork,
         bool HasInfiniteOperations,
         bool HasHeldOperations,
@@ -39,11 +40,11 @@ namespace Battlement
         private bool started;
         private ulong frameIndex;
         private int quietFrames;
-        private bool advanceControlledTime;
         private TimeSpan motionEpoch;
         private ulong? previousPaintFingerprint;
         private bool controlledAdvanceRequested;
         private bool preservingExactState;
+        private bool timeAdvanced;
         private DittoCommittedFrame? lastFrame;
 
         public DittoMotionController(BattlementRunner runner)
@@ -74,7 +75,6 @@ namespace Battlement
             quietFrames = 0;
             previousPaintFingerprint = null;
             lastFrame = null;
-            advanceControlledTime = true;
             started = true;
         }
 
@@ -87,9 +87,12 @@ namespace Battlement
             }
             controlledAdvanceRequested = forceAdvance;
             preservingExactState = preserveTime;
-            return runner.PrepareDittoFrame(
-                !preserveTime && (forceAdvance || advanceControlledTime)
+            TimeSpan before = runner.DittoElapsed;
+            TimeSpan after = runner.PrepareDittoFrame(
+                !preserveTime && (forceAdvance || runner.DittoClockNeedsAdvance)
             );
+            timeAdvanced = after > before;
+            return after;
         }
 
         public DittoCommittedFrame ObserveCommittedFrame(ulong paintFingerprint = 0)
@@ -114,16 +117,13 @@ namespace Battlement
                 quietFrames++;
             }
 
-            advanceControlledTime =
-                current.HasPendingWork
-                || (!current.HasInfiniteOperations && !current.HasHeldOperations);
-
             previous = current;
             previousPaintFingerprint = paintFingerprint;
             controlledAdvanceRequested = false;
             return lastFrame = new DittoCommittedFrame(
                 ++frameIndex,
                 runner.DittoElapsed,
+                timeAdvanced,
                 current.HasPendingWork,
                 current.HasInfiniteOperations,
                 current.HasHeldOperations,
@@ -188,7 +188,7 @@ namespace Battlement
             this.source = source ?? throw new ArgumentNullException(nameof(source));
 
         public TimeSpan Elapsed =>
-            motion == DittoMotion.Controlled
+            motion is DittoMotion.Controlled or DittoMotion.Instant
                 ? motionEpoch
                     + TimeSpan.FromTicks(
                         checked((long)controlledFrames * TimeSpan.TicksPerSecond) / framesPerSecond
@@ -209,7 +209,10 @@ namespace Battlement
 
         public void Begin(DittoMotion value)
         {
-            TimeSpan elapsed = Elapsed;
+            TimeSpan elapsed =
+                motion is null && value is DittoMotion.Instant or DittoMotion.Controlled
+                    ? TimeSpan.Zero
+                    : Elapsed;
             motion = value;
             motionEpoch = elapsed;
             sourceEpoch = source.Elapsed;
@@ -218,7 +221,7 @@ namespace Battlement
 
         public TimeSpan PrepareFrame(bool advance)
         {
-            if (IsControlled && advance)
+            if (advance && (IsControlled || IsInstant))
             {
                 controlledFrames++;
             }

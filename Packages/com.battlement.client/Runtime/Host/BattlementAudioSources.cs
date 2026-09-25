@@ -103,7 +103,9 @@ namespace Battlement
                         $"Prepared audio clip '{command.Address}' is not an AudioClip."
                     );
                 instance =
-                    inactive.Count == 0 ? BattlementAudioInstance.Create(poolRoot) : inactive.Pop();
+                    inactive.Count == 0
+                        ? BattlementAudioInstance.Create(poolRoot, motionClock)
+                        : inactive.Pop();
                 instance.Acquire(
                     commandId.Value,
                     lease,
@@ -419,7 +421,7 @@ namespace Battlement
             new(CoreErrorCode.InvalidProperty, message);
 
         private sealed class PlaybackOperation
-            : IBattlementCommandOperation,
+            : IBattlementHeldCommandOperation,
                 IBattlementPausableCommandOperation
         {
             private readonly BattlementAudioSources owner;
@@ -433,6 +435,8 @@ namespace Battlement
             ) => (this.owner, this.instance) = (owner, instance);
 
             public bool IsInfinite => instance.IsActive && instance.IsLooping;
+
+            public bool IsHeld => instance.IsActive && instance.IsHeld;
 
             public bool IsComplete(TimeSpan now)
             {

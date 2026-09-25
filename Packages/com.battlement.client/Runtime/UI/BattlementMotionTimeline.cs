@@ -225,6 +225,9 @@ namespace Battlement.UI
         internal bool IsLayoutProjectionInfinite =>
             layoutProjection?.Descriptor.Transition.Repeat is MotionRepeat.Forever;
 
+        private bool IsLayoutProjectionHeld =>
+            layoutProjection?.IsPaused == true || Descriptor.Clock is MotionClockSource.Controlled;
+
         internal ulong[] PendingFiniteSlotIds() =>
             slots
                 .Where(slot => slot.HasPendingFiniteTracks)
@@ -272,16 +275,29 @@ namespace Battlement.UI
 
         internal int ActiveFiniteTimelineCount =>
             slots.Count(slot => slot.IsFiniteActive)
+            + (
+                !IsLayoutProjectionComplete
+                && !IsLayoutProjectionInfinite
+                && !IsLayoutProjectionHeld
+                    ? 1
+                    : 0
+            )
             + (pseudoStyles?.ActiveFiniteTimelineCount ?? 0)
             + (decorations?.ActiveFiniteTimelineCount ?? 0);
 
         internal int ActiveInfiniteTimelineCount =>
             slots.Count(slot => slot.IsInfiniteActive)
+            + (
+                !IsLayoutProjectionComplete && IsLayoutProjectionInfinite && !IsLayoutProjectionHeld
+                    ? 1
+                    : 0
+            )
             + (pseudoStyles?.ActiveInfiniteTimelineCount ?? 0)
             + (decorations?.ActiveInfiniteTimelineCount ?? 0);
 
         internal int ActiveHeldTimelineCount =>
             slots.Count(slot => slot.IsHeldActive)
+            + (!IsLayoutProjectionComplete && IsLayoutProjectionHeld ? 1 : 0)
             + (pseudoStyles?.ActiveHeldTimelineCount ?? 0)
             + (decorations?.ActiveHeldTimelineCount ?? 0);
 
