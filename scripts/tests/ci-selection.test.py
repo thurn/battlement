@@ -50,6 +50,11 @@ with patch.object(
     )
     assert not unrelated.root and not unrelated.samples
 
+    for dependency in ci_selection.TOOLING_RUST_INPUTS:
+        tooling = ci_selection.select_rust(ROOT, [dependency], workspaces)
+        assert tooling.root and not tooling.samples
+        assert "battlement-tooling" in tooling.packages
+
     global_change = ci_selection.select_rust(ROOT, ["Cargo.lock"], workspaces)
     assert global_change.root and list(global_change.samples) == workspaces
 

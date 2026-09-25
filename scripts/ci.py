@@ -81,7 +81,7 @@ ROOT_RUST_INPUTS = (
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
     "scripts/resource_slots.py",
-    "scripts/process_priority.py",
+    *ci_selection.TOOLING_RUST_INPUTS,
 )
 SAMPLE_SHARED_INPUTS = (
     "Cargo.toml",

@@ -18,6 +18,11 @@ GLOBAL_RUST_INPUTS = (
     "Cargo.toml",
     "rust-toolchain.toml",
 )
+TOOLING_RUST_INPUTS = (
+    "scripts/unity_transaction.py",
+    "scripts/unity_metadata.py",
+    "scripts/process_priority.py",
+)
 REACTANT_ASSET_INPUTS = (
     "Cargo.lock",
     "Cargo.toml",
@@ -72,8 +77,12 @@ def select_rust(
         for path in normalized
         if path.startswith("crates/") and path.count("/") >= 2
     }
+    tooling_inputs = sorted(normalized.intersection(TOOLING_RUST_INPUTS))
+    if tooling_inputs:
+        changed_crates.add("battlement-tooling")
     selected = []
     reasons = [f"global Rust input changed: {path}" for path in global_paths]
+    reasons.extend(f"Rust tooling dependency changed: {path}" for path in tooling_inputs)
     for workspace in sample_workspaces:
         sample = workspace.parts[1]
         own_input = any(path.startswith(f"samples/{sample}/rules/") for path in normalized)

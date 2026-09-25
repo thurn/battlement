@@ -15,10 +15,15 @@ use tempfile::TempDir;
 #[test]
 fn clean_fixture_builds_fixed_app_and_exactly_reuses_it() {
   let fixture = Fixture::new();
-  let IosBuildResult::Ready { build, outcome } =
-    select_ios_player(&fixture.request(), true).unwrap()
-  else {
-    panic!("fixture build failed")
+  let result = select_ios_player(&fixture.request(), true).unwrap();
+  if let IosBuildResult::Failed(failure) = &result {
+    panic!(
+      "fixture build failed: {}",
+      fs::read_to_string(&failure.log_path).unwrap()
+    );
+  }
+  let IosBuildResult::Ready { build, outcome } = result else {
+    panic!("fixture unexpectedly required a build")
   };
   assert_eq!(outcome, IosBuildOutcome::Created);
   assert!(player_app(&build).unwrap().join("Info.plist").is_file());
@@ -131,6 +136,10 @@ impl Fixture {
     fixture.write(
       "repo/scripts/process_priority.py",
       include_str!("../../../scripts/process_priority.py"),
+    );
+    fixture.write(
+      "repo/scripts/unity_metadata.py",
+      include_str!("../../../scripts/unity_metadata.py"),
     );
     fixture.initialize_repository();
     fixture

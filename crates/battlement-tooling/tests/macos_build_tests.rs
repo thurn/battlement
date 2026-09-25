@@ -290,6 +290,10 @@ impl Fixture {
       "repo/scripts/process_priority.py",
       include_str!("../../../scripts/process_priority.py"),
     );
+    fixture.write(
+      "repo/scripts/unity_metadata.py",
+      include_str!("../../../scripts/unity_metadata.py"),
+    );
     fixture.initialize_repository();
     fixture
   }
