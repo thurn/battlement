@@ -383,13 +383,7 @@ def test_rust_workspaces(
     if selection.root:
         steps.append((
             "root workspace",
-            lambda: ci_cache.run(
-                "rust-test-root", rust_workspace_inputs(None),
-                lambda: process_priority.run(
-                    ["cargo", "test", "--workspace"], cwd=REPOSITORY_ROOT,
-                    env=cargo_environment(None), check=True,
-                ),
-            ),
+            lambda: test_root_workspace(ci_cache),
         ))
     steps.extend(
         (
@@ -411,6 +405,24 @@ def test_rust_workspaces(
         print("    skipped; no affected Rust workspace", flush=True)
         return
     run_parallel_steps(steps, workers=RUST_WORKSPACE_WORKERS)
+
+
+def test_root_workspace(ci_cache: CiCache) -> None:
+    """Keep live baseline coverage in Ditto's cache without invalidating unrelated tests."""
+    groups = (
+        ("rust-test-root-without-ditto",
+         (*ROOT_RUST_INPUTS, ":(glob,exclude)samples/*/ditto.lock"),
+         ["--workspace", "--exclude", "battlement-ditto"]),
+        ("rust-test-ditto", ROOT_RUST_INPUTS, ["--package", "battlement-ditto"]),
+    )
+    for name, inputs, arguments in groups:
+        ci_cache.run(
+            name, inputs,
+            lambda: process_priority.run(
+                ["cargo", "test", *arguments], cwd=REPOSITORY_ROOT,
+                env=cargo_environment(None), check=True,
+            ),
+        )
 
 
 def test_runtime_integrations(

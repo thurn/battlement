@@ -21,6 +21,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 import web_selection
 from ci_diagnostics_capacity import verify_diagnostics_capacity
+from ci_rust_cache import verify_root_rust_cache
 
 SPEC = importlib.util.spec_from_file_location("ci", REPOSITORY_ROOT / "scripts/ci.py")
 assert SPEC and SPEC.loader
@@ -34,6 +35,7 @@ def main() -> None:
     _verify_active_rust_toolchain_guard()
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
         root = Path(temporary)
+        verify_root_rust_cache(ci, root)
         _verify_focused_cargo_target(root)
         _verify_lockfile_preflight(root)
         _verify_wire_preflight(root)
