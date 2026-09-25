@@ -41,6 +41,40 @@ fn explicit_suite_is_forwarded_with_ditto_output_and_exit_status() {
 }
 
 #[test]
+fn native_build_setup_failure_names_phase_and_missing_path() {
+  let temporary = tempfile::tempdir().unwrap();
+  let root = temporary.path();
+  fs::write(root.join("ditto.toml"), SUITE).unwrap();
+  assert!(
+    Command::new("git")
+      .args(["init", "--quiet"])
+      .current_dir(root)
+      .status()
+      .unwrap()
+      .success()
+  );
+  let output = Command::new(env!("CARGO_BIN_EXE_rt"))
+    .args(["ditto", "--config"])
+    .arg(root.join("ditto.toml"))
+    .args(["build", "--profile", "macos-local", "--json"])
+    .env("DITTO_CACHE_ROOT", root.join("cache"))
+    .env("AWS_SECRET_ACCESS_KEY", "fixture-secret-must-not-be-logged")
+    .output()
+    .unwrap();
+  assert_eq!(output.status.code(), Some(2));
+  let stderr = String::from_utf8(output.stderr).unwrap();
+  assert!(stderr.contains("macOS build discovery"), "{stderr}");
+  assert!(
+    stderr.contains("ProjectSettings/ProjectVersion.txt"),
+    "{stderr}"
+  );
+  assert!(stderr.contains(&root.display().to_string()), "{stderr}");
+  assert!(stderr.contains("os error"), "{stderr}");
+  assert!(!stderr.contains("fixture-secret-must-not-be-logged"));
+  assert!(!root.join("cache").exists());
+}
+
+#[test]
 fn ditto_help_is_available_without_project_discovery() {
   for arguments in [
     vec!["ditto", "--help"],

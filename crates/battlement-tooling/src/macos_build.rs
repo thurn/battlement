@@ -232,7 +232,12 @@ pub fn select_macos_player(
   allow_build: bool,
 ) -> Result<MacosBuildResult> {
   validate_request(request)?;
-  let identities = component_identities(request)?;
+  let identities = component_identities(request).with_context(|| {
+    format!(
+      "resolve macOS build source inputs in {}",
+      request.repository.display()
+    )
+  })?;
   let now = unix_time()?;
   let repository = request
     .repository

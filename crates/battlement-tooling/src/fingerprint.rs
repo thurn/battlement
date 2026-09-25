@@ -294,10 +294,15 @@ impl Candidates {
 
 fn checked_directory(repository: &Path, path: &Path) -> Result<PathBuf> {
   ensure!(
-    !fs::symlink_metadata(path)?.file_type().is_symlink(),
+    !fs::symlink_metadata(path)
+      .with_context(|| format!("inspect source directory {}", path.display()))?
+      .file_type()
+      .is_symlink(),
     "source root is a symlink"
   );
-  let path = path.canonicalize()?;
+  let path = path
+    .canonicalize()
+    .with_context(|| format!("resolve source directory {}", path.display()))?;
   ensure!(
     path.starts_with(repository),
     "source root escapes repository"
@@ -308,10 +313,15 @@ fn checked_directory(repository: &Path, path: &Path) -> Result<PathBuf> {
 
 fn checked_file(repository: &Path, path: &Path) -> Result<PathBuf> {
   ensure!(
-    !fs::symlink_metadata(path)?.file_type().is_symlink(),
+    !fs::symlink_metadata(path)
+      .with_context(|| format!("inspect source file {}", path.display()))?
+      .file_type()
+      .is_symlink(),
     "source manifest is a symlink"
   );
-  let path = path.canonicalize()?;
+  let path = path
+    .canonicalize()
+    .with_context(|| format!("resolve source file {}", path.display()))?;
   ensure!(
     path.starts_with(repository),
     "source manifest escapes repository"
@@ -338,7 +348,8 @@ fn collect_tree(repository: &Path, directory: &Path, candidates: &mut Candidates
 }
 
 fn collect_file(repository: &Path, logical_path: &Path, candidates: &mut Candidates) -> Result<()> {
-  let metadata = fs::symlink_metadata(logical_path)?;
+  let metadata = fs::symlink_metadata(logical_path)
+    .with_context(|| format!("inspect source input {}", logical_path.display()))?;
   let physical = if metadata.file_type().is_symlink() {
     let target = logical_path.canonicalize()?;
     ensure!(
@@ -408,7 +419,10 @@ fn hash_candidate(
       physical,
       mode,
     } => {
-      let bytes = physical.metadata()?.len();
+      let bytes = physical
+        .metadata()
+        .with_context(|| format!("inspect source input {}", physical.display()))?
+        .len();
       (path, SourceKind::File, mode, bytes, Some(physical))
     }
     Candidate::Generated { path, bytes } => {
@@ -428,10 +442,15 @@ fn hash_candidate(
   };
   hash_header(aggregate, &path, kind, mode, bytes);
   let mut digest = Sha256::new();
-  let mut reader = BufReader::new(File::open(physical.expect("file candidate has a path"))?);
+  let physical = physical.expect("file candidate has a path");
+  let mut reader = BufReader::new(
+    File::open(&physical).with_context(|| format!("open source input {}", physical.display()))?,
+  );
   let mut buffer = [0_u8; 64 * 1024];
   loop {
-    let read = reader.read(&mut buffer)?;
+    let read = reader
+      .read(&mut buffer)
+      .with_context(|| format!("read source input {}", physical.display()))?;
     if read == 0 {
       break;
     }

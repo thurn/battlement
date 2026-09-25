@@ -282,7 +282,9 @@ pub(crate) fn discovery_request(suite: &Suite, target: Target) -> Result<Discove
 }
 
 pub(crate) fn unity_version(project: &Path) -> Result<String> {
-  let contents = fs::read_to_string(project.join("ProjectSettings/ProjectVersion.txt"))?;
+  let path = project.join("ProjectSettings/ProjectVersion.txt");
+  let contents = fs::read_to_string(&path)
+    .with_context(|| format!("read Unity project version {}", path.display()))?;
   contents
     .lines()
     .find_map(|line| line.strip_prefix("m_EditorVersion: "))

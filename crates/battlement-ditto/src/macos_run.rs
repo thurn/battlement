@@ -67,14 +67,18 @@ pub(crate) fn build(
     profile.target() == Target::Macos,
     "macOS build requires a macOS profile"
   );
-  let discovery = HostDiscovery::inspect(
-    &SystemHost,
-    &maintenance_commands::discovery_request(suite, Target::Macos)?,
-  )?;
-  let selected = macos_build::select_macos_player(
-    &build_request(suite, &discovery, !options.debug_rules, preparation)?,
-    true,
-  )?;
+  let discovery_request = maintenance_commands::discovery_request(suite, Target::Macos)
+    .context("macOS build discovery")?;
+  let discovery = HostDiscovery::inspect(&SystemHost, &discovery_request)
+    .context("macOS build tool discovery")?;
+  let request = build_request(suite, &discovery, !options.debug_rules, preparation)
+    .context("macOS build setup")?;
+  let selected = macos_build::select_macos_player(&request, true).with_context(|| {
+    format!(
+      "macOS player build for {}",
+      suite.player.unity_project.display()
+    )
+  })?;
   let (build, disposition) = match selected {
     MacosBuildResult::Ready { build, outcome } => (
       build,
@@ -86,7 +90,8 @@ pub(crate) fn build(
     MacosBuildResult::Required { .. } => unreachable!("builds are allowed"),
     MacosBuildResult::Failed(failure) => anyhow::bail!(failure.message),
   };
-  let assembly = macos_build::macos_assembly_identity(&build)?;
+  let assembly = macos_build::macos_assembly_identity(&build)
+    .with_context(|| format!("read macOS build assembly in {}", build.path().display()))?;
   let value = serde_json::json!({
     "schema": 1,
     "suite": suite.name,
@@ -104,7 +109,8 @@ pub(crate) fn build(
   });
   let encoded = serde_json::to_string_pretty(&value)? + "\n";
   if let Some(path) = options.output {
-    fs::write(path, &encoded)?;
+    fs::write(&path, &encoded)
+      .with_context(|| format!("write macOS build result {}", path.display()))?;
   }
   if options.json {
     write!(stdout, "{encoded}")?;
@@ -470,7 +476,9 @@ fn build_request(
   release_rules: bool,
   preparation: &dyn PlayerPreparation,
 ) -> Result<MacosBuildRequest> {
-  preparation.prepare(suite)?;
+  preparation
+    .prepare(suite)
+    .with_context(|| format!("prepare macOS build inputs for {}", suite.source.display()))?;
   let unity_editor = required_tool(&discovery.unity)?;
   let cargo = SystemHost
     .find_executable("cargo")
@@ -519,7 +527,14 @@ fn build_request(
       )?,
     },
     resource_slots: discovery.caches.resource_slots.clone(),
-    cache: BuildCache::open(&discovery.caches.builds, DEFAULT_BUILD_CACHE_BYTES)?,
+    cache: BuildCache::open(&discovery.caches.builds, DEFAULT_BUILD_CACHE_BYTES).with_context(
+      || {
+        format!(
+          "open macOS build cache {}",
+          discovery.caches.builds.display()
+        )
+      },
+    )?,
   })
 }
 
