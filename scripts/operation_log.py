@@ -11,6 +11,7 @@ import re
 import subprocess
 from threading import Lock
 import time
+from typing import BinaryIO
 import uuid
 
 import process_priority
@@ -43,11 +44,14 @@ def child_environment(environment: dict[str, str] | None = None) -> dict[str, st
     return result
 
 
-def run(command: list[str], *, cwd: Path, environment: dict[str, str] | None = None) -> None:
+def run(command: list[str], *, cwd: Path, environment: dict[str, str] | None = None,
+        output: BinaryIO | None = None) -> None:
     """Observe one real child process while preserving subprocess.run failure semantics."""
     operation = current()
     started = time.monotonic_ns()
     options = {"cwd": cwd, "env": child_environment(environment)}
+    if output is not None:
+        options.update(stdout=output, stderr=subprocess.STDOUT)
     launch = process_priority.prepare(command, options) if Path(command[0]).stem == "cargo" else command
     with subprocess.Popen(launch, **options) as child:
         observed = process_identity.identity(child.pid)

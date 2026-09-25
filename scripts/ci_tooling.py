@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import uuid
 
 import ci_steps
 import operation_log
 
+
+FIXTURE_OUTPUT_PREFIX = "    [fixture] "
 
 CHECKS = (
     ("Test process resource accounting", "scripts/tests/process-usage.test.py"),
@@ -47,15 +50,32 @@ PERFORMANCE_CHECKS = (
 def run(repository: Path, *, performance: bool = False) -> None:
     """Run each fixture in its own process, retaining every failure and trace."""
     checks = CHECKS + (PERFORMANCE_CHECKS if performance else ())
+    logs = repository / ".logs/ci/tooling" / str(uuid.uuid4())
+    logs.mkdir(mode=0o700, parents=True)
     ci_steps.run_parallel_steps(
         [
             (
                 name,
-                lambda script=script: operation_log.run(
-                    [sys.executable, script], cwd=repository,
+                lambda script=script: run_fixture(
+                    repository, script, logs / f"{Path(script).name}.log",
                 ),
             )
             for name, script in checks
         ],
         workers=3,
     )
+
+
+def run_fixture(repository: Path, script: str, log: Path) -> None:
+    """Retain raw child output and label its replay as fixture diagnostics."""
+    print(f"    Fixture log: {log}", flush=True)
+    with log.open("wb") as output:
+        try:
+            operation_log.run([sys.executable, script], cwd=repository, output=output)
+        finally:
+            output.flush()
+            with log.open(encoding="utf-8", errors="replace") as retained:
+                for line in retained:
+                    text = line.rstrip("\r\n")
+                    sys.stdout.write(f"{FIXTURE_OUTPUT_PREFIX}{script}: {text}\n")
+            sys.stdout.flush()

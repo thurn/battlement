@@ -70,6 +70,70 @@ def verify_retained_output_identity(temporary: Path) -> None:
         print(f"CI identity: {output}: {result['state']} (exit {result['exit_code']})")
 
 
+def verify_nested_fixture_progress(temporary: Path) -> None:
+    """Nested tooling diagnostics cannot impersonate the parent job's progress."""
+    repository = scratch_repository(temporary / "nested-progress-repository")
+    (repository / ".gitignore").write_text((REPOSITORY_ROOT / ".gitignore").read_text())
+    (repository / "fixture.py").write_text(
+        "import sys\nprint('==> Synthetic build')\n"
+        "print('Resource capacity: waiting for synthetic admission')\n"
+        "print('retained child failure', file=sys.stderr)\nsys.exit(7)\n"
+    )
+    ready, release = temporary / "nested.ready", temporary / "nested.release"
+    source = """
+import pathlib, subprocess, sys, time
+sys.path.insert(0, sys.argv[1])
+import ci_tooling
+repository, ready, release = map(pathlib.Path, sys.argv[2:])
+print('==> Parent validation', flush=True)
+print('Resource capacity: waiting for real parent admission', flush=True)
+ci_tooling.CHECKS = (('Nested fixture', 'fixture.py'),)
+try:
+    ci_tooling.run(repository)
+except subprocess.CalledProcessError as error:
+    assert error.returncode == 7
+else:
+    raise AssertionError('nested fixture should fail')
+ready.write_text('ready')
+deadline = time.monotonic() + 30
+while not release.exists():
+    if time.monotonic() > deadline:
+        sys.exit('parent fixture was never released')
+    time.sleep(.02)
+print('<== Parent validation (0.1s)', flush=True)
+"""
+    started = ci_job.start_job(repository, [], purpose="nested-progress", command=[
+        sys.executable, "-c", source, str(REPOSITORY_ROOT / "scripts"),
+        str(repository), str(ready), str(release),
+    ])
+    path = Path(started["handle_path"])
+    try:
+        deadline = time.monotonic() + 5
+        while not ready.exists() and time.monotonic() < deadline:
+            time.sleep(.02)
+        assert ready.exists(), Path(started["log_path"]).read_text()
+        observed = subprocess.run(
+            [sys.executable, str(REPOSITORY_ROOT / "scripts/ci_job.py"),
+             "--json", "status", started["job_id"]],
+            check=True, capture_output=True, text=True,
+        )
+        status = json.loads(observed.stdout)
+        assert status["current_step"] == "Parent validation", status
+        assert status["waiting_for"] == "Resource capacity: waiting for real parent admission", status
+        retained = list((repository / ".logs/ci/tooling").glob("*/fixture.py.log"))
+        assert len(retained) == 1
+        assert "retained child failure" in retained[0].read_text()
+        assert "Synthetic build" in Path(status["log_path"]).read_text()
+    finally:
+        release.write_text("release")
+        terminal = ci_job.wait_for(path, None, 5)
+    assert terminal["state"] == "passed", terminal
+    assert terminal["current_step"] is None
+    assert terminal["waiting_for"] is None
+    print(f"CI parent progress: {status['current_step']}; wait={status['waiting_for']}; "
+          f"terminal_wait={terminal['waiting_for']}")
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-ci-job-test.") as temporary:
         repository = scratch_repository(Path(temporary) / "repository")
@@ -234,6 +298,7 @@ threading.Event().wait()
         replacement_final = ci_job.wait_for(Path(replacement["handle_path"]), None, 5)
         assert replacement_final["state"] == "inputs-invalidated"
         verify_retained_output_identity(Path(temporary))
+        verify_nested_fixture_progress(Path(temporary))
 
     print("CI job handle tests passed.")
 

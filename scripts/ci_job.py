@@ -18,6 +18,7 @@ import tempfile
 import time
 import uuid
 
+import ci_tooling
 import perf_log
 import operation_log
 from platform_support import lock_file, resolve_executable, unlock_file
@@ -85,6 +86,8 @@ def observe_progress(job: dict) -> dict:
     active = []
     waiting_for = None
     for line in lines:
+        if line.startswith(ci_tooling.FIXTURE_OUTPUT_PREFIX):
+            continue
         if line.startswith("==> "):
             active.append(line[4:])
         elif line.startswith("<== "):
@@ -98,7 +101,7 @@ def observe_progress(job: dict) -> dict:
     result["current_step"] = None if job["state"] in TERMINAL_STATES else (
         active[-1] if active else None
     )
-    result["waiting_for"] = waiting_for
+    result["waiting_for"] = None if job["state"] in TERMINAL_STATES else waiting_for
     result["last_progress"] = None if stat is None else {
         "bytes": stat.st_size,
         "modified_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(
