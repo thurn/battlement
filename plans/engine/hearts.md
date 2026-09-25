@@ -495,6 +495,16 @@ pure rules/sampling tests are useful. Use explicit rare deals, not CI seed searc
 
 ### Visual, audio, and device evidence
 
+Reserve three sequential scene-to-reference improvement passes (V01–V03 in the
+[work graph](hearts-work-graph.md#sequential-reference-refinement)) after H29/R29
+and before final evidence H30. Each pass freshly compares the latest native scene
+with the mockup, corrects its most visible remaining differences using existing
+assets, and retains comparable before/after captures. Each has a blocking
+introspection bead (RV01–RV03), including concrete larger-scope follow-up filing.
+Keep the loop bounded and protect readability, portrait use and performance;
+record an evidence-backed no-change outcome if no worthwhile in-scope adjustment
+remains. These passes do not replace user-owned final aesthetic approval.
+
 Retain native landscape/portrait captures for all hands, selection/passing,
 in-flight play, complete trick, collection, results, modal focus, and reorientation.
 Use controlled midpoints, not only endpoints. Compare directly with the reference

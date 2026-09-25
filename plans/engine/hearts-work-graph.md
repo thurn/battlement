@@ -1,6 +1,7 @@
 # Hearts native implementation and introspection graph
 
 Epic: **hv-a8o**. Planning/delivery bead: **hv-qn6**. Asset-scope revision: **hv-faq**.
+Visual-pass planning: **hv-dz8**.
 
 [Design and contracts](hearts.md) · [Blind React reference](hearts-react-reference.md)
 
@@ -16,13 +17,15 @@ Do not infer permission from elapsed time, an approved direction, or task creati
 
 ## Dependency contract
 
-The serial backbone is AUTHORIZE → H01 → R01 → H02 → R02 → … → H30 → R30 → ACCEPT.
-Every R task blocks the next H task. Each H and R has its own native bead.
+The serial backbone is AUTHORIZE → H01 → R01 → … → H29 → R29 →
+V01 → RV01 → V02 → RV02 → V03 → RV03 → H30 → R30 → ACCEPT.
+Every implementation (H or V) has a dedicated introspection (R or RV), which
+blocks the next implementation. Each has its own native bead.
 Keys identify assignments; native IDs are the handles for claiming and evidence.
 Split oversized work before execution and preserve the implementation/review chain.
 Required repair beads and their own introspection block the parent review.
 
-Every R task must also file concrete native follow-up beads for larger-scope
+Every R/RV task must also file concrete native follow-up beads for larger-scope
 architecture, tooling, or library findings, or attach evidence to matching
 existing work. Record actual IDs, problem evidence, scope/non-goals, outcome,
 acceptance, validation, priority, project, origin, prerequisites and discovery
@@ -32,11 +35,11 @@ acceptance criterion requires them. Completion notes identify each disposition
 or explicitly record no broader findings. Prose TODOs are not filed follow-ups.
 
 The [design's introspection contract](hearts.md#introspection-reuse-and-delivery)
-owns the five mandatory questions and scope-expansion rules. Each R bead includes
-those requirements and a task-specific focus. Do not mark an R complete merely
+owns the five mandatory questions and scope-expansion rules. Each R/RV bead includes
+those requirements and a task-specific focus. Do not mark an R/RV complete merely
 because a follow-up was filed when its fix is required for current acceptance.
 
-All H/R assignments and follow-up dispositions obey the
+All H/R and V/RV assignments and follow-up dispositions obey the
 [existing asset boundary](hearts.md#existing-asset-boundary). Asset production or
 acquisition is excluded except simple deterministic primitive geometry. Use
 existing-pool substitutions for thematic gaps; retain required engine work.
@@ -74,7 +77,10 @@ existing-pool substitutions for thematic gaps; retain required engine work.
 | [H27](#h27) | hv-a8o.54 | hv-a8o.55 | hv-a8o.53 | Migrate chess music to shared audio lifecycle |
 | [H28](#h28) | hv-a8o.56 | hv-a8o.57 | hv-a8o.55 | Migrate a focused chess opponent path to shared tasks |
 | [H29](#h29) | hv-a8o.58 | hv-a8o.59 | hv-a8o.57 | Refine Hearts art, audio, and measured performance |
-| [H30](#h30) | hv-a8o.60 | hv-a8o.61 | hv-a8o.59 | Assemble final automated evidence and mobile review packet |
+| [V01](#v01) | hv-a8o.63 | hv-a8o.64 | hv-a8o.59 | Compare the scene to the reference and improve it — pass 1 |
+| [V02](#v02) | hv-a8o.65 | hv-a8o.66 | hv-a8o.64 | Compare the scene to the reference and improve it — pass 2 |
+| [V03](#v03) | hv-a8o.67 | hv-a8o.68 | hv-a8o.66 | Compare the scene to the reference and improve it — pass 3 |
+| [H30](#h30) | hv-a8o.60 | hv-a8o.61 | hv-a8o.68 | Assemble final automated evidence and mobile review packet |
 
 ## Detailed assignments
 
@@ -430,6 +436,59 @@ Its completion is followed by the paired introspection before dependent work.
 **Validation:** Native landscape/portrait controlled captures, actual listening, full-hand profiling/warmup distributions and final reference comparison.
 
 **Introspection focus:** Which iteration cycles are too slow or opaque? Improve capture/profiling/asset feedback utilities and remove sample workarounds exposed by polish.
+
+### Sequential reference refinement
+
+These three passes each ask: **compare the latest native Hearts scene with
+`docs/hearts-kaykit-forest-reference.png` and try to make it look more similar.**
+They run after H29/R29 and before H30 final evidence. Each uses the previous
+pass's delivered scene, not the original baseline or its stale discrepancy list.
+
+For each pass, capture a representative full-hand landscape state and choose the
+one to three most visible remaining discrepancies. Adjust camera/framing, card
+scale/fans, clearing/foliage placement, palette, lighting/shadows, or HUD intrusion
+as the comparison warrants. Keep the change bounded and use the existing asset
+pool; simple primitive geometry remains the only new asset exception. Preserve
+the approved KayKit court art, gameplay, readability, and performance.
+
+Retain the reference and comparable native before/after captures with reproducible
+state, viewport, clocks and seeds. Explain why the result is closer and hand off
+remaining discrepancies. Check representative portrait framing and affected
+interaction/motion, and run repository-required validation. Do not force portrait
+to copy the landscape layout. If no worthwhile in-scope improvement remains,
+retain fresh comparison evidence and a concrete no-change rationale instead of
+manufacturing churn. A pass cannot substitute for final user aesthetic approval.
+
+Each RV answers all five mandatory introspection questions and files actual
+follow-up beads for larger architecture/library/tooling findings. Fixes required
+for current acceptance still block closure; broader follow-ups stay deferred.
+Focus on declarative scene/layout tuning and the capture/comparison feedback
+cycle. Do not create custom-asset production work. Each review blocks the next
+pass; H30 refreshes evidence after the final pass and its review.
+
+### V01
+
+**Compare the scene to the reference and improve it — pass 1** — hv-a8o.63; review hv-a8o.64 (RV01).
+
+Prerequisite: **hv-a8o.59**. Execute the comparison/improvement contract
+above against the latest delivered scene; retain before/after evidence and
+remaining discrepancies for the next task.
+
+### V02
+
+**Compare the scene to the reference and improve it — pass 2** — hv-a8o.65; review hv-a8o.66 (RV02).
+
+Prerequisite: **hv-a8o.64**. Execute the comparison/improvement contract
+above against the latest delivered scene; retain before/after evidence and
+remaining discrepancies for the next task.
+
+### V03
+
+**Compare the scene to the reference and improve it — pass 3** — hv-a8o.67; review hv-a8o.68 (RV03).
+
+Prerequisite: **hv-a8o.66**. Execute the comparison/improvement contract
+above against the latest delivered scene; retain before/after evidence and
+remaining discrepancies for the next task.
 
 ### H30
 
