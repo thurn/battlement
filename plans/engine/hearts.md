@@ -60,11 +60,11 @@ white cards South, navy/gold backs at the remaining edges, and a quiet center.
 Use the owned KayKit deck despite its stylized court figures differing from the
 mockup's traditional illustrations. Fidelity concerns composition, readability,
 colors, scale, lighting, and material treatment, not accidental card/rule states
-in the reference. Do not commission another deck.
+in the reference. Build from the existing asset pool under the boundary below.
 
 Prepare KayKit card meshes with verified face/back mappings and the minimal
-forest subset through authoring inputs. Retain source/license records and
-deterministic generation. Hearts must not need a chess player/runtime assembly.
+forest subset through import/configuration inputs. Retain source/license records
+and deterministic generation. Hearts must not need a chess player/runtime assembly.
 Map all 52 faces once and one shared back. Cards have independent hit regions,
 small visible thickness, rounded silhouettes, readable corners, and contact
 shadows. Compose environment objects in Rust from prepared assets.
@@ -81,27 +81,64 @@ horizontally pannable fan when needed, with automatic focus reveal for keyboard
 and controller. Opponent fans may compress because counts convey their relevant
 information. Respect safe areas, scaled text, and usable touch targets.
 
+### Existing asset boundary
+
+Use the assets already in the repository. Do not commission, purchase, download,
+generate, paint, model, record, compose, or synthesize new artistic assets for
+Hearts. The only new visual asset exception is simple deterministic geometry
+that is straightforward to generate and verify: planes, discs, rectangles,
+rings, or basic confetti shapes for surfaces, focus marks, and restrained effects.
+No bespoke illustrations, textures, detailed meshes, rigs, or artistic shaders.
+
+Normal implementation work remains in scope: importing and addressing existing
+assets, composing scenes/prefabs from them, configuring existing materials and
+particle emitters, tint/scale/opacity changes, layout, lighting, animation,
+playback timing, gain, and crossfades. Use existing fonts for labels and controls.
+Effect composition must stay simple; adapt an existing effect or a few primitive
+particles rather than undertaking a custom VFX production task.
+
+The local inventory includes 52 card models, 52 faces and one back, 198 forest
+models with their shared texture, 41 NotJam sound effects and four music tracks,
+and NOVA particle shaders/example prefabs. All card/forest models and PNGs passed
+structural checks; referenced textures and Unity metadata are present. All local
+Opus audio decoded successfully. These checks do not establish Hearts import,
+rendering, or aesthetic suitability; verify those during implementation.
+
+Select and audition from that pool. Literal paper/card recordings, woodland
+ambience, leaf sprites, heart-shaped bursts, and newly composed gentle music are
+not acceptance requirements. Use existing selection/contact/result sounds for
+card actions; choose the least intrusive existing music and tune its mix. Use a
+suitable existing ambient loop only if one is available after listening;
+otherwise omit the ambience layer and its control. Keep music and SFX required.
+Use simple existing or primitive-particle accents for heart breaking and results;
+replace unavailable leaf imagery with sparse neutral particles or omit that
+specific decoration. Preserve lifecycle/particle engine work and deterministic
+evidence even when a particular decorative treatment is omitted. Record each
+chosen source and substitution; an asset gap must not create a new production
+bead or block completion on excluded artwork.
+
 ### Motion and sound
 
 | Occurrence | Initial treatment | Audio/effect role |
 | --- | --- | --- |
-| Deal | 45 ms stagger into fans | Soft paper flicks with restrained variation |
+| Deal | 45 ms stagger into fans | Quiet existing short SFX with restrained variation |
 | Focus/hover/selection | Short lift and spring settle; distinguish selection | Quiet selection tick, never rerender-driven |
-| Pass exchange | 450 ms transfer and hand reflow | Paper sweep without revealing secret hands |
+| Pass exchange | 450 ms transfer and hand reflow | Existing transfer cue without revealing secret hands |
 | Play | 250 ms travel, slight tilt, clean contact | Landing contact cue |
 | Complete trick | Approximately 650 ms readable hold | Winner and penalty emphasis |
-| Collect | 400 ms into winner's pile | Gather sound, restrained leaf/dust accent |
-| First heart | Brief red/gold wisp and text | Distinct soft cue |
-| Hand/match results | Count-up then stable totals | Gentle result cue, restrained moon/win celebration |
-| Ambient | Slow leaves/foliage away from faces | Woodland bed and gentle music |
+| Collect | 400 ms into winner's pile | Existing collection cue, sparse existing/primitive accent |
+| First heart | Brief red/gold tint/primitive pulse and text | Distinct soft cue |
+| Hand/match results | Count-up then stable totals | Existing result cue, restrained existing/primitive celebration |
+| Ambient | Sparse existing/primitive particles away from faces | Existing music; suitable existing ambience only if available |
 
 These are tuning defaults, not test sleeps. Use the shared presentation clock
 and explicit controlled test times. Ambient effects have deterministic seeds and
-controlled clocks and cannot prevent readiness from settling. Required sounds
-use owned/licensed sources or synthesized equivalents with provenance. Missing
-audio is work to finish, not permission to omit it.
+controlled clocks and cannot prevent readiness from settling. Select sound roles
+under the existing asset boundary; preserve provenance and listen to the mix.
+Missing thematic assets require substitutions, not new asset production.
 
-Settings: music/SFX/ambience volume, reduced motion, text scale, animation speed.
+Settings: separate music/SFX volume, ambience volume only when that layer is
+used, reduced motion, text scale, animation speed.
 Reduced motion substitutes brief state transitions for large travel/bursts while
 preserving readable outcomes and order. Volume changes do not restart music;
 track replacement crossfades; unmount/backgrounding do not leak playback.

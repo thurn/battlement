@@ -1,6 +1,6 @@
 # Hearts native implementation and introspection graph
 
-Epic: **hv-a8o**. Planning/delivery bead: **hv-qn6**.
+Epic: **hv-a8o**. Planning/delivery bead: **hv-qn6**. Asset-scope revision: **hv-faq**.
 
 [Design and contracts](hearts.md) · [Blind React reference](hearts-react-reference.md)
 
@@ -35,6 +35,11 @@ The [design's introspection contract](hearts.md#introspection-reuse-and-delivery
 owns the five mandatory questions and scope-expansion rules. Each R bead includes
 those requirements and a task-specific focus. Do not mark an R complete merely
 because a follow-up was filed when its fix is required for current acceptance.
+
+All H/R assignments and follow-up dispositions obey the
+[existing asset boundary](hearts.md#existing-asset-boundary). Asset production or
+acquisition is excluded except simple deterministic primitive geometry. Use
+existing-pool substitutions for thematic gaps; retain required engine work.
 
 ## Assignment index
 
@@ -82,7 +87,7 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Establish the Hearts workflow and platform baseline** — hv-a8o.2; review hv-a8o.3.
 
-**Scope and interface:** Inspect actual engine capabilities, owned deck/forest/audio inputs, generated-asset routes, current full warm CI, and native mobile delivery prerequisites. Record runner/cache conditions, exact CI handle/source, asset license inventory, and iOS signing/Android SDK/install matrix. Do not treat a simulator as a physical-device proof.
+**Scope and interface:** Inspect actual engine capabilities, owned deck/forest/audio inputs, generated-asset routes, current full warm CI, and native mobile delivery prerequisites. Record runner/cache conditions, exact CI handle/source, existing asset/license inventory, and iOS signing/Android SDK/install matrix. Identify usable existing-pool substitutions after listening/inspection; do not file asset-production or acquisition prerequisites. Do not treat a simulator as a physical-device proof.
 
 **Acceptance:** Retained stage timings and a concrete bottleneck list distinguish warm changed-source work from cold setup and queueing. All 52 faces/back and forest sources are accounted for. Unknown signing/device prerequisites have a named user/tooling owner. Subsequent CI repairs are bounded from evidence.
 
@@ -202,7 +207,7 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Prepare Hearts owned assets and a runnable sample shell** — hv-a8o.22; review hv-a8o.23.
 
-**Scope and interface:** Create standalone Unity/Reactant sample configuration and generated asset declarations. Import minimal owned KayKit forest/card meshes/textures with license/source inventory; map 52 faces and one back. Add native review fixtures and root component with initial/restore entrypoints.
+**Scope and interface:** Create standalone Unity/Reactant sample configuration and generated asset declarations. Import existing KayKit forest/card meshes/textures and existing fonts with source/license inventory; map 52 faces and one back. Configure imports/materials without repainting, remodeling, new shaders, or external asset acquisition; only simple primitive geometry is permitted as a new visual asset. Add native review fixtures and root component with initial/restore entrypoints.
 
 **Acceptance:** Sample builds/runs through repository tools. Card mapping is complete and verified. Hearts has no runtime dependency on chess. Generated inputs reproduce from declarations; a native shell capture and reset fixture are retained.
 
@@ -214,7 +219,7 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Compose the forest scene and reference camera** — hv-a8o.24; review hv-a8o.25.
 
-**Scope and interface:** Build Rust scene composition from prepared forest assets and card meshes. Establish fixed camera, light/shadow/material defaults and quiet central clearing. Compose seat labels/score placeholders with reference-matched scale and palette.
+**Scope and interface:** Build Rust scene composition from existing forest assets and card meshes, allowing only simple primitive surfaces/markers where needed. Establish fixed camera, light/shadow/material defaults and quiet central clearing. Compose seat labels/score placeholders with reference-matched scale and palette.
 
 **Acceptance:** Native landscape and portrait framing show readable cards and no occlusion/hit overlap. Side-by-side review against supplied reference records discrepancies and resolves material composition problems. Do not introduce gameplay C# or camera shake.
 
@@ -262,9 +267,9 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Add lifecycle-owned audio and ambient playback** — hv-a8o.32; review hv-a8o.33.
 
-**Scope and interface:** Build reusable audio hook/components over existing playback handles: enabled/paused, gain, looping, track replacement/crossfade and cleanup. Wire required licensed/synthesized paper/card, woodland, selection/landing/collection and result sound roles into Hearts assets.
+**Scope and interface:** Build reusable audio hook/components over existing playback handles: enabled/paused, gain, looping, track replacement/crossfade and cleanup. Audition and map existing NotJam clips to deal/pass/selection/landing/collection/results; choose existing music and tune timing/gain/crossfades. No recording, composition, synthesis, downloads, or custom sound assets. Literal paper/card and woodland sounds are not required: use existing cues, and omit the ambient layer if no suitable existing loop is available.
 
-**Acceptance:** Rerenders/volume changes do not duplicate/restart playback; replacement crossfades and unmount/background cleans up. One-shots attach to occurrence IDs. Separate music/SFX/ambience controls work, and every required role has provenance.
+**Acceptance:** Rerenders/volume changes do not duplicate/restart playback; replacement crossfades and unmount/background cleans up. One-shots attach to occurrence IDs. Required music and SFX have separate working controls and provenance; expose an ambience control only if a suitable existing loop is used. Record source mappings, listening evidence and substitutions; thematic audio gaps do not block completion or authorize new assets.
 
 **Validation:** Playback command/lifecycle contracts plus native listening evidence for timing, crossfade, pause and repeated mount/unmount.
 
@@ -274,9 +279,9 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Make ambient particles deterministic and lifecycle-owned** — hv-a8o.34; review hv-a8o.35.
 
-**Scope and interface:** Expose reusable ambient/burst ownership over existing particle commands and motion clock. Supply deterministic seeds/time for Ditto, scoped pause/cleanup, reduced-motion behavior, and finite one-shot lifetime. Prepare restrained leaf, heart-broken and celebration effects.
+**Scope and interface:** Expose reusable ambient/burst ownership over existing particle commands and motion clock. Supply deterministic seeds/time for Ditto, scoped pause/cleanup, reduced-motion behavior, and finite one-shot lifetime. Reuse existing particle assets/shaders with simple emitter/tint/scale configuration; simple primitive particles may supplement them for ambient, heart-breaking and result accents. No custom textures, detailed meshes, artistic shaders, or elaborate bespoke effects. Leaf/heart imagery is optional; use sparse neutral particles and text/color emphasis instead.
 
-**Acceptance:** Controlled-time captures reproduce. Infinite ambience does not block readiness; pause/unmount/restart and reduced motion cleanly control effects. Bursts fire once and do not obscure card faces.
+**Acceptance:** Controlled-time captures reproduce. Infinite ambience does not block readiness; pause/unmount/restart and reduced motion cleanly control effects. Bursts fire once and do not obscure card faces. Source mappings and any primitive geometry are recorded; no requirement depends on unavailable thematic assets.
 
 **Validation:** Seed/time and lifecycle contracts, controlled native midpoints, repeated replacement and reduced-motion captures.
 
@@ -418,9 +423,9 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Refine Hearts art, audio, and measured performance** — hv-a8o.58; review hv-a8o.59.
 
-**Scope and interface:** Iterate assembled scene/input/motion/audio against the reference and native captures. Measure frame cost, batching/materials/shadows/particles and AI responsiveness on reproducible builds. Provide user-facing physical performance instrumentation for the selected device classes.
+**Scope and interface:** Iterate assembled scene/input/motion/audio against the reference and native captures through composition, lighting, mix and parameter tuning of the existing pool. Do not expand into asset creation or acquisition; use the documented substitutions. Measure frame cost, batching/materials/shadows/particles and AI responsiveness on reproducible builds. Provide user-facing physical performance instrumentation for the selected device classes.
 
-**Acceptance:** Resolved clipping/readability/occlusion/timing issues and documented remaining user-sign-off items. Decoration is reduced before clarity. Required sound roles and controlled effects are complete; no claim of physical 60fps without user evidence.
+**Acceptance:** Resolved clipping/readability/occlusion/timing issues and documented remaining user-sign-off items. Decoration is reduced before clarity. Required sound roles and controlled effects use existing assets or permitted simple geometry, with thematic substitutions documented; no claim of physical 60fps without user evidence.
 
 **Validation:** Native landscape/portrait controlled captures, actual listening, full-hand profiling/warmup distributions and final reference comparison.
 
