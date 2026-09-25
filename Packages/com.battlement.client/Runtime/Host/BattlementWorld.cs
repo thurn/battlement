@@ -32,6 +32,8 @@ namespace Battlement
 
         internal BattlementWorldMotion Motion { get; }
 
+        internal DittoPrefabParticles DittoParticles { get; }
+
         public Camera? InputCamera => input.Camera;
 
         Camera? IBattlementGeometryWorldSource.InputCamera => InputCamera;
@@ -48,11 +50,16 @@ namespace Battlement
 
         internal IEnumerable<BattlementIdentity> Identities => objects.Values;
 
-        public BattlementWorld(Scene hostScene, BattlementPreparedAssets preparedAssets)
+        public BattlementWorld(
+            Scene hostScene,
+            BattlementPreparedAssets preparedAssets,
+            DittoMotionClock? motionClock = null
+        )
         {
             this.preparedAssets = preparedAssets;
             Motion = new BattlementWorldMotion(this);
-            objectFactory = new BattlementObjectFactory(preparedAssets);
+            DittoParticles = new DittoPrefabParticles(motionClock);
+            objectFactory = new BattlementObjectFactory(preparedAssets, DittoParticles);
             persistentContainer = new GameObject("Battlement Persistent");
             SceneManager.MoveGameObjectToScene(persistentContainer, hostScene);
         }
@@ -988,6 +995,7 @@ namespace Battlement
             }
 
             objects.Clear();
+            DittoParticles.Clear();
         }
 
         private void ReleaseAndDestroy(BattlementIdentity identity)

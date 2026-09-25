@@ -15,8 +15,12 @@ namespace Battlement
     {
         private readonly BattlementPreparedAssets preparedAssets;
 
-        public BattlementObjectFactory(BattlementPreparedAssets preparedAssets) =>
-            this.preparedAssets = preparedAssets;
+        private readonly DittoPrefabParticles particles;
+
+        public BattlementObjectFactory(
+            BattlementPreparedAssets preparedAssets,
+            DittoPrefabParticles particles
+        ) => (this.preparedAssets, this.particles) = (preparedAssets, particles);
 
         public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
             BattlementGameObject description
@@ -366,6 +370,7 @@ namespace Battlement
                 }
 
                 instance = Object.Instantiate(prefab);
+                particles.Track(instance);
                 instance.SetActive(true);
                 BattlementGeometryAnchorCatalog anchors = (
                     (IBattlementGeometryAnchorLease)lease
@@ -406,6 +411,7 @@ namespace Battlement
                         $"Prefab '{description.Address}' has no root Animator."
                     );
                 instance = Object.Instantiate(prefab);
+                particles.Track(instance);
                 BattlementGeometryAnchorCatalog anchors = (
                     (IBattlementGeometryAnchorLease)lease
                 ).GeometryAnchors;

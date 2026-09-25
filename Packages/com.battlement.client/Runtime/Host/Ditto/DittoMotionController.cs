@@ -44,6 +44,7 @@ namespace Battlement
         private ulong? previousPaintFingerprint;
         private bool controlledAdvanceRequested;
         private bool preservingExactState;
+        private DittoCommittedFrame? lastFrame;
 
         public DittoMotionController(BattlementRunner runner)
         {
@@ -72,6 +73,7 @@ namespace Battlement
             frameIndex = 0;
             quietFrames = 0;
             previousPaintFingerprint = null;
+            lastFrame = null;
             advanceControlledTime = true;
             started = true;
         }
@@ -119,7 +121,7 @@ namespace Battlement
             previous = current;
             previousPaintFingerprint = paintFingerprint;
             controlledAdvanceRequested = false;
-            return new DittoCommittedFrame(
+            return lastFrame = new DittoCommittedFrame(
                 ++frameIndex,
                 runner.DittoElapsed,
                 current.HasPendingWork,
@@ -145,7 +147,10 @@ namespace Battlement
                 ? ""
                 : $", timelines=[{work.ActiveTimelineDiagnostic}]";
             return $"pending={work.HasPendingWork}, {finite}, {infinite}, {held}, {elapsed}, "
-                + $"deferred-ui={work.HasDeferredUiWork}{timelines}";
+                + $"deferred-ui={work.HasDeferredUiWork}, quiet-frames={quietFrames}, "
+                + $"state-changed={lastFrame?.StateChanged}, "
+                + $"layout-changed={lastFrame?.LayoutChanged}, "
+                + $"paint-changed={lastFrame?.PaintChanged}{timelines}";
         }
 
         public void PreserveExactAdvanceState()

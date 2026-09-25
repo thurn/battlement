@@ -118,6 +118,9 @@ namespace Battlement.Tests
 
             DittoCommittedFrame initial = Advance(harness, motion, 10);
             DittoCommittedFrame textRepaint = Advance(harness, motion, 20);
+            Assert.That(motion.PendingDiagnostic(), Does.Contain("state-changed=False"));
+            Assert.That(motion.PendingDiagnostic(), Does.Contain("layout-changed=False"));
+            Assert.That(motion.PendingDiagnostic(), Does.Contain("paint-changed=True"));
             DittoCommittedFrame quiet = Advance(harness, motion, 20);
             DittoCommittedFrame settled = Advance(harness, motion, 20);
 

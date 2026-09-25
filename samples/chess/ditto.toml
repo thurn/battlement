@@ -87,3 +87,16 @@ fixture = "resumed board"
 
 [[scenarios.steps]]
 screenshot = { name = "resumed-board" }
+
+[[scenarios]]
+name = "semantic pawn selection"
+fixture = "title"
+motion = "controlled"
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "⁨White Pawn⁩ at ⁨e2⁩" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Move to ⁨e4⁩" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "⁨White Pawn⁩ at ⁨e4⁩" }, role = "button", name = "⁨White Pawn⁩ at ⁨e4⁩" }

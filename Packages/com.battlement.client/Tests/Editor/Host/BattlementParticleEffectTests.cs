@@ -74,6 +74,75 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ControlledPrefabParticlesRemainVisibleAndFreezeWithTheirOwnedClock()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+            var address = new PrefabAddress("game/prewarmed-cursor");
+            var objectId = new ObjectId(Guid.NewGuid());
+            GameObject prefab = ParticlePrefab(address.Value);
+            foreach (ParticleSystem system in prefab.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                ParticleSystem.MainModule main = system.main;
+                main.playOnAwake = true;
+                main.prewarm = true;
+                main.startLifetime = 2;
+                main.startSpeed = 1;
+            }
+            harness.AssetStorage.EnqueueValue(prefab);
+            SessionId session = Connect(
+                harness,
+                new PreparedAsset[] { new PreparedAsset.Prefab(address) },
+                new[] { PrefabObject(objectId, address) }
+            );
+            ParticleSystem[] systems = Find(objectId).GetComponentsInChildren<ParticleSystem>(true);
+            DittoCommittedFrame Frame(bool advance = false)
+            {
+                motion.PrepareFrame(forceAdvance: advance);
+                harness.Runner.RunFrame();
+                harness.Runner.CompleteNativeFrame();
+                return motion.ObserveCommittedFrame();
+            }
+            _ = Frame();
+            Assert.That(
+                systems.All(system => system.particleCount > 0),
+                Is.True,
+                string.Join(
+                    "; ",
+                    systems.Select(system =>
+                        $"{system.name}: active={system.gameObject.activeInHierarchy}, "
+                        + $"time={system.time}, count={system.particleCount}, "
+                        + $"awake={system.main.playOnAwake}, seed={system.randomSeed}"
+                    )
+                ) + $"; {motion.PendingDiagnostic()}"
+            );
+            float[] initialTimes = systems.Select(system => system.time).ToArray();
+            _ = Frame();
+            DittoCommittedFrame settled = Frame();
+            Assert.That(settled.IsSettled, Is.True);
+            Assert.That(settled.HasInfiniteOperations, Is.True);
+            Assert.That(systems.Select(system => system.time), Is.EqualTo(initialTimes));
+            Assert.That(systems.All(system => system.isPaused), Is.True);
+            Assert.That(systems.All(system => !system.useAutoRandomSeed), Is.True);
+            _ = Frame(advance: true);
+            Assert.That(systems[0].time, Is.Not.EqualTo(initialTimes[0]));
+
+            Find(objectId).SetActive(false);
+            _ = Frame();
+            Assert.That(systems.Sum(system => system.particleCount), Is.Zero);
+            Find(objectId).SetActive(true);
+            _ = Frame();
+            Assert.That(systems.Select(system => system.time), Is.EqualTo(initialTimes));
+            Assert.That(systems.All(system => system.particleCount > 0), Is.True);
+
+            Submit(harness, session, Command(new CommandBody.Particle.Stop(objectId, Clear: true)));
+            _ = Frame(advance: true);
+            Assert.That(systems.Sum(system => system.particleCount), Is.Zero);
+            Assert.That(harness.Runner.ObserveDittoWork().HasInfiniteOperations, Is.False);
+        }
+
+        [Test]
         public void DittoInstantMotionSuppressesParticlePlayAndSpawn() =>
             AssertStableMotionSuppressesParticlePlayAndSpawn(DittoMotion.Instant);
 

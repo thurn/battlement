@@ -336,10 +336,12 @@ namespace Battlement
             EnsureMainThread();
             int finiteMotion =
                 (configuredRuntime?.UiDocuments.DittoActiveFiniteTimelineCount ?? 0)
-                + (configuredRuntime?.BatchScheduler.FiniteOperationCount ?? 0);
+                + (configuredRuntime?.BatchScheduler.FiniteOperationCount ?? 0)
+                + (configuredRuntime?.World.DittoParticles.FiniteCount ?? 0);
             int infiniteMotion =
                 (configuredRuntime?.UiDocuments.DittoActiveInfiniteTimelineCount ?? 0)
-                + (configuredRuntime?.BatchScheduler.InfiniteOperationCount ?? 0);
+                + (configuredRuntime?.BatchScheduler.InfiniteOperationCount ?? 0)
+                + (configuredRuntime?.World.DittoParticles.InfiniteCount ?? 0);
             int heldMotion =
                 (configuredRuntime?.UiDocuments.DittoActiveHeldTimelineCount ?? 0)
                 + (configuredRuntime?.BatchScheduler.HeldOperationCount ?? 0);
@@ -526,7 +528,11 @@ namespace Battlement
                 runtime.SetPreparedAssets(preparedAssets);
                 DittoMotionClock dittoMotionClock = new DittoMotionClock(checkedOptions.Clock);
                 runtime.SetDittoMotionClock(dittoMotionClock);
-                BattlementWorld world = new BattlementWorld(gameObject.scene, preparedAssets);
+                BattlementWorld world = new BattlementWorld(
+                    gameObject.scene,
+                    preparedAssets,
+                    dittoMotionClock
+                );
                 runtime.SetWorld(world);
                 BattlementPointerInput pointerInput = new BattlementPointerInput(
                     transform,
@@ -1243,6 +1249,7 @@ namespace Battlement
                     return;
                 try
                 {
+                    configuredRuntime.World.DittoParticles.Sample();
                     GeometryObservationBatch? sample = configuredRuntime.GeometrySampler.Sample();
                     if (sample is not null)
                         geometryFrames.Merge(sample);
