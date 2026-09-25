@@ -52,6 +52,7 @@ def verify_root_rust_cache(ci, root: Path) -> None:
         patch.object(ci, "cargo_environment", return_value={}),
         patch.object(ci.process_priority, "run", side_effect=lambda args, **_: calls.append(args)),
         patch.object(cache, "invocation", side_effect=nullcontext),
+        patch.object(cache, "maintain", return_value=False),
     ):
         assert observe() == commands
         assert observe() == []
