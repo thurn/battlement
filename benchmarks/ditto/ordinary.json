@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "name": "ordinary-17x32",
+  "name": "ordinary-17x35",
   "profile": "macos",
   "width": 1280,
   "height": 720,
@@ -33,7 +33,7 @@
       "name": "chess",
       "config": "samples/chess/ditto.toml",
       "scenarios": [
-        {"name": "title", "checkpoints": ["title"]},
+        {"name": "title", "checkpoints": ["title", "settings", "new-game", "returned-menu"]},
         {"name": "computer win", "checkpoints": ["computer-win"]},
         {"name": "resumed board", "checkpoints": ["resumed-board"]}
       ]

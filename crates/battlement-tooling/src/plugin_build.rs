@@ -200,7 +200,7 @@ fn web_cargo_command(
   target_directory: &Path,
 ) -> Command {
   let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-  let mut command = Command::new(cargo);
+  let mut command = crate::process_priority::command(cargo);
   command
     .arg("rustc")
     .arg("--package")
@@ -231,7 +231,7 @@ fn build_slice(
   target_directory: &Path,
 ) -> Result<()> {
   let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-  let mut command = Command::new(cargo);
+  let mut command = crate::process_priority::command(cargo);
   command
     .arg("build")
     .arg("--package")

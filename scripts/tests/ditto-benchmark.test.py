@@ -152,7 +152,7 @@ def main() -> None:
         except RuntimeError:
             pass
         else:
-            raise AssertionError("changed 17/32 benchmark shape was accepted")
+            raise AssertionError("changed 17/35 benchmark shape was accepted")
 
     samples = []
     for fixed_sample in definition["samples"]:
@@ -163,7 +163,7 @@ def main() -> None:
         samples.append({**summary, "sample": fixed_sample["name"]})
     repetition = budget.summarize_repetition(samples)
     assert repetition["scenario_count"] == 17
-    assert repetition["checkpoint_count"] == 32
+    assert repetition["checkpoint_count"] == 35
     assert repetition["execution_ms"] == 90
     accepted = budget.enforce(
         [10] * budget.HASH_REPETITIONS,

@@ -19,6 +19,8 @@ import uuid
 from collections.abc import Iterator
 from typing import Any
 
+import process_priority
+
 
 SOURCE_DIRECTORIES = ("Assets", "Packages", "ProjectSettings")
 
@@ -329,7 +331,7 @@ class UnityProjectTransaction:
             options["creationflags"] = options.get("creationflags", 0) | subprocess.CREATE_NEW_PROCESS_GROUP
         else:
             options["process_group"] = 0
-        process = subprocess.Popen(command, **options)
+        process = subprocess.Popen(process_priority.prepare(command, options), **options)
         self.journal["unity_pid"] = process.pid
         self.journal["unity_stopped"] = False
         self.write_journal()

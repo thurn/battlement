@@ -13,6 +13,7 @@ from threading import Lock
 import time
 import uuid
 
+import process_priority
 import process_identity
 
 
@@ -45,7 +46,9 @@ def run(command: list[str], *, cwd: Path, environment: dict[str, str] | None = N
     """Observe one real child process while preserving subprocess.run failure semantics."""
     operation = current()
     started = time.monotonic_ns()
-    with subprocess.Popen(command, cwd=cwd, env=child_environment(environment)) as child:
+    options = {"cwd": cwd, "env": child_environment(environment)}
+    launch = process_priority.prepare(command, options) if Path(command[0]).stem == "cargo" else command
+    with subprocess.Popen(launch, **options) as child:
         observed = process_identity.identity(child.pid)
         if operation:
             operation.event('process.started', process=observed,

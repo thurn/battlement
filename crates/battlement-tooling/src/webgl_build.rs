@@ -268,7 +268,7 @@ fn build_pending(
   if let Some(existing) = env::var_os("PATH") {
     paths.extend(env::split_paths(&existing));
   }
-  let mut cargo = Command::new(&request.tools.cargo);
+  let mut cargo = crate::process_priority::command(&request.tools.cargo);
   cargo
     .arg("rustc")
     .arg("--manifest-path")

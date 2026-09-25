@@ -10,6 +10,7 @@ import operation_log
 
 
 CHECKS = (
+    ("Test process scheduling priority", "scripts/tests/process-priority.test.py"),
     ("Test operation telemetry", "scripts/tests/operation-log.test.py"),
     ("Test CI job handles", "scripts/tests/ci-job.test.py"),
     ("Test validation preparation", "scripts/tests/prepare-validation.test.py"),

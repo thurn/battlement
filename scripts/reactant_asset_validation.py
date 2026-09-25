@@ -19,6 +19,7 @@ import tempfile
 import time
 from typing import Callable
 
+import process_priority
 from resource_slots import unity_editor_lease
 from unity_transaction import UnityProjectTransaction, unity_project_transaction
 
@@ -64,6 +65,8 @@ def run(
     status = "failed"
     try:
         runner = transaction.run if transaction is not None else subprocess.run
+        if transaction is None and command[0] == "cargo":
+            runner = process_priority.run
         completed = runner(
             command,
             cwd=cwd,

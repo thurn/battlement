@@ -15,6 +15,7 @@ pub mod macos_build;
 pub mod odiff_binary;
 pub mod plugin;
 pub mod plugin_build;
+pub mod process_priority;
 pub mod project;
 pub mod unity_lease;
 pub mod web_archive;
@@ -52,7 +53,7 @@ pub fn repository_root(path: &Path) -> Result<PathBuf> {
 /// Creates a Unity command guarded by the repository's source transaction journal.
 pub fn transactional_unity_command(project: &Path, editor: &Path) -> Result<Command> {
   let Ok(repository) = self::repository_root(project) else {
-    return Ok(Command::new(editor));
+    return Ok(crate::process_priority::command(editor));
   };
   let python = env::var_os("PYTHON").unwrap_or_else(|| {
     if cfg!(windows) {

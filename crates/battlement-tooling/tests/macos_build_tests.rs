@@ -286,6 +286,10 @@ impl Fixture {
       "repo/scripts/unity_transaction.py",
       include_str!("../../../scripts/unity_transaction.py"),
     );
+    fixture.write(
+      "repo/scripts/process_priority.py",
+      include_str!("../../../scripts/process_priority.py"),
+    );
     fixture.initialize_repository();
     fixture
   }

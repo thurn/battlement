@@ -23,6 +23,7 @@ import uuid
 from ditto_build_leases import ci_cache_root
 import ditto_evidence
 import ditto_replay
+import process_priority
 import operation_log
 import process_identity
 from typing import Any
@@ -61,8 +62,9 @@ def command(
         process_options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
     else:
         process_options = {"process_group": 0}
+    launch = process_priority.prepare(arguments, process_options) if arguments[0] == "cargo" else arguments
     process = subprocess.Popen(
-        arguments, cwd=REPOSITORY_ROOT, stdout=subprocess.PIPE,
+        launch, cwd=REPOSITORY_ROOT, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True,
         env=operation_log.child_environment(environment), **process_options,
     )

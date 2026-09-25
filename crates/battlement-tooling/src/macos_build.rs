@@ -676,7 +676,7 @@ fn resolve_rules(
       fs::write(pending.path().join(BUILD_LOG_FILE), [])?;
       let target = rust_target(&request.tools.architecture)?;
       let target_directory = pending.path().join(".native");
-      let mut cargo = Command::new(&request.tools.cargo);
+      let mut cargo = crate::process_priority::command(&request.tools.cargo);
       cargo
         .arg("build")
         .arg("--manifest-path")
@@ -871,7 +871,9 @@ fn unity_editor_command(request: &MacosBuildRequest, reason: &str) -> Result<Com
     request.tools.unity_editor.display()
   );
   eprintln!("process.start kind=unity-editor reason={reason}");
-  Ok(Command::new(&request.tools.unity_editor))
+  Ok(crate::process_priority::command(
+    &request.tools.unity_editor,
+  ))
 }
 
 fn startup_identity(request: &MacosBuildRequest, identity: &BuildIdentity) -> MacosStartupIdentity {

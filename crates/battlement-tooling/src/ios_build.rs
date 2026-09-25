@@ -270,7 +270,7 @@ fn build_pending(
   fs::write(pending.path().join(BUILD_LOG_FILE), [])?;
   let target = self::rust_target(&request.tools.architecture)?;
   let target_directory = pending.path().join(".native");
-  let mut cargo = Command::new(&request.tools.cargo);
+  let mut cargo = crate::process_priority::command(&request.tools.cargo);
   cargo
     .arg("rustc")
     .arg("--manifest-path")
@@ -351,7 +351,7 @@ fn build_pending(
   }
 
   let derived = pending.path().join(".derived");
-  let mut xcodebuild = Command::new(&request.tools.xcodebuild);
+  let mut xcodebuild = crate::process_priority::command(&request.tools.xcodebuild);
   xcodebuild
     .args([
       "-project",

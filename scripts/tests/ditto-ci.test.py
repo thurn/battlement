@@ -52,6 +52,15 @@ if marker := os.environ.get("FAKE_CHILD_MARKER"):
         "-c",
         "import os,time; time.sleep(0.5); open(os.environ['FAKE_CHILD_MARKER'], 'w').write('leaked')",
     ])
+if barrier_root := os.environ.get("FAKE_BARRIER_ROOT"):
+    barrier = Path(barrier_root)
+    barrier.mkdir(exist_ok=True)
+    sample = Path(arguments[arguments.index("--config") + 1]).parent.name
+    (barrier / f"{output.parent.parent.name}-{sample}").touch()
+    deadline = time.monotonic() + 5
+    while len(list(barrier.iterdir())) < int(os.environ["FAKE_BARRIER_COUNT"]):
+        assert time.monotonic() < deadline, "gate children did not overlap"
+        time.sleep(0.01)
 time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
 status = os.environ.get("FAKE_STATUS", "passed")
 disposition = "reused" if "--no-build" in arguments else "created"
@@ -219,16 +228,23 @@ def main() -> None:
         assert len(child_processes) == 5
 
         environment["FAKE_SLEEP"] = "0.2"
-        gated = run(["gate"], environment)
+        gated = run(["gate"], {
+            **environment, "FAKE_BARRIER_ROOT": str(root / "single-barrier"),
+            "FAKE_BARRIER_COUNT": "5",
+        })
         assert gated.returncode == 0, gated.stderr
         gate = json.loads((artifact_root(gated) / "gate.json").read_text())
-        assert 0.2 <= gate["duration_seconds"] < 0.8
+        assert gate["duration_seconds"] >= 0.2
 
         parallel_environment_a = environment.copy()
         parallel_environment_b = environment.copy()
         parallel_environment_a["DITTO_CI_INVOCATION_ID"] = f"parallel-a-{uuid.uuid4()}"
         parallel_environment_b["DITTO_CI_INVOCATION_ID"] = f"parallel-b-{uuid.uuid4()}"
-        started = time.monotonic()
+        for parallel_environment in (parallel_environment_a, parallel_environment_b):
+            parallel_environment.update({
+                "FAKE_BARRIER_ROOT": str(root / "parallel-barrier"),
+                "FAKE_BARRIER_COUNT": "10",
+            })
         parallel_a = subprocess.Popen(
             [sys.executable, str(RUNNER), "gate"], cwd=REPOSITORY_ROOT,
             env=parallel_environment_a, stdout=subprocess.PIPE,
@@ -241,10 +257,8 @@ def main() -> None:
         )
         stdout_a, stderr_a = parallel_a.communicate()
         stdout_b, stderr_b = parallel_b.communicate()
-        elapsed = time.monotonic() - started
         assert parallel_a.returncode == 0, stderr_a
         assert parallel_b.returncode == 0, stderr_b
-        assert elapsed < 0.8, elapsed
         root_a = artifact_root(subprocess.CompletedProcess([], 0, stdout_a, stderr_a))
         root_b = artifact_root(subprocess.CompletedProcess([], 0, stdout_b, stderr_b))
         assert root_a != root_b

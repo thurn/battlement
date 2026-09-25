@@ -42,6 +42,7 @@ from resource_slots import unity_editor_lease
 from unity_transaction import recover_unity_transactions, unity_project_transaction
 import perf_log
 import prose_validation
+import process_priority
 import unity_test_selection
 import native_validation_selection
 
@@ -80,6 +81,7 @@ ROOT_RUST_INPUTS = (
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
     "scripts/resource_slots.py",
+    "scripts/process_priority.py",
 )
 SAMPLE_SHARED_INPUTS = (
     "Cargo.toml",
@@ -93,6 +95,7 @@ SAMPLE_SHARED_INPUTS = (
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
     "scripts/resource_slots.py",
+    "scripts/process_priority.py",
 )
 IGNORED_SAMPLE_PROJECT_DIRECTORIES = {
     ".git",
@@ -342,7 +345,7 @@ def lint_rust_workspaces(
             "root workspace",
             lambda: ci_cache.run(
                 root_cache_name("rust-lint-root", selection), rust_workspace_inputs(None),
-                lambda: subprocess.run(
+                lambda: process_priority.run(
                     ["cargo", "clippy", *ci_selection.root_arguments(selection), "--all-targets", "--", "-D", "warnings"],
                     cwd=REPOSITORY_ROOT, env=cargo_environment(None), check=True,
                 ),
@@ -354,7 +357,7 @@ def lint_rust_workspaces(
             lambda workspace=workspace: ci_cache.run(
                 f"rust-lint-{workspace.parent.as_posix().replace('/', '-')}",
                 rust_workspace_inputs(workspace),
-                lambda: subprocess.run(
+                lambda: process_priority.run(
                     [
                         "cargo", "clippy", "--manifest-path", str(workspace),
                         "--all-targets", "--", "-D", "warnings",
@@ -382,7 +385,7 @@ def test_rust_workspaces(
             "root workspace",
             lambda: ci_cache.run(
                 "rust-test-root", rust_workspace_inputs(None),
-                lambda: subprocess.run(
+                lambda: process_priority.run(
                     ["cargo", "test", "--workspace"], cwd=REPOSITORY_ROOT,
                     env=cargo_environment(None), check=True,
                 ),
@@ -394,7 +397,7 @@ def test_rust_workspaces(
             lambda workspace=workspace: ci_cache.run(
                 f"rust-test-{workspace.parent.as_posix().replace('/', '-')}",
                 rust_workspace_inputs(workspace),
-                lambda: subprocess.run(
+                lambda: process_priority.run(
                     ["cargo", "test", "--manifest-path", str(workspace)],
                     cwd=REPOSITORY_ROOT,
                     env=cargo_environment(workspace),
@@ -591,7 +594,7 @@ def generate_unity_project_files() -> None:
 def check_dotnet_diagnostics() -> None:
     run_with_unity_lease(generate_unity_project_files)
     environment = unity_analyzer_environment()
-    subprocess.run(
+    process_priority.run(
         ["dotnet", "restore", "battlement-ci.slnx"],
         cwd=REPOSITORY_ROOT,
         check=True,
@@ -600,7 +603,7 @@ def check_dotnet_diagnostics() -> None:
         [
             (
                 "Unity analyzer diagnostics",
-                lambda: subprocess.run(
+                lambda: process_priority.run(
                     [
                         "dotnet", "format", "battlement-ci.slnx", "analyzers",
                         "--no-restore", "--verify-no-changes", "--severity", "info",
@@ -612,7 +615,7 @@ def check_dotnet_diagnostics() -> None:
             ),
             (
                 "C# style diagnostics",
-                lambda: subprocess.run(
+                lambda: process_priority.run(
                     [
                         "dotnet", "format", "battlement-ci.slnx", "style",
                         "--no-restore", "--verify-no-changes", "--diagnostics", "IDE0004", "IDE0005",
@@ -644,7 +647,7 @@ def run_unity_edit_mode_tests(assemblies: tuple[str, ...]) -> None:
     )
     tests_passed = False
     try:
-        subprocess.run(
+        process_priority.run(
             [
                 "cargo", "build", "--quiet", "--release", "-p", "battlement-native-export-fixture",
                 "--target-dir", str(REPOSITORY_ROOT / "target/unity-native-fixture"),
@@ -889,7 +892,7 @@ def build_standalone_samples(
 
     def build_uncached(name: str) -> None:
         if platform.system() != "Darwin":
-            subprocess.run(
+            process_priority.run(
                 [
                     "cargo", "run", "--quiet", "-p", "rt", "--",
                     "ditto", "--config", f"samples/{name}/ditto.toml", "build",
@@ -932,7 +935,7 @@ def prepare_standalone_builder(ditto_builds: DittoBuildLeases | None) -> float:
         environment = cargo_environment(None)
         if ditto_builds is not None:
             ditto_builds.binary = Path(environment["CARGO_TARGET_DIR"]) / "debug" / "rt"
-        subprocess.run(
+        process_priority.run(
             ["cargo", "build", "-p", "rt"],
             cwd=REPOSITORY_ROOT, env=environment, check=True,
         )

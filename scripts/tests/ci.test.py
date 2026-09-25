@@ -292,19 +292,19 @@ def _verify_parallel_sample_target_isolation(root: Path) -> None:
             function()
             return True
 
-    original_run = ci.subprocess.run
+    original_run = ci.process_priority.run
     original_lease = ci.unity_editor_lease
     original_transaction = ci.unity_project_transaction
     original_workers = ci.standalone_sample_workers
     try:
-        ci.subprocess.run = run
+        ci.process_priority.run = run
         ci.unity_editor_lease = nullcontext
         ci.unity_project_transaction = lambda *_arguments: nullcontext()
         ci.standalone_sample_workers = lambda: 2
         with patch.object(ci.platform, "system", return_value="Windows"):
             ci.build_standalone_samples(["basic", "chess"], ImmediateCache())
     finally:
-        ci.subprocess.run = original_run
+        ci.process_priority.run = original_run
         ci.unity_editor_lease = original_lease
         ci.unity_project_transaction = original_transaction
         ci.standalone_sample_workers = original_workers
@@ -403,6 +403,7 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
     with (
         patch.object(ci.platform, "system", return_value="Darwin"),
         patch.object(ci.subprocess, "run", side_effect=completed),
+        patch.object(ci.process_priority, "run", side_effect=completed),
     ):
         ci.build_standalone_samples(["basic", "chess"], object(), leases)
     assert commands[0] == ["cargo", "build", "-p", "rt"]
