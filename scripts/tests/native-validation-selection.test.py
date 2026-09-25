@@ -25,6 +25,21 @@ assert selection.select(ROOT, ["samples/basic/ProjectSettings/ProjectSettings.as
 assert selection.select(ROOT, ["samples/chess/Assets/Shaders/LegalSquare.shader"], SAMPLES) == SAMPLES
 assert selection.select(ROOT, ["samples/ui/Assets/Resources/BattlementTextSettings.asset"], SAMPLES) == SAMPLES
 
+audio_samples = ["basic", "chess", "reactant", "tictactoe", "ui", "new-game"]
+for source in (
+    "Packages/com.battlement.client/Runtime/Host/BattlementAudioSources.cs",
+    "Packages/com.battlement.client/Runtime/Host/BattlementAudioInstance.cs",
+):
+    for path in (source, source + ".meta"):
+        assert selection.select(ROOT, [path], audio_samples) == ["chess", "reactant", "new-game"]
+        assert selection.select(ROOT, [path, "samples/ui/rules/src/app.rs"], audio_samples) == [
+            "chess", "reactant", "ui", "new-game",
+        ]
+        assert selection.select(
+            ROOT, [path, "Packages/com.battlement.client/Runtime/Host/BattlementRunner.cs"],
+            audio_samples,
+        ) == audio_samples
+
 dependencies = {
     "basic": {"battlement"},
     "reactant": {"battlement", "reactant", "reactant-core", "reactant-ui"},

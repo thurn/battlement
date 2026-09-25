@@ -138,26 +138,17 @@ class AdmissionTicket:
 
 def active_admission_ticket(pid: int, directory: Path = GLOBAL_RESOURCE_ROOT) -> Path | None:
     """Observe a live child's locked FIFO ticket without changing queue ownership."""
-    guard_path = directory / ".machine-heavy.admission.lock"
-    try:
-        guard = guard_path.open("r+")
-    except FileNotFoundError:
-        return None
-    with guard:
-        if not try_lock_file(guard):
-            return None
+    # Queue-guard contention is unrelated to whether this child is still queued.
+    # Unlike queue maintenance, observation never removes an unlocked ticket.
+    for path in directory.glob(f".machine-heavy.queue.*.{pid:010d}.*.lock"):
         try:
-            for path in directory.glob(f".machine-heavy.queue.*.{pid:010d}.*.lock"):
-                try:
-                    candidate = path.open("r+")
-                except FileNotFoundError:
-                    continue
-                with candidate:
-                    if not try_lock_file(candidate):
-                        return path
-                    unlock_file(candidate)
-        finally:
-            unlock_file(guard)
+            candidate = path.open("r+")
+        except FileNotFoundError:
+            continue
+        with candidate:
+            if not try_lock_file(candidate):
+                return path
+            unlock_file(candidate)
     return None
 
 

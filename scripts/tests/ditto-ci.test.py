@@ -21,6 +21,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPOSITORY_ROOT / "scripts/ditto_ci.py"
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 import ditto_evidence
+import platform_support
 import resource_slots
 
 
@@ -180,8 +181,14 @@ def verify_admission_watchdog(root: Path, environment: dict[str, str]) -> None:
                 assert process.poll() is None, process.communicate()
                 assert time.monotonic() < deadline, "runner did not queue"
                 time.sleep(0.01)
-            time.sleep(0.8)
-            assert process.poll() is None, process.communicate()
+            # An unrelated queue inspection must not hide a live child's ticket.
+            with (slots / ".machine-heavy.admission.lock").open("a+") as guard:
+                platform_support.lock_file(guard)
+                try:
+                    time.sleep(0.8)
+                    assert process.poll() is None, process.communicate()
+                finally:
+                    platform_support.unlock_file(guard)
             assert not marker.exists(), "queued player launched without admission"
             if mode.startswith("cancel"):
                 process.send_signal(signal.SIGINT)

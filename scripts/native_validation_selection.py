@@ -48,18 +48,30 @@ GLOBAL_NATIVE_INPUTS = (
     "samples/ui/Assets/Resources/BattlementTextSettings.asset",
     "samples/ui/Assets/Resources/BattlementTextSettings.asset.meta",
 )
+AUDIO_RUNTIME_INPUTS = frozenset({
+    "Packages/com.battlement.client/Runtime/Host/BattlementAudioInstance.cs",
+    "Packages/com.battlement.client/Runtime/Host/BattlementAudioSources.cs",
+})
+# These samples issue no audio commands. New samples retain conservative coverage.
+SAMPLES_WITHOUT_AUDIO = frozenset({"basic", "tictactoe", "ui"})
 
 
 def select(repository: Path, paths: list[str], samples: list[str]) -> list[str]:
     """Return samples whose assembled native behavior can change."""
     normalized = {path.replace("\\", "/") for path in paths}
-    if any(path == prefix or path.startswith(prefix) for path in normalized for prefix in GLOBAL_NATIVE_INPUTS):
+    audio_paths = {
+        path for path in normalized if path.removesuffix(".meta") in AUDIO_RUNTIME_INPUTS
+    }
+    global_paths = normalized - audio_paths
+    if any(path == prefix or path.startswith(prefix) for path in global_paths for prefix in GLOBAL_NATIVE_INPUTS):
         return samples
     selected = {
         sample
         for sample in samples
         if any(path.startswith(f"samples/{sample}/") for path in normalized)
     }
+    if audio_paths:
+        selected.update(sample for sample in samples if sample not in SAMPLES_WITHOUT_AUDIO)
     changed_crates = {
         path.split("/", 2)[1]
         for path in normalized
