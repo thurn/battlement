@@ -21,7 +21,7 @@ use reactant::{
   paint::{PaintFill, PaintStyle},
   render::Render,
 };
-use trox::ls;
+use trox::tx;
 
 /// Fixed portrait frame surrounding application content.
 #[builder]
@@ -97,7 +97,7 @@ struct TerminalBlackStage;
 impl Component for TerminalBlackStage {
   fn render(&self) -> impl Render {
     let focus = element_behavior::use_focus_on_mount();
-    Region::new(ls("Dismissed arcade stage"))
+    Region::new(tx("Dismissed arcade stage", "Chess interface label."))
       .host_name("arcade-exit-black-stage")
       .configure_host(|host| {
         host

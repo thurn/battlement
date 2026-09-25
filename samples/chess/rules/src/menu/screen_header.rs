@@ -2,11 +2,13 @@
 
 use trox::tx;
 
+use crate::menu::action_button::ACTION_FONT;
 use crate::menu::{
   font_scale::{self, FontScaleRole},
   header_artwork,
 };
-use battlement::{Length, PickingMode, Position, Style, Translate};
+use crate::settings::{self, Language};
+use battlement::{Color, Length, PickingMode, Position, Style, TextAnchor, Translate};
 use reactant::{control_behavior, element_behavior, focus::FocusProps, prelude::*};
 
 /// Selects the fixed decorative heading.
@@ -28,6 +30,8 @@ pub struct ScreenHeader {
 impl Component for ScreenHeader {
   fn render(&self) -> impl Render {
     let font_scale = font_scale::use_font_scale();
+    let language = settings::use_settings().desired.language;
+    let live_heading = self.variant == HeaderVariant::Settings && language == Language::French;
     let heading = element_behavior::use_focus_when(self.autofocus.then_some(()));
     View::new()
       .name("screen-header")
@@ -80,38 +84,50 @@ impl Component for ScreenHeader {
             1,
           ))
           .style(Style::new().position(Position::Absolute).inset(0))
-          .child(
-            (if self.variant == HeaderVariant::Game {
-              header_artwork::GAME_LOGO
-            } else {
-              header_artwork::SETTINGS_TITLE
-            })
-            .image()
-            .name("screen-header-artwork")
-            .picking_mode(PickingMode::Ignore)
-            .style(
-              Style::new()
-                .position(Position::Absolute)
-                .left(Length::Percent(50.0))
-                .top(if self.variant == HeaderVariant::Game {
-                  165
-                } else {
-                  62
-                })
-                .width(854.0 * font_scale.dynamic(FontScaleRole::Heading))
-                .height(
-                  (if self.variant == HeaderVariant::Game {
-                    330.0
+          .child((
+            live_heading.then(|| {
+              Text::new(tx("SETTINGS", "Main menu settings action.")).style(
+                Style::new()
+                  .full_size()
+                  .font_size(94.0 * font_scale.dynamic(FontScaleRole::Heading))
+                  .unity_font_definition(ACTION_FONT)
+                  .color(Color::WHITE)
+                  .unity_text_align(TextAnchor::MiddleCenter),
+              )
+            }),
+            (!live_heading).then(|| {
+              (if self.variant == HeaderVariant::Game {
+                header_artwork::GAME_LOGO
+              } else {
+                header_artwork::SETTINGS_TITLE
+              })
+              .image()
+              .name("screen-header-artwork")
+              .picking_mode(PickingMode::Ignore)
+              .style(
+                Style::new()
+                  .position(Position::Absolute)
+                  .left(Length::Percent(50.0))
+                  .top(if self.variant == HeaderVariant::Game {
+                    165
                   } else {
-                    240.0
-                  }) * font_scale.dynamic(FontScaleRole::Heading),
-                )
-                .translate(Translate::two_dimensional(
-                  Length::Percent(-50.0),
-                  Length::Percent(-50.0),
-                )),
-            ),
-          ),
+                    62
+                  })
+                  .width(854.0 * font_scale.dynamic(FontScaleRole::Heading))
+                  .height(
+                    (if self.variant == HeaderVariant::Game {
+                      330.0
+                    } else {
+                      240.0
+                    }) * font_scale.dynamic(FontScaleRole::Heading),
+                  )
+                  .translate(Translate::two_dimensional(
+                    Length::Percent(-50.0),
+                    Length::Percent(-50.0),
+                  )),
+              )
+            }),
+          )),
       ))
   }
 }

@@ -59,7 +59,7 @@ impl Component for EraseControl {
                   .name("erase-control-button")
                   .associated_control(button)
                   .child(
-                    Text::new(ls("ERASE")).style(
+                    Text::new(tx("ERASE", "Chess interface label.")).style(
                       Style::new()
                         .full_size()
                         .color(Color::hex(0xff3553))

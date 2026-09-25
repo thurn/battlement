@@ -23,6 +23,7 @@ mod frame_styles;
 mod graphics_settings;
 mod header_artwork;
 mod input_binding_icons;
+mod input_labels;
 mod input_settings;
 mod main_menu;
 mod music_heartbeat;

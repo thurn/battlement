@@ -112,8 +112,12 @@ fn pause_blocks_board_input() {
 fn accessibility_actions_move_a_pawn() {
   // Labels resolve live accessibility nodes; activation follows the real event route.
   let mut game = ChessTest::from_position(fixtures::initial());
-  game.display.activate_accessible("White Pawn at e2");
-  game.display.activate_accessible("Move to e4");
+  game
+    .display
+    .activate_accessible("\u{2068}White Pawn\u{2069} at \u{2068}e2\u{2069}");
+  game
+    .display
+    .activate_accessible("Move to \u{2068}e4\u{2069}");
   game.expect_empty(Square::E2);
   game.expect_piece(Square::E4, Color::White, Piece::Pawn);
 }

@@ -1,5 +1,6 @@
 //! Presentation for the exact promotion request owned by the rules worker.
 
+use crate::chess_labels;
 use cozy_chess::Piece;
 use reactant::{
   prelude::{
@@ -8,7 +9,7 @@ use reactant::{
   },
   rules::ResponseHandle,
 };
-use trox::ls;
+use trox::{tx_args, txa};
 
 use crate::{
   chess_prompt::{ChessPrompt, PromotionPrompt},
@@ -60,10 +61,11 @@ impl Component for PromotionChoices {
           .border_radius(8),
       )
       .child((
-        Label::new(ls(format!(
-          "Promote {} to {}",
-          self.data.from, self.data.to
-        )))
+        Label::new(txa(
+          "Promote {from} to {to}",
+          tx_args![from => self.data.from.to_string(), to => self.data.to.to_string()],
+          "Promotion move prompt.",
+        ))
         .style(Style::new().font_size(22).margin_bottom(10)),
         View::new()
           .style(
@@ -93,7 +95,7 @@ fn choice(
 ) -> impl Render {
   let data = data.clone();
   let handle = handle.clone();
-  Button::new(ls(label))
+  Button::new(chess_labels::promotion(piece))
     .host_name(format!("promote-{}", label.to_ascii_lowercase()))
     .style(Style::new().width(76).height(42).margin(2))
     .on_press(move || handle.submit::<ChessGame, PromotionPrompt>(&data, piece))

@@ -57,3 +57,7 @@ path = "tests/menu_tests.rs"
 [[test]]
 name = "settings"
 path = "tests/settings_tests.rs"
+
+[[test]]
+name = "localization"
+path = "tests/localization_tests.rs"

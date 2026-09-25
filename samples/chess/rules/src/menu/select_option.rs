@@ -1,6 +1,6 @@
 //! One focus-managed option in the custom selector.
 
-use trox::ls;
+use trox::LocalizedString;
 
 use crate::menu::{
   check_mark::CheckMark, control_effects, dropdown_motion, select_control::VALUE_FONT,
@@ -26,7 +26,9 @@ pub(crate) struct SelectOption {
   focus_generation: u32,
   index: usize,
   #[builder(required)]
-  label: String,
+  label: LocalizedString,
+  #[builder(required)]
+  identity: String,
   #[builder(required)]
   on_press: EventCallback<()>,
   selected: bool,
@@ -54,8 +56,8 @@ impl Component for SelectOption {
       },
       (self.active, self.focus_generation),
     );
-    ListBoxOption::new(ls(self.label.clone()), self.selected)
-      .host_name(format!("select-option-{}", self.label.to_ascii_lowercase()))
+    ListBoxOption::new(self.label.clone(), self.selected)
+      .host_name(format!("select-option-{}", self.identity))
       .element_ref(reference)
       .key(self.index)
       .style(self::style(self.font_scale, self.control_scale))

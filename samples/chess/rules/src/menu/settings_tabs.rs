@@ -67,16 +67,6 @@ impl SettingsTab {
     }
   }
 
-  /// Returns the untranslated source label for accessibility copy.
-  pub const fn label_text(self) -> &'static str {
-    match self {
-      Self::Gameplay => "Gameplay",
-      Self::Graphics => "Graphics",
-      Self::Sound => "Sound",
-      Self::Input => "Input",
-    }
-  }
-
   fn width(self) -> f32 {
     match self {
       Self::Gameplay => 264.0,

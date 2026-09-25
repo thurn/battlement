@@ -2,7 +2,7 @@
 
 use battlement::{Align, FlexDirection, Position, Style};
 use reactant::{control_behavior, hooks, prelude::*};
-use trox::{ls, tx};
+use trox::tx;
 
 use crate::menu::{
   action_button::{ActionButton, ActionLabel},
@@ -76,7 +76,7 @@ struct MainMenuContent {
 impl Component for MainMenuContent {
   fn render(&self) -> impl Render {
     let scale = font_scale::use_font_scale();
-    Region::new(ls("Chess Chess Revolution main menu"))
+    Region::new(tx("Chess Chess Revolution main menu", "Main menu region."))
       .host_name("main-menu")
       .style(
         Style::new()
@@ -169,7 +169,7 @@ fn action(
     .child(
       ActionButton::new()
         .artwork(artwork)
-        .children(control_behavior::name_source_text(ls(label)))
+        .children(control_behavior::name_source_text(artwork.label()))
         .max_text_scale(1.2)
         .disabled(component.exiting)
         .reduced_motion(component.reduce_motion)

@@ -15,7 +15,7 @@ use reactant::{
   paint::PaintStyle,
   prelude::{PaintDropShadow, PaintFilterList, *},
 };
-use trox::ls;
+use trox::{LocalizedString, tx};
 
 /// Two-line recommendation that toggles the shared music output.
 #[builder]
@@ -43,18 +43,36 @@ fn button(music: &BackgroundMusicContext, heartbeat: &ControlHeartbeat) -> impl 
           .center_content(),
       )
       .child((
-        self::recommendation_line("Playing with sound"),
-        self::recommendation_line("is recommended!"),
+        self::recommendation_line(
+          tx(
+            "Playing with sound",
+            "First line of music recommendation; followed by is recommended!.",
+          ),
+          "first",
+        ),
+        self::recommendation_line(
+          tx(
+            "is recommended!",
+            "Second line of music recommendation; follows Playing with sound.",
+          ),
+          "second",
+        ),
         (!self::sound_enabled(music)).then(self::speaker_slash),
       )),
   )
   .host_name("music-playback-indicator")
   .animate(heartbeat.apply(StyleTarget::new()))
-  .semantic_name(SemanticName::Text(ls(if self::sound_enabled(music) {
-    "Mute background music"
+  .semantic_name(SemanticName::Text(if self::sound_enabled(music) {
+    tx(
+      "Mute background music",
+      "Music toggle when sound is enabled.",
+    )
   } else {
-    "Enable background music"
-  })))
+    tx(
+      "Enable background music",
+      "Music toggle when sound is disabled.",
+    )
+  }))
   .on_press({
     let music = music.clone();
     move || self::toggle_sound(&music)
@@ -91,8 +109,8 @@ fn toggle_sound(music: &BackgroundMusicContext) {
   music.start_music();
 }
 
-fn recommendation_line(text: &'static str) -> impl Render {
-  control_behavior::static_label(ls(text)).key(text).style(
+fn recommendation_line(text: LocalizedString, key: &'static str) -> impl Render {
+  control_behavior::static_label(text).key(key).style(
     Style::new()
       .color(Color::WHITE)
       .unity_font_definition(DISPLAY_FONT)

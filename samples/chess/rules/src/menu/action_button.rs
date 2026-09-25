@@ -6,6 +6,7 @@ use crate::menu::{
   font_scale::{self, FontScale},
   music_heartbeat, use_interaction,
 };
+use crate::settings::{self, Language};
 use battlement::{
   Align, Color, FlexDirection, ImageScaleMode, Length, LengthUnits, MotionProperty, PickingMode,
   Position, Style, TextAnchor, Translate, UiFontAddress, WhiteSpace,
@@ -23,6 +24,7 @@ use reactant::{
   render::Render,
   semantics::SemanticName,
 };
+use trox::{LocalizedString, tx};
 
 /// Native TextCore face for action labels.
 pub const ACTION_FONT: UiFontAddress = UiFontAddress::from_static("chess/menu/fonts/action");
@@ -56,6 +58,16 @@ pub struct ActionButton {
 }
 
 impl ActionLabel {
+  pub fn label(self) -> LocalizedString {
+    match self {
+      Self::Play => tx("PLAY", "Main menu play action."),
+      Self::Settings => tx("SETTINGS", "Main menu settings action."),
+      Self::About => tx("ABOUT", "Main menu about action."),
+      Self::Quit => tx("QUIT", "Main menu quit action."),
+      Self::Return => tx("RETURN", "Return navigation action."),
+    }
+  }
+
   fn slug(self) -> &'static str {
     match self {
       Self::Play => "play",
@@ -68,7 +80,7 @@ impl ActionLabel {
 }
 
 impl ActionButton {
-  fn label_style(&self, font_scale: FontScale) -> Style {
+  fn label_style(&self, font_scale: FontScale, show_artwork: bool) -> Style {
     let scale = font_scale
       .dynamic(FontScaleRole::Navigation)
       .min(self.max_text_scale.unwrap_or(f32::INFINITY));
@@ -78,7 +90,7 @@ impl ActionButton {
       .align_items(Align::Center)
       .height(81.9 * scale)
       .padding_right(10.92 * scale)
-      .color(if self.artwork.is_some() {
+      .color(if show_artwork {
         Color::TRANSPARENT
       } else {
         Color::rgb(0.97, 1.0, 1.0)
@@ -116,6 +128,8 @@ impl Component for ActionButton {
     let mut interaction = use_interaction::use_interaction();
     interaction.state.reduced_motion |= self.reduced_motion;
     let font_scale = font_scale::use_font_scale();
+    let language = settings::use_settings().desired.language;
+    let artwork = self.artwork.filter(|_| language == Language::English);
     let (burst_generation, set_burst_generation) = hooks::use_state(0_u32);
     let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let particles = element_ref::use_element_ref();
@@ -142,9 +156,9 @@ impl Component for ActionButton {
         Button::content(
           View::new()
             .name("action-label")
-            .style(self.label_style(font_scale))
+            .style(self.label_style(font_scale, artwork.is_some()))
             .child((
-              self.artwork.map(|artwork| {
+              artwork.map(|artwork| {
                 let asset = match artwork {
                   ActionLabel::Play => assets::ACTION_LABEL_PLAY,
                   ActionLabel::Settings => assets::ACTION_LABEL_SETTINGS,

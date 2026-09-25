@@ -18,7 +18,8 @@ use reactant::{
   world::{BoxHitRegion, Group, Plane, Prefab, SceneRoot, Sprite},
 };
 
-use trox::ls;
+use crate::chess_labels;
+use trox::{opaque, tx, tx_args, txa};
 
 use crate::{
   assets::{black, white},
@@ -216,11 +217,11 @@ impl Component for ChessBoard {
         .rotation(crate::reactant_view::CAMERA_ROTATION)
         .on_click(self.on_request_new_game.clone())
         .accessible_button(
-          ls(if local.confirm_new_game() {
-            "Confirm new game"
+          if local.confirm_new_game() {
+            tx("Confirm new game", "New game confirmation action.")
           } else {
-            "New game"
-          }),
+            tx("New game", "Start a new chess game.")
+          },
           self.on_request_new_game.clone(),
         )
         .child(
@@ -253,7 +254,11 @@ impl Component for ChessSquare {
         .materials([MaterialAssignment::new(0, crate::assets::LEGAL_SQUARE)])
         .on_click(self.on_activate.clone().map_input(move |()| square))
         .accessible_button(
-          ls(format!("Move to {square}")),
+          txa(
+            "Move to {square}",
+            tx_args![square => square.to_string()],
+            "Legal chess move target.",
+          ),
           self.on_activate.clone().map_input(move |()| square),
         )
     });
@@ -315,10 +320,7 @@ impl Component for ChessPieceView {
     };
     hit
       .accessible_button(
-        ls(format!(
-          "{:?} {:?} at {}",
-          self.piece.color, self.piece.kind, square
-        )),
+        txa("{piece} at {square}", tx_args![piece => opaque(chess_labels::piece(self.piece.color, self.piece.kind)), square => square.to_string()], "Chess piece on a square."),
         self.on_activate.clone().map_input(move |()| square),
       )
       .child(Prefab::at(address(self.piece.color, self.piece.kind)))

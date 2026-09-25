@@ -1,6 +1,6 @@
 //! Animated portal content for [`crate::menu::select_control::SelectControl`].
 
-use trox::tx;
+use trox::{LocalizedString, tx};
 
 use crate::menu::{
   dropdown_motion,
@@ -33,6 +33,8 @@ pub(crate) struct SelectPopover {
   on_change: EventCallback<String>,
   #[builder(required)]
   options: Vec<String>,
+  #[builder(required)]
+  option_label: fn(&str) -> LocalizedString,
   open_generation: u32,
   #[builder(required)]
   overlay: PortalTarget,
@@ -78,8 +80,8 @@ impl Component for SelectPopover {
           .transition(dropdown_motion::menu_transition(self.reduced_motion))
           .child(
             ListBox::new(tx(
-              "Display Mode options",
-              "Display mode options interface label.",
+              "Options",
+              "Settings selector options accessibility label.",
             ))
             .host_name("select-listbox")
             .semantic_visibility(if is_present {
@@ -162,7 +164,8 @@ impl SelectPopover {
       .control_scale(self.font_scale.dynamic(FontScaleRole::Control))
       .font_scale(self.font_scale.factor())
       .index(index)
-      .label(option)
+      .label((self.option_label)(option))
+      .identity(option.to_ascii_lowercase())
       .focus_generation(self.open_generation)
       .selected(option == self.value)
       .on_press(

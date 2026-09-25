@@ -2,7 +2,7 @@
 
 use battlement::{Position, Style};
 use reactant::{control_behavior, portal::PortalTarget, prelude::*};
-use trox::tx;
+use trox::{LocalizedString, ls, tx, tx_args, txa};
 
 use crate::menu::{select_control::SelectControl, toggle_control::ToggleControl};
 
@@ -45,6 +45,7 @@ impl Component for GraphicsSettings {
             "Graphics resolution setting label.",
           )))
           .value(self.resolution.clone())
+          .option_label(self::resolution_label)
           .options(
             ["1920 × 1080", "2560 × 1440", "3840 × 2160"]
               .map(String::from)
@@ -59,6 +60,7 @@ impl Component for GraphicsSettings {
             "Graphics frame-rate setting label.",
           )))
           .value(self.max_framerate.clone())
+          .option_label(self::framerate_label)
           .options(
             ["60 FPS", "120 FPS", "144 FPS", "240 FPS"]
               .map(String::from)
@@ -72,6 +74,7 @@ impl Component for GraphicsSettings {
             "Graphics display-mode setting label.",
           )))
           .value(self.display_mode.clone())
+          .option_label(self::mode_label)
           .options(
             ["Borderless", "Fullscreen", "Windowed"]
               .map(String::from)
@@ -94,5 +97,34 @@ impl Component for GraphicsSettings {
           .checked(self.vsync)
           .on_change(self.on_vsync_change.clone()),
       ))
+  }
+}
+
+fn resolution_label(value: &str) -> LocalizedString {
+  if value == "Current display" {
+    tx("Current display", "Current display resolution fallback.")
+  } else {
+    ls(value)
+  }
+}
+
+fn framerate_label(value: &str) -> LocalizedString {
+  let rate = value
+    .trim_end_matches(" FPS")
+    .parse::<u32>()
+    .expect("framerate option");
+  txa(
+    "{rate} FPS",
+    tx_args![rate],
+    "Frame rate in frames per second.",
+  )
+}
+
+fn mode_label(value: &str) -> LocalizedString {
+  match value {
+    "Borderless" => tx("Borderless", "Borderless display mode."),
+    "Fullscreen" => tx("Fullscreen", "Exclusive fullscreen display mode."),
+    "Windowed" => tx("Windowed", "Windowed display mode."),
+    _ => panic!("unknown display mode option"),
   }
 }

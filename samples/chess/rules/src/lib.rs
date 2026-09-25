@@ -6,9 +6,11 @@ mod app;
 pub mod assets;
 pub mod audio;
 mod chess_board;
+mod chess_labels;
 mod chess_prompt;
 mod chess_ui_state;
 mod cursor;
+mod localization;
 mod menu;
 mod motion;
 mod opponent;
@@ -25,7 +27,7 @@ mod visual_state;
 pub use chess_prompt::ChessPrompt;
 pub use opponent::Opponent;
 
-pub use app::{EngineDependencies, create_engine};
+pub use app::{EngineDependencies, create_application, create_engine};
 pub use reactant::{Engine, PersistenceBackend};
 pub use reactant_game::ChessGame;
 

@@ -39,20 +39,23 @@ pub struct EngineDependencies {
 pub fn create_engine(dependencies: EngineDependencies) -> ApplicationEngine {
   let now = dependencies.now.clone();
   ApplicationEngine::with_clock(
-    move || {
-      reactant_view::application(ChessConfig {
-        starting_board: Board::default(),
-        initial_state: dependencies.position.clone().map(ChessState::new),
-        visual_state: VisualState::Initial,
-        origin_saved: false,
-        opponent: dependencies.opponent.clone(),
-        seed: dependencies.rng_seed,
-        persistence: dependencies.persistence.clone(),
-      })
-      .rules_worker(dependencies.rules_worker.clone())
-    },
+    move || self::create_application(&dependencies),
     move || now(),
   )
+}
+
+/// Assembles chess for a host that customizes documents before supplying its engine clock.
+pub fn create_application(dependencies: &EngineDependencies) -> Application {
+  reactant_view::application(ChessConfig {
+    starting_board: Board::default(),
+    initial_state: dependencies.position.clone().map(ChessState::new),
+    visual_state: VisualState::Initial,
+    origin_saved: false,
+    opponent: dependencies.opponent.clone(),
+    seed: dependencies.rng_seed,
+    persistence: dependencies.persistence.clone(),
+  })
+  .rules_worker(dependencies.rules_worker.clone())
 }
 
 /// Creates the component-first application used by the native sample.

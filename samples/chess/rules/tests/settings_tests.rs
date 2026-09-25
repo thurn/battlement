@@ -17,27 +17,31 @@ fn settings_survive_game_navigation_restart_and_new_application() {
   game.display.activate_accessible("SETTINGS");
   game.display.activate_accessible("Language English");
   game.display.activate_accessible("Français");
-  game.display.activate_accessible("Text Size 100%");
+  game.display.activate_accessible("Taille du texte 100%");
   game.display.activate_accessible("150%");
-  game.display.activate_accessible("Reduce Motion");
-  game.display.activate_accessible("Increase Move Duration");
-  game.display.activate_accessible("Upload Crash Reports");
-  game.display.activate_accessible("RETURN");
-  game.start();
+  game.display.activate_accessible("Réduire les animations");
+  game
+    .display
+    .activate_accessible("Allonger la durée des coups");
+  game
+    .display
+    .activate_accessible("Envoyer les rapports de plantage");
+  game.display.activate_accessible("RETOUR");
+  game.display.activate_accessible("JOUER");
   game.restart();
-  game.show_menu();
-  game.display.activate_accessible("SETTINGS");
-  game.display.expect_button("Language Français");
-  game.display.expect_button("Text Size 150%");
+  game.display.activate_accessible("Menu principal");
+  game.display.activate_accessible("PARAMÈTRES");
+  game.display.expect_button("Langue Français");
+  game.display.expect_button("Taille du texte 150%");
   drop(game);
   let mut restored = ChessTest::persisted(storage.clone());
-  restored.display.activate_accessible("SETTINGS");
-  restored.display.expect_button("Language Français");
-  restored.display.expect_button("Text Size 150%");
+  restored.display.activate_accessible("PARAMÈTRES");
+  restored.display.expect_button("Langue Français");
+  restored.display.expect_button("Taille du texte 150%");
   assert_eq!(
     restored
       .display
-      .semantic_node("Reduce Motion")
+      .semantic_node("Réduire les animations")
       .state
       .checked,
     Some(CheckedState::True)
@@ -45,7 +49,7 @@ fn settings_survive_game_navigation_restart_and_new_application() {
   assert_eq!(
     restored
       .display
-      .semantic_node("Increase Move Duration")
+      .semantic_node("Allonger la durée des coups")
       .state
       .checked,
     Some(CheckedState::False)
@@ -53,7 +57,7 @@ fn settings_survive_game_navigation_restart_and_new_application() {
   assert_eq!(
     restored
       .display
-      .semantic_node("Upload Crash Reports")
+      .semantic_node("Envoyer les rapports de plantage")
       .state
       .checked,
     Some(CheckedState::False)
@@ -78,10 +82,10 @@ fn failed_save_keeps_applied_preferences_and_retry_saves_current_intent() {
   storage.fail_store();
   game.display.activate_accessible("Language English");
   game.display.activate_accessible("Français");
-  game.display.expect_button("Retry");
-  game.display.activate_accessible("Text Size 100%");
+  game.display.expect_button("Réessayer");
+  game.display.activate_accessible("Taille du texte 100%");
   game.display.activate_accessible("200%");
-  game.display.expect_button("Language Français");
+  game.display.expect_button("Langue Français");
   assert_eq!(
     storage
       .load(Path::new("memory/chess-settings.json"))
@@ -89,7 +93,7 @@ fn failed_save_keeps_applied_preferences_and_retry_saves_current_intent() {
     durable
   );
   storage.recover_store();
-  game.display.activate_accessible("Retry");
+  game.display.activate_accessible("Réessayer");
   let saved: ChessSettings = serde_json::from_slice(
     &storage
       .load(Path::new("memory/chess-settings.json"))
@@ -106,7 +110,7 @@ fn failed_save_keeps_applied_preferences_and_retry_saves_current_intent() {
       .accessibility()
       .nodes
       .iter()
-      .any(|node| node.label.as_deref() == Some("Retry"))
+      .any(|node| node.label.as_deref() == Some("Réessayer"))
   );
 }
 
@@ -115,10 +119,12 @@ fn malformed_fields_and_conflicting_maps_default_independently() {
   let bytes = br#"{"language":"french","text_size":"200","reduce_motion":true,"master_volume":101,"music_volume":12,"effects_volume":"loud","display_mode":"invalid","max_framerate":-1,"keyboard":{"left":"KeyA","right":"KeyA","up":"ArrowUp","down":"ArrowDown","move_piece":"Space","pause":"Escape","restart":"KeyR"},"controller":{"left":"east"}}"#;
   let storage = MemoryPersistence::with_file("memory/chess-settings.json", bytes);
   let mut game = ChessTest::persisted(storage.clone());
-  game.display.activate_accessible("SETTINGS");
-  game.display.expect_button("Language Français");
-  game.display.expect_button("Text Size 200%");
-  game.display.activate_accessible("Upload Crash Reports");
+  game.display.activate_accessible("PARAMÈTRES");
+  game.display.expect_button("Langue Français");
+  game.display.expect_button("Taille du texte 200%");
+  game
+    .display
+    .activate_accessible("Envoyer les rapports de plantage");
   let saved: ChessSettings = serde_json::from_slice(
     &storage
       .load(Path::new("memory/chess-settings.json"))
@@ -193,9 +199,9 @@ fn preference_hydration_precedes_startup_effects_and_never_writes_defaults() {
   let (request, complete) = storage.read.borrow_mut().take().unwrap();
   complete(request.id, storage.load(&request.path));
   game.display.settle();
-  game.display.expect_button("PLAY");
-  game.display.activate_accessible("SETTINGS");
-  game.display.expect_button("Language Français");
+  game.display.expect_button("JOUER");
+  game.display.activate_accessible("PARAMÈTRES");
+  game.display.expect_button("Langue Français");
   assert_eq!(
     storage
       .load(Path::new("memory/chess-settings.json"))

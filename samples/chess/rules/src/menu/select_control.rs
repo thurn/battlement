@@ -1,6 +1,6 @@
 //! A controlled selector with an anchored pointer-operated popover.
 
-use trox::{ls, tx};
+use trox::{LocalizedString, ls};
 
 use crate::menu::{
   caret::Caret,
@@ -44,6 +44,9 @@ pub struct SelectControl {
   #[builder(required)]
   value: String,
   options: Vec<String>,
+  /// Converts a stable option value to its display and accessibility text.
+  #[builder(required)]
+  option_label: fn(&str) -> LocalizedString,
   #[builder(required)]
   overlay: PortalTarget,
   #[builder(required)]
@@ -173,7 +176,7 @@ impl Component for SelectControl {
               .child(
                 interaction
                   .button(
-                    ButtonHost::new(tx("", "Resolution selector interface label."))
+                    ButtonHost::new(ls(""))
                       .name("select-trigger")
                       .associated_control(trigger)
                       .on_key_down_event({
@@ -257,7 +260,7 @@ impl Component for SelectControl {
                     },
                   ))
                   .child((
-                    control_behavior::name_source_text(ls(self.value.clone()))
+                    control_behavior::name_source_text((self.option_label)(&self.value))
                       .name("select-value")
                       .element_ref(value_label.reference()),
                     Caret::new().is_open(open),
@@ -285,6 +288,7 @@ impl Component for SelectControl {
                   .font_scale(font_scale)
                   .on_change(self.on_change.clone())
                   .options(self.options.clone())
+                  .option_label(self.option_label)
                   .open_generation(open_generation)
                   .overlay(self.overlay.clone())
                   .popover_scale(popover_scale)

@@ -1,5 +1,6 @@
 //! Accessible arcade dialogs rendered through Reactant's modal overlay.
 
+use crate::settings::{self, Language};
 use trox::{LocalizedString, tx};
 
 use crate::menu::{action_button, action_skin};
@@ -400,6 +401,7 @@ fn shine_gradient() -> Gradient {
 
 impl Component for ModalButton {
   fn render(&self) -> impl Render {
+    let french = settings::use_settings().desired.language == Language::French;
     let is_present = use_is_present();
     hooks::use_effect(
       {
@@ -433,7 +435,7 @@ impl Component for ModalButton {
             .on_key_down_event_callback(self.on_close.clone().filter_map_input(self::escape))
             .on_navigation_cancel(self.on_close.clone())
         })
-        .style(self::button_style())
+        .style(self::button_style(french))
         .paint(self::button_paint(self.danger)),
       ),
       false => Either::right(
@@ -450,7 +452,7 @@ impl Component for ModalButton {
         })
         .element_ref(self.reference.clone())
         .on_press(self.on_press.clone())
-        .style(self::button_style())
+        .style(self::button_style(french))
         .paint(self::button_paint(self.danger)),
       ),
     }
@@ -551,10 +553,10 @@ fn actions_style() -> Style {
     .justify_content(Justify::Center)
 }
 
-fn button_style() -> Style {
+fn button_style(french: bool) -> Style {
   Style::new()
     .position(Position::Relative)
-    .width(250)
+    .width(if french { 300 } else { 250 })
     .height(94)
     .margin(0)
     .margin_left(14)

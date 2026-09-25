@@ -51,7 +51,7 @@ impl Component for ReturnButton {
           .artwork(ActionLabel::Return)
           .children(control_behavior::name_source_text(tx(
             "RETURN",
-            "Return button section heading.",
+            "Return navigation action.",
           )))
           .max_text_scale(1.35)
           .disabled(self.disabled)

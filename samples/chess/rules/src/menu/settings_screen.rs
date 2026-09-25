@@ -5,7 +5,7 @@ use battlement::{
   Vector,
 };
 use reactant::{control_behavior, hooks, portal::PortalTarget, prelude::*};
-use trox::{ls, tx};
+use trox::{LocalizedString, ls, opaque, tx, tx_args, txa};
 
 use crate::menu::arcade_route_transition;
 use crate::menu::{
@@ -56,85 +56,89 @@ impl Component for SettingsScreen {
     let (panel_scrolled, set_panel_scrolled) = hooks::use_state([false; 3]);
     let (active_modal, set_active_modal) = hooks::use_state(None::<SettingsModal>);
 
-    Region::new(ls(format!("{} settings", active_tab.label_text())))
-      .host_name("settings-screen")
-      .style(
-        Style::new()
-          .position(Position::Absolute)
-          .inset(0)
-          .overflow(Overflow::Hidden),
-      )
-      .child((
-        ScreenHeader::new()
-          .variant(HeaderVariant::Settings)
-          .autofocus(self.autofocus_heading),
-        View::new()
-          .name("settings-screen-composition")
-          .style(
-            Style::new()
-              .position(Position::Absolute)
-              .left(68)
-              .top(233)
-              .width(887),
-          )
-          .child((
-            SettingsTabs::new()
-              .active_tab(active_tab)
-              .on_select(EventCallback::new({
-                let set_active_tab = set_active_tab.clone();
-                let set_tab_direction = set_tab_direction.clone();
-                move |tab: SettingsTab| {
-                  if tab != active_tab {
-                    set_tab_direction.set(if tab.index() > active_tab.index() {
-                      1
-                    } else {
-                      -1
-                    });
-                    set_active_tab.set(tab);
-                  }
+    Region::new(txa(
+      "{category} settings",
+      tx_args![category => opaque(active_tab.label())],
+      "Settings panel region.",
+    ))
+    .host_name("settings-screen")
+    .style(
+      Style::new()
+        .position(Position::Absolute)
+        .inset(0)
+        .overflow(Overflow::Hidden),
+    )
+    .child((
+      ScreenHeader::new()
+        .variant(HeaderVariant::Settings)
+        .autofocus(self.autofocus_heading),
+      View::new()
+        .name("settings-screen-composition")
+        .style(
+          Style::new()
+            .position(Position::Absolute)
+            .left(68)
+            .top(233)
+            .width(887),
+        )
+        .child((
+          SettingsTabs::new()
+            .active_tab(active_tab)
+            .on_select(EventCallback::new({
+              let set_active_tab = set_active_tab.clone();
+              let set_tab_direction = set_tab_direction.clone();
+              move |tab: SettingsTab| {
+                if tab != active_tab {
+                  set_tab_direction.set(if tab.index() > active_tab.index() {
+                    1
+                  } else {
+                    -1
+                  });
+                  set_active_tab.set(tab);
                 }
-              })),
-            SettingsPanel::new().children(
-              ArcadeTabTransition::new()
-                .active_key(active_tab)
-                .direction(tab_direction)
-                .reduce_motion(navigation.reduce_motion)
-                .children(self::panel(
-                  active_tab,
-                  &settings,
-                  &host,
-                  panel_scrolled,
-                  &set_panel_scrolled,
-                  &set_active_modal,
-                  self.overlay.clone(),
-                )),
-            ),
-          )),
-        SettingsSaveStatus,
-        ReturnButton::new()
-          .reduced_motion(navigation.reduce_motion)
-          .on_press(self.on_return.clone()),
-        ArcadeModal::new()
-          .open(active_modal == Some(SettingsModal::Erase))
-          .title(tx("Erase Saved Data?", "Saved-data confirmation title."))
-          .children(Text::new(tx(
-            "All saved data will be permanently erased. This cannot be undone.",
-            "Saved-data confirmation warning.",
-          )))
-          .confirm_label(tx("Erase", "Saved-data confirmation action."))
-          .cancel_label(tx("Cancel", "Saved-data cancellation action."))
-          .danger(true)
-          .reduce_motion(navigation.reduce_motion)
-          .on_confirm(set_active_modal.callback().map_input(|_| None))
-          .on_close(set_active_modal.callback().map_input(|_| None))
-          .overlay(self.overlay.clone()),
-        PrivacyPolicyHelp::new()
-          .open(active_modal == Some(SettingsModal::Privacy))
-          .reduce_motion(navigation.reduce_motion)
-          .on_open_url(self.on_open_url.clone())
-          .on_close(set_active_modal.callback().map_input(|_| None))
-          .overlay(self.overlay.clone()),
-      ))
+              }
+            })),
+          SettingsPanel::new().children(
+            ArcadeTabTransition::new()
+              .active_key(active_tab)
+              .direction(tab_direction)
+              .reduce_motion(navigation.reduce_motion)
+              .children(self::panel(
+                active_tab,
+                &settings,
+                &host,
+                panel_scrolled,
+                &set_panel_scrolled,
+                &set_active_modal,
+                self.overlay.clone(),
+              )),
+          ),
+        )),
+      SettingsSaveStatus,
+      ReturnButton::new()
+        .reduced_motion(navigation.reduce_motion)
+        .on_press(self.on_return.clone()),
+      ArcadeModal::new()
+        .open(active_modal == Some(SettingsModal::Erase))
+        .title(tx("Erase Saved Data?", "Saved-data confirmation title."))
+        .children(Text::new(tx(
+          "All saved data will be permanently erased. This cannot be undone.",
+          "Saved-data confirmation warning.",
+        )))
+        .confirm_label(tx("Erase", "Saved-data confirmation action."))
+        .cancel_label(tx("Cancel", "Cancel the current dialog."))
+        .danger(true)
+        .reduce_motion(navigation.reduce_motion)
+        .on_confirm(set_active_modal.callback().map_input(|_| None))
+        .on_close(set_active_modal.callback().map_input(|_| None))
+        .overlay(self.overlay.clone()),
+      PrivacyPolicyHelp::new()
+        .open(active_modal == Some(SettingsModal::Privacy))
+        .reduce_motion(navigation.reduce_motion)
+        .on_open_url(self.on_open_url.clone())
+        .on_close(set_active_modal.callback().map_input(|_| None))
+        .overlay(self.overlay.clone()),
+    ))
   }
 }
 
@@ -158,7 +162,11 @@ fn panel(
   let scrolled = panel_scrolled[index];
   Either::Right(
     ScrollArea::new(
-      Some(ls(format!("{} settings controls", active_tab.label_text()))),
+      Some(txa(
+        "{category} settings controls",
+        tx_args![category => opaque(active_tab.label())],
+        "Settings panel scroll area.",
+      )),
       AccessibilityScrollAxis::Vertical,
       font_scale.factor() > 1.0 && !scrolled,
       scrolled,
@@ -280,6 +288,7 @@ fn gameplay(
         .to_owned(),
       )
       .options(["English", "Français"].map(String::from).to_vec())
+      .option_label(self::language_label)
       .overlay(overlay.clone())
       .on_change(
         settings
@@ -299,6 +308,7 @@ fn gameplay(
         "Gameplay text-size setting label.",
       )))
       .value(font_scale.label().to_owned())
+      .option_label(|value| ls(value))
       .options(
         FontScale::ALL
           .map(|value| value.label().to_owned())
@@ -387,4 +397,9 @@ fn resolution_from_label(label: String) -> DisplayResolution {
     refresh_numerator: 60,
     refresh_denominator: 1,
   }
+}
+
+fn language_label(value: &str) -> LocalizedString {
+  // Autonyms stay recognizable in either interface language.
+  ls(value)
 }

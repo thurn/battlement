@@ -1,5 +1,6 @@
 //! Scrollable input bindings with conflict-safe keyboard capture.
 
+use crate::menu::input_labels;
 use battlement::{
   AccessibilityScrollAxis, AccessibilityScrollDirection, Align, AnimationDirection,
   AnimationIterations, Color, FlexDirection, Gradient, GridTrack, KeyEvent, PhysicalKey, Position,
@@ -17,7 +18,7 @@ use reactant::{
   prelude::*,
   semantics::{SemanticName, SemanticProps},
 };
-use trox::{ls, tx};
+use trox::{LocalizedString, opaque, tx, tx_args, txa};
 
 use crate::menu::{
   action_skin,
@@ -48,15 +49,6 @@ const ACTIONS: [&str; 7] = [
   "Pause",
   "Restart",
 ];
-const CONTROLLER: [&str; 7] = [
-  "D-pad left",
-  "D-pad right",
-  "D-pad up",
-  "D-pad down",
-  "A",
-  "menu",
-  "Y",
-];
 
 /// Displays keyboard and controller bindings in a sticky-header table.
 #[builder]
@@ -71,14 +63,14 @@ impl Component for InputSettings {
     let set_bindings = settings::use_settings();
     let bindings = set_bindings.desired.keyboard.values();
     let (capture, set_capture) = hooks::use_state(None::<usize>);
-    let (status, set_status) = hooks::use_state(None::<String>);
+    let (status, set_status) = hooks::use_state(None::<LocalizedString>);
     let capture_focus = use_element_ref();
     let announce = use_announce();
     let font_scale = font_scale::use_font_scale();
 
     (
       ScrollArea::new(
-        Some(ls("Input bindings")),
+        Some(tx("Input bindings", "Input bindings table label.")),
         AccessibilityScrollAxis::Vertical,
         !scrolled,
         scrolled,
@@ -115,7 +107,7 @@ impl Component for InputSettings {
           .background_color(Color::rgb8(4, 17, 38)),
       )
       .child(
-        Table::new(ls("Input bindings"))
+        Table::new(tx("Input bindings", "Input bindings table label."))
           .style(Style::new().width(INPUT_WIDTH))
           .child((
             self::header(
@@ -157,13 +149,12 @@ fn capture_modal(
   bindings: [PhysicalKey; 7],
   set_bindings: SettingsContext,
   set_capture: hooks::StateSetter<Option<usize>>,
-  set_status: hooks::StateSetter<Option<String>>,
-  status: Option<String>,
+  set_status: hooks::StateSetter<Option<LocalizedString>>,
+  status: Option<LocalizedString>,
   announce: Announce,
   overlay: PortalTarget,
   capture_focus: ElementRef,
 ) -> impl Render {
-  let action = ACTIONS[index];
   let close_capture = set_capture.callback().map_input(|_| None);
   let reset_bindings = set_bindings.clone();
   let reset_status = set_status.clone();
@@ -203,7 +194,12 @@ fn capture_modal(
             .align_items(Align::Center),
         )
         .child((
-          Text::new(ls(format!("Press a key for {action}"))).style(self::capture_prompt_style()),
+          Text::new(txa(
+            "Press a key for {action}",
+            tx_args![action => opaque(input_labels::action(index))],
+            "Keyboard capture prompt.",
+          ))
+          .style(self::capture_prompt_style()),
           TextField::new()
             .value("●")
             .select_all_on_focus(false)
@@ -274,14 +270,14 @@ fn capture_modal(
               .animation_key("shortcut-waiting-blink"),
             ),
           status.map(|message| {
-            Text::new(ls(message))
+            Text::new(message)
               .host_name("shortcut-status")
               .style(self::status_style())
           }),
         )),
     )
     .confirm_label(tx("Reset", "Reset keyboard shortcut action."))
-    .cancel_label(tx("Cancel", "Cancel keyboard shortcut capture."))
+    .cancel_label(tx("Cancel", "Cancel the current dialog."))
     .close_on_escape(false)
     .reduce_motion(false)
     .initial_focus(capture_focus)
@@ -329,9 +325,12 @@ fn header(font_scale: f32, control_scale: f32) -> TableRow {
         .align_items(Align::Center)
         .style(Style::new().full_size())
         .child([
-          ColumnHeader::new(ls("Action")).style(self::heading_style(font_scale)),
-          ColumnHeader::new(ls("Keyboard")).style(self::heading_style(font_scale)),
-          ColumnHeader::new(ls("Controller")).style(self::heading_style(font_scale)),
+          ColumnHeader::new(tx("Action", "Input bindings table label."))
+            .style(self::heading_style(font_scale)),
+          ColumnHeader::new(tx("Keyboard", "Input bindings table label."))
+            .style(self::heading_style(font_scale)),
+          ColumnHeader::new(tx("Controller", "Input bindings table label."))
+            .style(self::heading_style(font_scale)),
         ]),
     )
 }
@@ -340,7 +339,7 @@ fn binding_row(
   index: usize,
   keyboard: PhysicalKey,
   set_capture: hooks::StateSetter<Option<usize>>,
-  set_status: hooks::StateSetter<Option<String>>,
+  set_status: hooks::StateSetter<Option<LocalizedString>>,
   font_scale: f32,
   control_scale: f32,
 ) -> TableRow {
@@ -367,7 +366,11 @@ fn binding_row(
         .align_items(Align::Center)
         .style(Style::new().full_size())
         .child((
-          RowHeader::new(ls(action)).style(self::action_style(action, font_scale, control_scale)),
+          RowHeader::new(input_labels::action(index)).style(self::action_style(
+            action,
+            font_scale,
+            control_scale,
+          )),
           self::keyboard_cell(
             index,
             keyboard,
@@ -385,11 +388,11 @@ fn keyboard_cell(
   index: usize,
   keyboard: PhysicalKey,
   set_capture: hooks::StateSetter<Option<usize>>,
-  set_status: hooks::StateSetter<Option<String>>,
+  set_status: hooks::StateSetter<Option<LocalizedString>>,
   font_scale: f32,
   control_scale: f32,
 ) -> impl Render {
-  let name = ls(self::key_name(keyboard));
+  let name = input_labels::key(keyboard);
   let direction = self::key_direction(keyboard);
   let compact = self::key_name(keyboard).len() == 1 && direction.is_none();
   View::new()
@@ -409,10 +412,11 @@ fn keyboard_cell(
             ))
         }),
       ))
-      .semantic_name(SemanticName::Text(ls(format!(
-        "Change {} keyboard binding",
-        ACTIONS[index]
-      ))))
+      .semantic_name(SemanticName::Text(txa(
+        "Change {action} keyboard binding",
+        tx_args![action => opaque(input_labels::action(index))],
+        "Keyboard binding change button.",
+      )))
       .on_press(move || {
         set_status.set(None);
         set_capture.set(Some(index));
@@ -427,7 +431,8 @@ fn controller_cell(index: usize) -> impl Render {
   View::new()
     .name(format!("controller-binding-{index}"))
     .semantic(
-      SemanticProps::new(SemanticRole::Cell).name(SemanticName::Text(ls(CONTROLLER[index]))),
+      SemanticProps::new(SemanticRole::Cell)
+        .name(SemanticName::Text(input_labels::controller(index))),
     )
     .style(Style::new().center_content())
     .child((
@@ -488,7 +493,7 @@ fn apply_key(
   bindings: [PhysicalKey; 7],
   set_bindings: &SettingsContext,
   set_capture: &hooks::StateSetter<Option<usize>>,
-  set_status: &hooks::StateSetter<Option<String>>,
+  set_status: &hooks::StateSetter<Option<LocalizedString>>,
   announce: Announce,
 ) {
   if let Some(conflict) = bindings
@@ -496,28 +501,35 @@ fn apply_key(
     .enumerate()
     .find_map(|(other, binding)| (*binding == key && other != index).then_some(other))
   {
-    let message = format!("Already used by {}", ACTIONS[conflict]);
+    let message = txa(
+      "Already used by {action}",
+      tx_args![action => opaque(input_labels::action(conflict))],
+      "Duplicate shortcut error.",
+    );
     set_status.set(Some(message.clone()));
-    announce.send(ls(message));
+    announce.send(message);
     return;
   }
   let mut current = bindings;
   current[index] = key;
   let updated = Bindings::from_values(current);
   if !bindings::valid_keyboard(updated) {
-    let message = "Escape is reserved for Pause";
-    set_status.set(Some(message.to_owned()));
-    announce.send(ls(message));
+    let message = tx(
+      "Escape is reserved for Pause",
+      "Reserved keyboard shortcut error.",
+    );
+    set_status.set(Some(message.clone()));
+    announce.send(message);
     return;
   }
   set_bindings.change(SettingsChange::Keyboard(updated));
   set_status.set(None);
   set_capture.set(None);
-  announce.send(ls(format!(
-    "{} assigned to {}",
-    ACTIONS[index],
-    self::key_name(key)
-  )));
+  announce.send(txa(
+    "{action} assigned to {key}",
+    tx_args![action => opaque(input_labels::action(index)), key => opaque(input_labels::key(key))],
+    "Accepted keyboard shortcut announcement.",
+  ));
 }
 
 fn key_name(key: PhysicalKey) -> String {

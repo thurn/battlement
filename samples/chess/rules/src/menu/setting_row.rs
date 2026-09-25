@@ -35,6 +35,8 @@ pub struct SettingRow {
   first: bool,
   /// Sets the minimum row height in portrait design pixels.
   row_height: Option<f32>,
+  /// Reserves room for labels beside compact controls.
+  label_width: Option<f32>,
 }
 
 impl Component for SettingRow {
@@ -45,7 +47,10 @@ impl Component for SettingRow {
       .columns(if font_scale.factor() > 1.0 {
         vec![GridTrack::fr(1.0)]
       } else {
-        vec![GridTrack::px(422.0), GridTrack::fr(1.0)]
+        vec![
+          GridTrack::px(self.label_width.unwrap_or(422.0)),
+          GridTrack::fr(1.0),
+        ]
       })
       .rows(if font_scale.factor() > 1.0 {
         vec![GridTrack::auto(), GridTrack::auto()]

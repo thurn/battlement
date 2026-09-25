@@ -11,18 +11,19 @@ use reactant::{
   rules::{DisplayConnection, ExecutionMode},
   world::Camera,
 };
-use trox::ls;
+use trox::tx;
 
 use crate::{
   chess_board::ChessBoard,
   chess_ui_state::{
     AppScreen, ChessUiController, ChessUiState, SessionStart, UiAction, use_chess_ui,
   },
+  localization::{self, LocalizationRoot},
   menu::ChessMenu,
   persistence::SavedGame,
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
-  settings::SettingsRoot,
+  settings::{Language, SettingsRoot},
 };
 use crate::{
   opponent::Opponent,
@@ -65,9 +66,13 @@ pub struct ChessConfig {
 /// and can focus on state, events, and effects.
 pub fn application(config: ChessConfig) -> Application {
   let app = Application::new(crate::assets::CONTENT)
+    .localizer(localization::localizer(Language::English))
     .child(SettingsRoot {
       backend: config.persistence.clone(),
-      children: ChessAssembly { config }.into(),
+      children: LocalizationRoot {
+        children: ChessAssembly { config }.into(),
+      }
+      .into(),
     })
     .document(|mut document| {
       document.root_id = crate::visual_state::ROOT_ID;
@@ -412,7 +417,7 @@ impl Component for ChessScreen {
         control: self.control.clone(),
       },
       (local.screen == AppScreen::Game).then(|| {
-        Button::new(ls("Main menu"))
+        Button::new(tx("Main menu", "Chess interface label."))
           .style(
             Style::new()
               .position(Position::Absolute)

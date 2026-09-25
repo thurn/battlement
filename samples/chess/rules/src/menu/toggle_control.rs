@@ -1,5 +1,6 @@
 //! A controlled checkbox whose label activates and focuses its input.
 
+use crate::settings::{self, Language};
 use trox::{LocalizedString, tx};
 
 use crate::menu::{
@@ -60,6 +61,7 @@ impl Component for ToggleControl {
     let interaction = use_interaction::use_interaction();
     let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let font_scale = font_scale::use_font_scale();
+    let french = settings::use_settings().desired.language == Language::French;
     let (burst_generation, on_change) = control_effects::use_burst_callback(self.on_change.clone());
     let (label, checkbox) = use_control_label().bind_with(|label_name| {
       control_behavior::checkbox(
@@ -75,7 +77,7 @@ impl Component for ToggleControl {
             self.with_info.then(|| {
               SemanticDescription::text(tx(
                 "We upload crash reports to Unity Diagnostics.",
-                "Crash report toggle accessibility description.",
+                "Crash report help message.",
               ))
             })
           }),
@@ -89,6 +91,7 @@ impl Component for ToggleControl {
       .style(Style::new().height(self.row_height.map(|height| height * font_scale.factor())))
       .child(
         SettingRow::new()
+          .label_width(french.then_some(620.0))
           .label((
             self.label.render(),
             self
@@ -273,6 +276,7 @@ fn rounded_box() -> Vec<[Length; 2]> {
 impl Component for InfoBadge {
   fn render(&self) -> impl Render {
     let font_scale = font_scale::use_font_scale();
+    let french = settings::use_settings().desired.language == Language::French;
     Button::content(Text::new(tx("i", "Crash report toggle interface label.")))
       .semantic_name(SemanticName::text(tx(
         "About crash report uploads",
@@ -282,9 +286,19 @@ impl Component for InfoBadge {
       .on_press(self.on_click.clone())
       .style(
         Style::new()
-          .position(Position::Absolute)
-          .left(205.0 * font_scale.factor())
-          .bottom(37)
+          .position(if french {
+            Position::Relative
+          } else {
+            Position::Absolute
+          })
+          .left(if french {
+            0.0
+          } else {
+            205.0 * font_scale.factor()
+          })
+          .bottom(if french { 0 } else { 37 })
+          .margin_left(if french { 16 } else { 0 })
+          .flex_shrink(0.0)
           .width(38.0 * font_scale.dynamic(FontScaleRole::Control))
           .height(38.0 * font_scale.dynamic(FontScaleRole::Control))
           .padding(0)

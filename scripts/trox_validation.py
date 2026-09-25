@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-"""Validate and regenerate the checked-in translated Trox test fixture."""
+"""Validate and regenerate the checked-in translated Trox catalogs."""
 
 from __future__ import annotations
 
+import csv
 import os
 from pathlib import Path
 import shutil
@@ -16,6 +17,16 @@ from platform_support import executable_name, user_cache_path
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 TROX_VERSION = "0.2.1"
 CONFIGURATIONS = (
+    (
+        Path("samples/chess/rules"),
+        (Path("src"), Path("localization"), Path("trox.ron")),
+        (
+            Path("localization/en-US.csv"),
+            Path("localization/fr.csv"),
+            Path("localization/bundles/en-US.trox.json"),
+            Path("localization/bundles/fr.trox.json"),
+        ),
+    ),
     (
         Path("crates/reactant-core/tests"),
         (Path("localization.rs"), Path("localization"), Path("trox.ron")),
@@ -76,6 +87,19 @@ def copy_inputs(source: Path, destination: Path, inputs: tuple[Path, ...]) -> No
             shutil.copy2(source_path, destination_path)
 
 
+def require_complete_catalog(path: Path) -> None:
+    """Runtime fallback must never conceal an unfinished release translation."""
+    with path.open(newline="", encoding="utf-8") as source:
+        missing = [
+            row["english"]
+            for row in csv.DictReader(source)
+            if row["status"] != "obsolete"
+            and (row["status"] != "translated" or row["translation"] in ("", "^"))
+        ]
+    if missing:
+        raise RuntimeError(f"Incomplete French catalog {path}: {missing}")
+
+
 def validate() -> None:
     """Regenerate in temporary trees and reject stale reports or bundles."""
     executable = trox_executable()
@@ -94,6 +118,8 @@ def validate() -> None:
                     check=True,
                 )
             for artifact in artifacts:
+                if artifact.name == "fr.csv":
+                    require_complete_catalog(destination / artifact)
                 if (source / artifact).read_bytes() != (destination / artifact).read_bytes():
                     stale.append(relative_root / artifact)
     if stale:
