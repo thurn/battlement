@@ -1,5 +1,6 @@
 //! Typed synchronous game rules and immutable worker publications.
 
+mod computation;
 mod connection;
 mod execution;
 mod game;
@@ -17,6 +18,9 @@ mod worker_observer;
 #[doc(hidden)]
 pub mod platform_proof;
 
+pub use computation::{
+  CancellationToken, Computation, ComputationError, ComputationLane, ComputationStatus,
+};
 pub use connection::DisplayConnection;
 pub use execution::ExecutionMode;
 pub use game::{ChoiceOwner, ChoicePolicy, Game, PromptData};

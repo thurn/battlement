@@ -1,7 +1,10 @@
 use std::{
   sync::{Arc, Condvar, Mutex, Weak},
+  task::Waker,
   time::{Duration, Instant},
 };
+
+use crate::RunObservation;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum WorkerEvent {
@@ -26,6 +29,7 @@ struct Observed {
   run: Option<u64>,
   events: Mutex<Vec<WorkerEvent>>,
   changed: Condvar,
+  waker: Mutex<Option<Waker>>,
 }
 
 impl Observers {
@@ -35,6 +39,7 @@ impl Observers {
       run,
       events: Mutex::new(events),
       changed: Condvar::new(),
+      waker: Mutex::new(None),
     });
     self.listeners.push(Arc::downgrade(&observed));
     WorkerObserver { observed }
@@ -55,13 +60,49 @@ impl Observers {
       if observed.run.is_none_or(|run| run == id) {
         observed.events.lock().unwrap().push(event.clone());
         observed.changed.notify_all();
+        observed.wake();
       }
       !(observed.run == Some(id) && matches!(event, WorkerEvent::Stopped(_)))
     });
   }
 }
 
+impl Observed {
+  fn wake(&self) {
+    let waker = self.waker.lock().unwrap().take();
+    if let Some(waker) = waker {
+      waker.wake();
+    }
+  }
+}
+
 impl WorkerObserver {
+  pub(crate) fn clear_waker(&self) {
+    self.observed.waker.lock().unwrap().take();
+  }
+
+  pub(crate) fn register_waker(&self, waker: &Waker) {
+    *self.observed.waker.lock().unwrap() = Some(waker.clone());
+  }
+
+  pub(crate) fn wake(&self) {
+    self.observed.wake();
+  }
+
+  pub(crate) fn observation(&self) -> RunObservation {
+    let mut result = RunObservation::default();
+    for event in self.events() {
+      match event {
+        WorkerEvent::Started(_) => result.started = true,
+        WorkerEvent::Stopped(_) => result.stopped = true,
+        WorkerEvent::Completed(_) => result.completed = true,
+        WorkerEvent::Cancelled(_) => result.cancelled = true,
+        WorkerEvent::Failed(_, message) => result.failure = Some(message),
+      }
+    }
+    result
+  }
+
   pub(crate) fn events(&self) -> Vec<WorkerEvent> {
     self.observed.events.lock().unwrap().clone()
   }

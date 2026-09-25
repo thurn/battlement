@@ -29,15 +29,15 @@ pub struct RulesRun<G: Game> {
 /// Lifecycle observations occur outside the bounded publication FIFO.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RunObservation {
-  /// The worker has entered its rules boundary.
+  /// The worker has entered its execution boundary.
   pub started: bool,
   /// All worker-owned interrupted state and context have been destroyed.
   pub stopped: bool,
-  /// Rules returned and published their final checkpoint.
+  /// The worker returned normally; result acceptance is owner-specific.
   pub completed: bool,
   /// Expected cancellation unwound the worker.
   pub cancelled: bool,
-  /// An unexpected rules panic, if any.
+  /// An unexpected worker panic, if any.
   pub failure: Option<String>,
 }
 
@@ -150,23 +150,14 @@ impl<G: Game> RulesRun<G> {
 
   /// Returns worker lifecycle status without taking any checkpoint.
   pub fn observation(&self) -> RunObservation {
-    let mut result = RunObservation {
+    let result = RunObservation {
       failure: self.inline_failure.clone(),
       ..RunObservation::default()
     };
     let Some((_, _, observer)) = &self.worker else {
       return result;
     };
-    for event in observer.events() {
-      match event {
-        WorkerEvent::Started(_) => result.started = true,
-        WorkerEvent::Stopped(_) => result.stopped = true,
-        WorkerEvent::Completed(_) => result.completed = true,
-        WorkerEvent::Cancelled(_) => result.cancelled = true,
-        WorkerEvent::Failed(_, message) => result.failure = Some(message),
-      }
-    }
-    result
+    observer.observation()
   }
 
   /// Waits for worker entry without advancing presentation time or frames.

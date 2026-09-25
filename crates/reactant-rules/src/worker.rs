@@ -171,8 +171,12 @@ impl WorkerConnection {
     self::unwind_cancelled()
   }
 
-  fn check_cancelled(&self) {
-    let cancelled = *self::lock(&self.shared.cancelled);
+  pub(crate) fn is_cancelled(&self) -> bool {
+    *self::lock(&self.shared.cancelled)
+  }
+
+  pub(crate) fn check_cancelled(&self) {
+    let cancelled = self.is_cancelled();
     if cancelled {
       self::unwind_cancelled();
     }

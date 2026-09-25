@@ -27,8 +27,18 @@ samples = ["basic"]
 paths = ["scripts/serve_web.py"]
 reason = "Header behavior"
 kind = "fixture"
+[[risks]]
+paths = ["crates/reactant-rules/src/computation.rs"]
+reason = "Finite computation worker pool"
+kind = "worker"
 ''')
         names = ["basic", "chess"]
+        worker = select(root, ["crates/reactant-rules/src/computation.rs"], names)
+        assert worker and worker.workers == [
+            "crates/reactant-rules/src/computation.rs: Finite computation worker pool"
+        ]
+        assert not worker.players and not worker.fixtures
+        assert worker.report()["workers"] == worker.workers
         assert not select(root, ["samples/chess/rules/src/settings.rs", "docs/readme.md"], names)
         assert set(select(root, ["web/init.js"], names).players) == set(names)
         assert list(select(root, ["samples/basic/rules/src/platform.rs"], names).players) == ["basic"]

@@ -36,6 +36,11 @@ def run(output: Path | None = None) -> Path:
         build_result = temporary_path / "build.json"
         read_fd, release_fd = os.pipe()
         try:
+            environment = dict(os.environ)
+            environment["CARGO_TARGET_DIR"] = subprocess.check_output(
+                [sys.executable, str(REPOSITORY / "scripts/cargo_target.py")],
+                cwd=REPOSITORY, text=True,
+            ).strip()
             build_process = subprocess.Popen(
                 [
                     "cargo",
@@ -58,6 +63,7 @@ def run(output: Path | None = None) -> Path:
                 ],
                 cwd=REPOSITORY,
                 pass_fds=(read_fd,),
+                env=environment,
             )
         except BaseException:
             os.close(release_fd)

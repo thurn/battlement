@@ -28,3 +28,8 @@ kind = "fixture"
 paths = ["Packages/com.battlement.client/Runtime/Host/BattlementHostSettings.cs"]
 reason = "Browser keyboard evidence and host capability observation"
 samples = ["basic"]
+
+[[risks]]
+paths = ["crates/reactant-rules/src/computation.rs", "crates/reactant-rules/src/worker.rs", "crates/reactant-rules/src/worker_observer.rs", "crates/reactant-rules/src/platform_proof.rs", "scripts/webgl_worker_proof.py", "fixtures/webgl-worker-proof/*"]
+reason = "Cooperative computation cleanup and latest-only replacement under a finite WebGL worker pool"
+kind = "worker"

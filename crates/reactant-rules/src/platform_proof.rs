@@ -7,8 +7,7 @@ use std::{
 };
 
 use crate::{
-  Game,
-  worker::{WorkerConnection, WorkerSlot},
+  CancellationToken, ComputationLane, Game,
   worker_observer::{WorkerEvent, WorkerObserver},
 };
 
@@ -42,7 +41,7 @@ pub struct ProofSnapshot {
 
 /// Owns one non-joining worker slot used by native release validation.
 pub struct WorkerProof {
-  slot: WorkerSlot,
+  slot: ComputationLane<()>,
   worker: WorkerObserver,
   state: Arc<ProofState>,
 }
@@ -84,7 +83,7 @@ struct ProofGameState {
 }
 
 struct ProofContext {
-  connection: WorkerConnection,
+  connection: CancellationToken,
   state: Arc<ProofState>,
 }
 
@@ -92,7 +91,7 @@ impl WorkerProof {
   /// Creates an idle proof worker.
   #[must_use]
   pub fn new() -> Self {
-    let slot = WorkerSlot::new();
+    let slot = ComputationLane::default();
     let worker = slot.observer();
     Self {
       slot,
@@ -125,10 +124,13 @@ impl WorkerProof {
     let state = Arc::clone(&self.state);
     let accepted = ProofGameState { generation: 0 };
     let mut worker_state = ProofGame::logical_clone(&accepted);
-    self.slot.replace(move |connection| {
-      let mut context = ProofContext { connection, state };
-      ProofGame::execute(&mut context, &mut worker_state, task);
-    })
+    self
+      .slot
+      .replace(move |connection| {
+        let mut context = ProofContext { connection, state };
+        ProofGame::execute(&mut context, &mut worker_state, task);
+      })
+      .id
   }
 }
 
@@ -295,14 +297,14 @@ impl Game for ProofGame {
   }
 }
 
-fn outer_wait(connection: &WorkerConnection, state: Arc<ProofState>) -> ! {
+fn outer_wait(connection: &CancellationToken, state: Arc<ProofState>) -> ! {
   let _outer = DropProbe {
     state: Arc::clone(&state),
   };
   self::inner_wait(connection, state)
 }
 
-fn inner_wait(connection: &WorkerConnection, state: Arc<ProofState>) -> ! {
+fn inner_wait(connection: &CancellationToken, state: Arc<ProofState>) -> ! {
   let _inner = DropProbe {
     state: Arc::clone(&state),
   };
@@ -317,7 +319,19 @@ fn inner_wait(connection: &WorkerConnection, state: Arc<ProofState>) -> ! {
 }
 
 fn count(events: &[WorkerEvent], predicate: impl Fn(&WorkerEvent) -> bool) -> usize {
-  events.iter().filter(|event| predicate(event)).count()
+  events
+    .iter()
+    .filter(|event| {
+      let id = match event {
+        WorkerEvent::Started(id)
+        | WorkerEvent::Completed(id)
+        | WorkerEvent::Cancelled(id)
+        | WorkerEvent::Failed(id, _)
+        | WorkerEvent::Stopped(id) => id,
+      };
+      predicate(event) && events.contains(&WorkerEvent::Started(*id))
+    })
+    .count()
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

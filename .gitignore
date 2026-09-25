@@ -95,6 +95,10 @@ crashlytics-build.properties
 # Git
 .worktrees
 
+# Unity Burst's generated WebGL link inputs.
+/Data/Plugins/lib_burst_generated.cpp
+/Data/Plugins/lib_burst_generated.wasm
+
 # Rust build output.
 target/
 

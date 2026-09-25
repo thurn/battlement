@@ -12,8 +12,10 @@ import shutil
 import subprocess
 import tempfile
 import tomllib
+import uuid
 
 from web_compatibility import check_site
+from platform_support import user_cache_path
 
 
 @dataclass
@@ -22,12 +24,13 @@ class Selection:
 
     players: dict[str, list[str]] = field(default_factory=dict)
     fixtures: list[str] = field(default_factory=list)
+    workers: list[str] = field(default_factory=list)
 
     def report(self) -> dict[str, object]:
-        return {"fixtures": self.fixtures, "players": self.players}
+        return {"fixtures": self.fixtures, "players": self.players, "workers": self.workers}
 
     def __bool__(self) -> bool:
-        return bool(self.players or self.fixtures)
+        return bool(self.players or self.fixtures or self.workers)
 
 
 def select(repository: Path, paths: list[str], names: list[str]) -> Selection:
@@ -38,9 +41,9 @@ def select(repository: Path, paths: list[str], names: list[str]) -> Selection:
         kind = risk.get("kind", "player")
         samples = risk.get("samples", [])
         declared = names if samples == ["*"] else samples
-        if kind not in {"fixture", "player"} or not reason:
+        if kind not in {"fixture", "player", "worker"} or not reason:
             raise RuntimeError("Browser risk declares an unknown kind or empty reason")
-        if kind == "fixture" and samples:
+        if kind in {"fixture", "worker"} and samples:
             raise RuntimeError("Fixture browser risks cannot select Unity samples")
         if kind == "player" and (not declared or not set(declared).issubset(names)):
             raise RuntimeError("Browser risk declares an unknown sample or empty reason")
@@ -61,6 +64,9 @@ def select(repository: Path, paths: list[str], names: list[str]) -> Selection:
                 kind = risk.get("kind", "player")
                 samples = risk.get("samples", [])
                 samples = names if samples == ["*"] else samples
+                if kind == "worker":
+                    selected.workers.append(f"{path}: {reason}")
+                    continue
                 if kind == "fixture":
                     fixture_reasons.append(reason)
                     continue
@@ -105,6 +111,12 @@ def validate_affected(repository: Path) -> None:
     selected = select(repository, paths, names)
     print("Browser risk selection: " + json.dumps(selected.report(), sort_keys=True), flush=True)
     if not selected:
+        return
+    if selected.workers:
+        import webgl_worker_proof
+        artifact = Path(user_cache_path("Battlement", "engine-evidence")) / f"worker-{uuid.uuid4()}.json"
+        webgl_worker_proof.run(artifact)
+    if not (selected.fixtures or selected.players):
         return
     # Preparation owns its compiler cache and Unity project lease.
     import importlib.util
