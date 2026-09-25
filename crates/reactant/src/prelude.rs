@@ -8,6 +8,10 @@ pub use crate::{
     use_game_observation, use_game_presentation, use_game_prompt, use_game_publication,
     use_game_selector, use_game_selector_with, use_game_state, use_game_status,
   },
+  game_reducer::{
+    GameVersion, ReducerDispatch, ReducerHandle, ReducerSnapshot, use_game_reducer,
+    use_reducer_selector,
+  },
   game_session::{DispatchResult, GameHandle, GameObservation, GameStatus},
   host_settings::use_host_settings,
   input::{GlobalInput, use_global_input},
@@ -26,6 +30,7 @@ pub use crate::{
   timers::{use_interval, use_pausable_timeout, use_timeout},
 };
 pub use reactant_core::prelude::*;
+pub use reactant_rules::{GameReducer, ReducerOutput};
 
 pub use crate::world::{Group as WorldGroup, Prefab, SceneRoot};
 pub use reactant_core::native_host::{ObjectRef, use_object_ref};

@@ -51,6 +51,10 @@ impl<G: Game> GameConsumer<G> {
       let checkpoint = data.run.as_ref()?.take_checkpoint()?.into_parts();
       data.sequence += 1;
       data.rendered = Rc::new(checkpoint.state);
+      data.rendered_revision = data
+        .completed_actions
+        .checked_add(1)
+        .expect("game revision overflow");
       data.prompt = checkpoint.prompt.map(Rc::new);
       data.pending = Some(PendingOutput {
         sequence: data.sequence,
@@ -195,6 +199,7 @@ impl<G: Game> GameOutput<G> {
         .completed_actions
         .checked_add(1)
         .expect("completed game action count overflow");
+      data.accepted_view = Rc::clone(&data.rendered);
       data.status = GameStatus::Ready;
     } else if !data.initial_submitted {
       data.initial_submitted = true;

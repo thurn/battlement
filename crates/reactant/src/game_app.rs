@@ -47,6 +47,18 @@ where
   G: Game,
   K: hooks::Dependencies,
 {
+  self::use_game_lazy(session_key, move || initial_state, make_context)
+}
+
+pub(crate) fn use_game_lazy<G, K>(
+  session_key: K,
+  initialize: impl FnOnce() -> G::State + 'static,
+  make_context: impl FnOnce(DisplayConnection<G>) -> G::Context + 'static,
+) -> GameHandle<G>
+where
+  G: Game,
+  K: hooks::Dependencies,
+{
   let services = hooks::use_required_context::<reactant_core::app_runtime::ApplicationContext>()
     .value::<ServicesContext>()
     .expect("use_game requires a Reactant Application root");
@@ -56,7 +68,7 @@ where
     .expect("application runtime ended while rendering");
   let create = coordinator.clone();
   let handle = hooks::use_memo(
-    move || create.create_game(initial_state, make_context, false),
+    move || create.create_game(initialize(), make_context, false),
     session_key,
   );
   let mounted = handle.clone();
@@ -244,6 +256,7 @@ impl Coordinator {
       app: self.self_reference.borrow().clone(),
       data: RefCell::new(SessionData {
         accepted: initial_state,
+        accepted_view: rendered.clone(),
         context: Some(context),
         run: None,
         status: GameStatus::Busy,
@@ -254,6 +267,7 @@ impl Coordinator {
           animation: None,
         }),
         rendered,
+        rendered_revision: 0,
         prompt: None,
         sequence: 1,
         completed_actions: 0,

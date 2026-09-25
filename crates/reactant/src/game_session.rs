@@ -62,12 +62,14 @@ pub(crate) struct GameSession<G: Game> {
 
 pub(crate) struct SessionData<G: Game> {
   pub(crate) accepted: G::State,
+  pub(crate) accepted_view: Rc<G::State>,
   pub(crate) context: Option<RulesContext<G>>,
   pub(crate) run: Option<RulesRun<G>>,
   pub(crate) status: GameStatus,
   pub(crate) initial_submitted: bool,
   pub(crate) pending: Option<PendingOutput<G>>,
   pub(crate) rendered: Rc<G::State>,
+  pub(crate) rendered_revision: u64,
   pub(crate) prompt: Option<Rc<PresentedPrompt<G::Prompt<'static>>>>,
   pub(crate) sequence: u64,
   pub(crate) completed_actions: u64,

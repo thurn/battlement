@@ -4,6 +4,7 @@ mod connection;
 mod execution;
 mod game;
 mod publication;
+mod reducer;
 mod response;
 #[cfg(test)]
 mod response_tests;
@@ -20,6 +21,7 @@ pub use connection::DisplayConnection;
 pub use execution::ExecutionMode;
 pub use game::{ChoiceOwner, ChoicePolicy, Game, PromptData};
 pub use publication::{Checkpoint, CheckpointParts, PublicationObservation};
+pub use reducer::{GameReducer, ReducerContext, ReducerGame, ReducerOutput};
 pub use response::{PresentedPrompt, ResponseHandle};
 pub use run::{RulesRun, RunObservation};
 pub use session_context::{CompletedAction, RulesContext, RulesWorker};

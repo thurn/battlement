@@ -16,9 +16,13 @@ use battlement_native::{
 use reactant_core::{app::App, hooks, portal::PortalTarget, render::Render};
 use trox::{Bundle, Localizer, SourceLocale};
 
-use crate::{game_app::Coordinator, host_clock::HostClock};
+use crate::{
+  GameConsumer,
+  game_app::{Coordinator, GameApp},
+  host_clock::HostClock,
+};
 use reactant_core::app_runtime::AppRuntime;
-use reactant_rules::RulesWorker;
+use reactant_rules::{Game, RulesWorker};
 
 /// A declarative Reactant application shell.
 ///
@@ -298,6 +302,11 @@ impl ApplicationEngine {
   /// Returns the active typed game handle for testing and host inspection.
   pub fn game<G: reactant_rules::Game>(&self) -> Option<crate::GameHandle<G>> {
     self.coordinator.as_ref()?.game::<G>()
+  }
+
+  /// Takes manual control of publication consumption and output submission.
+  pub fn game_consumer<G: Game>(&mut self) -> GameConsumer<G> {
+    self.app().game_consumer()
   }
 
   /// Reports the next application timer deadline for deterministic test hosts.

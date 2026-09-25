@@ -11,6 +11,7 @@ mod application_shell;
 mod game_app;
 mod game_hooks;
 mod game_output;
+mod game_reducer;
 mod game_session;
 mod host_clock;
 mod host_settings;
@@ -48,6 +49,10 @@ pub use game_hooks::{
   use_game_selector, use_game_selector_with, use_game_state, use_game_status,
 };
 pub use game_output::{GameConsumer, GameOutput};
+pub use game_reducer::{
+  GameVersion, ReducerDispatch, ReducerHandle, ReducerSnapshot, use_game_reducer,
+  use_reducer_selector,
+};
 pub use game_session::{DispatchResult, GameHandle, GameObservation, GameStatus};
 pub use input::{GlobalInput, use_global_input};
 pub use input_capture::use_input_capture;
@@ -71,6 +76,7 @@ pub use reactant_core::{
   navigation_handlers, overlay, paint, pointer_handlers, portal, presence, presentation, props,
   render, resource, resource_control, scale_to_fit, semantics, suspense, visibility,
 };
+pub use reactant_rules::{GameReducer, ReducerOutput};
 pub use timers::{use_interval, use_pausable_timeout, use_timeout};
 
 #[doc(hidden)]
