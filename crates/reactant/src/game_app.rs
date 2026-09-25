@@ -93,6 +93,7 @@ pub(crate) struct Coordinator {
 
 struct Timer {
   due: Instant,
+  paused_remaining: Option<Duration>,
   interval: Option<Duration>,
   callback: Rc<dyn Fn()>,
 }
@@ -261,6 +262,7 @@ impl Coordinator {
         prompt: None,
         sequence: 1,
         completed_actions: 0,
+        blocking_motion: HashMap::new(),
         diagnostic: None,
       }),
     });
@@ -401,6 +403,7 @@ impl Coordinator {
     identity: String,
     delay: Duration,
     interval: Option<Duration>,
+    paused: bool,
     callback: Rc<dyn Fn()>,
   ) {
     let due = (self.now.borrow())()
@@ -410,10 +413,29 @@ impl Coordinator {
       identity,
       Timer {
         due,
+        paused_remaining: paused.then_some(delay),
         interval,
         callback,
       },
     );
+  }
+
+  pub(crate) fn set_timer_paused(&self, identity: &str, paused: bool) {
+    let now = (self.now.borrow())();
+    let mut timers = self.timers.borrow_mut();
+    let Some(timer) = timers.get_mut(identity) else {
+      return;
+    };
+    match (paused, timer.paused_remaining) {
+      (true, None) => timer.paused_remaining = Some(timer.due.saturating_duration_since(now)),
+      (false, Some(remaining)) => {
+        timer.due = now
+          .checked_add(remaining)
+          .expect("Reactant timer deadline overflow");
+        timer.paused_remaining = None;
+      }
+      _ => {}
+    }
   }
 
   pub(crate) fn unregister_timer(&self, identity: &str) {
@@ -426,6 +448,7 @@ impl Coordinator {
       .timers
       .borrow()
       .values()
+      .filter(|timer| timer.paused_remaining.is_none())
       .map(|timer| timer.due.saturating_duration_since(now))
       .min()
   }
@@ -436,7 +459,7 @@ impl Coordinator {
       .timers
       .borrow()
       .iter()
-      .filter(|(_, timer)| timer.due <= now)
+      .filter(|(_, timer)| timer.paused_remaining.is_none() && timer.due <= now)
       .map(|(identity, timer)| (timer.due, identity.clone()))
       .collect::<Vec<_>>();
     due.sort();
@@ -593,6 +616,7 @@ impl<G: Game> AttachedSession for GameSession<G> {
       id: self.id,
       revision,
       status: data.status,
+      motion_ready: data.blocking_motion.is_empty(),
       state: data.rendered.clone(),
       prompt: data
         .prompt

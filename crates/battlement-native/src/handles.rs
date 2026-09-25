@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
   BattlementBuffer, Engine, EngineError, INVALID_ARGUMENT, PANIC, buffer_free, ffi_connect,
-  ffi_create, ffi_destroy, ffi_poll, ffi_submit, ffi_submit_ui_event,
+  ffi_create, ffi_destroy, ffi_poll, ffi_set_time, ffi_submit, ffi_submit_ui_event,
 };
 
 /// Opaque identity for one live native engine.
@@ -253,6 +253,29 @@ where
   unsafe {
     output_call::<E, _>(engine, out_buffer, |pointer, output| {
       ffi_poll(factory, pointer, output)
+    })
+  }
+}
+
+/// Samples host time for a registered engine.
+///
+/// # Safety
+/// The output must be writable and correctly aligned.
+#[doc(hidden)]
+pub unsafe fn ffi_set_time_handle<F, E>(
+  factory: F,
+  engine: EngineHandle,
+  elapsed_us: u64,
+  out_buffer: *mut BufferHandle,
+) -> i32
+where
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine + 'static,
+{
+  // SAFETY: The handle registry validates engine ownership before delegation.
+  unsafe {
+    output_call::<E, _>(engine, out_buffer, |pointer, output| {
+      ffi_set_time(factory, pointer, elapsed_us, output)
     })
   }
 }

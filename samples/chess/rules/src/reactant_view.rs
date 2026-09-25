@@ -3,10 +3,9 @@
 use std::{rc::Rc, time::Duration};
 
 use battlement::{Color as UiColor, Position, Prop, Quaternion, Style, Vector3};
-use cozy_chess::{Board, Color, GameStatus};
+use cozy_chess::{Board, GameStatus};
 use reactant::{
-  Application, DispatchResult, GameHandle, GameRoot, GameStatus as RulesStatus, PersistentState,
-  hooks,
+  Application, GameHandle, GameRoot, PersistentState, hooks,
   prelude::{AnimationPlayback, Button, Component, Either, EventCallback, KeyRenderExt, Render},
   rules::{DisplayConnection, ExecutionMode},
   world::Camera,
@@ -18,11 +17,12 @@ use crate::{
   chess_ui_state::{
     AppScreen, ChessUiController, ChessUiState, SessionStart, UiAction, use_chess_ui,
   },
+  computer_turn::TurnCoordinator,
   localization::{self, LocalizationRoot},
   menu::ChessMenu,
   persistence::SavedGame,
   promotion_dialog::PromotionDialog,
-  reactant_game::{ChessAction, ChessContext, ChessGame, ChessPolicy, ChessState},
+  reactant_game::{ChessContext, ChessGame, ChessPolicy, ChessState},
   settings::{Language, SettingsRoot},
 };
 use crate::{
@@ -156,12 +156,6 @@ struct GameStatusView {
   diagnostics: bool,
 }
 
-/// Effect-only component that schedules the computer action when appropriate.
-struct TurnCoordinator {
-  opponent: Opponent,
-  game: GameHandle<ChessGame>,
-}
-
 /// Effect-only component that persists the latest accepted publication.
 struct PersistenceCoordinator {
   persistence: PersistentState<SavedGame>,
@@ -231,8 +225,8 @@ impl Component for ChessApp {
       .is_some();
     let play = control.clone();
     let on_play = EventCallback::new(move |()| {
-      if restored && play.current().screen == AppScreen::Title {
-        play.resume_saved();
+      if restored || play.current().screen == AppScreen::Menu {
+        play.resume_game();
       } else {
         play.request_start(false);
       }
@@ -403,6 +397,7 @@ impl Component for ChessScreen {
       TurnCoordinator {
         opponent: self.opponent.clone(),
         game: self.game.clone(),
+        control: self.control.clone(),
       },
       self.diagnostics.then_some(GameStatusView {
         origin_saved: local.origin_saved,
@@ -468,33 +463,5 @@ impl Component for GameStatusView {
     (self
       .diagnostics
       .then(|| reactant_effects::diagnostics_view(game_status, game_origin)),)
-  }
-}
-
-impl Component for TurnCoordinator {
-  /// Dispatches exactly one computer action when the accepted state becomes ready.
-  ///
-  /// Deriving `ready` during render and dispatching inside an effect avoids a
-  /// state change during reconciliation. The dependency tuple retriggers only
-  /// when readiness or the accepted position changes.
-  fn render(&self) -> impl Render {
-    let state = reactant::use_game_state::<ChessGame>();
-    let status = reactant::use_game_status::<ChessGame>();
-    let ready = status == RulesStatus::Ready
-      && state.board().status() == GameStatus::Ongoing
-      && state.board().side_to_move() == Color::Black;
-    let game = self.game.clone();
-    let opponent = self.opponent.clone();
-    hooks::use_effect(
-      move || {
-        if ready && opponent.permitted() {
-          assert_eq!(
-            game.dispatch(ChessAction::ComputerMove),
-            DispatchResult::Started
-          );
-        }
-      },
-      (ready, state.board().hash(), self.opponent.revision()),
-    );
   }
 }

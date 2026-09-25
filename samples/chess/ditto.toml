@@ -77,6 +77,10 @@ screenshot = { name = "returned-menu" }
 [[scenarios]]
 name = "computer win"
 fixture = "computer win"
+motion = "controlled"
+
+[[scenarios.steps]]
+advance = { frames = 120 }
 
 [[scenarios.steps]]
 screenshot = { name = "computer-win" }

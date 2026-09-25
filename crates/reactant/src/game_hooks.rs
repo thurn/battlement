@@ -13,6 +13,7 @@ use reactant_core::{
   context::ContextProvider,
   hooks,
   key::KeyRenderExt,
+  motion_value::AnimationPlayback,
   render::{Node, Render},
   work_scope::WorkScope,
 };
@@ -33,6 +34,7 @@ pub(crate) struct GameRenderContext {
   pub(crate) id: u64,
   pub(crate) revision: u64,
   pub(crate) status: GameStatus,
+  pub(crate) motion_ready: bool,
   pub(crate) state: Rc<dyn Any>,
   pub(crate) prompt: Option<Rc<dyn Any>>,
   pub(crate) animation_sequence: Option<u64>,
@@ -149,6 +151,12 @@ pub fn use_game_status<G: Game>() -> GameStatus {
   self::context::<G>().status
 }
 
+/// Reports completion of blocking native sequences authored through `use_animate`.
+/// Rules readiness is independent; nonblocking motion and fixed pacing waits are excluded.
+pub fn use_game_motion_ready<G: Game>() -> bool {
+  self::context::<G>().motion_ready
+}
+
 /// Reads the typed event attached to the current game publication.
 pub fn use_game_publication<G: Game>() -> Option<Rc<G::StateAnimation>> {
   self::context::<G>().animation.map(|animation| {
@@ -205,6 +213,12 @@ impl GamePresentation {
 pub fn use_animate<G: Game>(author: impl FnOnce(&G::StateAnimation) -> Option<SnapshotAnimation>) {
   let context = self::context::<G>();
   let app = use_app();
+  let services = hooks::use_required_context::<ApplicationContext>()
+    .value::<ServicesContext>()
+    .expect("snapshot animation requires a Reactant Application root");
+  let coordinator = services.coordinator.upgrade().expect("active application");
+  let game = coordinator.game::<G>().expect("attached animation game");
+  let identity = format!("{}:{:?}", hooks::use_id(), context.animation_sequence);
   let animation = context.animation.map(|animation| {
     animation
       .downcast::<G::StateAnimation>()
@@ -213,8 +227,10 @@ pub fn use_animate<G: Game>(author: impl FnOnce(&G::StateAnimation) -> Option<Sn
   let plan = animation.as_deref().and_then(author);
   hooks::use_commit_effect(
     move || {
-      if let Some(plan) = plan {
-        plan.submit(&app);
+      if let Some(plan) = plan
+        && let Some(playback) = plan.submit(&app)
+      {
+        game.track_blocking_motion(identity, playback);
       }
     },
     (context.id, context.animation_sequence),
@@ -256,7 +272,7 @@ impl SnapshotAnimation {
     }
   }
 
-  fn submit(self, app: &AppHandle) {
+  fn submit(self, app: &AppHandle) -> Option<AnimationPlayback> {
     match self.operation {
       SnapshotAnimationOperation::Sequence {
         scope,
@@ -264,9 +280,10 @@ impl SnapshotAnimation {
         blocking,
       } => {
         if blocking {
-          scope.start_blocking(sequence);
+          Some(scope.start_blocking(sequence))
         } else {
           scope.start(sequence);
+          None
         }
       }
       SnapshotAnimationOperation::Wait(duration) => {
@@ -276,6 +293,7 @@ impl SnapshotAnimation {
         app.send(Command::new_v4(CommandBody::TimeWait(WaitPayload {
           duration_ms,
         })));
+        None
       }
     }
   }

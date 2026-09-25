@@ -42,14 +42,14 @@ pub const DITTO_DETERMINISM_CONTRACT_V3: u32 = 3;
 pub const DITTO_DETERMINISM_CAPABILITIES_V3: u64 = 0b11_1111;
 /// SHA-256 of the canonical native ABI manifest.
 pub const NATIVE_ABI_DIGEST: &str =
-  "5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14";
+  "bf45841ff0bcb2bd359183d7d468260dab6ec1ec49b4ead147874fdbf4928755";
 /// SHA-256 of the canonical wire-contract manifest.
 pub const WIRE_CONTRACT_DIGEST: &str =
   "7939c39639f405bc1424e42bf4441255641cf87f97fabdb3d258043a62fa9dca";
 
 #[doc(hidden)]
 pub static NATIVE_ABI_DIGEST_C: &[u8; 65] =
-  b"5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14\0";
+  b"bf45841ff0bcb2bd359183d7d468260dab6ec1ec49b4ead147874fdbf4928755\0";
 #[doc(hidden)]
 pub static WIRE_DIGEST_C: &[u8; 65] =
   b"7939c39639f405bc1424e42bf4441255641cf87f97fabdb3d258043a62fa9dca\0";
@@ -173,6 +173,17 @@ macro_rules! export_engine {
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
       unsafe { $crate::ffi_poll_handle($factory, engine, out_buffer) }
+    }
+
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_set_time(
+      engine: $crate::EngineHandle,
+      elapsed_us: u64,
+      out_error: *mut $crate::BufferHandle,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_set_time_handle($factory, engine, elapsed_us, out_error) }
     }
 
     #[doc(hidden)]

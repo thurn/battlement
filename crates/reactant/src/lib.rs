@@ -12,6 +12,7 @@ mod game_app;
 mod game_hooks;
 mod game_output;
 mod game_session;
+mod host_clock;
 mod host_settings;
 mod input;
 pub use host_settings::use_host_settings;
@@ -38,9 +39,9 @@ pub use application_shell::{Application, ApplicationEngine, use_portal_target};
 pub use battlement_native::Engine;
 pub use game_app::use_game;
 pub use game_hooks::{
-  GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_observation,
-  use_game_presentation, use_game_prompt, use_game_publication, use_game_selector,
-  use_game_selector_with, use_game_state, use_game_status,
+  GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_motion_ready,
+  use_game_observation, use_game_presentation, use_game_prompt, use_game_publication,
+  use_game_selector, use_game_selector_with, use_game_state, use_game_status,
 };
 pub use game_output::{GameConsumer, GameOutput};
 pub use game_session::{DispatchResult, GameHandle, GameObservation, GameStatus};
@@ -64,7 +65,7 @@ pub use reactant_core::{
   navigation_handlers, overlay, paint, pointer_handlers, portal, presence, presentation, props,
   render, resource, resource_control, scale_to_fit, semantics, suspense, visibility,
 };
-pub use timers::{use_interval, use_timeout};
+pub use timers::{use_interval, use_pausable_timeout, use_timeout};
 
 #[doc(hidden)]
 pub use battlement_native as __native;

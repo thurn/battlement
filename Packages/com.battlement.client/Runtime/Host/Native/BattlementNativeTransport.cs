@@ -101,6 +101,8 @@ namespace Battlement
         private string expectedWireContractDigest = BattlementNativeContract.WireContractDigest;
         private bool contractVerified;
         private bool isDisposed;
+        internal Func<TimeSpan> Clock { get; set; } =
+            () => TimeSpan.FromSeconds(UnityEngine.Time.realtimeSinceStartupAsDouble);
 
         public BattlementNativeTransport()
         {
@@ -361,6 +363,9 @@ namespace Battlement
                 ulong output = 0;
                 try
                 {
+                    BattlementTransportResult? clockFailure = SampleClock();
+                    if (clockFailure is not null)
+                        return UiFailure(clockFailure);
                     using MemoryHandle pinned = message.Pin();
                     int status = BattlementNativeMethods.battlement_submit_ui_event(
                         engine,
@@ -434,6 +439,9 @@ namespace Battlement
                 ulong output = 0;
                 try
                 {
+                    BattlementTransportResult? clockFailure = SampleClock();
+                    if (clockFailure is not null)
+                        return clockFailure;
                     int status = BattlementNativeMethods.battlement_poll(engine, out output);
                     BattlementNativeLogging.Drain();
                     BattlementTransportResult result = Translate(status, Inspect(output), true);
@@ -619,6 +627,9 @@ namespace Battlement
             ulong output = 0;
             try
             {
+                BattlementTransportResult? clockFailure = SampleClock();
+                if (clockFailure is not null)
+                    return clockFailure;
                 using MemoryHandle pinned = message.Pin();
                 int status = request(
                     engine,
@@ -645,6 +656,35 @@ namespace Battlement
             {
                 Release(output);
                 TrimOversizedRequestBuilders();
+            }
+        }
+
+        private BattlementTransportResult? SampleClock()
+        {
+            ulong output = 0;
+            try
+            {
+                ulong microseconds = checked((ulong)(Clock().Ticks / 10));
+                int status = BattlementNativeMethods.battlement_set_time(
+                    engine,
+                    microseconds,
+                    out output
+                );
+                if (status == NoMessage && output == 0)
+                    return null;
+                if (status == Ok || status == NoMessage)
+                    return AbiError(
+                        "Clock sampling must return NO_MESSAGE without a buffer.",
+                        status
+                    );
+                BattlementTransportResult result = Translate(status, Inspect(output), true);
+                if (result.Status == BattlementTransportStatus.Panic)
+                    _ = DestroyEngine();
+                return result;
+            }
+            finally
+            {
+                Release(output);
             }
         }
 

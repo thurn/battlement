@@ -210,12 +210,11 @@ impl ChessUiState {
 }
 
 impl ChessUiController {
-  /// Opens the saved board selected from the startup menu.
-  pub fn resume_saved(&self) {
+  /// Returns to the retained board from the startup or in-game menu.
+  pub fn resume_game(&self) {
     self.update(|local| {
       local.screen = AppScreen::Game;
       local.visual_state = VisualState::Resumed;
-      local.origin_saved = true;
       local.overlay = None;
     });
   }

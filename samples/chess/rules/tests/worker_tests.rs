@@ -5,6 +5,7 @@ use crate::support::{fixtures, game::ChessTest};
 use chess_rules::assets;
 use cozy_chess::{Color, Piece, Square};
 use reactant_testing::ActionResult;
+use std::time::Duration;
 
 #[test]
 fn promotion_dialog_resumes_the_move() {
@@ -48,6 +49,10 @@ fn zero_budget_computer_plays_a_deterministic_reply() {
   let mut second = ChessTest::with_computer(fixtures::initial());
   first.play(Square::E2, Square::E4);
   second.play(Square::E2, Square::E4);
+  first.advance(Duration::from_secs(2));
+  second.advance(Duration::from_secs(2));
+  first.display.settle();
+  second.display.settle();
   first.expect_piece(Square::E4, Color::White, Piece::Pawn);
   first.expect_piece(Square::A5, Color::Black, Piece::Pawn);
   first.expect_empty(Square::A7);

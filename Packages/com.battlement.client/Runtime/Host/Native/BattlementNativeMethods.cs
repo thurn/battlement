@@ -96,6 +96,13 @@ namespace Battlement
         internal static extern int battlement_poll(ulong engine, out ulong output);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_set_time(
+            ulong engine,
+            ulong elapsedMicroseconds,
+            out ulong error
+        );
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_buffer_info(
             ulong buffer,
             out IntPtr data,

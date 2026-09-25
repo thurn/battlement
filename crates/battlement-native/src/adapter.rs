@@ -3,6 +3,7 @@ use std::{
   panic::{AssertUnwindSafe, catch_unwind},
   ptr,
   sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+  time::Duration,
 };
 
 use battlement::UiEventDisposition;
@@ -14,7 +15,7 @@ use crate::{
 
 /// Operation completed successfully and returned a FlatBuffer response.
 pub const OK: i32 = 0;
-/// Poll completed successfully without a response.
+/// Operation completed successfully without a response.
 pub const NO_MESSAGE: i32 = 1;
 /// A pointer, length, or FlatBuffer input was invalid.
 pub const INVALID_ARGUMENT: i32 = 2;
@@ -325,6 +326,7 @@ where
         .map_err(|error| (INVALID_ARGUMENT, format!("invalid connect: {error}")))?;
       engine
         .connect(view)
+        .map(Some)
         .map_err(|error| (ENGINE_ERROR, error.to_string()))
     })
   }
@@ -353,7 +355,7 @@ where
     ffi_output_call(engine, out_buffer, "battlement_submit", |engine| {
       let bytes =
         input_slice(data, length).map_err(|error| (INVALID_ARGUMENT, error.to_owned()))?;
-      engine.submit(bytes).map_err(|error| match error {
+      engine.submit(bytes).map(Some).map_err(|error| match error {
         FlatBufferSubmitError::InvalidArgument(error) => (INVALID_ARGUMENT, error.to_string()),
         FlatBufferSubmitError::Engine(error) => (ENGINE_ERROR, error.to_string()),
       })
@@ -469,11 +471,40 @@ where
   }
 }
 
+/// Samples the host clock without executing application work.
+///
+/// # Safety
+/// The engine and output must satisfy the exported clock contract.
+#[doc(hidden)]
+pub unsafe fn ffi_set_time<F, E>(
+  _: F,
+  engine: *mut c_void,
+  elapsed_us: u64,
+  out_buffer: *mut BattlementBuffer,
+) -> i32
+where
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine,
+{
+  // SAFETY: The factory marker identifies the concrete engine allocation.
+  unsafe {
+    ffi_output_call(
+      engine.cast::<BattlementEngine<E>>(),
+      out_buffer,
+      "battlement_set_time",
+      |engine| {
+        engine.set_time(Duration::from_micros(elapsed_us));
+        Ok(None)
+      },
+    )
+  }
+}
+
 unsafe fn ffi_output_call<E: Engine>(
   engine: *mut BattlementEngine<E>,
   out_buffer: *mut BattlementBuffer,
   operation: &'static str,
-  call: impl FnOnce(&mut E) -> Result<EngineResponse, (i32, String)>,
+  call: impl FnOnce(&mut E) -> Result<Option<EngineResponse>, (i32, String)>,
 ) -> i32 {
   if out_buffer.is_null() {
     return INVALID_ARGUMENT;
@@ -492,7 +523,8 @@ unsafe fn ffi_output_call<E: Engine>(
   }
   panic_capture::prepare();
   match catch_unwind(AssertUnwindSafe(|| call(unsafe { &mut (*engine).engine }))) {
-    Ok(Ok(message)) => unsafe { write_finished(out_buffer, message) },
+    Ok(Ok(Some(message))) => unsafe { write_finished(out_buffer, message) },
+    Ok(Ok(None)) => NO_MESSAGE,
     Ok(Err((status, error))) => {
       unsafe { write_error(out_buffer, error) };
       status

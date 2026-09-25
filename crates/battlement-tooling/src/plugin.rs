@@ -10,7 +10,7 @@ use anyhow::{Context, Result, bail};
 use crate::{developer_tools, plugin_build};
 
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
-const REQUIRED_SYMBOLS: [&str; 9] = [
+const REQUIRED_SYMBOLS: [&str; 10] = [
   "battlement_buffer_info",
   "battlement_release_buffer",
   "battlement_connect",
@@ -18,6 +18,7 @@ const REQUIRED_SYMBOLS: [&str; 9] = [
   "battlement_engine_destroy",
   "battlement_logging_drain",
   "battlement_poll",
+  "battlement_set_time",
   "battlement_submit",
   "battlement_submit_ui_event",
 ];

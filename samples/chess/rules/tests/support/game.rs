@@ -129,13 +129,19 @@ impl ChessTest {
     self.play(from, to);
   }
 
-  pub fn reply(&mut self, from: Square, to: Square) {
+  pub fn permit_reply(&mut self, from: Square, to: Square) {
     self.opponent.reply_with(Move {
       from,
       to,
       promotion: None,
     });
     self.display.refresh();
+  }
+
+  pub fn reply(&mut self, from: Square, to: Square) {
+    self.permit_reply(from, to);
+    self.advance(Duration::from_secs(2));
+    self.display.settle();
     self.opponent.assert_reply_consumed();
     board::expect_empty(&self.display, from);
   }

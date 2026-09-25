@@ -100,6 +100,7 @@ const REQUIRED_PLUGIN_EXPORTS: &[&str] = &[
   "battlement_logging_drain",
   "battlement_native_abi_digest",
   "battlement_poll",
+  "battlement_set_time",
   "battlement_submit",
   "battlement_submit_ui_event",
   "battlement_wire_contract_digest",

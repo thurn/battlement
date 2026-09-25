@@ -9,7 +9,7 @@ namespace Battlement
     internal static class BattlementNativeContract
     {
         internal const string NativeAbiDigest =
-            "5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14";
+            "bf45841ff0bcb2bd359183d7d468260dab6ec1ec49b4ead147874fdbf4928755";
         internal const string WireContractDigest =
             "7939c39639f405bc1424e42bf4441255641cf87f97fabdb3d258043a62fa9dca";
 

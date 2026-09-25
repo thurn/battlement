@@ -1,3 +1,4 @@
+use battlement::application::ApplicationState;
 use battlement::host_settings::HostSettings;
 use std::{sync::Arc, time::Duration};
 
@@ -85,6 +86,11 @@ impl<E> Display<E>
 where
   E: Engine,
 {
+  /// Publishes application focus and suspension without advancing time.
+  pub fn set_application_state(&mut self, state: ApplicationState) {
+    self.client.set_application_state(state);
+  }
+
   /// Publishes deterministic display, platform, and attached-device observations.
   pub fn set_host_settings(&mut self, settings: HostSettings) {
     self.client.set_host_settings(settings);

@@ -1,4 +1,4 @@
-"""Render wire manifests and their Rust/Unity digest declarations together."""
+"""Render wire manifests and Rust/Unity ABI and wire digest declarations together."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import re
 
 
 def rendered_files(root: Path) -> dict[Path, bytes]:
-    """Compute the complete wire fingerprint update without changing source files."""
+    """Compute the complete contract fingerprint update without changing source files."""
     wire = root / "contracts/wire-contract.json"
     fixture = root / "crates/battlement-native/tests/fixtures/exported-engine"
     fixture_wire = fixture / "schema/wire-contract.json"
@@ -28,7 +28,12 @@ def rendered_files(root: Path) -> dict[Path, bytes]:
     fixture_bytes = manifest_bytes(extension)
     fixture_digest = hashlib.sha256(fixture_bytes).hexdigest()
     outputs = {wire: wire_bytes, fixture_wire: fixture_bytes}
+    native_digest = hashlib.sha256((root / "contracts/native-abi.json").read_bytes()).hexdigest()
     declarations = (
+        ("crates/battlement-native/src/lib.rs", "NATIVE_ABI_DIGEST", native_digest),
+        ("crates/battlement-native/src/lib.rs", "NATIVE_ABI_DIGEST_C", native_digest),
+        ("Packages/com.battlement.client/Runtime/Host/Native/BattlementNativeContract.cs",
+         "NativeAbiDigest", native_digest),
         ("crates/battlement-native/src/lib.rs", "WIRE_CONTRACT_DIGEST", wire_digest),
         ("crates/battlement-native/src/lib.rs", "WIRE_DIGEST_C", wire_digest),
         ("Packages/com.battlement.client/Runtime/Host/Native/BattlementNativeContract.cs",

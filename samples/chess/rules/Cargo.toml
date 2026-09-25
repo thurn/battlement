@@ -61,3 +61,7 @@ path = "tests/settings_tests.rs"
 [[test]]
 name = "localization"
 path = "tests/localization_tests.rs"
+
+[[test]]
+name = "computer_delay"
+path = "tests/computer_delay_tests.rs"

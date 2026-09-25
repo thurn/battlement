@@ -1,8 +1,11 @@
 use std::{
   cell::{Cell, RefCell},
+  collections::HashMap,
   panic,
   rc::{Rc, Weak},
 };
+
+use reactant_core::motion_value::AnimationPlayback;
 
 use reactant_rules::{
   ChoiceOwner, Game, PresentedPrompt, PublicationObservation, RulesContext, RulesRun, RulesWorker,
@@ -68,6 +71,7 @@ pub(crate) struct SessionData<G: Game> {
   pub(crate) prompt: Option<Rc<PresentedPrompt<G::Prompt<'static>>>>,
   pub(crate) sequence: u64,
   pub(crate) completed_actions: u64,
+  pub(crate) blocking_motion: HashMap<String, AnimationPlayback>,
   pub(crate) diagnostic: Option<String>,
 }
 
@@ -143,6 +147,29 @@ impl<G: Game> GameHandle<G> {
     self.session.data.borrow().diagnostic.clone()
   }
 
+  pub(crate) fn track_blocking_motion(&self, identity: String, playback: AnimationPlayback) {
+    self
+      .session
+      .data
+      .borrow_mut()
+      .blocking_motion
+      .insert(identity.clone(), playback.clone());
+    let completion = {
+      let session = Rc::downgrade(&self.session);
+      move || {
+        if let Some(session) = session.upgrade() {
+          session.data.borrow_mut().blocking_motion.remove(&identity);
+          session.changed();
+        }
+      }
+    };
+    playback.on_complete(completion.clone());
+    playback.on_stop(completion.clone());
+    playback.on_cancel(completion.clone());
+    playback.on_failed(completion);
+    self.session.changed();
+  }
+
   /// Returns the number of rules actions accepted by the current session.
   #[doc(hidden)]
   pub fn completed_actions(&self) -> u64 {
@@ -204,6 +231,7 @@ impl<G: Game> GameSession<G> {
     data.pending = None;
     data.prompt = None;
     data.context = None;
+    data.blocking_motion.clear();
     drop(data);
     self.changed();
   }
@@ -221,6 +249,7 @@ impl<G: Game> GameSession<G> {
     data.pending = None;
     data.prompt = None;
     data.context = None;
+    data.blocking_motion.clear();
     drop(data);
     self.changed();
   }

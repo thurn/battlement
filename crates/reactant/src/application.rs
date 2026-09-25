@@ -1,6 +1,9 @@
 //! Component-first application construction and native lifecycle ownership.
 
-use std::{rc::Rc, time::Instant};
+use std::{
+  rc::Rc,
+  time::{Duration, Instant},
+};
 
 use battlement::{
   Color, ControllerInputSettings, GameObject, PhysicalKey, SceneAddress, UiDocument,
@@ -13,7 +16,7 @@ use battlement_native::{
 use reactant_core::{app::App, hooks, portal::PortalTarget, render::Render};
 use trox::{Bundle, Localizer, SourceLocale};
 
-use crate::game_app::Coordinator;
+use crate::{game_app::Coordinator, host_clock::HostClock};
 use reactant_core::app_runtime::AppRuntime;
 use reactant_rules::RulesWorker;
 
@@ -139,6 +142,7 @@ pub struct ApplicationEngine {
   factory: Box<dyn Fn() -> Application>,
   pending: Option<Application>,
   now: Rc<dyn Fn() -> Instant>,
+  host_clock: Option<Rc<HostClock>>,
   app: Option<App>,
   coordinator: Option<Rc<Coordinator>>,
 }
@@ -150,6 +154,7 @@ impl ApplicationEngine {
       factory: Box::new(factory),
       pending: None,
       now: Rc::new(Instant::now),
+      host_clock: None,
       app: None,
       coordinator: None,
     }
@@ -163,6 +168,7 @@ impl ApplicationEngine {
       factory: Box::new(factory),
       pending,
       now: Rc::new(Instant::now),
+      host_clock: Some(Rc::new(HostClock::new())),
       app: None,
       coordinator: None,
     }
@@ -189,6 +195,7 @@ impl ApplicationEngine {
       factory: Box::new(factory),
       pending: None,
       now: Rc::new(now),
+      host_clock: None,
       app: None,
       coordinator: None,
     }
@@ -329,7 +336,11 @@ impl Engine for ApplicationEngine {
 
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let application = self.pending.take().unwrap_or_else(|| (self.factory)());
-    application.set_clock(self.now.clone());
+    if let Some(clock) = self.host_clock.clone() {
+      application.set_clock(Rc::new(move || clock.now()));
+    } else {
+      application.set_clock(self.now.clone());
+    }
     let (app, coordinator) = application.into_parts();
     self.app = Some(app);
     self.coordinator = Some(coordinator);
@@ -345,6 +356,12 @@ impl Engine for ApplicationEngine {
     action: UiEventActionView<'_>,
   ) -> Result<UiEventResult, EngineError> {
     self.app().submit_ui_event(action)
+  }
+
+  fn set_time(&mut self, elapsed: Duration) {
+    if let Some(clock) = &self.host_clock {
+      clock.observe(elapsed);
+    }
   }
 
   fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {

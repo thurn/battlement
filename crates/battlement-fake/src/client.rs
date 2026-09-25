@@ -1,5 +1,6 @@
 //! Synchronous fake client lifecycle, responses, input, and assertions.
 
+use battlement::application::ApplicationState;
 use battlement::host_settings::HostSettings;
 use std::{
   collections::{HashMap, HashSet},
@@ -124,6 +125,12 @@ impl<E> FakeClient<E>
 where
   E: Engine,
 {
+  /// Publishes application focus and suspension without advancing time.
+  pub fn set_application_state(&mut self, state: ApplicationState) {
+    self.connect.application_state = state;
+    self.submit_action(ActionBody::ApplicationStateChanged(state));
+  }
+
   /// Publishes an explicit host observation and retains it for reconnects.
   pub fn set_host_settings(&mut self, settings: HostSettings) {
     self.connect.host_settings = settings.clone();
@@ -231,6 +238,7 @@ where
     let request = connect_message(&connect);
     let message = battlement_flatbuffers::ConnectView::read(request.as_bytes())
       .unwrap_or_else(|error| panic!("connect verification failed: {error}"));
+    engine.set_time(Duration::ZERO);
     let response = engine
       .connect(message)
       .unwrap_or_else(|error| panic!("connect failed: {error}"));
@@ -296,6 +304,7 @@ where
     let request = connect_message(&self.connect);
     let message = battlement_flatbuffers::ConnectView::read(request.as_bytes())
       .unwrap_or_else(|error| panic!("reconnect verification failed: {error}"));
+    self.engine.set_time(self.presentation_time());
     let response = self
       .engine
       .connect(message)
@@ -371,6 +380,7 @@ where
   /// Applies one queued response and reports whether one was available.
   #[doc(hidden)]
   pub fn poll_available(&mut self) -> bool {
+    self.engine.set_time(self.presentation_time());
     let response = self
       .engine
       .poll()
@@ -1090,6 +1100,7 @@ where
     let action = Action::new(action_id, self.session_id, body);
     let message = battlement_flatbuffers::write_core_action(&action)
       .unwrap_or_else(|error| panic!("action encoding failed: {error}"));
+    self.engine.set_time(self.presentation_time());
     let response = self
       .engine
       .submit(message.as_bytes())
@@ -1120,6 +1131,7 @@ where
       .unwrap_or_else(|error| panic!("UI event encoding failed: {error}"));
     let view = battlement_flatbuffers::UiEventActionView::read(message.as_bytes())
       .unwrap_or_else(|error| panic!("UI event verification failed: {error}"));
+    self.engine.set_time(self.presentation_time());
     let result = self.engine.submit_ui_event(view).unwrap_or_else(|error| {
       panic!(
         "UI event submission failed for session {}: {error}",
@@ -1177,6 +1189,7 @@ where
       ))
     }
     .expect("fake presentation failure must satisfy the FlatBuffers behavior");
+    self.engine.set_time(self.presentation_time());
     let response = self
       .engine
       .submit(message.as_bytes())

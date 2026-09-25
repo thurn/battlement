@@ -528,6 +528,8 @@ namespace Battlement
                 runtime.SetPreparedAssets(preparedAssets);
                 DittoMotionClock dittoMotionClock = new DittoMotionClock(checkedOptions.Clock);
                 runtime.SetDittoMotionClock(dittoMotionClock);
+                if (checkedOptions.Transport is BattlementNativeTransport clockedNative)
+                    clockedNative.Clock = () => dittoMotionClock.Elapsed;
                 BattlementWorld world = new BattlementWorld(
                     gameObject.scene,
                     preparedAssets,

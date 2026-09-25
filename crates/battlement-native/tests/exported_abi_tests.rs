@@ -20,6 +20,7 @@ type Create = unsafe extern "C" fn(*mut u64, *mut u64) -> i32;
 type Destroy = unsafe extern "C" fn(u64, *mut u64) -> i32;
 type Request = unsafe extern "C" fn(u64, *const u8, u64, *mut u64) -> i32;
 type UiRequest = unsafe extern "C" fn(u64, *const u8, u64, *mut u32, *mut u64) -> i32;
+type SetTime = unsafe extern "C" fn(u64, u64, *mut u64) -> i32;
 type Poll = unsafe extern "C" fn(u64, *mut u64) -> i32;
 type BufferInfo = unsafe extern "C" fn(u64, *mut *const u8, *mut u64, *mut u64) -> i32;
 type ReleaseBuffer = unsafe extern "C" fn(u64) -> i32;
@@ -167,6 +168,7 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     let submit: Symbol<'_, Request> = library.get(b"battlement_submit").unwrap();
     let submit_ui_event: Symbol<'_, UiRequest> =
       library.get(b"battlement_submit_ui_event").unwrap();
+    let set_time: Symbol<'_, SetTime> = library.get(b"battlement_set_time").unwrap();
     let poll: Symbol<'_, Poll> = library.get(b"battlement_poll").unwrap();
     let info: Symbol<'_, BufferInfo> = library.get(b"battlement_buffer_info").unwrap();
     let release: Symbol<'_, ReleaseBuffer> = library.get(b"battlement_release_buffer").unwrap();
@@ -304,6 +306,12 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     std::env::remove_var("BATTLEMENT_EXPORT_FIXTURE_CREATE");
     output = poison_buffer();
     assert_eq!(create(&mut engine, &mut output), OK);
+    assert_eq!(
+      set_time(engine, 1234567, &mut output),
+      battlement_native::NO_MESSAGE
+    );
+    assert_eq!(output, 0);
+    assert_eq!(set_time(engine, 1234567, ptr::null_mut()), INVALID_ARGUMENT);
     assert_ne!(engine, 0);
     assert_eq!(output, 0);
 
@@ -350,6 +358,12 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     engine = 0;
     output = poison_buffer();
     assert_eq!(create(&mut engine, &mut output), OK);
+    assert_eq!(
+      set_time(engine, 1234567, &mut output),
+      battlement_native::NO_MESSAGE
+    );
+    assert_eq!(output, 0);
+    assert_eq!(set_time(engine, 1234567, ptr::null_mut()), INVALID_ARGUMENT);
 
     output = poison_buffer();
     assert_eq!(
@@ -412,6 +426,12 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     engine = 0;
     output = poison_buffer();
     assert_eq!(create(&mut engine, &mut output), OK);
+    assert_eq!(
+      set_time(engine, 1234567, &mut output),
+      battlement_native::NO_MESSAGE
+    );
+    assert_eq!(output, 0);
+    assert_eq!(set_time(engine, 1234567, ptr::null_mut()), INVALID_ARGUMENT);
 
     output = poison_buffer();
     assert_eq!(
@@ -444,6 +464,12 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     engine = 0;
     output = poison_buffer();
     assert_eq!(create(&mut engine, &mut output), OK);
+    assert_eq!(
+      set_time(engine, 1234567, &mut output),
+      battlement_native::NO_MESSAGE
+    );
+    assert_eq!(output, 0);
+    assert_eq!(set_time(engine, 1234567, ptr::null_mut()), INVALID_ARGUMENT);
 
     output = poison_buffer();
     assert_eq!(
@@ -466,6 +492,12 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     engine = 0;
     output = poison_buffer();
     assert_eq!(create(&mut engine, &mut output), OK);
+    assert_eq!(
+      set_time(engine, 1234567, &mut output),
+      battlement_native::NO_MESSAGE
+    );
+    assert_eq!(output, 0);
+    assert_eq!(set_time(engine, 1234567, ptr::null_mut()), INVALID_ARGUMENT);
 
     output = poison_buffer();
     assert_eq!(
@@ -483,6 +515,12 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     engine = 0;
     output = poison_buffer();
     assert_eq!(create(&mut engine, &mut output), OK);
+    assert_eq!(
+      set_time(engine, 1234567, &mut output),
+      battlement_native::NO_MESSAGE
+    );
+    assert_eq!(output, 0);
+    assert_eq!(set_time(engine, 1234567, ptr::null_mut()), INVALID_ARGUMENT);
     assert_ne!(engine, 0);
     assert_eq!(
       call_destroy(&destroy, engine, &info, &release),

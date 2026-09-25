@@ -9,6 +9,7 @@
     {"name": "battlement_connect", "return": "i32", "parameters": ["engine", "bytes", "u64", "buffer_out"]},
     {"name": "battlement_submit", "return": "i32", "parameters": ["engine", "bytes", "u64", "buffer_out"]},
     {"name": "battlement_submit_ui_event", "return": "i32", "parameters": ["engine", "bytes", "u64", "u32_out", "buffer_out"]},
+    {"name": "battlement_set_time", "return": "i32", "parameters": ["engine", "u64", "buffer_out"]},
     {"name": "battlement_poll", "return": "i32", "parameters": ["engine", "buffer_out"]},
     {"name": "battlement_buffer_info", "return": "i32", "parameters": ["buffer", "const_bytes_out", "u64_out", "u64_out"]},
     {"name": "battlement_release_buffer", "return": "i32", "parameters": ["buffer"]},

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate pinned FlatBuffers bindings, wire manifests, and contract fingerprints."""
+"""Regenerate pinned FlatBuffers bindings, wire manifests, and native/wire fingerprints."""
 
 from __future__ import annotations
 

@@ -27,15 +27,15 @@ fn menu_opens_settings_and_starts_the_3d_game() {
 }
 
 #[test]
-fn gameplay_can_return_to_menu_and_start_a_new_game() {
+fn gameplay_can_return_to_menu_and_resume_the_retained_game() {
   let mut chess = ChessTest::title();
   chess.start();
   chess.play(Square::E2, Square::E4);
   chess.show_menu();
   chess.display.expect_button("PLAY");
   chess.start();
-  chess.expect_piece(Square::E2, Color::White, Piece::Pawn);
-  chess.expect_empty(Square::E4);
+  chess.expect_piece(Square::E4, Color::White, Piece::Pawn);
+  chess.expect_empty(Square::E2);
 }
 
 #[test]

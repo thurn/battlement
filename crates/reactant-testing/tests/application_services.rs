@@ -345,3 +345,124 @@ fn async_persistence_wakes_the_component_and_unmount_drains_queued_work() {
   done_save(save.id, Ok(None));
   assert!(backend.calls.borrow().is_empty());
 }
+
+struct PausableTimer {
+  paused: bool,
+  duration: Duration,
+  on_fire: Rc<dyn Fn()>,
+}
+
+struct TimerControls;
+
+impl Component for PausableTimer {
+  fn render(&self) -> impl Render {
+    let on_fire = self.on_fire.clone();
+    reactant::use_pausable_timeout(self.duration, self.paused, move || on_fire());
+  }
+}
+
+impl Component for TimerControls {
+  fn render(&self) -> impl Render {
+    let (paused, set_paused) = reactant::hooks::use_state(false);
+    let (mounted, set_mounted) = reactant::hooks::use_state(true);
+    let (long, set_long) = reactant::hooks::use_state(false);
+    let (count, set_count) = reactant::hooks::use_state(0);
+    (
+      ButtonHost::new(ls("Toggle pause"))
+        .name("pause")
+        .on_click(move || set_paused.update(|v| !v)),
+      ButtonHost::new(ls("Toggle mount"))
+        .name("mount")
+        .on_click(move || set_mounted.update(|v| !v)),
+      ButtonHost::new(ls("Change delay"))
+        .name("delay")
+        .on_click(move || set_long.set(true)),
+      View::new().name(format!("count-{count}")),
+      mounted.then(|| PausableTimer {
+        paused,
+        duration: Duration::from_secs(if long { 5 } else { 2 }),
+        on_fire: Rc::new(move || set_count.set(count + 1)),
+      }),
+    )
+  }
+}
+
+#[test]
+fn pausing_a_timer_preserves_remaining_time_and_does_not_rearm_after_firing() {
+  let mut display = Display::mount(|| application(TimerControls), catalog());
+  display.poll();
+  Clock::advance(&mut display, Duration::from_millis(800));
+  display.poll();
+  display.click_ui(display.find_ui(ROOT, "pause"));
+  display.poll();
+  Clock::advance(&mut display, Duration::from_secs(30));
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-0");
+  display.click_ui(display.find_ui(ROOT, "pause"));
+  display.poll();
+  Clock::advance(&mut display, Duration::from_millis(1199));
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-0");
+  Clock::advance(&mut display, Duration::from_millis(1));
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-1");
+  display.click_ui(display.find_ui(ROOT, "pause"));
+  display.poll();
+  display.click_ui(display.find_ui(ROOT, "pause"));
+  display.poll();
+  Clock::advance(&mut display, Duration::from_secs(20));
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-1");
+}
+
+#[test]
+fn a_paused_timer_can_be_rescheduled_or_unmounted_without_leaking_a_callback() {
+  let mut display = Display::mount(|| application(TimerControls), catalog());
+  display.poll();
+  Clock::advance(&mut display, Duration::from_secs(1));
+  display.poll();
+  display.click_ui(display.find_ui(ROOT, "pause"));
+  display.poll();
+  display.click_ui(display.find_ui(ROOT, "delay"));
+  display.poll();
+  Clock::advance(&mut display, Duration::from_secs(20));
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-0");
+  display.click_ui(display.find_ui(ROOT, "pause"));
+  display.poll();
+  Clock::advance(&mut display, Duration::from_secs(4));
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-0");
+  display.click_ui(display.find_ui(ROOT, "mount"));
+  display.poll();
+  Clock::advance(&mut display, Duration::from_secs(20));
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-0");
+  display.click_ui(display.find_ui(ROOT, "mount"));
+  display.poll();
+  Clock::advance(&mut display, Duration::from_secs(5));
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-1");
+}
+
+#[test]
+fn exported_timers_follow_native_time_without_elapsed_wall_time() {
+  let mut display = Display::connect(
+    reactant::ApplicationEngine::for_export(|| application(TimerControls)),
+    catalog(),
+  );
+  display.advance_frame();
+  display.poll();
+  display.advance(Duration::from_millis(1999));
+  display.advance_frame();
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-0");
+  display.advance(Duration::from_millis(1));
+  display.advance_frame();
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-1");
+  display.advance(Duration::from_secs(60));
+  display.advance_frame();
+  display.poll();
+  let _ = display.find_ui(ROOT, "count-1");
+}

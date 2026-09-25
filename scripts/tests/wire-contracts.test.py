@@ -26,6 +26,7 @@ def main() -> None:
             *wire_contracts.rendered_files(ROOT),
             *ROOT.joinpath("schemas/flatbuffers").glob("*.fbs"),
             ROOT / "schemas/flatbuffers-toolchain.json",
+            ROOT / "contracts/native-abi.json",
             ROOT / fixture / "schema/fixture_response.fbs",
         ]
         for source in sources:

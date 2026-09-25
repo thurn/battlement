@@ -9,6 +9,7 @@ mod chess_board;
 mod chess_labels;
 mod chess_prompt;
 mod chess_ui_state;
+mod computer_turn;
 mod cursor;
 mod localization;
 mod menu;

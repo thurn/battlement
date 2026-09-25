@@ -1,4 +1,4 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, time::Duration};
 
 use crate::ResponseLease;
 use battlement::UiEventDisposition;
@@ -168,6 +168,10 @@ pub trait Engine {
     &mut self,
     action: UiEventActionView<'_>,
   ) -> Result<UiEventResult, EngineError>;
+
+  /// Samples host monotonic time before input, connection, or polling.
+  /// Engines with their own injected clock may ignore this observation.
+  fn set_time(&mut self, _elapsed: Duration) {}
 
   /// Returns one already-finished queued response, if any.
   fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError>;
