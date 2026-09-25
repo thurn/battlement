@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 import tomllib
 import uuid
@@ -26,6 +27,7 @@ import ditto_replay
 import process_priority
 import operation_log
 import process_identity
+import resource_slots
 from typing import Any
 
 
@@ -50,6 +52,7 @@ ADAPTER_TESTS = {
     "webgl": "webgl_capture_tests",
     "ios": "ios_simulator_tests",
 }
+INTERRUPTED = threading.Event()
 
 
 def command(
@@ -78,7 +81,7 @@ def command(
         )
     timeout_error = None
     try:
-        stdout, stderr = process.communicate(timeout=timeout)
+        stdout, stderr = communicate_with_execution_budget(process, timeout, environment)
     except subprocess.TimeoutExpired:
         terminate_process_group(process, force=False)
         try:
@@ -89,6 +92,14 @@ def command(
         timeout_error = subprocess.TimeoutExpired(
             arguments, timeout, output=stdout, stderr=stderr
         )
+    except BaseException:
+        terminate_process_group(process, force=False)
+        try:
+            process.communicate(timeout=3)
+        except subprocess.TimeoutExpired:
+            terminate_process_group(process, force=True)
+            process.communicate()
+        raise
     finally:
         if operation:
             operation.event(
@@ -104,6 +115,41 @@ def command(
     if check and result.returncode != 0:
         raise RuntimeError(f"command exited with {result.returncode}: {' '.join(arguments)}")
     return result
+
+
+def communicate_with_execution_budget(
+    process: subprocess.Popen[str], timeout: float | None,
+    environment: dict[str, str] | None,
+) -> tuple[str, str]:
+    """Charge execution time, excluding intervals with the same live admission ticket."""
+    if timeout is None:
+        return process.communicate()
+    directory = Path((environment or os.environ).get(
+        "BATTLEMENT_RESOURCE_SLOTS", str(resource_slots.GLOBAL_RESOURCE_ROOT)
+    ))
+    remaining = timeout
+    ticket = resource_slots.active_admission_ticket(process.pid, directory)
+    operation = operation_log.current()
+    while True:
+        if INTERRUPTED.is_set():
+            raise KeyboardInterrupt
+        started = time.monotonic()
+        try:
+            return process.communicate(timeout=min(0.05, max(0, remaining)))
+        except subprocess.TimeoutExpired as error:
+            current = resource_slots.active_admission_ticket(process.pid, directory)
+            if ticket is None or current != ticket:
+                remaining -= time.monotonic() - started
+            if operation and current != ticket:
+                operation.event(
+                    "process.admission", process_id=process.pid,
+                    waiting=current is not None,
+                )
+            ticket = current
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(
+                    process.args, timeout, output=error.output, stderr=error.stderr,
+                ) from error
 
 
 def terminate_process_group(process: subprocess.Popen[str], *, force: bool) -> None:
@@ -364,12 +410,16 @@ def gate(samples: tuple[str, ...] = SAMPLES) -> None:
             ): sample
             for sample in samples
         }
-        for future in as_completed(pending):
-            sample = pending[future]
-            try:
-                results.append(future.result())
-            except Exception as error:  # noqa: BLE001 - aggregate every suite outcome
-                failures.append(f"{sample}: {error}")
+        try:
+            for future in as_completed(pending):
+                sample = pending[future]
+                try:
+                    results.append(future.result())
+                except Exception as error:  # noqa: BLE001 - aggregate every suite outcome
+                    failures.append(f"{sample}: {error}")
+        except KeyboardInterrupt:
+            INTERRUPTED.set()
+            raise
     duration = time.monotonic() - started
     reusable_build = float(os.environ.get("DITTO_CI_REUSABLE_BUILD_SECONDS", "0"))
     added_duration = duration

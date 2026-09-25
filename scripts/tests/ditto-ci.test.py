@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tarfile
@@ -20,6 +21,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPOSITORY_ROOT / "scripts/ditto_ci.py"
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 import ditto_evidence
+import resource_slots
 
 
 FAKE_DITTO = r'''#!/usr/bin/env python3
@@ -46,6 +48,21 @@ run.mkdir(parents=True, exist_ok=True)
 print(f"DITTO_RUN_DIR={run}", file=sys.stderr, flush=True)
 if expected_cache := os.environ.get("FAKE_EXPECTED_CACHE"):
     assert os.environ["DITTO_CACHE_ROOT"] == expected_cache
+if slots := os.environ.get("FAKE_ADMISSION_ROOT"):
+    sys.path.insert(0, os.environ["FAKE_SCRIPT_ROOT"])
+    import resource_slots
+    with Path(os.environ["FAKE_WAIT_PID"]).open("a") as waiting:
+        waiting.write(str(os.getpid()) + "\n")
+    capacity = resource_slots.LeaseGroup(
+        resource_slots.SlotLease(Path(slots), "machine-heavy", 6, 2),
+        resource_slots.SlotLease(Path(slots), "native-player", 3),
+    )
+    capacity.__enter__()
+    Path(os.environ["FAKE_ADMITTED"]).touch()
+    # Neither an unlocked abandoned ticket nor diagnostic text proves admission.
+    stale = Path(slots) / f".machine-heavy.queue.00000000000000000000.{os.getpid():010d}.9999999999.lock"
+    stale.write_text("stale")
+    print("Resource capacity: waiting for machine-heavy (fixture noise)", file=sys.stderr)
 if marker := os.environ.get("FAKE_CHILD_MARKER"):
     subprocess.Popen([
         sys.executable,
@@ -121,6 +138,86 @@ def artifact_root(completed: subprocess.CompletedProcess[str]) -> Path:
     ]
     assert len(values) == 1, completed.stdout
     return Path(values[0])
+
+
+def verify_admission_watchdog(root: Path, environment: dict[str, str]) -> None:
+    """Exercise the real runner, shared queue locks, deadline and owned interruption."""
+    slots = root / "admission-slots"
+    marker = root / "admitted"
+    pid_path = root / "queued-pid"
+    child_marker = root / "admission-child-leak"
+    env = environment | {
+        "BATTLEMENT_RESOURCE_SLOTS": str(slots),
+        "FAKE_ADMISSION_ROOT": str(slots),
+        "FAKE_SCRIPT_ROOT": str(REPOSITORY_ROOT / "scripts"),
+        "FAKE_ADMITTED": str(marker),
+        "FAKE_WAIT_PID": str(pid_path),
+        "DITTO_CI_SAMPLE_TIMEOUT_SECONDS": "0.4",
+    }
+    for mode in ("pass", "stall", "cancel", "cancel-gate"):
+        marker.unlink(missing_ok=True)
+        pid_path.unlink(missing_ok=True)
+        holder = resource_slots.SlotLease(slots, "machine-heavy", 6, 6)
+        holder.__enter__()
+        case = env | ({"FAKE_SLEEP": "10", "FAKE_CHILD_MARKER": str(child_marker)}
+                      if mode == "stall" else {})
+        arguments = (["gate", "--sample", "chess", "--sample", "reactant"]
+                     if mode == "cancel-gate" else ["sample", "chess"])
+        process = subprocess.Popen(
+            [sys.executable, str(RUNNER), *arguments],
+            cwd=REPOSITORY_ROOT, env=case, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        try:
+            deadline = time.monotonic() + 5
+            while True:
+                if pid_path.exists():
+                    pids = [int(value) for value in pid_path.read_text().splitlines()]
+                    expected = 2 if mode == "cancel-gate" else 1
+                    if len(pids) == expected:
+                        if all(resource_slots.active_admission_ticket(pid, slots) for pid in pids):
+                            break
+                assert process.poll() is None, process.communicate()
+                assert time.monotonic() < deadline, "runner did not queue"
+                time.sleep(0.01)
+            time.sleep(0.8)
+            assert process.poll() is None, process.communicate()
+            assert not marker.exists(), "queued player launched without admission"
+            if mode.startswith("cancel"):
+                process.send_signal(signal.SIGINT)
+            else:
+                holder.__exit__(None, None, None)
+            stdout, stderr = process.communicate(timeout=5)
+            completed = subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
+            evidence = artifact_root(completed)
+            if mode == "pass":
+                assert process.returncode == 0, stderr
+                assert marker.exists()
+            elif mode == "stall":
+                assert process.returncode == 1, stderr
+                assert marker.exists()
+                assert json.loads((evidence / "chess/timeout.json").read_text())["seconds"] == 0.4
+                assert (evidence / "chess/run.tar.gz").is_file()
+                time.sleep(0.6)
+                assert not child_marker.exists(), "stalled descendant escaped cleanup"
+            else:
+                assert process.returncode != 0
+                assert not marker.exists()
+                assert len(holder.files) == 6, "cancellation released another owner's capacity"
+                assert all(resource_slots.active_admission_ticket(pid, slots) is None for pid in pids)
+                assert json.loads((evidence / "evidence.json").read_text())["status"] == "canceled"
+        finally:
+            holder.__exit__(None, None, None)
+            if process.poll() is None:
+                process.kill()
+                process.communicate()
+        for pid in pids:
+            assert resource_slots.active_admission_ticket(pid, slots) is None
+            for ticket in slots.glob(f".machine-heavy.queue.*.{pid:010d}.*.lock"):
+                ticket.unlink()
+        for name, count in (("machine-heavy", 6), ("native-player", 3)):
+            with resource_slots.SlotLease(slots, name, count, count):
+                pass
 
 
 def main() -> None:
@@ -341,6 +438,9 @@ def main() -> None:
             with tarfile.open(failed_artifact) as retained:
                 assert "run/diagnostics.txt" in retained.getnames()
         environment.pop("FAKE_RESULT")
+
+        if os.name != "nt":
+            verify_admission_watchdog(root, environment)
 
         marker = root / "leaked-child"
         environment["DITTO_CI_SAMPLE_TIMEOUT_SECONDS"] = "0.1"
