@@ -27,6 +27,8 @@ mod persistence_operation;
 mod persistence_store;
 pub mod prelude;
 mod presentation_inspector;
+mod task_store;
+mod tasks;
 mod timers;
 pub mod world;
 mod world_adapter;
@@ -93,7 +95,10 @@ pub use reactant_ui as ui;
 #[doc(hidden)]
 pub mod testing {
   pub use crate::game_app::GameApp;
+  pub use crate::tasks::wait_for_task;
   pub use reactant_core::app::App;
 }
 
 pub use game_presentation::{PresentationReceipt, PresentationStatus};
+
+pub use tasks::{Task, TaskState, use_task};

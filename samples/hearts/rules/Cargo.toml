@@ -5,11 +5,19 @@ edition = "2024"
 publish = false
 
 [dependencies]
+reactant = { path = "../../../crates/reactant" }
+reactant-rules = { path = "../../../crates/reactant-rules" }
+
 fastrand = "=2.3.0"
 serde = { version = "1.0.228", features = ["derive"] }
 uuid = { version = "1.18.1", features = ["js", "serde", "v4"] }
 
 [dev-dependencies]
+battlement = { path = "../../../crates/battlement" }
+battlement-fake = { path = "../../../crates/battlement-fake" }
+reactant-testing = { path = "../../../crates/reactant-testing", default-features = false }
+
 serde_json = "1.0.145"
+trox = "0.2.1"
 
 [workspace]

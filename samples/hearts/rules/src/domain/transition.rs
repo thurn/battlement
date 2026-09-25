@@ -14,19 +14,43 @@ pub fn reduce(
   Ok(next)
 }
 
+/// Validates an external intention without cloning state or producing events.
+pub fn validate(state: &HeartsState, intention: &Intention) -> Result<(), Rejection> {
+  match intention {
+    Intention::SubmitPass { seat, cards } => {
+      if state.phase != Phase::Passing {
+        return Err(Rejection::WrongPhase);
+      }
+      if state.passes[seat.index()].is_some() {
+        return Err(Rejection::AlreadyPassed);
+      }
+      choices::validate_pass(state.hand(*seat), state.pass_direction(), cards)
+    }
+    Intention::PlayCard { seat, card } => state
+      .play_context(*seat)
+      .ok_or(Rejection::WrongPhase)?
+      .validate(*card),
+    Intention::NextHand => {
+      if state.phase == Phase::HandOver {
+        Ok(())
+      } else {
+        Err(Rejection::WrongPhase)
+      }
+    }
+  }
+}
+
 /// Applies one validated intention; rejected intentions leave state and sink untouched.
 pub fn apply(
   state: &mut HeartsState,
   intention: Intention,
   sink: &mut impl PresentationSink,
 ) -> Result<(), Rejection> {
+  self::validate(state, &intention)?;
   match intention {
     Intention::SubmitPass { seat, cards } => submit_pass(state, seat, &cards, sink),
     Intention::PlayCard { seat, card } => play_card(state, seat, card, sink),
     Intention::NextHand => {
-      if state.phase != Phase::HandOver {
-        return Err(Rejection::WrongPhase);
-      }
       let hands = deal::shuffled(&mut state.random.deck);
       *state = HeartsState::from_deal(
         hands,
@@ -38,9 +62,9 @@ pub fn apply(
         state.random.clone(),
       );
       sink.checkpoint(state, Event::Deal);
-      Ok(())
     }
   }
+  Ok(())
 }
 
 fn submit_pass(
@@ -48,18 +72,11 @@ fn submit_pass(
   seat: Seat,
   cards: &[CardId],
   sink: &mut impl PresentationSink,
-) -> Result<(), Rejection> {
-  if state.phase != Phase::Passing {
-    return Err(Rejection::WrongPhase);
-  }
-  if state.passes[seat.index()].is_some() {
-    return Err(Rejection::AlreadyPassed);
-  }
-  choices::validate_pass(state.hand(seat), state.pass_direction(), cards)?;
+) {
   state.passes[seat.index()] = Some(cards.try_into().unwrap());
   if state.passes.iter().any(Option::is_none) {
     sink.checkpoint(state, Event::PassSubmitted { seat });
-    return Ok(());
+    return;
   }
   for sender in Seat::ALL {
     let cards = state.passes[sender.index()].unwrap();
@@ -78,19 +95,9 @@ fn submit_pass(
     .unwrap();
   state.phase = Phase::Playing { turn: state.leader };
   sink.checkpoint(state, Event::PassExchanged);
-  Ok(())
 }
 
-fn play_card(
-  state: &mut HeartsState,
-  seat: Seat,
-  card: CardId,
-  sink: &mut impl PresentationSink,
-) -> Result<(), Rejection> {
-  state
-    .play_context(seat)
-    .ok_or(Rejection::WrongPhase)?
-    .validate(card)?;
+fn play_card(state: &mut HeartsState, seat: Seat, card: CardId, sink: &mut impl PresentationSink) {
   if let Some(lead) = state.trick.first()
     && lead.card.suit != card.suit
   {
@@ -115,7 +122,6 @@ fn play_card(
   if state.trick.len() == 4 {
     collect_trick(state, sink);
   }
-  Ok(())
 }
 
 fn collect_trick(state: &mut HeartsState, sink: &mut impl PresentationSink) {

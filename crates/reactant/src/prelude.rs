@@ -36,3 +36,5 @@ pub use reactant_rules::{GameReducer, ReducerOutput};
 
 pub use crate::world::{Group as WorldGroup, Prefab, SceneRoot};
 pub use reactant_core::native_host::{ObjectRef, use_object_ref};
+
+pub use crate::{Task, TaskState, use_task};
