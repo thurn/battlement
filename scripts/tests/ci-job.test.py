@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -56,6 +57,10 @@ import sys
 import time
 release_path = pathlib.Path(sys.argv[1])
 print('==> Fixture', flush=True)
+print('==> Run Unity Edit Mode tests (native-integration)', flush=True)
+print('<== Run Unity Edit Mode tests (native-integration) (95.9s)', flush=True)
+print('==> Later check', flush=True)
+print('<== Later check (0.1s)', flush=True)
 deadline = time.monotonic() + 30
 while not release_path.exists():
     if time.monotonic() > deadline:
@@ -79,12 +84,19 @@ while not release_path.exists():
             running = ci_job.refresh(path)
         assert running["current_step"] == "Fixture"
         assert running["last_progress"]["bytes"] > 0
+        status = subprocess.run(
+            [sys.executable, str(REPOSITORY_ROOT / "scripts/ci_job.py"),
+             "--json", "status", first["job_id"]],
+            check=True, capture_output=True, text=True,
+        )
+        assert json.loads(status.stdout)["current_step"] == "Fixture"
         unchanged = ci_job.wait_for(path, running["revision"], .05)
         assert unchanged["timed_out"] is True
         assert unchanged["job_id"] == first["job_id"]
         release_path.write_text("release")
         passed = ci_job.wait_for(path, running["revision"], 5)
         assert passed["state"] == "passed"
+        assert passed["current_step"] is None
         assert passed["timed_out"] is False
         milestones, warnings = perf_ci.read_workflow_milestones(
             Path(os.environ["BATTLEMENT_LOG_ROOT"])

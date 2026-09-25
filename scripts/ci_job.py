@@ -88,7 +88,7 @@ def observe_progress(job: dict) -> dict:
         if line.startswith("==> "):
             active.append(line[4:])
         elif line.startswith("<== "):
-            completed = line[4:].partition(" (")[0]
+            completed = line[4:].rsplit(" (", 1)[0]
             for index in range(len(active) - 1, -1, -1):
                 if active[index] == completed:
                     active.pop(index)
