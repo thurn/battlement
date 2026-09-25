@@ -105,9 +105,9 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Repair measured warm CI and tool workflow bottlenecks** — hv-a8o.4; review hv-a8o.5.
 
-**Scope and interface:** Repair bottlenecks identified by H01 within the selected project. Prefer shared setup, exact-input caching, parallel independent checks, and pruning redundant waits/tests. Preserve unique risk coverage and retained replay handles. Add a clear measured 300-second warm-run result without building another orchestration layer.
+**Scope and interface:** Repair measured bottlenecks under the [five-minute CI contract](hearts.md#five-minute-ci-contract). Optimize shared setup, exact-input caching, concurrency and test selection; consolidate or remove redundant, obsolete or low-value tests with an explicit risk and coverage rationale. Retain replay evidence and required behavior contracts. Continue focused repair and remeasurement without building another orchestration layer.
 
-**Acceptance:** Observed failures have focused reproduction and a fix. Full representative warm changed-source validation meets 300 seconds or a concrete scope/coverage conflict is escalated; no dependent feature starts while the gate is unmet. Report queue/cold costs separately.
+**Acceptance:** Observed failures have focused reproduction and a fix. Full representative warm changed-source sample, engine and host validation meets 300 seconds, with queue/cold costs reported separately. An over-budget passing run leaves H02 active for optimization, not blocked or complete; neither retry counts nor diagnosis time boxes justify stopping the epic. Dependent features wait while prerequisite repair continues. Only the concrete external-dependency or explicit-pause exceptions in the linked contract permit a stopped handoff.
 
 **Validation:** Focused regression for changed tooling, then staged full validation with timings and exact source; test cache invalidation if caching changes.
 

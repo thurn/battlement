@@ -540,13 +540,31 @@ separate required milestone evidence. Invalidate retained evidence for relevant
 source/assets/build recipes/toolchains/inputs/scenario changes. Demonstrate warm
 changed-source sample, engine, and host runs; unchanged cache hits are not proof.
 
-Tool failures and over-budget warm runs block dependent features. Retain handles
-and timings, isolate the boundary, and repair observed bottlenecks. Prefer shared
-setup, correct caches, parallel independent checks, and removal of redundant
-checks/waits with coverage rationale. Do not skip failures, inflate timeouts,
-mislabel cold work, or silently delete unique coverage. Surface materially
-unrelated repair scope or irreducible coverage/budget conflicts rather than
-starting an unlimited rewrite.
+A missed budget keeps H02 and its optimization work active. It is not a reason
+to stop the epic, mark it externally blocked, or hand it back to the user.
+Dependent features wait for the prerequisite while the executor continues to
+repair it. Retry counts, a diagnosis time box, repeated overruns, and ordinary
+shared-runner contention do not authorize stopping. Continue under the
+[CI repair policy](../../.agents/skills/battlement-ci/SKILL.md), including when
+general worktree guidance suggests a fixed retry or diagnosis-time limit.
+
+Retain handles and stage timings, isolate expensive work, and test each repair
+with focused checks before rerunning the aggregate suite. Prefer shared setup,
+correct caches, parallel independent checks, and selective test execution.
+Actively consolidate or remove redundant, obsolete, implementation-detail or
+low-value tests when their measured cost exceeds their protection. Record each
+coverage decision: the risk exercised, why removal or selection is justified,
+and retained or replacement coverage. Preserve the behavior contracts in this
+plan; preserving every existing test is not a requirement. Validate the revised
+suite and cache invalidation, then remeasure representative changed-source runs.
+Do not hide failures, inflate deadlines, or relabel normal rebuilds as cold setup.
+
+Change an unproductive hypothesis rather than blindly repeating the same run.
+Continue authorized CI optimization until the target is met. Only a concrete
+external dependency that cannot be resolved with available access or within the
+authorized scope, or an explicit user pause, permits stopping; identify the
+specific unavailable input or authority and work that can still proceed.
+Do not infer an irreducible coverage/budget conflict from elapsed time alone.
 
 ### Acceptance
 
