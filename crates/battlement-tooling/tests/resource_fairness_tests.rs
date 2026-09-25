@@ -6,7 +6,45 @@ use std::{
 };
 
 use battlement_tooling::unity_lease::{CompilerCapacityLease, UnityEditorLease};
+use fs2::FileExt;
 use tempfile::TempDir;
+
+#[test]
+fn rust_admission_respects_the_shared_publication_lock() {
+  let temporary = TempDir::new().unwrap();
+  let guard = fs::OpenOptions::new()
+    .create(true)
+    .truncate(false)
+    .read(true)
+    .write(true)
+    .open(temporary.path().join(".machine-heavy.admission.lock"))
+    .unwrap();
+  guard.set_len(1).unwrap();
+  guard.lock_exclusive().unwrap();
+  let (started_sender, started_receiver) = mpsc::channel();
+  let (entered_sender, entered_receiver) = mpsc::channel();
+  let root = temporary.path().to_owned();
+  let waiter = thread::spawn(move || {
+    started_sender.send(()).unwrap();
+    let _lease = CompilerCapacityLease::acquire(&root).unwrap();
+    entered_sender.send(()).unwrap();
+  });
+  started_receiver
+    .recv_timeout(Duration::from_secs(2))
+    .unwrap();
+  let entered_early = entered_receiver.recv_timeout(Duration::from_millis(200));
+  drop(guard);
+  if entered_early.is_err() {
+    entered_receiver
+      .recv_timeout(Duration::from_secs(2))
+      .unwrap();
+  }
+  waiter.join().unwrap();
+  assert!(
+    entered_early.is_err(),
+    "admission bypassed the publication lock"
+  );
+}
 
 #[test]
 fn blocking_rust_leases_enter_machine_capacity_in_fifo_order() {

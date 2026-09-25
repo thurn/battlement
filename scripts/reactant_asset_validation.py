@@ -140,12 +140,12 @@ def compile_fixture() -> None:
 
 
 def cli_browser() -> None:
+    # Match the full gate's feature resolution so Cargo reuses its test executable.
     run(
         [
             "cargo",
             "test",
-            "-p",
-            "rt",
+            "--workspace",
             "--test",
             "reactant_assets_render_tests",
             FAST_TEST,

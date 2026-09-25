@@ -529,12 +529,6 @@ def wait_for_unity_project_unlock() -> None:
         raise RuntimeError("Unity did not release the project lock within 15 seconds.")
 
 
-def run_with_unity_lease(function: Callable[[], None]) -> None:
-    """Run one Unity operation within the shared machine-wide capacity."""
-    with unity_editor_lease():
-        function()
-
-
 def unity_analyzer_environment() -> dict[str, str]:
     project = (REPOSITORY_ROOT / "Assembly-CSharp-Editor.csproj").read_text(
         encoding="utf-8"
@@ -592,7 +586,7 @@ def generate_unity_project_files() -> None:
 
 
 def check_dotnet_diagnostics() -> None:
-    run_with_unity_lease(generate_unity_project_files)
+    generate_unity_project_files()
     environment = unity_analyzer_environment()
     process_priority.run(
         ["dotnet", "restore", "battlement-ci.slnx"],
@@ -866,6 +860,7 @@ def run_csharp_preflight(
                 "dotnet-diagnostics",
                 unity_test_selection.DOTNET_DIAGNOSTIC_INPUTS,
                 check_dotnet_diagnostics,
+                lease=unity_editor_lease,
             ),
         )
     else:

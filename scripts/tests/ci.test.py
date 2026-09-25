@@ -20,6 +20,7 @@ from unittest.mock import Mock, patch
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 import web_selection
+from ci_diagnostics_capacity import verify_diagnostics_capacity
 
 SPEC = importlib.util.spec_from_file_location("ci", REPOSITORY_ROOT / "scripts/ci.py")
 assert SPEC and SPEC.loader
@@ -28,6 +29,7 @@ SPEC.loader.exec_module(ci)
 
 
 def main() -> None:
+    verify_diagnostics_capacity()
     _verify_rust_configuration()
     _verify_active_rust_toolchain_guard()
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
@@ -666,10 +668,11 @@ def _verify_csharp_preflight() -> None:
     )
 
     class Cache:
-        def run(self, step: str, inputs: tuple[str, ...], function: object) -> bool:
+        def run(self, step: str, inputs: tuple[str, ...], function: object, *, lease) -> bool:
             assert step == "dotnet-diagnostics"
             assert inputs == ci.unity_test_selection.DOTNET_DIAGNOSTIC_INPUTS
             assert function is ci.check_dotnet_diagnostics
+            assert lease is ci.unity_editor_lease
             return True
 
     steps: list[str] = []
@@ -744,7 +747,6 @@ def _verify_unity_execution_selection(root: Path) -> None:
 
     with (
         patch.object(ci, "run_step", side_effect=step),
-        patch.object(ci, "run_with_unity_lease", side_effect=lambda function: function()),
         patch.object(ci, "run_unity_edit_mode_tests", side_effect=executed.append),
     ):
         assert ci.run_selected_unity_tests(native, cache) == 1.5

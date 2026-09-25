@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from contextvars import ContextVar
 import itertools
 import os
@@ -13,7 +14,7 @@ import time
 
 import operation_log
 
-from platform_support import try_lock_file, unlock_file
+from platform_support import lock_file, try_lock_file, unlock_file
 
 
 GLOBAL_RESOURCE_ROOT = Path(
@@ -58,22 +59,35 @@ class AdmissionTicket:
     def __init__(self, directory: Path, name: str, units: int) -> None:
         self.directory = directory
         self.prefix = f".{name}.queue."
+        self.guard_path = directory / f".{name}.admission.lock"
         self.path = directory / (
             f"{self.prefix}{time.time_ns():020d}.{os.getpid():010d}."
             f"{next(_TICKET_SEQUENCE):010d}.lock"
         )
-        self.file = self.path.open("x+")
-        self.file.write(f"units={units}\n")
-        self.file.flush()
-        if not try_lock_file(self.file):
-            self.file.close()
-            self.path.unlink(missing_ok=True)
-            raise RuntimeError("new admission ticket could not be locked")
-        with _ACTIVE_TICKETS_LOCK:
-            _ACTIVE_TICKETS.add(self.path)
+        with self._queue_lock():
+            self.file = self.path.open("x+")
+            self.file.write(f"units={units}\n")
+            self.file.flush()
+            lock_file(self.file)
+            with _ACTIVE_TICKETS_LOCK:
+                _ACTIVE_TICKETS.add(self.path)
+
+    @contextmanager
+    def _queue_lock(self):
+        # Scanners must not acquire a creator's not-yet-locked ticket.
+        with self.guard_path.open("a+") as guard:
+            lock_file(guard)
+            try:
+                yield
+            finally:
+                unlock_file(guard)
 
     def is_first(self) -> bool:
         """Return whether no older live ticket precedes this one."""
+        with self._queue_lock():
+            return self._inspect_queue()
+
+    def _inspect_queue(self) -> bool:
         for path in sorted(self.directory.glob(f"{self.prefix}*.lock")):
             if path == self.path:
                 return True

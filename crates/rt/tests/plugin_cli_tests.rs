@@ -22,7 +22,7 @@ const INFO_PLIST: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 fn inspect_install_verify_and_restore_keep_the_application_validly_signed() {
   let temporary = tempfile::tempdir().unwrap();
   let app = temporary.path().join("Battlement Fixture.app");
-  let plugin = build_fixture(temporary.path());
+  let plugin = build_fixture();
   create_app(&app, &plugin);
   codesign(&["--force", "--deep", "--sign", "-"], &app);
 
@@ -37,9 +37,9 @@ fn inspect_install_verify_and_restore_keep_the_application_validly_signed() {
   assert!(!backup(&app).exists());
 }
 
-fn build_fixture(temporary: &Path) -> PathBuf {
+fn build_fixture() -> PathBuf {
   let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-  let target = temporary.join("fixture-target");
+  let target = workspace.join("target/export-fixture-tests");
   let status = Command::new(env!("CARGO"))
     .args([
       "build",

@@ -40,6 +40,7 @@ struct AdmissionTicket {
   file: Option<File>,
   path: PathBuf,
   prefix: String,
+  guard_path: PathBuf,
 }
 
 /// Machine capacity held while one bounded Cargo writer is running.
@@ -245,6 +246,8 @@ impl AdmissionTicket {
       process::id(),
       TICKET_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ));
+    let guard_path = directory.join(format!(".{name}.admission.lock"));
+    let _queue_guard = self::queue_guard(&guard_path)?;
     let file = OpenOptions::new()
       .create_new(true)
       .read(true)
@@ -260,10 +263,12 @@ impl AdmissionTicket {
       file: Some(file),
       path,
       prefix,
+      guard_path,
     })
   }
 
   fn is_first(&self) -> Result<bool> {
+    let _queue_guard = self::queue_guard(&self.guard_path)?;
     let mut tickets = fs::read_dir(self.path.parent().expect("ticket path has a parent"))?
       .filter_map(|entry| entry.ok())
       .filter(|entry| {
@@ -326,6 +331,19 @@ impl AdmissionTicket {
       tickets.len(),
     ))
   }
+}
+
+fn queue_guard(path: &Path) -> Result<File> {
+  // Share Python's publication lock so scanners never inspect an unlocked new ticket.
+  let guard = OpenOptions::new()
+    .create(true)
+    .truncate(false)
+    .read(true)
+    .write(true)
+    .open(path)?;
+  guard.set_len(1)?;
+  guard.lock_exclusive()?;
+  Ok(guard)
 }
 
 impl Drop for AdmissionTicket {

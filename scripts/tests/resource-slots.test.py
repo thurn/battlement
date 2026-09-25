@@ -19,6 +19,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
 import resource_slots  # noqa: E402
 from resource_slots import LeaseGroup, SlotLease  # noqa: E402
+from resource_slots_publication import verify_publication  # noqa: E402
 
 
 def nested_compiler_process(locks: str, ready, start) -> None:
@@ -49,6 +50,7 @@ with compiler_capacity_lease():
 
 
 def main() -> None:
+    verify_publication()
     with tempfile.TemporaryDirectory(prefix="battlement-resource-slots.") as temporary:
         locks = Path(temporary)
         first = SlotLease(locks, "unity-editor", 2).acquire()
@@ -112,17 +114,22 @@ def main() -> None:
                     order.append(label)
                     time.sleep(0.005)
 
-            first_waiter = threading.Thread(target=acquire_in_order, args=("first",))
-            second_waiter = threading.Thread(target=acquire_in_order, args=("second",))
-            first_waiter.start()
-            while len(list(locks.glob(".fair-heavy.queue.*.lock"))) < 1:
-                time.sleep(0.001)
-            second_waiter.start()
-            while len(list(locks.glob(".fair-heavy.queue.*.lock"))) < 2:
-                time.sleep(0.001)
-            held.close()
-            first_waiter.join(timeout=5)
-            second_waiter.join(timeout=5)
+            first_waiter = threading.Thread(
+                target=acquire_in_order, args=("first",), daemon=True
+            )
+            second_waiter = threading.Thread(
+                target=acquire_in_order, args=("second",), daemon=True
+            )
+            try:
+                first_waiter.start()
+                _wait_for_tickets(locks, "fair-heavy", 1)
+                second_waiter.start()
+                _wait_for_tickets(locks, "fair-heavy", 2)
+            finally:
+                held.close()
+                first_waiter.join(timeout=5)
+                if second_waiter.ident is not None:
+                    second_waiter.join(timeout=5)
             assert not first_waiter.is_alive() and not second_waiter.is_alive(), (
                 f"queued leases did not finish on attempt {attempt}"
             )
