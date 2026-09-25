@@ -14,6 +14,7 @@ CHECKS = (
     ("Test process scheduling priority", "scripts/tests/process-priority.test.py"),
     ("Test operation telemetry", "scripts/tests/operation-log.test.py"),
     ("Test CI job handles", "scripts/tests/ci-job.test.py"),
+    ("Test wire contract refresh", "scripts/tests/wire-contracts.test.py"),
     ("Test validation preparation", "scripts/tests/prepare-validation.test.py"),
     ("Test resource slots", "scripts/tests/resource-slots.test.py"),
     ("Test Unity transactions", "scripts/tests/unity-transaction.test.py"),

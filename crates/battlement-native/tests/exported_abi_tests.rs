@@ -195,7 +195,12 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     );
     assert_eq!(
       CStr::from_ptr(wire_contract()).to_str().unwrap(),
-      "d036677cfb0e1696942f589875410417b1e0314464cb157d71a6cc31dbd37c3c"
+      format!(
+        "{:x}",
+        Sha256::digest(include_bytes!(
+          "fixtures/exported-engine/schema/wire-contract.json"
+        ))
+      )
     );
     assert_eq!(
       determinism_capabilities(),
@@ -547,10 +552,6 @@ fn checked_in_contract_manifests_match_exported_digests() {
     root.join("crates/battlement-native/tests/fixtures/exported-engine/schema/wire-contract.json");
   let fixture_manifest_bytes = fs::read(&fixture_manifest_path).unwrap();
   let fixture_digest = format!("{:x}", Sha256::digest(&fixture_manifest_bytes));
-  assert_eq!(
-    fixture_digest,
-    "d036677cfb0e1696942f589875410417b1e0314464cb157d71a6cc31dbd37c3c"
-  );
   let fixture_manifest: serde_json::Value =
     serde_json::from_slice(&fixture_manifest_bytes).unwrap();
   assert_eq!(

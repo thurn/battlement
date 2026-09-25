@@ -14,6 +14,10 @@ identifies stale generated inputs, run `python3 scripts/prepare_validation.py
 generate --sample <sample>`, inspect the returned manifest and patch, then
 stage only the intended files. Command help owns selection and output details.
 
+After editing wire schemas, run `python3 scripts/generate_flatbuffers.py` to
+refresh bindings and contract fingerprints together; `--check` verifies both
+without writing. Do not copy digest literals by hand.
+
 Read `rust-toolchain.toml`, the chosen project's `reactant.toml`, and its
 `ProjectSettings/ProjectVersion.txt` for tool and player inputs. Do not copy
 version pins into guidance. CLI tool resolution is in

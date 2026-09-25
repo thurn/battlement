@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the pinned Battlement FlatBuffers bindings."""
+"""Regenerate pinned FlatBuffers bindings, wire manifests, and contract fingerprints."""
 
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
+
+import wire_contracts
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -57,7 +59,8 @@ FIXTURE_CSHARP_OUTPUTS = (
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--flatc", type=Path, help="use an already installed pinned compiler")
-    parser.add_argument("--check", action="store_true", help="fail when generated files differ")
+    parser.add_argument("--check", action="store_true",
+                        help="check bindings and contract fingerprints without writing")
     args = parser.parse_args()
     specification = json.loads(TOOLCHAIN.read_text())
     verify_csharp_runtime(specification)
@@ -101,7 +104,9 @@ def main() -> int:
         format_rust_sources(rust)
         format_rust_sources(fixture_rust)
         fixture_csharp_source = fixture_csharp / "fixture_response_generated.cs"
+        contracts = wire_contracts.rendered_files(ROOT)
         if args.check:
+            contracts_match = wire_contracts.matches(contracts)
             return int(
                 not (
                     same_tree(rust, RUST_OUTPUT)
@@ -111,6 +116,7 @@ def main() -> int:
                         same_file(fixture_csharp_source, output)
                         for output in FIXTURE_CSHARP_OUTPUTS
                     )
+                    and contracts_match
                 )
             )
         replace_tree(rust, RUST_OUTPUT)
@@ -118,6 +124,8 @@ def main() -> int:
         replace_file(fixture_rust_source, FIXTURE_RUST_OUTPUT)
         for output in FIXTURE_CSHARP_OUTPUTS:
             replace_file(fixture_csharp_source, output)
+        for output, contents in contracts.items():
+            output.write_bytes(contents)
     return 0
 
 
