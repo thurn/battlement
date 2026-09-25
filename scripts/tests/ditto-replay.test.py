@@ -133,19 +133,23 @@ if "--version" in sys.argv:
 assert os.environ["DITTO_REPLAY_BUILD_FINGERPRINT"] == "a" * 64
 assert "--no-build" in sys.argv
 assert sys.argv[sys.argv.index("--profile") + 1] == "macos"
-if sys.argv[-3] == "gallery reset":
+names = [name for name in ("gallery reset", "collection components") if name in sys.argv]
+if "gallery reset" in names:
     assert pathlib.Path(os.environ["DITTO_ODIFF_PATH"]).is_file()
 else:
-    assert sys.argv[-3] == "collection components"
+    assert names == ["collection components"]
     assert "DITTO_ODIFF_PATH" not in os.environ
 pathlib.Path(os.environ["PLAYER_MARKER"]).write_text("executed")
 output = pathlib.Path(sys.argv[sys.argv.index("--output") + 1])
-output.write_text(json.dumps({"status":os.environ.get("REPLAY_STATUS", "passed"), "errors":[]}))
+status = os.environ.get("REPLAY_STATUS", "passed")
+output.write_text(json.dumps({"status":status, "errors":[],
+    "scenarios":[{"name":name, "status":status} for name in names]}))
 if "REPLAY_EVENTS" in os.environ:
     run = output.parent / "fake-run"
     (run / "logs").mkdir(parents=True)
     (run / "logs/events.jsonl").write_text(os.environ["REPLAY_EVENTS"] + "\\n")
     print("DITTO_RUN_DIR=" + str(run), file=sys.stderr)
+raise SystemExit(int(os.environ.get("REPLAY_EXIT_CODE", "0")))
 ''')
         binary.chmod(0o755)
         if os.name == "nt":
@@ -166,8 +170,9 @@ if "REPLAY_EVENTS" in os.environ:
         env["DITTO_ODIFF_PATH"] = "/incorrect/ambient/tool"
 
         def invoke(recipe_path=retained, scenario="gallery reset"):
+            selection = [scenario] if scenario is not None else []
             return subprocess.run([sys.executable, str(root / "scripts/ditto_ci.py"),
-                                   "replay", str(recipe_path), scenario],
+                                   "replay", str(recipe_path), *selection],
                                   env=env, capture_output=True, text=True)
 
         binary.write_text("a rebuilt runner must not be used")
@@ -178,9 +183,11 @@ if "REPLAY_EVENTS" in os.environ:
         assert retained.read_bytes() == original
         passed_observation = {
             "semantic_hash": "passed", "event_transcript_hash": "passed-events",
+            "scenarios": ["gallery reset", "collection components"],
         }
         failed_observation = {
             "semantic_hash": "failed", "event_transcript_hash": "failed-events",
+            "scenarios": ["gallery reset", "collection components"],
         }
         assert ditto_replay.classify_paired_observations(
             [passed_observation], [failed_observation]
@@ -199,6 +206,7 @@ if "REPLAY_EVENTS" in os.environ:
         for path in base_evidence:
             raw_events.write_text(json.dumps({"status": "passed"}) + "\n")
             path.write_text(json.dumps({
+                "replay_scenarios": ["gallery reset", "collection components"],
                 "replay_semantic_hash": "passed",
                 "replay_event_transcript_hash": "passed-events",
                 "replay_event_log": ditto_replay.retain_transcript(raw_events, path),
@@ -206,6 +214,7 @@ if "REPLAY_EVENTS" in os.environ:
         for path in candidate_evidence:
             raw_events.write_text(json.dumps({"status": "failed"}) + "\n")
             path.write_text(json.dumps({
+                "replay_scenarios": ["gallery reset", "collection components"],
                 "replay_semantic_hash": "failed",
                 "replay_event_transcript_hash": "failed-events",
                 "replay_event_log": ditto_replay.retain_transcript(raw_events, path),
@@ -218,6 +227,14 @@ if "REPLAY_EVENTS" in os.environ:
         assert retained_classification["classification"] == "candidate-introduced"
         assert len(retained_classification["base"]) == 2
         assert len(retained_classification["candidate"]) == 2
+        assert retained_classification["scope_comparison"] == "matching scenario selections"
+        unknown_scope = json.loads(candidate_evidence[0].read_text())
+        del unknown_scope["replay_scenarios"]
+        candidate_evidence[0].write_text(json.dumps(unknown_scope))
+        assert ditto_replay.classify_and_retain(
+            base_evidence, candidate_evidence, classification_path
+        ) == "incomparable-scope"
+        assert json.loads(classification_path.read_text())["scope_comparison"].startswith("unavailable:")
         first_events = root / "first-events.jsonl"
         second_events = root / "second-events.jsonl"
         first_events.write_text(json.dumps({
@@ -253,6 +270,7 @@ if "REPLAY_EVENTS" in os.environ:
         current_recipe = dict(recipe)
         ditto_replay.save(current_recipe, portable / "replay.json", {
             **result, "status": "passed", "errors": [],
+            "scenarios": [{"name": name, "status": "passed"} for name in recipe["scenarios"]],
         }, source_events)
         current_recipe["source_event_transcript_hash"] = "obsolete-normalization"
         (portable / "replay.json").write_text(json.dumps(current_recipe))
@@ -263,11 +281,28 @@ if "REPLAY_EVENTS" in os.environ:
             "89d2b5f2-33bf-4ba2-9620-e44b989718df", "07d8ce2c-8de8-4bbf-9691-612812298803"
         )
 
-        def replay_observation():
-            completed = invoke(moved / "replay.json")
-            assert completed.returncode == 0, completed.stderr + completed.stdout
+        def replay_observation(scenario=None, expected_exit=0):
+            completed = invoke(moved / "replay.json", scenario)
+            assert completed.returncode == expected_exit, completed.stderr + completed.stdout
             evidence = Path(completed.stdout.rsplit("replay evidence: ", 1)[1].splitlines()[0])
             return json.loads((evidence / "stability.json").read_text()), evidence
+
+        subset, subset_evidence = replay_observation("gallery reset")
+        assert subset["classification"] == "incomparable-scope"
+        assert subset["source_scenarios"] == recipe["scenarios"]
+        assert subset["replay_scenarios"] == ["gallery reset"]
+        assert subset["scope_comparison"] == "incomparable: scenario selections differ"
+        assert subset["transcript_comparison"].startswith("incomparable:")
+        assert subset["source_semantic_hash"] != subset["replay_semantic_hash"]
+        assert ditto_replay.classify_and_retain(
+            [moved / "replay.json"] * 2, [subset_evidence / "stability.json"] * 2,
+            classification_path,
+        ) == "incomparable-scope"
+        env["REPLAY_STATUS"] = "failed"
+        env["REPLAY_EXIT_CODE"] = "7"
+        failed_subset, _ = replay_observation("gallery reset", 7)
+        assert failed_subset["classification"] == "incomparable-scope"
+        del env["REPLAY_STATUS"], env["REPLAY_EXIT_CODE"]
 
         same, evidence = replay_observation()
         assert same["classification"] == "stability-unestablished"

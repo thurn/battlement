@@ -112,25 +112,39 @@ def paired_observation(path: Path) -> dict:
     document = json.loads(path.read_text())
     if "replay_semantic_hash" in document:
         semantic = document.get("replay_semantic_hash")
+        scenarios = document.get("replay_scenarios")
         event_log = retained_transcript(document, path, "replay_event_log")
         transcript = event_transcript_hash(event_log) if event_log else None
     elif "source_semantic_hash" in document:
         semantic = document.get("source_semantic_hash")
+        scenarios = document.get("scenarios")
         event_log = retained_transcript(document, path, "source_event_log")
         transcript = event_transcript_hash(event_log) if event_log else None
     else:
         semantic = semantic_hash(document)
+        scenarios = [item["name"] for item in document.get("scenarios") or []]
         event_log = path.parent / "logs/events.jsonl"
         transcript = event_transcript_hash(event_log) if event_log.is_file() else None
     if semantic is None or transcript is None:
         raise ValueError(f"paired evidence lacks semantic or verified transcript evidence: {path}")
-    return {"semantic_hash": semantic, "event_transcript_hash": transcript}
+    return {"semantic_hash": semantic, "event_transcript_hash": transcript,
+            "scenarios": scenarios}
+
+
+def matching_scenario_scopes(scopes: list[list[str] | None]) -> bool:
+    """Require known, nonempty selections before comparing whole-run observations."""
+    if not scopes or not all(scopes):
+        return False
+    return len({tuple(sorted(set(scope))) for scope in scopes}) == 1
 
 
 def classify_paired_observations(base: list[dict], candidate: list[dict]) -> str:
     """Attribute a candidate only after both sides repeat one exact observation."""
     if len(base) < 2 or len(candidate) < 2:
         return "stability-unestablished"
+    scopes = [item.get("scenarios") for item in [*base, *candidate]]
+    if not matching_scenario_scopes(scopes):
+        return "incomparable-scope"
     base_hashes = {
         (item["semantic_hash"], item["event_transcript_hash"]) for item in base
     }
@@ -152,6 +166,11 @@ def classify_and_retain(base_paths: list[Path], candidate_paths: list[Path], out
     payload = {
         "schema": 1,
         "classification": classification,
+        "scope_comparison": (
+            "unavailable: missing or different scenario selections"
+            if not matching_scenario_scopes([item["scenarios"] for item in [*base, *candidate]])
+            else "matching scenario selections"
+        ),
         "base": [
             {"path": str(path.resolve()), "observation": observation}
             for path, observation in zip(base_paths, base, strict=True)
@@ -329,15 +348,25 @@ def replay(recipe_path: Path, repository: Path, scenarios: list[str], output: Pa
         else None
     )
     source_event_hash = event_transcript_hash(source_event_log) if source_event_log else None
+    source_scenarios = recipe["scenarios"]
+    replay_scenarios = scenarios or source_scenarios
+    same_scope = matching_scenario_scopes([source_scenarios, replay_scenarios])
+    scope_comparison = (
+        "compared" if same_scope else "incomparable: scenario selections differ"
+    )
     transcript_comparison = (
-        "unavailable: source transcript missing or changed"
+        "incomparable: full transcripts cover different scenario selections"
+        if not same_scope
+        else "unavailable: source transcript missing or changed"
         if source_event_hash is None
         else "unavailable: replay transcript missing"
         if replay_event_hash is None
         else "compared"
     )
     classification = (
-        "nondeterministic-infrastructure"
+        "incomparable-scope"
+        if not same_scope
+        else "nondeterministic-infrastructure"
         if (
             source_hash is not None
             and replay_hash is not None
@@ -357,6 +386,9 @@ def replay(recipe_path: Path, repository: Path, scenarios: list[str], output: Pa
         "schema": 1,
         "classification": classification,
         "source_run_id": recipe.get("source_run_id"),
+        "source_scenarios": source_scenarios,
+        "replay_scenarios": replay_scenarios,
+        "scope_comparison": scope_comparison,
         "source_semantic_hash": source_hash,
         "replay_semantic_hash": replay_hash,
         "source_event_transcript_hash": source_event_hash,
@@ -371,7 +403,8 @@ def replay(recipe_path: Path, repository: Path, scenarios: list[str], output: Pa
     print(completed.stderr, end="")
     print(
         f"Original {recipe['source_run_id']}: {recipe['source_status']}; "
-        f"classification: {classification}; transcript: {transcript_comparison}; "
+        f"classification: {classification}; scope: {scope_comparison}; "
+        f"transcript: {transcript_comparison}; "
         f"replay evidence: {output}"
     )
     return completed.returncode
