@@ -2,14 +2,20 @@
 
 ## KayKit Board Game Bits
 
-The chess and board assets under `samples/chess/Assets/ThirdParty/KayKit/` were
-created by Kay Lousberg / KayKit and are distributed under the
+The chess, board, and playing-card assets under
+`samples/chess/Assets/ThirdParty/KayKit/` were created by Kay Lousberg / KayKit
+and are distributed under the
 [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) public
 domain dedication.
 
 Source: [KayKit Board Game Bits](https://kaylousberg.itch.io/board-game-bits)
 
 These assets are not subject to this repository's Apache-2.0 license.
+
+The Hearts deck under
+`samples/chess/Assets/ThirdParty/KayKit/BoardGameBits/PlayingCards/` comes from
+Board Game Bits 1.0 EXTRA. Its supplied license notice is retained in that
+directory as `License.txt`.
 
 ## NOVA Shader
 
