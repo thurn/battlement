@@ -20,7 +20,7 @@ def main() -> None:
         (root / "scripts").mkdir()
         for name in (
             "ditto_ci.py", "ditto_replay.py", "ditto_evidence.py", "operation_log.py",
-            "perf_log.py", "platform_support.py", "process_identity.py", "process_priority.py",
+            "perf_log.py", "platform_support.py", "process_identity.py", "process_priority.py", "process_usage.py",
             "ditto_build_leases.py", "ci_steps.py",
         ):
             shutil.copy2(scripts / name, root / "scripts" / name)

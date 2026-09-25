@@ -299,6 +299,7 @@ def _print_report(report: dict[str, Any], output: Path) -> None:
             cache = run["cache"]
             print(
                 f"  {mode} CI {run['run_id']} {_duration(run['duration_ms'])} · "
+                f"{_cpu(run)} · "
                 f"{cache['hits']} hits · {cache['misses']} misses · "
                 f"lock wait {_duration(cache['lock_wait_ms'])}"
             )
@@ -405,16 +406,26 @@ def _print_ranking(title: str, entries: list[dict[str, Any]], field: str) -> Non
         print(f"  {_duration(entry[field]):>9}  {entry['name']}{suffix}")
 
 
+def _cpu(entry: dict[str, Any]) -> str:
+    user, system = entry.get("cpu_user_ms"), entry.get("cpu_system_ms")
+    if user is None or system is None:
+        return "CPU unknown"
+    return f"{(user + system) / 1000:.3f} CPU-s ({user / 1000:.3f} user + {system / 1000:.3f} sys)"
+
+
 def _print_ci_hotspots(entries: list[dict[str, Any]]) -> None:
     print("\nCI step hotspots")
     if not entries:
         print("  None")
+    else:
+        print("  CPU includes waited descendants; overlapping worker attribution is unknown.")
     for entry in entries:
         failures = entry["failed_count"]
         failure_text = f" · {failures} failed" if failures else ""
         run_label = "run" if entry["run_count"] == 1 else "runs"
         print(
             f"  {_duration(entry['total_duration_ms']):>9} total · "
+            f"{_cpu(entry)} · {entry.get('cpu_measured_count', 0)}/{entry['occurrence_count']} measured · "
             f"{_duration(entry['average_duration_ms'])} avg · "
             f"p95 {_duration(entry['p95_duration_ms'])} · "
             f"max {_duration(entry['max_duration_ms'])} · "

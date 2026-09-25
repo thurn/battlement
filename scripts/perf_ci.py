@@ -5,11 +5,13 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from perf_model import parse_timestamp, Span
+import process_usage
 
 
 _KNOWN_OUTCOMES = frozenset({
@@ -119,12 +121,23 @@ def parse_ci_records(
             finish_time or last_time,
             finished_record.raw.get("outcome", "incomplete")
             if finished_record else "incomplete",
-            attributes=metadata,
+            attributes={**metadata, **_usage(finished_record.raw if finished_record else {})},
             container=True,
         )
     )
     _append_ci_children(spans, decoded, run_id, metadata)
     return spans, warnings
+
+
+def _usage(record: dict[str, Any]) -> dict[str, Any]:
+    result = {key: record.get(key) for key in process_usage.FIELDS}
+    for key in ("cpu_user_ms", "cpu_system_ms", "max_rss"):
+        value = result[key]
+        if type(value) not in (int, float):
+            result[key] = None
+        elif not math.isfinite(value) or value < 0:
+            result[key] = None
+    return result
 
 
 def _normalize_ci_record(record: dict[str, Any], warnings: list[str]) -> _CIRecord:
@@ -455,7 +468,7 @@ def _append_ci_children(
                     started_at,
                     finished_at,
                     record.raw.get("outcome", "unknown"),
-                    attributes={"run_id": run_id, **metadata},
+                    attributes={"run_id": run_id, **metadata, **_usage(record.raw)},
                 )
             )
         elif event in {"ci.cache_lookup", "ci.cache_wait", "ci.cache_maintenance"}:

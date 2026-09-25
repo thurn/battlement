@@ -22,6 +22,10 @@ def ci_step_hotspots(
     hotspots = []
     for name, group in grouped.items():
         durations = sorted(int(span["duration_ms"]) for span in group)
+        usage = [span.get("attributes", {}) for span in group]
+        measured = [entry for entry in usage if entry.get("cpu_user_ms") is not None
+                    and entry.get("cpu_system_ms") is not None]
+        peaks = [entry["max_rss"] for entry in usage if entry.get("max_rss") is not None]
         run_ids = {
             span.get("attributes", {}).get("run_id")
             for span in group
@@ -41,6 +45,10 @@ def ci_step_hotspots(
                 "p95_duration_ms": _nearest_rank(durations, 0.95),
                 "max_duration_ms": durations[-1],
                 "span_ids": [span["id"] for span in group],
+                "cpu_measured_count": len(measured),
+                "cpu_user_ms": sum(entry["cpu_user_ms"] for entry in measured) if measured else None,
+                "cpu_system_ms": sum(entry["cpu_system_ms"] for entry in measured) if measured else None,
+                "max_rss": max(peaks) if peaks else None,
             }
         )
     return sorted(

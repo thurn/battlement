@@ -1156,9 +1156,10 @@ def run_ci(
                 run_step("Build standalone samples", function=build_samples)
         elif full:
             run_step("Skip desktop full validation", function=skip_desktop_full_validation)
-        rust_test_seconds, unity_seconds = test_runtime_integrations(
-            rust_selection, unity_selection, ci_cache, native_build,
-        )
+        with ci_steps.span("Test runtime integrations"):
+            rust_test_seconds, unity_seconds = test_runtime_integrations(
+                rust_selection, unity_selection, ci_cache, native_build,
+            )
         reactant_cli_seconds = 0.0
         if full:
             reactant_selected, reactant_reasons = ci_selection.select_reactant_assets(paths)

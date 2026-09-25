@@ -15,6 +15,7 @@ import uuid
 
 import process_priority
 import process_identity
+import process_usage
 
 
 _current: ContextVar[Operation | None] = ContextVar('battlement_operation', default=None)
@@ -54,8 +55,10 @@ def run(command: list[str], *, cwd: Path, environment: dict[str, str] | None = N
             operation.event('process.started', process=observed,
                             executable=Path(command[0]).name,
                             containment={'kind': 'direct-child', 'controller': operation.process})
+        usage = process_usage.unknown()
         try:
-            result = child.wait()
+            usage = process_usage.wait(child)
+            result = child.returncode
         except BaseException:
             child.kill()
             child.wait()
@@ -63,7 +66,8 @@ def run(command: list[str], *, cwd: Path, environment: dict[str, str] | None = N
         finally:
             if operation:
                 operation.event('process.finished', process=observed, exit_code=child.returncode,
-                                duration_ms=round((time.monotonic_ns() - started) / 1_000_000))
+                                duration_ms=round((time.monotonic_ns() - started) / 1_000_000),
+                                **usage)
         if result:
             raise subprocess.CalledProcessError(result, command)
 

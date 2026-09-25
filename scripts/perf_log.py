@@ -21,6 +21,7 @@ from typing import Any, TextIO
 import uuid
 
 import operation_log
+import process_usage
 
 from platform_support import lock_file, unlock_file
 
@@ -125,6 +126,7 @@ class CiTrace:
         log_root: Path | None = None,
         monotonic_ns: Callable[[], int] = time.monotonic_ns,
     ) -> None:
+        self._usage_started = process_usage.snapshot()
         self.run_id = str(uuid.uuid4())
         self.operation = operation_log.Operation(repository_root, "CI", operation_id=self.run_id, metadata=metadata, log_root=log_root)
         self.log_root = configured_log_root() if log_root is None else log_root
@@ -196,6 +198,7 @@ class CiTrace:
     ) -> Iterator[TraceSpan]:
         """Record a start and terminal event around one operation."""
         span = TraceSpan(str(uuid.uuid4()), self._monotonic_ns())
+        usage_started = process_usage.snapshot()
         parent = parent_span_id or self.current_span_id()
         stack = list(getattr(self._thread_state, "stack", ()))
         stack.append(span.span_id)
@@ -232,6 +235,7 @@ class CiTrace:
                 outcome=outcome,
                 error_type=error_type,
                 **(attributes or {}),
+                **process_usage.elapsed(usage_started),
             )
             self._thread_state.stack = stack[:-1]
 
@@ -245,6 +249,7 @@ class CiTrace:
             duration_ms=duration_ms,
             outcome=outcome,
             exit_code=exit_code,
+            **process_usage.elapsed(self._usage_started),
         )
         with self._lock:
             self._close_unlocked()
