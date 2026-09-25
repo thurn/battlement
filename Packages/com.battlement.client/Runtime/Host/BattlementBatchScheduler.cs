@@ -11,6 +11,10 @@ namespace Battlement
     internal sealed class BattlementBatchScheduler
     {
         private readonly List<ScheduledBatch> batches = new();
+        private readonly Queue<BatchCompleted> completed = new();
+
+        public BatchCompleted? TakeCompleted() => completed.Count == 0 ? null : completed.Dequeue();
+
         private readonly HashSet<ulong> canceledScopes = new();
         private readonly Dictionary<ulong, HashSet<Guid>> pausedScopes = new();
         private readonly IBattlementClock clock;
@@ -28,13 +32,16 @@ namespace Battlement
         public ulong ActivityVersion { get; private set; }
 
         public bool HasPendingWork =>
-            batches.Any(batch => batch.Outcome == BatchOutcome.Pending)
+            completed.Count != 0
+            || batches.Any(batch => batch.Outcome == BatchOutcome.Pending)
             || operations.HasFiniteOperations;
 
         public bool HasRunnableWork =>
-            batches.Any(batch =>
+            completed.Count != 0
+            || batches.Any(batch =>
                 batch.Outcome == BatchOutcome.Pending && !IsPaused(batch.WorkScope)
-            ) || operations.HasFiniteOperations;
+            )
+            || operations.HasFiniteOperations;
 
         public bool HasInfiniteOperations => operations.HasInfiniteOperations;
 
@@ -84,6 +91,7 @@ namespace Battlement
             foreach (ScheduledBatch batch in batches)
                 batch.Dispose();
             batches.Clear();
+            completed.Clear();
             canceledScopes.Clear();
             pausedScopes.Clear();
             operations.BeginSession();
@@ -98,6 +106,7 @@ namespace Battlement
             foreach (ScheduledBatch batch in batches)
                 batch.Dispose();
             batches.Clear();
+            completed.Clear();
         }
 
         public void Schedule(
@@ -309,6 +318,8 @@ namespace Battlement
             if (scheduled.NextGroup >= scheduled.Batch.GroupCount)
             {
                 scheduled.Outcome = BatchOutcome.Succeeded;
+                if (scheduled.WorkScope is not null)
+                    completed.Enqueue(new BatchCompleted(scheduled.SessionId, scheduled.Id));
                 scheduled.Dispose();
                 return true;
             }

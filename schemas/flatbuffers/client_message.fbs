@@ -185,10 +185,16 @@ table OperationFailed {
   message:string (required);
 }
 
+table BatchCompleted {
+  session_id:Uuid (required);
+  batch_id:Uuid (required);
+}
+
 union CoreClientMessageBody {
   CoreAction,
   BatchFailed,
-  OperationFailed
+  OperationFailed,
+  BatchCompleted
 }
 
 table CoreClientMessage {

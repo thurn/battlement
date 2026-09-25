@@ -357,6 +357,10 @@ namespace Battlement
         public sealed record CustomActionMessage(CustomAction<TCustomActionPayload> Action)
             : ClientMessage<TError, TCustomActionPayload>;
 
+        /// <summary>Successful completion of a scoped batch.</summary>
+        public sealed record BatchCompletedMessage(BatchCompleted Completion)
+            : ClientMessage<TError, TCustomActionPayload>;
+
         /// <summary>A batch validation or execution failure.</summary>
         public sealed record BatchFailedMessage(BatchFailed<TError> Failure)
             : ClientMessage<TError, TCustomActionPayload>;
@@ -365,6 +369,9 @@ namespace Battlement
         public sealed record OperationFailedMessage(OperationFailed<TError> Failure)
             : ClientMessage<TError, TCustomActionPayload>;
     }
+
+    /// <summary>All blocking work in a scoped batch completed successfully.</summary>
+    public sealed record BatchCompleted(SessionId SessionId, BatchId BatchId);
 
     /// <summary>A validation or execution failure that stopped a batch.</summary>
     /// <typeparam name="TError">Core or game-specific error-code type.</typeparam>

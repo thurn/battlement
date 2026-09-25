@@ -2,8 +2,10 @@
 
 using System;
 using System.Linq;
+using Google.FlatBuffers;
 using NUnit.Framework;
 using Object = UnityEngine.Object;
+using Wire = Battlement.FlatBuffers.Generated;
 
 namespace Battlement.Tests
 {
@@ -61,6 +63,96 @@ namespace Battlement.Tests
                 "The 800 ms nonblocking wait must not delay the next group or dependent batch."
             );
         }
+
+        [Test]
+        public void ScopedCompletionFollowsBlockingWorkAndIsReportedExactlyOnce()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            Batch batch = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(
+                    Wait(TimeSpan.FromMilliseconds(200)),
+                    Wait(TimeSpan.FromDays(1)).Nonblocking()
+                )
+            ) with
+            {
+                WorkScope = 7,
+            };
+            SubmitResponse(harness, Response(session, batch));
+            Assert.That(Completions(harness), Is.Empty);
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(199));
+            harness.Runner.RunFrame();
+            Assert.That(Completions(harness), Is.Empty);
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(1));
+            harness.Runner.RunFrame();
+            Assert.That(Completions(harness), Is.EqualTo(new[] { batch.Id }));
+            harness.Runner.RunFrame();
+            Assert.That(Completions(harness), Is.EqualTo(new[] { batch.Id }));
+        }
+
+        [Test]
+        public void CanceledAndFailedBatchesNeverEmitSuccessfulCompletion()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            Batch canceled = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(Wait(TimeSpan.FromSeconds(1)))
+            ) with
+            {
+                WorkScope = 7,
+            };
+            SubmitResponse(harness, Response(session, canceled));
+            SubmitResponse(
+                harness,
+                Response(session, BatchWithGroups(session, BatchStart.Now) with { CancelScope = 7 })
+            );
+            Batch failed = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(SetLocalPosition(new ObjectId(Guid.NewGuid()), new Vector3(0, 0, 0)))
+            ) with
+            {
+                WorkScope = 8,
+            };
+            SubmitResponse(harness, Response(session, failed));
+            Batch replacement = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(Wait(TimeSpan.FromMilliseconds(10)))
+            ) with
+            {
+                WorkScope = 9,
+            };
+            SubmitResponse(harness, Response(session, replacement));
+            harness.Clock.Advance(TimeSpan.FromSeconds(2));
+            harness.Runner.RunFrame();
+            Assert.That(Completions(harness), Is.EqualTo(new[] { replacement.Id }));
+            Assert.That(
+                Failures(harness).Select(value => value.BatchId),
+                Is.EqualTo(new[] { failed.Id })
+            );
+        }
+
+        private static BatchId[] Completions(BattlementTestHarness harness) =>
+            harness
+                .Transport.SubmitMessages.Where(bytes => bytes.Length >= 12)
+                .Select(bytes =>
+                    Wire.CoreClientMessage.GetRootAsCoreClientMessage(
+                        new ByteBuffer(bytes) { Position = 4 }
+                    )
+                )
+                .Where(message => message.BodyType == Wire.CoreClientMessageBody.BatchCompleted)
+                .Select(message => new BatchId(
+                    BattlementFlatBufferCore.ReadUuid(
+                        message.BodyAsBatchCompleted().BatchId,
+                        "batch_id"
+                    )
+                ))
+                .ToArray();
 
         [Test]
         public void ControlledImmediateBatchesPreserveDependenciesWithoutAdvancingTime()
@@ -447,6 +539,7 @@ namespace Battlement.Tests
             harness.Runner.RunFrame();
             Assert.That(Identity(menu).transform.localPosition.x, Is.EqualTo(3));
             Assert.That(Identity(game).transform.localPosition.x, Is.Zero);
+            Assert.That(Completions(harness), Is.Empty);
 
             harness.Clock.Advance(TimeSpan.FromSeconds(2));
             harness.Runner.RunFrame();
@@ -468,6 +561,7 @@ namespace Battlement.Tests
             harness.Clock.Advance(TimeSpan.FromMilliseconds(1));
             harness.Runner.RunFrame();
             Assert.That(Identity(game).transform.localPosition.x, Is.EqualTo(5));
+            Assert.That(Completions(harness), Has.Length.EqualTo(1));
             Assert.That(Failures(harness), Is.Empty);
         }
 

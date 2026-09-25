@@ -59,6 +59,19 @@ where
   G: Game,
   K: hooks::Dependencies,
 {
+  self::use_game_versioned(session_key, initialize, make_context, 0)
+}
+
+pub(crate) fn use_game_versioned<G, K>(
+  session_key: K,
+  initialize: impl FnOnce() -> G::State + 'static,
+  make_context: impl FnOnce(DisplayConnection<G>) -> G::Context + 'static,
+  revision: u64,
+) -> GameHandle<G>
+where
+  G: Game,
+  K: hooks::Dependencies,
+{
   let services = hooks::use_required_context::<reactant_core::app_runtime::ApplicationContext>()
     .value::<ServicesContext>()
     .expect("use_game requires a Reactant Application root");
@@ -68,7 +81,15 @@ where
     .expect("application runtime ended while rendering");
   let create = coordinator.clone();
   let handle = hooks::use_memo(
-    move || create.create_game(initialize(), make_context, false),
+    move || {
+      let handle = create.create_game(initialize(), make_context, false);
+      {
+        let mut data = handle.session.data.borrow_mut();
+        data.completed_actions = revision;
+        data.rendered_revision = revision;
+      }
+      handle
+    },
     session_key,
   );
   let mounted = handle.clone();
@@ -135,6 +156,7 @@ pub(crate) trait AttachedSession: Any {
   fn stop(&self);
   fn refresh(&self);
   fn fail(&self, message: String);
+  fn presentation_pending(&self, pending: bool);
   fn view(&self, revision: u64) -> GameRenderContext;
   fn observation(&self) -> crate::GameObservation;
   fn id(&self) -> u64;
@@ -272,6 +294,7 @@ impl Coordinator {
         sequence: 1,
         completed_actions: 0,
         blocking_motion: HashMap::new(),
+        pending_presentations: 0,
         diagnostic: None,
       }),
     });
@@ -437,6 +460,17 @@ impl AppRuntime for Coordinator {
     }
   }
 
+  fn presentation_pending(&self, scope: u64, pending: bool) {
+    if let Some(session) = self
+      .current
+      .borrow()
+      .clone()
+      .filter(|session| session.id() == scope)
+    {
+      session.presentation_pending(pending);
+    }
+  }
+
   fn context(&self) -> Rc<dyn Any> {
     let game = self
       .current
@@ -517,6 +551,25 @@ impl<G: Game> AttachedSession for GameSession<G> {
   fn fail(&self, message: String) {
     self.fail(message);
   }
+  fn presentation_pending(&self, pending: bool) {
+    let mut data = self.data.borrow_mut();
+    if matches!(data.status, GameStatus::Failed | GameStatus::Stopped) {
+      return;
+    }
+    data.pending_presentations = if pending {
+      data
+        .pending_presentations
+        .checked_add(1)
+        .expect("presentation count overflow")
+    } else {
+      data
+        .pending_presentations
+        .checked_sub(1)
+        .expect("unowned presentation completion")
+    };
+    drop(data);
+    self.changed();
+  }
   fn id(&self) -> u64 {
     self.id
   }
@@ -543,6 +596,7 @@ impl<G: Game> AttachedSession for GameSession<G> {
       revision,
       status: data.status,
       motion_ready: data.blocking_motion.is_empty(),
+      presentation: crate::game_presentation::observation(self.id, &data),
       state: data.rendered.clone(),
       prompt: data
         .prompt

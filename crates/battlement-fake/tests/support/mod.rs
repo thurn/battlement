@@ -75,7 +75,9 @@ impl Engine for ScriptedEngine {
     let expected_bytes = match &expected {
       ClientMessage::Action(value) => battlement_flatbuffers::write_core_action(value),
       ClientMessage::CustomAction(_) => panic!("core fake does not submit custom actions"),
-      ClientMessage::BatchFailed(_) | ClientMessage::OperationFailed(_) => {
+      ClientMessage::BatchCompleted(_)
+      | ClientMessage::BatchFailed(_)
+      | ClientMessage::OperationFailed(_) => {
         panic!("this script only records built-in actions")
       }
     }

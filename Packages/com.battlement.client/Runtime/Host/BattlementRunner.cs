@@ -895,6 +895,24 @@ namespace Battlement
             }
         }
 
+        private void ReportBatchCompleted(BatchCompleted completed)
+        {
+            if (
+                session.LastSession != completed.SessionId
+                || session.Phase != BattlementSessionPhase.Running
+            )
+                return;
+            ReadOnlyMemory<byte> message = coreRequests.WriteBatchCompleted(completed);
+            try
+            {
+                Submit(message);
+            }
+            finally
+            {
+                coreRequests.TrimOversized();
+            }
+        }
+
         /// <summary>Reports a recoverable core failure that stopped one batch.</summary>
         public void ReportBatchFailure(BatchFailed<CoreErrorCode> failure) =>
             ReportBatchFailure(failure, null);
@@ -1098,6 +1116,8 @@ namespace Battlement
 
             configuredRuntime.BatchScheduler.Advance();
             configuredRuntime.UiDocuments.Advance();
+            if (configuredRuntime.BatchScheduler.TakeCompleted() is BatchCompleted completed)
+                ReportBatchCompleted(completed);
             worldFocus?.Refresh(CanEmitInput);
             PublishApplicationState();
             PublishReducedMotionPreference();

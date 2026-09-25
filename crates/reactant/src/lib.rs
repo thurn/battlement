@@ -11,6 +11,7 @@ mod application_shell;
 mod game_app;
 mod game_hooks;
 mod game_output;
+mod game_presentation;
 mod game_reducer;
 mod game_session;
 mod host_clock;
@@ -45,8 +46,8 @@ pub use battlement_native::Engine;
 pub use game_app::use_game;
 pub use game_hooks::{
   GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_motion_ready,
-  use_game_observation, use_game_presentation, use_game_prompt, use_game_publication,
-  use_game_selector, use_game_selector_with, use_game_state, use_game_status,
+  use_game_observation, use_game_presentation, use_game_presentation_receipt, use_game_prompt,
+  use_game_publication, use_game_selector, use_game_selector_with, use_game_state, use_game_status,
 };
 pub use game_output::{GameConsumer, GameOutput};
 pub use game_reducer::{
@@ -94,3 +95,5 @@ pub mod testing {
   pub use crate::game_app::GameApp;
   pub use reactant_core::app::App;
 }
+
+pub use game_presentation::{PresentationReceipt, PresentationStatus};

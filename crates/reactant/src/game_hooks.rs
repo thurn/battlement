@@ -35,6 +35,7 @@ pub(crate) struct GameRenderContext {
   pub(crate) revision: u64,
   pub(crate) status: GameStatus,
   pub(crate) motion_ready: bool,
+  pub(crate) presentation: crate::game_presentation::PresentationReceipt,
   pub(crate) state: Rc<dyn Any>,
   pub(crate) prompt: Option<Rc<dyn Any>>,
   pub(crate) animation_sequence: Option<u64>,
@@ -149,6 +150,11 @@ pub fn use_game_prompt<G: Game>() -> Option<Rc<PresentedPrompt<G::Prompt<'static
 /// Subscribes to the attached session's readiness and recovery state.
 pub fn use_game_status<G: Game>() -> GameStatus {
   self::context::<G>().status
+}
+
+/// Observes native completion of the accepted revision, independently of submission.
+pub fn use_game_presentation_receipt<G: Game>() -> crate::game_presentation::PresentationReceipt {
+  self::context::<G>().presentation
 }
 
 /// Reports completion of blocking native sequences authored through `use_animate`.

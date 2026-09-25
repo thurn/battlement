@@ -184,6 +184,7 @@ public enum CoreClientMessageBody : byte
   CoreAction = 1,
   BatchFailed = 2,
   OperationFailed = 3,
+  BatchCompleted = 4,
 };
 
 
@@ -203,6 +204,9 @@ static public class CoreClientMessageBodyVerify
         break;
       case CoreClientMessageBody.OperationFailed:
         result = Battlement.FlatBuffers.Generated.OperationFailedVerify.Verify(verifier, tablePos);
+        break;
+      case CoreClientMessageBody.BatchCompleted:
+        result = Battlement.FlatBuffers.Generated.BatchCompletedVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;
@@ -908,6 +912,41 @@ static public class OperationFailedVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct BatchCompleted : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static BatchCompleted GetRootAsBatchCompleted(ByteBuffer _bb) { return GetRootAsBatchCompleted(_bb, new BatchCompleted()); }
+  public static BatchCompleted GetRootAsBatchCompleted(ByteBuffer _bb, BatchCompleted obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public BatchCompleted __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? SessionId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.Uuid? BatchId { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+
+  public static void StartBatchCompleted(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddSessionId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> sessionIdOffset) { builder.AddStruct(0, sessionIdOffset.Value, 0); }
+  public static void AddBatchId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> batchIdOffset) { builder.AddStruct(1, batchIdOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.BatchCompleted> EndBatchCompleted(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // session_id
+    builder.Required(o, 6);  // batch_id
+    return new Offset<Battlement.FlatBuffers.Generated.BatchCompleted>(o);
+  }
+}
+
+
+static public class BatchCompletedVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*SessionId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyField(tablePos, 6 /*BatchId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct CoreClientMessage : IFlatbufferObject
 {
   private Table __p;
@@ -925,6 +964,7 @@ public struct CoreClientMessage : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.CoreAction BodyAsCoreAction() { return Body<Battlement.FlatBuffers.Generated.CoreAction>().Value; }
   public Battlement.FlatBuffers.Generated.BatchFailed BodyAsBatchFailed() { return Body<Battlement.FlatBuffers.Generated.BatchFailed>().Value; }
   public Battlement.FlatBuffers.Generated.OperationFailed BodyAsOperationFailed() { return Body<Battlement.FlatBuffers.Generated.OperationFailed>().Value; }
+  public Battlement.FlatBuffers.Generated.BatchCompleted BodyAsBatchCompleted() { return Body<Battlement.FlatBuffers.Generated.BatchCompleted>().Value; }
 
   public static Offset<Battlement.FlatBuffers.Generated.CoreClientMessage> CreateCoreClientMessage(FlatBufferBuilder builder,
       Battlement.FlatBuffers.Generated.CoreClientMessageBody body_type = Battlement.FlatBuffers.Generated.CoreClientMessageBody.NONE,

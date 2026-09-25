@@ -45,7 +45,7 @@ impl<E: Engine> Engine for BatchEngine<E> {
         false,
         battlement::CommandId::from_bytes(failure.command_id()).expect("valid command identity"),
       )),
-      CoreClientMessageView::Action(_) => {}
+      CoreClientMessageView::Action(_) | CoreClientMessageView::BatchCompleted(_) => {}
     }
     self.engine.submit(message)
   }

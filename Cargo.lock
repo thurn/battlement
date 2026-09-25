@@ -2392,6 +2392,7 @@ dependencies = [
  "battlement-cloud",
  "battlement-cloud-fake",
  "battlement-fake",
+ "battlement-flatbuffers",
  "battlement-native",
  "battlement-native-export-fixture",
  "reactant",

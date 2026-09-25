@@ -1235,6 +1235,20 @@ where
     );
   }
 
+  pub(crate) fn submit_presentation_completed(&mut self, batch_id: BatchId) {
+    let message = battlement_flatbuffers::write_core_batch_completed(&battlement::BatchCompleted {
+      session_id: self.session_id,
+      batch_id,
+    })
+    .expect("valid batch completion");
+    self.engine.set_time(self.presentation_time());
+    let response = self
+      .engine
+      .submit(message.as_bytes())
+      .expect("batch completion submit");
+    self.apply_response_bytes(response, ResponseMode::Existing);
+  }
+
   pub(crate) fn submit_presentation_failure(
     &mut self,
     batch_id: BatchId,

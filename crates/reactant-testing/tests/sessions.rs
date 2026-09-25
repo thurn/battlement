@@ -285,7 +285,7 @@ fn first_attachment_keeps_the_already_connected_menu_lifetime() {
   display.poll();
   assert_eq!(display.find_ui(root, "menu"), menu);
   assert_eq!(display.ui_element(menu).text(), Some("1"));
-  self::assert_ui(&display, root, "0:Busy:false");
+  self::assert_ui(&display, root, "0:Ready:false");
   drop(display);
   assert_eq!(game.status(), GameStatus::Stopped);
 }

@@ -32,6 +32,8 @@ pub trait AppRuntime: Any {
   }
   /// Routes an attributed host failure to its still-current owner.
   fn fail_work(&self, _scope: u64, _message: String) {}
+  /// Records native admission/completion of a publication's blocking presentation.
+  fn presentation_pending(&self, _scope: u64, _pending: bool) {}
 }
 
 /// A consumed publication retained until its native output is admitted.

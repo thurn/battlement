@@ -23,5 +23,6 @@ uuid.workspace = true
 
 [dev-dependencies]
 battlement-cloud = { path = "../battlement-cloud" }
+battlement-flatbuffers = { path = "../battlement-flatbuffers" }
 reactant-core.workspace = true
 trox.workspace = true

@@ -37,7 +37,7 @@ pub(crate) struct OutputDelivery {
   pending: Vec<DeliveryMessage>,
   encoded: Option<EngineResponse>,
   pub(crate) publication: Option<Box<dyn AppOutput>>,
-  batches: HashMap<[u8; 16], u64>,
+  batches: HashMap<[u8; 16], (u64, bool)>,
 }
 
 impl Default for OutputDelivery {
@@ -77,7 +77,15 @@ impl OutputDelivery {
   }
 
   pub(crate) fn failed_batch(&self, id: [u8; 16]) -> Option<u64> {
-    self.batches.get(&id).copied()
+    self.batches.get(&id).map(|(scope, _)| *scope)
+  }
+
+  pub(crate) fn completed_batch(&mut self, id: [u8; 16], runtime: Option<&dyn AppRuntime>) {
+    if let Some((scope, true)) = self.batches.remove(&id)
+      && let Some(runtime) = runtime
+    {
+      runtime.presentation_pending(scope, false);
+    }
   }
 
   pub(crate) fn retained_bytes(&self) -> usize {
@@ -177,7 +185,7 @@ impl OutputDelivery {
       if let Ok(mut combined) = combined
         && self.gameplay.admit(&mut combined)
       {
-        self.record_submission();
+        self.record_submission(runtime.as_deref());
         self.encoded = None;
         self.accept();
         return Ok(Some(combined));
@@ -200,7 +208,7 @@ impl OutputDelivery {
       if !self.gameplay.admit(encoded) {
         return Ok(None);
       }
-      self.record_submission();
+      self.record_submission(runtime.as_deref());
       let encoded = self.encoded.take();
       self.accept();
       return Ok(encoded);
@@ -236,13 +244,17 @@ impl OutputDelivery {
     });
   }
 
-  fn record_submission(&mut self) {
+  fn record_submission(&mut self, runtime: Option<&dyn AppRuntime>) {
+    let publication = self.publication.is_some();
     for message in self.pending.drain(..) {
       if let DeliveryMessage::Batch(batch) = message {
-        self.batches.insert(
-          *batch.batch_id.as_uuid().as_bytes(),
-          batch.work_scope.expect("owned output"),
-        );
+        let scope = batch.work_scope.expect("owned output");
+        self
+          .batches
+          .insert(*batch.batch_id.as_uuid().as_bytes(), (scope, publication));
+        if publication && let Some(runtime) = runtime {
+          runtime.presentation_pending(scope, true);
+        }
       }
     }
   }

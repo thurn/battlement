@@ -628,6 +628,8 @@ pub enum ClientMessage<A, E = CoreErrorCode> {
   CustomAction(CustomAction<A>),
   /// Batch validation or execution failure.
   BatchFailed(BatchFailed<E>),
+  /// Successful completion of a scoped batch, excluding nonblocking operations.
+  BatchCompleted(BatchCompleted),
   /// Late failure of a nonblocking custom operation.
   OperationFailed(OperationFailed<E>),
 }
@@ -641,6 +643,15 @@ impl<A, E> ClientMessage<A, E> {
       _ => None,
     }
   }
+}
+
+/// Completion of every blocking operation in one successfully executed batch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BatchCompleted {
+  /// Session that executed the batch.
+  pub session_id: SessionId,
+  /// Batch whose blocking work completed.
+  pub batch_id: BatchId,
 }
 
 /// A validation or execution failure that stopped a batch.

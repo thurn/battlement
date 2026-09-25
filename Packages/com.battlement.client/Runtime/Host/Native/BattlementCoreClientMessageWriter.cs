@@ -54,6 +54,22 @@ namespace Battlement
             return Finish(Wire.CoreClientMessageBody.CoreAction, value.Value);
         }
 
+        internal ReadOnlyMemory<byte> WriteBatchCompleted(BatchCompleted completed)
+        {
+            builder.Clear();
+            Wire.BatchCompleted.StartBatchCompleted(builder);
+            Wire.BatchCompleted.AddBatchId(
+                builder,
+                BattlementFlatBufferWriter.WriteUuid(builder, completed.BatchId.Value)
+            );
+            Wire.BatchCompleted.AddSessionId(
+                builder,
+                BattlementFlatBufferWriter.WriteUuid(builder, completed.SessionId.Value)
+            );
+            Offset<Wire.BatchCompleted> value = Wire.BatchCompleted.EndBatchCompleted(builder);
+            return Finish(Wire.CoreClientMessageBody.BatchCompleted, value.Value);
+        }
+
         internal ReadOnlyMemory<byte> WriteBatchFailure(BatchFailed<CoreErrorCode> failure)
         {
             ValidateErrorCode(failure.ErrorCode);

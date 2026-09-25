@@ -28,6 +28,7 @@ pub(crate) struct ScheduledBatch {
   pub(crate) batch_id: BatchId,
   pub(crate) scope: Option<u64>,
   pub(crate) cancellation: bool,
+  pub(crate) failed: bool,
   pub(crate) retention: Option<battlement_native::ResponseLease>,
   pub(crate) start: BatchStart,
   pub(crate) groups: VecDeque<ParallelCommandGroup>,
@@ -48,6 +49,7 @@ impl ScheduledBatch {
       batch_id: batch.batch_id,
       scope: batch.work_scope,
       cancellation: batch.cancel_scope.is_some(),
+      failed: false,
       retention: None,
       start: batch.start,
       groups: batch.groups.into(),
@@ -195,6 +197,7 @@ where
       for batch in &mut self.scheduled_batches {
         if batch.scope == Some(scope) {
           batch.groups.clear();
+          batch.failed = true;
           batch.retention = None;
         }
       }
@@ -401,6 +404,7 @@ where
           for pending in &mut self.scheduled_batches {
             if pending.batch_id == batch {
               pending.groups.clear();
+              pending.failed = true;
             }
           }
           self
@@ -452,20 +456,30 @@ where
             }
           }
           if failed {
+            self.scheduled_batches[index].failed = true;
             self.scheduled_batches[index].groups.clear();
           }
           progressed = true;
         }
       }
       let before = self.scheduled_batches.len();
+      let mut completed = Vec::new();
       self.scheduled_batches.retain(|batch| {
-        !batch.groups.is_empty()
+        let work_remains = !batch.groups.is_empty()
           || self
             .operations
             .iter()
-            .any(|operation| operation.batch_id == batch.batch_id && operation.blocking)
+            .any(|operation| operation.batch_id == batch.batch_id && operation.blocking);
+        let pending = !batch.failed && (!batch.started || work_remains);
+        if !pending && !batch.failed && batch.scope.is_some() {
+          completed.push(batch.batch_id);
+        }
+        pending
       });
       progressed |= before != self.scheduled_batches.len();
+      for batch in completed {
+        self.submit_presentation_completed(batch);
+      }
       if !progressed {
         break;
       }

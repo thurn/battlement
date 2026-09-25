@@ -5,9 +5,11 @@ pub use crate::{
   game_app::use_game,
   game_hooks::{
     GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_motion_ready,
-    use_game_observation, use_game_presentation, use_game_prompt, use_game_publication,
-    use_game_selector, use_game_selector_with, use_game_state, use_game_status,
+    use_game_observation, use_game_presentation, use_game_presentation_receipt, use_game_prompt,
+    use_game_publication, use_game_selector, use_game_selector_with, use_game_state,
+    use_game_status,
   },
+  game_presentation::{PresentationReceipt, PresentationStatus},
   game_reducer::{
     GameVersion, ReducerDispatch, ReducerHandle, ReducerSnapshot, use_game_reducer,
     use_reducer_selector,

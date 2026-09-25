@@ -1,9 +1,12 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use reactant_core::hooks;
 use reactant_rules::{GameReducer, ReducerContext, ReducerGame};
 
-use crate::{DispatchResult, GameHandle, GameStatus, game_app, game_hooks};
+use crate::{
+  DispatchResult, GameHandle, GameStatus, PresentationReceipt, game_app, game_hooks,
+  game_presentation,
+};
 
 /// Identifies an accepted revision within one application-owned game session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,7 +22,7 @@ pub struct GameVersion {
 pub enum ReducerDispatch<E> {
   /// One action entered the existing rules worker.
   Started,
-  /// Initial submission, another action or cleanup still owns admission.
+  /// Rules, blocking presentation or cleanup still owns admission.
   Busy,
   /// The callback names an old session/revision or a stopped session.
   Stale,
@@ -40,12 +43,14 @@ pub struct ReducerSnapshot<S> {
 /// A stable handle to one reducer session, safe for delayed input callbacks.
 pub struct ReducerHandle<R: GameReducer> {
   game: GameHandle<ReducerGame<R>>,
+  recover: Rc<dyn Fn() -> bool>,
 }
 
 impl<R: GameReducer> Clone for ReducerHandle<R> {
   fn clone(&self) -> Self {
     Self {
       game: self.game.clone(),
+      recover: self.recover.clone(),
     }
   }
 }
@@ -88,6 +93,18 @@ impl<R: GameReducer> ReducerHandle<R> {
     self.game.status()
   }
 
+  /// Observes successful completion of this revision's blocking native presentation.
+  pub fn presentation(&self) -> PresentationReceipt {
+    self.game.session.refresh();
+    game_presentation::observation(self.game.session.id, &self.game.session.data.borrow())
+  }
+
+  /// Replaces a failed current session from accepted state without replaying events.
+  /// Returns false for stale handles, duplicate recovery or a healthy session.
+  pub fn recover(&self) -> bool {
+    (self.recover)()
+  }
+
   /// Returns diagnostic detail when explicit recovery is needed.
   pub fn diagnostic(&self) -> Option<String> {
     self.game.diagnostic()
@@ -114,6 +131,9 @@ impl<R: GameReducer> ReducerHandle<R> {
       GameStatus::Ready => {}
       GameStatus::Stopped => unreachable!(),
     }
+    if !game_presentation::observation(self.game.session.id, &data).is_settled() {
+      return ReducerDispatch::Busy;
+    }
     if let Err(reason) = R::validate(&data.accepted, &action) {
       return ReducerDispatch::Rejected(reason);
     }
@@ -136,11 +156,59 @@ where
   R: GameReducer,
   K: hooks::Dependencies,
 {
-  ReducerHandle {
-    game: game_app::use_game_lazy(session_key, initialize, move |connection| {
-      ReducerContext::new(reducer, connection)
-    }),
-  }
+  let recovery = hooks::use_memo(
+    || Rc::new(RefCell::new(None::<(R::State, u64)>)),
+    session_key.clone(),
+  );
+  let (generation, restart) = hooks::use_state(0_u64);
+  let revision = recovery
+    .borrow()
+    .as_ref()
+    .map_or(0, |(_, revision)| *revision);
+  let initial = recovery.clone();
+  let game = game_app::use_game_versioned(
+    (session_key, generation),
+    move || {
+      initial
+        .borrow()
+        .as_ref()
+        .map_or_else(initialize, |(state, _)| state.clone())
+    },
+    move |connection| ReducerContext::new(reducer, connection),
+    revision,
+  );
+  let session = Rc::downgrade(&game.session);
+  let recover = hooks::use_memo(
+    move || {
+      Rc::new(move || {
+        let Some(session) = session.upgrade() else {
+          return false;
+        };
+        let current = session
+          .app
+          .upgrade()
+          .and_then(|app| app.game::<ReducerGame<R>>());
+        if !current.is_some_and(|game| game.session.id == session.id) {
+          return false;
+        }
+        let data = session.data.borrow();
+        if data.status != GameStatus::Failed {
+          return false;
+        }
+        *recovery.borrow_mut() = Some((data.accepted.clone(), data.completed_actions));
+        drop(data);
+        session.stop();
+        restart.update(|generation| {
+          generation
+            .checked_add(1)
+            .expect("recovery generation overflow")
+        });
+        true
+      }) as Rc<dyn Fn() -> bool>
+    },
+    game.session.id,
+  );
+  ReducerHandle { game, recover }
 }
 
 /// Selects the presented snapshot inside the attached reducer's game subtree.

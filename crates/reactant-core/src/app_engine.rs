@@ -91,6 +91,14 @@ impl<G: 'static> App<G> {
       {
         self.report_batch_failure(failure.batch_id(), failure.message());
       }
+      if let CoreClientMessageView::BatchCompleted(completed) = message
+        && completed.session_id == session
+      {
+        self.output.completed_batch(
+          *completed.batch_id.as_uuid().as_bytes(),
+          self.orchestration.borrow().runtime().as_deref(),
+        );
+      }
       // OperationFailed reports nonblocking cosmetic work; the host retains its diagnostic.
       let mut response = DeliveryResponse::empty(session);
       self.settle(&mut response, None, false);

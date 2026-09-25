@@ -1033,17 +1033,18 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_CLIENT_MESSAGE_BODY: u8 = 3;
+      pub const ENUM_MAX_CORE_CLIENT_MESSAGE_BODY: u8 = 4;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_CLIENT_MESSAGE_BODY: [CoreClientMessageBody; 4] = [
+      pub const ENUM_VALUES_CORE_CLIENT_MESSAGE_BODY: [CoreClientMessageBody; 5] = [
         CoreClientMessageBody::NONE,
         CoreClientMessageBody::CoreAction,
         CoreClientMessageBody::BatchFailed,
         CoreClientMessageBody::OperationFailed,
+        CoreClientMessageBody::BatchCompleted,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1055,14 +1056,16 @@ pub mod battlement {
         pub const CoreAction: Self = Self(1);
         pub const BatchFailed: Self = Self(2);
         pub const OperationFailed: Self = Self(3);
+        pub const BatchCompleted: Self = Self(4);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 3;
+        pub const ENUM_MAX: u8 = 4;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::CoreAction,
           Self::BatchFailed,
           Self::OperationFailed,
+          Self::BatchCompleted,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -1071,6 +1074,7 @@ pub mod battlement {
             Self::CoreAction => Some("CoreAction"),
             Self::BatchFailed => Some("BatchFailed"),
             Self::OperationFailed => Some("OperationFailed"),
+            Self::BatchCompleted => Some("BatchCompleted"),
             _ => None,
           }
         }
@@ -4290,6 +4294,152 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum BatchCompletedOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct BatchCompleted<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for BatchCompleted<'a> {
+        type Inner = BatchCompleted<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> BatchCompleted<'a> {
+        pub const VT_SESSION_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_BATCH_ID: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          BatchCompleted { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args BatchCompletedArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<BatchCompleted<'bldr>> {
+          let mut builder = BatchCompletedBuilder::new(_fbb);
+          if let Some(x) = args.batch_id {
+            builder.add_batch_id(x);
+          }
+          if let Some(x) = args.session_id {
+            builder.add_session_id(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn session_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(BatchCompleted::VT_SESSION_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn batch_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(BatchCompleted::VT_BATCH_ID, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for BatchCompleted<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("session_id", Self::VT_SESSION_ID, true)?
+            .visit_field::<Uuid>("batch_id", Self::VT_BATCH_ID, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct BatchCompletedArgs<'a> {
+        pub session_id: Option<&'a Uuid>,
+        pub batch_id: Option<&'a Uuid>,
+      }
+      impl<'a> Default for BatchCompletedArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          BatchCompletedArgs {
+            session_id: None, // required field
+            batch_id: None,   // required field
+          }
+        }
+      }
+
+      pub struct BatchCompletedBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BatchCompletedBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_session_id(&mut self, session_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(BatchCompleted::VT_SESSION_ID, session_id);
+        }
+        #[inline]
+        pub fn add_batch_id(&mut self, batch_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(BatchCompleted::VT_BATCH_ID, batch_id);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> BatchCompletedBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          BatchCompletedBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<BatchCompleted<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, BatchCompleted::VT_SESSION_ID, "session_id");
+          self
+            .fbb_
+            .required(o, BatchCompleted::VT_BATCH_ID, "batch_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for BatchCompleted<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("BatchCompleted");
+          ds.field("session_id", &self.session_id());
+          ds.field("batch_id", &self.batch_id());
+          ds.finish()
+        }
+      }
       pub enum CoreClientMessageOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -4404,6 +4554,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn body_as_batch_completed(&self) -> Option<BatchCompleted<'a>> {
+          if self.body_type() == CoreClientMessageBody::BatchCompleted {
+            let u = self.body();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { BatchCompleted::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CoreClientMessage<'_> {
@@ -4433,6 +4597,11 @@ pub mod battlement {
                 CoreClientMessageBody::OperationFailed => v
                   .verify_union_variant::<::flatbuffers::ForwardsUOffset<OperationFailed>>(
                     "CoreClientMessageBody::OperationFailed",
+                    pos,
+                  ),
+                CoreClientMessageBody::BatchCompleted => v
+                  .verify_union_variant::<::flatbuffers::ForwardsUOffset<BatchCompleted>>(
+                    "CoreClientMessageBody::BatchCompleted",
                     pos,
                   ),
                 _ => Ok(()),
@@ -4520,6 +4689,16 @@ pub mod battlement {
             }
             CoreClientMessageBody::OperationFailed => {
               if let Some(x) = self.body_as_operation_failed() {
+                ds.field("body", &x)
+              } else {
+                ds.field(
+                  "body",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            CoreClientMessageBody::BatchCompleted => {
+              if let Some(x) = self.body_as_batch_completed() {
                 ds.field("body", &x)
               } else {
                 ds.field(

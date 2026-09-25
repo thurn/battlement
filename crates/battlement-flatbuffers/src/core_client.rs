@@ -10,10 +10,31 @@ use crate::{
   ui_event_generated::{PanelPoint, PhysicalKey as WirePhysicalKey, PointerButtonKind},
 };
 use battlement::{
-  Action, ActionBody, BatchFailed, ControllerButton, ControllerDirection,
+  Action, ActionBody, BatchCompleted, BatchFailed, BatchId, ControllerButton, ControllerDirection,
   ControllerNavigationSource, CoreErrorCode, InputCaptureEvent, OperationFailed, PhysicalKey,
-  PointerButton,
+  PointerButton, SessionId,
 };
+
+/// Constructs a native blocking-work completion receipt.
+pub fn write_core_batch_completed(
+  value: &BatchCompleted,
+) -> Result<FinishedMessage, ProtocolError> {
+  let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(128);
+  let session_id = crate::common_generated::Uuid(*value.session_id.as_uuid().as_bytes());
+  let batch_id = crate::common_generated::Uuid(*value.batch_id.as_uuid().as_bytes());
+  let completed = wire::BatchCompleted::create(
+    &mut builder,
+    &wire::BatchCompletedArgs {
+      session_id: Some(&session_id),
+      batch_id: Some(&batch_id),
+    },
+  );
+  self::finish_client_message(
+    builder,
+    wire::CoreClientMessageBody::BatchCompleted,
+    completed.as_union_value(),
+  )
+}
 
 /// Constructs one built-in action directly in a size-prefixed FlatBuffer.
 pub fn write_core_action(value: &Action) -> Result<FinishedMessage, ProtocolError> {
@@ -365,6 +386,8 @@ fn write_action_body<'a>(
 pub enum CoreClientMessageView<'a> {
   /// A discrete built-in input action.
   Action(CoreActionView<'a>),
+  /// Successful completion of a scoped batch.
+  BatchCompleted(BatchCompleted),
   /// A batch validation or execution failure.
   BatchFailed(BatchFailedView<'a>),
   /// A late failure from a nonblocking operation.
@@ -395,6 +418,23 @@ impl<'a> CoreClientMessageView<'a> {
           .ok_or_else(|| error("core action payload is missing"))?;
         validate_action(value)?;
         Ok(Self::Action(CoreActionView { value }))
+      }
+      wire::CoreClientMessageBody::BatchCompleted => {
+        let value = root
+          .body_as_batch_completed()
+          .ok_or_else(|| error("batch-completed payload is missing"))?;
+        let session_id = SessionId::from_uuid(uuid::Uuid::from_bytes(crate::ui_event::uuid_bytes(
+          value.session_id(),
+        )))
+        .map_err(|_| error("batch-completed session is zero"))?;
+        let batch_id = BatchId::from_uuid(uuid::Uuid::from_bytes(crate::ui_event::uuid_bytes(
+          value.batch_id(),
+        )))
+        .map_err(|_| error("batch-completed batch is zero"))?;
+        Ok(Self::BatchCompleted(BatchCompleted {
+          session_id,
+          batch_id,
+        }))
       }
       wire::CoreClientMessageBody::BatchFailed => {
         let value = root

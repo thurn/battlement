@@ -69,6 +69,9 @@ pub trait EngineTestExt: Engine {
   ) -> Result<Response, EngineError> {
     let bytes = match value {
       ClientMessage::Action(value) => battlement_flatbuffers::write_core_action(&value),
+      ClientMessage::BatchCompleted(value) => {
+        battlement_flatbuffers::write_core_batch_completed(&value)
+      }
       ClientMessage::BatchFailed(value) => battlement_flatbuffers::write_core_batch_failure(&value),
       ClientMessage::OperationFailed(value) => {
         battlement_flatbuffers::write_core_operation_failure(&value)

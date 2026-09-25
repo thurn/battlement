@@ -74,6 +74,7 @@ pub(crate) struct SessionData<G: Game> {
   pub(crate) sequence: u64,
   pub(crate) completed_actions: u64,
   pub(crate) blocking_motion: HashMap<String, AnimationPlayback>,
+  pub(crate) pending_presentations: usize,
   pub(crate) diagnostic: Option<String>,
 }
 
@@ -165,10 +166,18 @@ impl<G: Game> GameHandle<G> {
         }
       }
     };
-    playback.on_complete(completion.clone());
-    playback.on_stop(completion.clone());
-    playback.on_cancel(completion.clone());
-    playback.on_failed(completion);
+    playback.on_complete(completion);
+    let interrupted = {
+      let session = Rc::downgrade(&self.session);
+      move || {
+        if let Some(session) = session.upgrade() {
+          session.fail("blocking presentation was interrupted".to_owned());
+        }
+      }
+    };
+    playback.on_stop(interrupted.clone());
+    playback.on_cancel(interrupted.clone());
+    playback.on_failed(interrupted);
     self.session.changed();
   }
 
@@ -234,6 +243,7 @@ impl<G: Game> GameSession<G> {
     data.prompt = None;
     data.context = None;
     data.blocking_motion.clear();
+    data.pending_presentations = 0;
     drop(data);
     self.changed();
   }
@@ -252,6 +262,7 @@ impl<G: Game> GameSession<G> {
     data.prompt = None;
     data.context = None;
     data.blocking_motion.clear();
+    data.pending_presentations = 0;
     drop(data);
     self.changed();
   }
