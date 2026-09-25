@@ -23,70 +23,73 @@ public struct ConnectRequest : IFlatbufferObject
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public ConnectRequest __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public string Platform { get { int o = __p.__offset(4); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public Battlement.FlatBuffers.Generated.HostSettings? HostSettings { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.HostSettings?)(new Battlement.FlatBuffers.Generated.HostSettings()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public string Platform { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetPlatformBytes() { return __p.__vector_as_span<byte>(4, 1); }
+  public Span<byte> GetPlatformBytes() { return __p.__vector_as_span<byte>(6, 1); }
 #else
-  public ArraySegment<byte>? GetPlatformBytes() { return __p.__vector_as_arraysegment(4); }
+  public ArraySegment<byte>? GetPlatformBytes() { return __p.__vector_as_arraysegment(6); }
 #endif
-  public byte[] GetPlatformArray() { return __p.__vector_as_array<byte>(4); }
-  public string UnityVersion { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public byte[] GetPlatformArray() { return __p.__vector_as_array<byte>(6); }
+  public string UnityVersion { get { int o = __p.__offset(8); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetUnityVersionBytes() { return __p.__vector_as_span<byte>(6, 1); }
+  public Span<byte> GetUnityVersionBytes() { return __p.__vector_as_span<byte>(8, 1); }
 #else
-  public ArraySegment<byte>? GetUnityVersionBytes() { return __p.__vector_as_arraysegment(6); }
+  public ArraySegment<byte>? GetUnityVersionBytes() { return __p.__vector_as_arraysegment(8); }
 #endif
-  public byte[] GetUnityVersionArray() { return __p.__vector_as_array<byte>(6); }
-  public Battlement.FlatBuffers.Generated.ScreenSize? Screen { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.ScreenSize?)(new Battlement.FlatBuffers.Generated.ScreenSize()).__assign(o + __p.bb_pos, __p.bb) : null; } }
-  public Battlement.FlatBuffers.Generated.ApplicationState? ApplicationState { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.ApplicationState?)(new Battlement.FlatBuffers.Generated.ApplicationState()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
-  public Battlement.FlatBuffers.Generated.ReducedMotionPreference ReducedMotionPreference { get { int o = __p.__offset(12); return o != 0 ? (Battlement.FlatBuffers.Generated.ReducedMotionPreference)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.ReducedMotionPreference.Unavailable; } }
-  public string CustomCommandTypes(int j) { int o = __p.__offset(14); return o != 0 ? __p.__string(__p.__vector(o) + j * 4) : null; }
-  public int CustomCommandTypesLength { get { int o = __p.__offset(14); return o != 0 ? __p.__vector_len(o) : 0; } }
-  public string Modules(int j) { int o = __p.__offset(16); return o != 0 ? __p.__string(__p.__vector(o) + j * 4) : null; }
-  public int ModulesLength { get { int o = __p.__offset(16); return o != 0 ? __p.__vector_len(o) : 0; } }
-  public string PersistentDataPath { get { int o = __p.__offset(18); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public byte[] GetUnityVersionArray() { return __p.__vector_as_array<byte>(8); }
+  public Battlement.FlatBuffers.Generated.ScreenSize? Screen { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.ScreenSize?)(new Battlement.FlatBuffers.Generated.ScreenSize()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.ApplicationState? ApplicationState { get { int o = __p.__offset(12); return o != 0 ? (Battlement.FlatBuffers.Generated.ApplicationState?)(new Battlement.FlatBuffers.Generated.ApplicationState()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.ReducedMotionPreference ReducedMotionPreference { get { int o = __p.__offset(14); return o != 0 ? (Battlement.FlatBuffers.Generated.ReducedMotionPreference)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.ReducedMotionPreference.Unavailable; } }
+  public string CustomCommandTypes(int j) { int o = __p.__offset(16); return o != 0 ? __p.__string(__p.__vector(o) + j * 4) : null; }
+  public int CustomCommandTypesLength { get { int o = __p.__offset(16); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public string Modules(int j) { int o = __p.__offset(18); return o != 0 ? __p.__string(__p.__vector(o) + j * 4) : null; }
+  public int ModulesLength { get { int o = __p.__offset(18); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public string PersistentDataPath { get { int o = __p.__offset(20); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetPersistentDataPathBytes() { return __p.__vector_as_span<byte>(18, 1); }
+  public Span<byte> GetPersistentDataPathBytes() { return __p.__vector_as_span<byte>(20, 1); }
 #else
-  public ArraySegment<byte>? GetPersistentDataPathBytes() { return __p.__vector_as_arraysegment(18); }
+  public ArraySegment<byte>? GetPersistentDataPathBytes() { return __p.__vector_as_arraysegment(20); }
 #endif
-  public byte[] GetPersistentDataPathArray() { return __p.__vector_as_array<byte>(18); }
-  public string StreamingAssetsPath { get { int o = __p.__offset(20); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public byte[] GetPersistentDataPathArray() { return __p.__vector_as_array<byte>(20); }
+  public string StreamingAssetsPath { get { int o = __p.__offset(22); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetStreamingAssetsPathBytes() { return __p.__vector_as_span<byte>(20, 1); }
+  public Span<byte> GetStreamingAssetsPathBytes() { return __p.__vector_as_span<byte>(22, 1); }
 #else
-  public ArraySegment<byte>? GetStreamingAssetsPathBytes() { return __p.__vector_as_arraysegment(20); }
+  public ArraySegment<byte>? GetStreamingAssetsPathBytes() { return __p.__vector_as_arraysegment(22); }
 #endif
-  public byte[] GetStreamingAssetsPathArray() { return __p.__vector_as_array<byte>(20); }
+  public byte[] GetStreamingAssetsPathArray() { return __p.__vector_as_array<byte>(22); }
 
-  public static void StartConnectRequest(FlatBufferBuilder builder) { builder.StartTable(9); }
-  public static void AddPlatform(FlatBufferBuilder builder, StringOffset platformOffset) { builder.AddOffset(0, platformOffset.Value, 0); }
-  public static void AddUnityVersion(FlatBufferBuilder builder, StringOffset unityVersionOffset) { builder.AddOffset(1, unityVersionOffset.Value, 0); }
-  public static void AddScreen(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ScreenSize> screenOffset) { builder.AddStruct(2, screenOffset.Value, 0); }
-  public static void AddApplicationState(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ApplicationState> applicationStateOffset) { builder.AddOffset(3, applicationStateOffset.Value, 0); }
-  public static void AddReducedMotionPreference(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.ReducedMotionPreference reducedMotionPreference) { builder.AddByte(4, (byte)reducedMotionPreference, 0); }
-  public static void AddCustomCommandTypes(FlatBufferBuilder builder, VectorOffset customCommandTypesOffset) { builder.AddOffset(5, customCommandTypesOffset.Value, 0); }
+  public static void StartConnectRequest(FlatBufferBuilder builder) { builder.StartTable(10); }
+  public static void AddHostSettings(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.HostSettings> hostSettingsOffset) { builder.AddOffset(0, hostSettingsOffset.Value, 0); }
+  public static void AddPlatform(FlatBufferBuilder builder, StringOffset platformOffset) { builder.AddOffset(1, platformOffset.Value, 0); }
+  public static void AddUnityVersion(FlatBufferBuilder builder, StringOffset unityVersionOffset) { builder.AddOffset(2, unityVersionOffset.Value, 0); }
+  public static void AddScreen(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ScreenSize> screenOffset) { builder.AddStruct(3, screenOffset.Value, 0); }
+  public static void AddApplicationState(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ApplicationState> applicationStateOffset) { builder.AddOffset(4, applicationStateOffset.Value, 0); }
+  public static void AddReducedMotionPreference(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.ReducedMotionPreference reducedMotionPreference) { builder.AddByte(5, (byte)reducedMotionPreference, 0); }
+  public static void AddCustomCommandTypes(FlatBufferBuilder builder, VectorOffset customCommandTypesOffset) { builder.AddOffset(6, customCommandTypesOffset.Value, 0); }
   public static VectorOffset CreateCustomCommandTypesVector(FlatBufferBuilder builder, StringOffset[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateCustomCommandTypesVectorBlock(FlatBufferBuilder builder, StringOffset[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateCustomCommandTypesVectorBlock(FlatBufferBuilder builder, ArraySegment<StringOffset> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateCustomCommandTypesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<StringOffset>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartCustomCommandTypesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
-  public static void AddModules(FlatBufferBuilder builder, VectorOffset modulesOffset) { builder.AddOffset(6, modulesOffset.Value, 0); }
+  public static void AddModules(FlatBufferBuilder builder, VectorOffset modulesOffset) { builder.AddOffset(7, modulesOffset.Value, 0); }
   public static VectorOffset CreateModulesVector(FlatBufferBuilder builder, StringOffset[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateModulesVectorBlock(FlatBufferBuilder builder, StringOffset[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateModulesVectorBlock(FlatBufferBuilder builder, ArraySegment<StringOffset> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateModulesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<StringOffset>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartModulesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
-  public static void AddPersistentDataPath(FlatBufferBuilder builder, StringOffset persistentDataPathOffset) { builder.AddOffset(7, persistentDataPathOffset.Value, 0); }
-  public static void AddStreamingAssetsPath(FlatBufferBuilder builder, StringOffset streamingAssetsPathOffset) { builder.AddOffset(8, streamingAssetsPathOffset.Value, 0); }
+  public static void AddPersistentDataPath(FlatBufferBuilder builder, StringOffset persistentDataPathOffset) { builder.AddOffset(8, persistentDataPathOffset.Value, 0); }
+  public static void AddStreamingAssetsPath(FlatBufferBuilder builder, StringOffset streamingAssetsPathOffset) { builder.AddOffset(9, streamingAssetsPathOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.ConnectRequest> EndConnectRequest(FlatBufferBuilder builder) {
     int o = builder.EndTable();
-    builder.Required(o, 4);  // platform
-    builder.Required(o, 6);  // unity_version
-    builder.Required(o, 8);  // screen
-    builder.Required(o, 10);  // application_state
-    builder.Required(o, 14);  // custom_command_types
-    builder.Required(o, 16);  // modules
+    builder.Required(o, 4);  // host_settings
+    builder.Required(o, 6);  // platform
+    builder.Required(o, 8);  // unity_version
+    builder.Required(o, 10);  // screen
+    builder.Required(o, 12);  // application_state
+    builder.Required(o, 16);  // custom_command_types
+    builder.Required(o, 18);  // modules
     return new Offset<Battlement.FlatBuffers.Generated.ConnectRequest>(o);
   }
   public static void FinishConnectRequestBuffer(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ConnectRequest> offset) { builder.Finish(offset.Value, "BTCO"); }
@@ -99,15 +102,16 @@ static public class ConnectRequestVerify
   static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
   {
     return verifier.VerifyTableStart(tablePos)
-      && verifier.VerifyString(tablePos, 4 /*Platform*/, true)
-      && verifier.VerifyString(tablePos, 6 /*UnityVersion*/, true)
-      && verifier.VerifyField(tablePos, 8 /*Screen*/, 8 /*Battlement.FlatBuffers.Generated.ScreenSize*/, 4, true)
-      && verifier.VerifyTable(tablePos, 10 /*ApplicationState*/, Battlement.FlatBuffers.Generated.ApplicationStateVerify.Verify, true)
-      && verifier.VerifyField(tablePos, 12 /*ReducedMotionPreference*/, 1 /*Battlement.FlatBuffers.Generated.ReducedMotionPreference*/, 1, false)
-      && verifier.VerifyVectorOfStrings(tablePos, 14 /*CustomCommandTypes*/, true)
-      && verifier.VerifyVectorOfStrings(tablePos, 16 /*Modules*/, true)
-      && verifier.VerifyString(tablePos, 18 /*PersistentDataPath*/, false)
-      && verifier.VerifyString(tablePos, 20 /*StreamingAssetsPath*/, false)
+      && verifier.VerifyTable(tablePos, 4 /*HostSettings*/, Battlement.FlatBuffers.Generated.HostSettingsVerify.Verify, true)
+      && verifier.VerifyString(tablePos, 6 /*Platform*/, true)
+      && verifier.VerifyString(tablePos, 8 /*UnityVersion*/, true)
+      && verifier.VerifyField(tablePos, 10 /*Screen*/, 8 /*Battlement.FlatBuffers.Generated.ScreenSize*/, 4, true)
+      && verifier.VerifyTable(tablePos, 12 /*ApplicationState*/, Battlement.FlatBuffers.Generated.ApplicationStateVerify.Verify, true)
+      && verifier.VerifyField(tablePos, 14 /*ReducedMotionPreference*/, 1 /*Battlement.FlatBuffers.Generated.ReducedMotionPreference*/, 1, false)
+      && verifier.VerifyVectorOfStrings(tablePos, 16 /*CustomCommandTypes*/, true)
+      && verifier.VerifyVectorOfStrings(tablePos, 18 /*Modules*/, true)
+      && verifier.VerifyString(tablePos, 20 /*PersistentDataPath*/, false)
+      && verifier.VerifyString(tablePos, 22 /*StreamingAssetsPath*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

@@ -64,6 +64,7 @@ impl<G: 'static> App<G> {
         _ => unreachable!("ConnectView validates reduced-motion ordinals"),
       };
       observations.screen = ScreenSize::new(message.screen_width(), message.screen_height());
+      observations.host.settings = message.host_settings().to_owned();
       observations.host.modules = message.modules().map(str::to_owned).collect();
       observations.host.persistent_data_path = message.persistent_data_path().map(Into::into);
       if self.reset {
@@ -111,6 +112,10 @@ impl<G: 'static> App<G> {
           2 => ReducedMotionPreference::NoPreference,
           _ => unreachable!("core view validates reduced-motion preferences"),
         };
+        self.runtime.refresh(&mut self.model)
+      }
+      CoreActionBodyView::HostSettingsChanged(settings) => {
+        self.observations.borrow_mut().host.settings = settings.to_owned();
         self.runtime.refresh(&mut self.model)
       }
       CoreActionBodyView::ApplicationStateChanged(state) => {

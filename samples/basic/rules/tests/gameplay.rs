@@ -13,6 +13,7 @@ use battlement_rules::{
 #[test]
 fn exported_connect_constructs_a_verified_snapshot_directly() {
   let request = write_connect(&ConnectInput {
+    host_settings: None,
     platform: "test",
     unity_version: "test",
     screen_width: 1280,

@@ -43,7 +43,9 @@ namespace Battlement.Tests
                     Is.EqualTo(
                         new[]
                         {
+                            "battlement.host.settings",
                             "battlement.host.connected",
+                            "battlement.host.settings",
                             "battlement.host.reconnected",
                             "battlement.host.stopped",
                         }

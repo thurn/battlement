@@ -1,5 +1,6 @@
 //! Synchronous fake client lifecycle, responses, input, and assertions.
 
+use battlement::host_settings::HostSettings;
 use std::{
   collections::{HashMap, HashSet},
   sync::Arc,
@@ -123,6 +124,12 @@ impl<E> FakeClient<E>
 where
   E: Engine,
 {
+  /// Publishes an explicit host observation and retains it for reconnects.
+  pub fn set_host_settings(&mut self, settings: HostSettings) {
+    self.connect.host_settings = settings.clone();
+    self.submit_action(ActionBody::HostSettingsChanged(settings));
+  }
+
   /// Connects an engine with deterministic fake platform metadata.
   #[must_use]
   pub fn connect(engine: E, assets: impl Into<Arc<FakeAssetCatalog>>) -> Self {

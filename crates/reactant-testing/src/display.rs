@@ -1,3 +1,4 @@
+use battlement::host_settings::HostSettings;
 use std::{sync::Arc, time::Duration};
 
 use battlement::{CommandId, Connect, ObjectId, Vector3};
@@ -84,6 +85,11 @@ impl<E> Display<E>
 where
   E: Engine,
 {
+  /// Publishes deterministic display, platform, and attached-device observations.
+  pub fn set_host_settings(&mut self, settings: HostSettings) {
+    self.client.set_host_settings(settings);
+  }
+
   /// Connects an engine with deterministic fake platform metadata.
   #[must_use]
   pub fn connect(engine: E, assets: impl Into<Arc<FakeAssetCatalog>>) -> Self {

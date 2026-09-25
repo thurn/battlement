@@ -9,6 +9,7 @@ pub use crate::{
     use_game_selector_with, use_game_state, use_game_status,
   },
   game_session::{DispatchResult, GameHandle, GameObservation, GameStatus},
+  host_settings::use_host_settings,
   input::{GlobalInput, use_global_input},
   persistence::{
     PersistentState, use_host_module, use_persistent_state, use_persistent_state_with,

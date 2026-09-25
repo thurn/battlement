@@ -29,7 +29,8 @@ namespace Battlement.Tests
             bool suppressDevelopmentErrorDialogs,
             Action<string>? openExternalUrl,
             IBattlementFlatBufferResponseViewSchema? flatBufferResponseSchema,
-            IBattlementFlatBufferClientSchema? flatBufferClientSchema
+            IBattlementFlatBufferClientSchema? flatBufferClientSchema,
+            Func<HostSettings>? readHostSettings
         )
         {
             Scene = scene;
@@ -54,7 +55,8 @@ namespace Battlement.Tests
                     caughtFailureReporter: new FakeCaughtFailureReporter(),
                     openExternalUrl: openExternalUrl,
                     flatBufferResponseSchema: flatBufferResponseSchema,
-                    flatBufferClientSchema: flatBufferClientSchema
+                    flatBufferClientSchema: flatBufferClientSchema,
+                    readHostSettings: readHostSettings ?? (() => new HostSettings())
                 )
             );
         }
@@ -81,7 +83,8 @@ namespace Battlement.Tests
             bool suppressDevelopmentErrorDialogs = true,
             Action<string>? openExternalUrl = null,
             IBattlementFlatBufferResponseViewSchema? flatBufferResponseSchema = null,
-            IBattlementFlatBufferClientSchema? flatBufferClientSchema = null
+            IBattlementFlatBufferClientSchema? flatBufferClientSchema = null,
+            Func<HostSettings>? readHostSettings = null
         )
         {
             string sceneName = $"Battlement test {Guid.NewGuid():N}";
@@ -104,7 +107,8 @@ namespace Battlement.Tests
                 suppressDevelopmentErrorDialogs,
                 openExternalUrl,
                 flatBufferResponseSchema,
-                flatBufferClientSchema
+                flatBufferClientSchema,
+                readHostSettings
             );
         }
 

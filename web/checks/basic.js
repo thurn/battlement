@@ -1,5 +1,13 @@
 async (page, context) => {
   const check = await context.start(page, context);
+  await context.waitForLog('platform=Web keyboard=False');
+  await check.canvas.click({ position: { x: 10, y: 10 } });
+  await page.keyboard.down('a');
+  try {
+    await context.waitForLog('platform=Web keyboard=True');
+  } finally {
+    await page.keyboard.up('a');
+  }
   // Project cube C at (2, 0, 0) through snapshot()'s perspective camera.
   // Keep the status text and asynchronously recolored cube B outside the crop.
   const region = { x: 718, y: 310, width: 116, height: 120 };
@@ -10,5 +18,6 @@ async (page, context) => {
   await page.waitForTimeout(600);
   await check.click(754, 355);
   await check.expectImage('cube-c-restored', initial, region, 0, 0.01);
-  return check.result('Click cube C to move it into the scene, then restore its original position');
+  const result = check.result('Observe keyboard availability after input; move and restore cube C');
+  return { ...result, assertions: result.assertions + 2 };
 }

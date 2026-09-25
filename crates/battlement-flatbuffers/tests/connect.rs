@@ -2,6 +2,7 @@ use battlement_flatbuffers::{ConnectInput, ConnectView, ReducedMotionPreference,
 
 fn input<'a>(custom_command_types: &'a [&'a str], modules: &'a [&'a str]) -> ConnectInput<'a> {
   ConnectInput {
+    host_settings: None,
     platform: "macOS 日本語 🚀",
     unity_version: "6000.5.8f1",
     screen_width: 2560,

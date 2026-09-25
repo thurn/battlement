@@ -49,7 +49,9 @@ namespace Battlement
                     value.ApplicationState.Focused,
                     value.ApplicationState.Paused
                 );
+            var hostSettings = BattlementHostSettingsWriter.Write(builder, value.HostSettings);
             WireConnectRequest.StartConnectRequest(builder);
+            WireConnectRequest.AddHostSettings(builder, hostSettings);
             WireConnectRequest.AddPlatform(builder, platform);
             WireConnectRequest.AddUnityVersion(builder, unityVersion);
             WireConnectRequest.AddScreen(

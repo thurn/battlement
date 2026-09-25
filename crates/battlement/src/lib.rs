@@ -23,6 +23,7 @@ mod command_builders;
 pub mod commands;
 pub mod geometry;
 pub mod hit_region;
+pub mod host_settings;
 pub use hit_region::*;
 pub mod material;
 mod material_dependencies;

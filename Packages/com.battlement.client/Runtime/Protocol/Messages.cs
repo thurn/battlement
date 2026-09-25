@@ -26,6 +26,8 @@ namespace Battlement
         /// <summary>Initial application focus and pause observations.</summary>
         public ApplicationState ApplicationState { get; init; } = new();
 
+        public HostSettings HostSettings { get; init; } = new();
+
         /// <summary>Initial host-reported reduced-motion preference.</summary>
         public ReducedMotionPreference ReducedMotionPreference { get; init; }
 
@@ -316,6 +318,8 @@ namespace Battlement
 
         /// <summary>Application focus or suspension changed independently of input.</summary>
         public sealed record ApplicationStateChanged(ApplicationState Value) : ActionBody;
+
+        public sealed record HostSettingsChanged(HostSettings Value) : ActionBody;
 
         /// <summary>The host's reduced-motion preference changed.</summary>
         public sealed record ReducedMotionPreferenceChanged(ReducedMotionPreference Value)

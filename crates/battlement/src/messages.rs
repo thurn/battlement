@@ -1,6 +1,7 @@
 //! Connection, response, snapshot, batch, action, and result messages.
 
 use crate::application::{ApplicationState, ReducedMotionPreference};
+use crate::host_settings::HostSettings;
 
 use crate::{
   ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, ControllerButton,
@@ -23,6 +24,8 @@ pub struct Connect {
   pub application_state: ApplicationState,
   /// Initial host-reported reduced-motion preference.
   pub reduced_motion_preference: ReducedMotionPreference,
+  /// Initial host settings capabilities and applied values.
+  pub host_settings: HostSettings,
   /// Sorted list of custom command types compiled into the build.
   pub custom_command_types: Vec<String>,
   /// Selected module identifiers in Inspector order.
@@ -48,6 +51,7 @@ impl Connect {
       screen,
       application_state: ApplicationState::default(),
       reduced_motion_preference: ReducedMotionPreference::Unavailable,
+      host_settings: HostSettings::default(),
       custom_command_types: Vec::new(),
       modules: Vec::new(),
       persistent_data_path: None,
@@ -404,6 +408,8 @@ pub enum ActionBody {
   ApplicationStateChanged(ApplicationState),
   /// The host's reduced-motion preference changed.
   ReducedMotionPreferenceChanged(ReducedMotionPreference),
+  /// Updated host settings capabilities and applied values.
+  HostSettingsChanged(HostSettings),
   /// A deterministic host requested activation of one enabled object.
   Activate(ActivationPayload),
   /// Pointer began hovering an enabled game object.

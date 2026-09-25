@@ -1,10 +1,13 @@
+use battlement::host_settings::HostSettings;
 use std::{error::Error, fmt};
 
 use flatbuffers::{FlatBufferBuilder, VerifierOptions, WIPOffset};
 
 use crate::{
   MAXIMUM_APPARENT_BYTES, MAXIMUM_MESSAGE_BYTES, MAXIMUM_TABLE_DEPTH, MAXIMUM_TABLE_VISITS,
-  common_generated as wire_common, connect_generated::battlement::flat_buffers::generated as wire,
+  common_generated as wire_common,
+  connect_generated::battlement::flat_buffers::generated as wire,
+  host_settings::{self, HostSettingsView},
 };
 
 /// Host preference for reducing nonessential motion.
@@ -32,6 +35,8 @@ impl ReducedMotionPreference {
 
 /// Borrowed values used to construct a connect request directly.
 pub struct ConnectInput<'a> {
+  /// Initial host capability observation, or unavailable defaults.
+  pub host_settings: Option<&'a HostSettings>,
   /// Unity platform name.
   pub platform: &'a str,
   /// Exact Unity editor or player version.
@@ -76,6 +81,7 @@ pub fn write_connect_request(
     }
   };
   write_connect(&ConnectInput {
+    host_settings: Some(&value.host_settings),
     platform: &value.platform,
     unity_version: &value.unity_version,
     screen_width: value.screen.width,
@@ -158,6 +164,11 @@ impl<'a> ConnectView<'a> {
         .map_err(|error| ProtocolError::new(format!("invalid connect FlatBuffer: {error}")))?;
     validate(value)?;
     Ok(Self { value })
+  }
+
+  /// Returns the validated initial host settings snapshot.
+  pub fn host_settings(self) -> HostSettingsView<'a> {
+    HostSettingsView::new(self.value.host_settings()).expect("connect host settings were validated")
   }
 
   /// Returns the borrowed Unity platform name.
@@ -276,6 +287,10 @@ impl Error for ProtocolError {}
 pub fn write_connect(input: &ConnectInput<'_>) -> Result<FinishedMessage, ProtocolError> {
   validate_input(input)?;
   let mut builder = FlatBufferBuilder::with_capacity(1024);
+  let host_settings = host_settings::write(
+    &mut builder,
+    input.host_settings.unwrap_or(&Default::default()),
+  )?;
   let platform = builder.create_string(input.platform);
   let unity_version = builder.create_string(input.unity_version);
   let persistent_data_path = input
@@ -297,6 +312,7 @@ pub fn write_connect(input: &ConnectInput<'_>) -> Result<FinishedMessage, Protoc
   let request = wire::ConnectRequest::create(
     &mut builder,
     &wire::ConnectRequestArgs {
+      host_settings: Some(host_settings),
       platform: Some(platform),
       unity_version: Some(unity_version),
       screen: Some(&screen),
@@ -338,6 +354,7 @@ fn validate(value: wire::ConnectRequest<'_>) -> Result<(), ProtocolError> {
       "connect screen dimensions must be nonzero",
     ));
   }
+  HostSettingsView::new(value.host_settings())?;
   motion_preference(value.reduced_motion_preference())?;
   validate_sorted_unique(value.custom_command_types().iter(), "custom command type")?;
   validate_unique(value.modules().iter(), "module")

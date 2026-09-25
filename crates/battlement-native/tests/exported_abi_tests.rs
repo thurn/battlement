@@ -61,6 +61,7 @@ fn fixture_library_path() -> PathBuf {
 
 fn connect_bytes(platform: &str) -> Vec<u8> {
   write_connect(&ConnectInput {
+    host_settings: None,
     platform,
     unity_version: "6000.5.8f1",
     screen_width: 2560,
@@ -194,7 +195,7 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     );
     assert_eq!(
       CStr::from_ptr(wire_contract()).to_str().unwrap(),
-      "a97d203f9dc0fa4016b236b772d37ecc45ce691ba9c8f877f2e20c087f7d1a9d"
+      "d036677cfb0e1696942f589875410417b1e0314464cb157d71a6cc31dbd37c3c"
     );
     assert_eq!(
       determinism_capabilities(),
@@ -548,7 +549,7 @@ fn checked_in_contract_manifests_match_exported_digests() {
   let fixture_digest = format!("{:x}", Sha256::digest(&fixture_manifest_bytes));
   assert_eq!(
     fixture_digest,
-    "a97d203f9dc0fa4016b236b772d37ecc45ce691ba9c8f877f2e20c087f7d1a9d"
+    "d036677cfb0e1696942f589875410417b1e0314464cb157d71a6cc31dbd37c3c"
   );
   let fixture_manifest: serde_json::Value =
     serde_json::from_slice(&fixture_manifest_bytes).unwrap();

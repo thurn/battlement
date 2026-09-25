@@ -676,11 +676,13 @@ def _verify_csharp_preflight() -> None:
             return True
 
     steps: list[str] = []
-    with patch.object(
-        ci,
-        "run_step",
-        side_effect=lambda name, *_arguments, **_options: steps.append(name),
-    ):
+
+    def record_step(name: str, *_arguments: object, **options: object) -> None:
+        steps.append(name)
+        if name == "Check .NET diagnostics":
+            options["function"]()
+
+    with patch.object(ci, "run_step", side_effect=record_step):
         ci.run_csharp_preflight([], selection, Cache())
     assert steps == [
         "Restore local .NET tools",

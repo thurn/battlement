@@ -35,15 +35,16 @@ pub mod battlement {
       }
 
       impl<'a> ConnectRequest<'a> {
-        pub const VT_PLATFORM: ::flatbuffers::VOffsetT = 4;
-        pub const VT_UNITY_VERSION: ::flatbuffers::VOffsetT = 6;
-        pub const VT_SCREEN: ::flatbuffers::VOffsetT = 8;
-        pub const VT_APPLICATION_STATE: ::flatbuffers::VOffsetT = 10;
-        pub const VT_REDUCED_MOTION_PREFERENCE: ::flatbuffers::VOffsetT = 12;
-        pub const VT_CUSTOM_COMMAND_TYPES: ::flatbuffers::VOffsetT = 14;
-        pub const VT_MODULES: ::flatbuffers::VOffsetT = 16;
-        pub const VT_PERSISTENT_DATA_PATH: ::flatbuffers::VOffsetT = 18;
-        pub const VT_STREAMING_ASSETS_PATH: ::flatbuffers::VOffsetT = 20;
+        pub const VT_HOST_SETTINGS: ::flatbuffers::VOffsetT = 4;
+        pub const VT_PLATFORM: ::flatbuffers::VOffsetT = 6;
+        pub const VT_UNITY_VERSION: ::flatbuffers::VOffsetT = 8;
+        pub const VT_SCREEN: ::flatbuffers::VOffsetT = 10;
+        pub const VT_APPLICATION_STATE: ::flatbuffers::VOffsetT = 12;
+        pub const VT_REDUCED_MOTION_PREFERENCE: ::flatbuffers::VOffsetT = 14;
+        pub const VT_CUSTOM_COMMAND_TYPES: ::flatbuffers::VOffsetT = 16;
+        pub const VT_MODULES: ::flatbuffers::VOffsetT = 18;
+        pub const VT_PERSISTENT_DATA_PATH: ::flatbuffers::VOffsetT = 20;
+        pub const VT_STREAMING_ASSETS_PATH: ::flatbuffers::VOffsetT = 22;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -84,10 +85,28 @@ pub mod battlement {
           if let Some(x) = args.platform {
             builder.add_platform(x);
           }
+          if let Some(x) = args.host_settings {
+            builder.add_host_settings(x);
+          }
           builder.add_reduced_motion_preference(args.reduced_motion_preference);
           builder.finish()
         }
 
+        #[inline]
+        pub fn host_settings(&self) -> HostSettings<'a> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<HostSettings>>(
+                ConnectRequest::VT_HOST_SETTINGS,
+                None,
+              )
+              .unwrap()
+          }
+        }
         #[inline]
         pub fn platform(&self) -> &'a str {
           // Safety:
@@ -219,6 +238,11 @@ pub mod battlement {
           pos: usize,
         ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
           v.visit_table(pos)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<HostSettings>>(
+              "host_settings",
+              Self::VT_HOST_SETTINGS,
+              true,
+            )?
             .visit_field::<::flatbuffers::ForwardsUOffset<&str>>(
               "platform",
               Self::VT_PLATFORM,
@@ -261,6 +285,7 @@ pub mod battlement {
         }
       }
       pub struct ConnectRequestArgs<'a> {
+        pub host_settings: Option<::flatbuffers::WIPOffset<HostSettings<'a>>>,
         pub platform: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub unity_version: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub screen: Option<&'a ScreenSize>,
@@ -283,6 +308,7 @@ pub mod battlement {
         #[inline]
         fn default() -> Self {
           ConnectRequestArgs {
+            host_settings: None,     // required field
             platform: None,          // required field
             unity_version: None,     // required field
             screen: None,            // required field
@@ -301,6 +327,18 @@ pub mod battlement {
         start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
       }
       impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConnectRequestBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_host_settings(
+          &mut self,
+          host_settings: ::flatbuffers::WIPOffset<HostSettings<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<HostSettings>>(
+              ConnectRequest::VT_HOST_SETTINGS,
+              host_settings,
+            );
+        }
         #[inline]
         pub fn add_platform(&mut self, platform: ::flatbuffers::WIPOffset<&'b str>) {
           self
@@ -401,6 +439,9 @@ pub mod battlement {
           let o = self.fbb_.end_table(self.start_);
           self
             .fbb_
+            .required(o, ConnectRequest::VT_HOST_SETTINGS, "host_settings");
+          self
+            .fbb_
             .required(o, ConnectRequest::VT_PLATFORM, "platform");
           self
             .fbb_
@@ -422,6 +463,7 @@ pub mod battlement {
       impl ::core::fmt::Debug for ConnectRequest<'_> {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
           let mut ds = f.debug_struct("ConnectRequest");
+          ds.field("host_settings", &self.host_settings());
           ds.field("platform", &self.platform());
           ds.field("unity_version", &self.unity_version());
           ds.field("screen", &self.screen());

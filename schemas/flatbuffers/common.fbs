@@ -65,3 +65,44 @@ table ApplicationState {
   focused:bool;
   paused:bool;
 }
+
+
+enum HostPlatform:ubyte { Unavailable, MacOs, Windows, Web, Ios }
+enum SettingAvailability:ubyte { Unavailable, Available, Failed }
+enum DisplayMode:ubyte { Windowed, Borderless, Fullscreen }
+
+struct DisplayResolution {
+  width:uint;
+  height:uint;
+  refresh_numerator:uint;
+  refresh_denominator:uint;
+}
+
+table DisplayConfiguration {
+  mode:DisplayMode;
+  resolution:DisplayResolution (required);
+}
+
+table HostSettingsResult {
+  request_id:Uuid (required);
+  error:string;
+}
+
+table HostSettings {
+  platform:HostPlatform;
+  display:SettingAvailability;
+  display_modes:[DisplayMode] (required);
+  resolutions:[DisplayResolution] (required);
+  applied_display:DisplayConfiguration;
+  frame_pacing:SettingAvailability;
+  frame_rates:[uint] (required);
+  applied_frame_rate:int = -1;
+  vsync_available:bool;
+  applied_vsync:bool;
+  keyboard_connected:bool;
+  controller_count:uint;
+  diagnostics:SettingAvailability;
+  diagnostics_configured:bool;
+  observation_error:string;
+  last_result:HostSettingsResult;
+}

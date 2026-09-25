@@ -534,13 +534,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_ACTION_KIND: u8 = 16;
+      pub const ENUM_MAX_CORE_ACTION_KIND: u8 = 17;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_ACTION_KIND: [CoreActionKind; 17] = [
+      pub const ENUM_VALUES_CORE_ACTION_KIND: [CoreActionKind; 18] = [
         CoreActionKind::Activate,
         CoreActionKind::PointerEnter,
         CoreActionKind::PointerExit,
@@ -558,6 +558,7 @@ pub mod battlement {
         CoreActionKind::MotionEvents,
         CoreActionKind::ApplicationStateChanged,
         CoreActionKind::ReducedMotionPreferenceChanged,
+        CoreActionKind::HostSettingsChanged,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -582,9 +583,10 @@ pub mod battlement {
         pub const MotionEvents: Self = Self(14);
         pub const ApplicationStateChanged: Self = Self(15);
         pub const ReducedMotionPreferenceChanged: Self = Self(16);
+        pub const HostSettingsChanged: Self = Self(17);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 16;
+        pub const ENUM_MAX: u8 = 17;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::Activate,
           Self::PointerEnter,
@@ -603,6 +605,7 @@ pub mod battlement {
           Self::MotionEvents,
           Self::ApplicationStateChanged,
           Self::ReducedMotionPreferenceChanged,
+          Self::HostSettingsChanged,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -624,6 +627,7 @@ pub mod battlement {
             Self::MotionEvents => Some("MotionEvents"),
             Self::ApplicationStateChanged => Some("ApplicationStateChanged"),
             Self::ReducedMotionPreferenceChanged => Some("ReducedMotionPreferenceChanged"),
+            Self::HostSettingsChanged => Some("HostSettingsChanged"),
             _ => None,
           }
         }
@@ -688,13 +692,13 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
-      pub const ENUM_MAX_CORE_ACTION_BODY: u8 = 11;
+      pub const ENUM_MAX_CORE_ACTION_BODY: u8 = 12;
       #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
       #[allow(non_camel_case_types)]
-      pub const ENUM_VALUES_CORE_ACTION_BODY: [CoreActionBody; 12] = [
+      pub const ENUM_VALUES_CORE_ACTION_BODY: [CoreActionBody; 13] = [
         CoreActionBody::NONE,
         CoreActionBody::ActivationAction,
         CoreActionBody::PointerAction,
@@ -707,6 +711,7 @@ pub mod battlement {
         CoreActionBody::MotionAction,
         CoreActionBody::ApplicationStateAction,
         CoreActionBody::ReducedMotionPreferenceAction,
+        CoreActionBody::HostSettingsAction,
       ];
 
       #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -726,9 +731,10 @@ pub mod battlement {
         pub const MotionAction: Self = Self(9);
         pub const ApplicationStateAction: Self = Self(10);
         pub const ReducedMotionPreferenceAction: Self = Self(11);
+        pub const HostSettingsAction: Self = Self(12);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 11;
+        pub const ENUM_MAX: u8 = 12;
         pub const ENUM_VALUES: &'static [Self] = &[
           Self::NONE,
           Self::ActivationAction,
@@ -742,6 +748,7 @@ pub mod battlement {
           Self::MotionAction,
           Self::ApplicationStateAction,
           Self::ReducedMotionPreferenceAction,
+          Self::HostSettingsAction,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -758,6 +765,7 @@ pub mod battlement {
             Self::MotionAction => Some("MotionAction"),
             Self::ApplicationStateAction => Some("ApplicationStateAction"),
             Self::ReducedMotionPreferenceAction => Some("ReducedMotionPreferenceAction"),
+            Self::HostSettingsAction => Some("HostSettingsAction"),
             _ => None,
           }
         }
@@ -2611,6 +2619,131 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum HostSettingsActionOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct HostSettingsAction<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for HostSettingsAction<'a> {
+        type Inner = HostSettingsAction<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> HostSettingsAction<'a> {
+        pub const VT_VALUE: ::flatbuffers::VOffsetT = 4;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          HostSettingsAction { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args HostSettingsActionArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<HostSettingsAction<'bldr>> {
+          let mut builder = HostSettingsActionBuilder::new(_fbb);
+          if let Some(x) = args.value {
+            builder.add_value(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn value(&self) -> HostSettings<'a> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<HostSettings>>(
+                HostSettingsAction::VT_VALUE,
+                None,
+              )
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for HostSettingsAction<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<HostSettings>>(
+              "value",
+              Self::VT_VALUE,
+              true,
+            )?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct HostSettingsActionArgs<'a> {
+        pub value: Option<::flatbuffers::WIPOffset<HostSettings<'a>>>,
+      }
+      impl<'a> Default for HostSettingsActionArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          HostSettingsActionArgs {
+            value: None, // required field
+          }
+        }
+      }
+
+      pub struct HostSettingsActionBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HostSettingsActionBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_value(&mut self, value: ::flatbuffers::WIPOffset<HostSettings<'b>>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<HostSettings>>(
+              HostSettingsAction::VT_VALUE,
+              value,
+            );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> HostSettingsActionBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          HostSettingsActionBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<HostSettingsAction<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self.fbb_.required(o, HostSettingsAction::VT_VALUE, "value");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for HostSettingsAction<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("HostSettingsAction");
+          ds.field("value", &self.value());
+          ds.finish()
+        }
+      }
       pub enum CoreActionOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -2882,6 +3015,20 @@ pub mod battlement {
             None
           }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn body_as_host_settings_action(&self) -> Option<HostSettingsAction<'a>> {
+          if self.body_type() == CoreActionBody::HostSettingsAction {
+            let u = self.body();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid union in this slot
+            Some(unsafe { HostSettingsAction::init_from_table(u) })
+          } else {
+            None
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for CoreAction<'_> {
@@ -2907,6 +3054,7 @@ pub mod battlement {
           CoreActionBody::MotionAction => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<MotionAction>>("CoreActionBody::MotionAction", pos),
           CoreActionBody::ApplicationStateAction => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ApplicationStateAction>>("CoreActionBody::ApplicationStateAction", pos),
           CoreActionBody::ReducedMotionPreferenceAction => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ReducedMotionPreferenceAction>>("CoreActionBody::ReducedMotionPreferenceAction", pos),
+          CoreActionBody::HostSettingsAction => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<HostSettingsAction>>("CoreActionBody::HostSettingsAction", pos),
           _ => Ok(()),
         }
      })?
@@ -3105,6 +3253,16 @@ pub mod battlement {
             }
             CoreActionBody::ReducedMotionPreferenceAction => {
               if let Some(x) = self.body_as_reduced_motion_preference_action() {
+                ds.field("body", &x)
+              } else {
+                ds.field(
+                  "body",
+                  &"InvalidFlatbuffer: Union discriminant does not match value.",
+                )
+              }
+            }
+            CoreActionBody::HostSettingsAction => {
+              if let Some(x) = self.body_as_host_settings_action() {
                 ds.field("body", &x)
               } else {
                 ds.field(

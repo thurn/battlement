@@ -1,6 +1,8 @@
 use crate::{
   FinishedMessage, MAXIMUM_MESSAGE_BYTES, ProtocolError,
-  client_message_generated::battlement::flat_buffers::generated as wire, verifier_options,
+  client_message_generated::battlement::flat_buffers::generated as wire,
+  host_settings::{self, HostSettingsView},
+  verifier_options,
 };
 use crate::{
   common_generated::ReducedMotionPreference as WireReducedMotionPreference,
@@ -284,6 +286,20 @@ fn write_action_body<'a>(
         value.as_union_value(),
       )
     }
+    ActionBody::HostSettingsChanged(value) => {
+      let settings = host_settings::write(builder, value)?;
+      let action = wire::HostSettingsAction::create(
+        builder,
+        &wire::HostSettingsActionArgs {
+          value: Some(settings),
+        },
+      );
+      (
+        Kind::HostSettingsChanged,
+        Body::HostSettingsAction,
+        action.as_union_value(),
+      )
+    }
     ActionBody::ApplicationStateChanged(value) => {
       let state = crate::common_generated::ApplicationState::create(
         builder,
@@ -453,6 +469,9 @@ pub enum CoreActionBodyView<'a> {
   ApplicationStateChanged(ApplicationStateActionView<'a>),
   /// Reduced-motion preference changed.
   ReducedMotionPreferenceChanged(ReducedMotionPreferenceActionView<'a>),
+  /// Host settings observations changed.
+  /// Changed host capabilities and applied values.
+  HostSettingsChanged(HostSettingsView<'a>),
 }
 
 /// Borrowed activation payload.
@@ -824,6 +843,10 @@ fn action_body(value: wire::CoreAction<'_>) -> Result<CoreActionBodyView<'_>, Pr
     (Kind::MotionEvents, Body::MotionAction) => {
       let action = value.body_as_motion_action().ok_or_else(mismatch)?;
       CoreActionBodyView::MotionEvents(crate::MotionEventBatchView::new(action.value())?)
+    }
+    (Kind::HostSettingsChanged, Body::HostSettingsAction) => {
+      let action = value.body_as_host_settings_action().ok_or_else(mismatch)?;
+      CoreActionBodyView::HostSettingsChanged(HostSettingsView::new(action.value())?)
     }
     (Kind::ApplicationStateChanged, Body::ApplicationStateAction) => {
       CoreActionBodyView::ApplicationStateChanged(ApplicationStateActionView {

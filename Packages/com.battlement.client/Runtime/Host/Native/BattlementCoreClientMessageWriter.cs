@@ -188,6 +188,7 @@ namespace Battlement
                     value.Button
                 ),
                 ActionBody.ControllerNavigate value => ControllerNavigate(value),
+                ActionBody.HostSettingsChanged value => HostSettings(value.Value),
                 ActionBody.ApplicationStateChanged value => ApplicationState(value.Value),
                 ActionBody.ReducedMotionPreferenceChanged value => ReducedMotion(value.Value),
                 ActionBody.GeometryObservations value => new(
@@ -373,6 +374,17 @@ namespace Battlement
             return new(
                 Wire.CoreActionKind.ControllerNavigate,
                 Wire.CoreActionBody.ControllerNavigateAction,
+                action.Value
+            );
+        }
+
+        private ActionBodyOffset HostSettings(HostSettings value)
+        {
+            var settings = BattlementHostSettingsWriter.Write(builder, value);
+            var action = Wire.HostSettingsAction.CreateHostSettingsAction(builder, settings);
+            return new(
+                Wire.CoreActionKind.HostSettingsChanged,
+                Wire.CoreActionBody.HostSettingsAction,
                 action.Value
             );
         }

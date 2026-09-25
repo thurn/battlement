@@ -3,6 +3,7 @@ include "common.fbs";
 namespace Battlement.FlatBuffers.Generated;
 
 table ConnectRequest {
+  host_settings:HostSettings (required);
   platform:string (required);
   unity_version:string (required);
   screen:ScreenSize (required);

@@ -23,3 +23,8 @@ samples = ["basic"]
 paths = ["scripts/serve_web.py"]
 reason = "Cross-origin isolation headers and encoded asset serving"
 kind = "fixture"
+
+[[risks]]
+paths = ["Packages/com.battlement.client/Runtime/Host/BattlementHostSettings.cs"]
+reason = "Browser keyboard evidence and host capability observation"
+samples = ["basic"]

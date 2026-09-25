@@ -25,9 +25,11 @@ namespace Battlement
             Action<string>? openExternalUrl = null,
             IBattlementFlatBufferResponseViewSchema? flatBufferResponseSchema = null,
             IBattlementFlatBufferClientSchema? flatBufferClientSchema = null,
-            IBattlementCoreMessageObserver? coreMessageObserver = null
+            IBattlementCoreMessageObserver? coreMessageObserver = null,
+            Func<HostSettings>? readHostSettings = null
         )
         {
+            ReadHostSettings = readHostSettings;
             OpenExternalUrl = openExternalUrl ?? Application.OpenURL;
             Transport = Preconditions.CheckNotNull(transport, nameof(transport));
             AssetStorage = Preconditions.CheckNotNull(assetStorage, nameof(assetStorage));
@@ -48,6 +50,8 @@ namespace Battlement
 
         /// <summary>Dispatches an absolute URL to the platform external handler.</summary>
         public Action<string> OpenExternalUrl { get; }
+
+        public Func<HostSettings>? ReadHostSettings { get; }
 
         public IBattlementTransport Transport { get; }
 

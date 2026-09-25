@@ -86,6 +86,7 @@ public enum CoreActionKind : byte
   MotionEvents = 14,
   ApplicationStateChanged = 15,
   ReducedMotionPreferenceChanged = 16,
+  HostSettingsChanged = 17,
 };
 
 public enum CoreActionBody : byte
@@ -102,6 +103,7 @@ public enum CoreActionBody : byte
   MotionAction = 9,
   ApplicationStateAction = 10,
   ReducedMotionPreferenceAction = 11,
+  HostSettingsAction = 12,
 };
 
 
@@ -145,6 +147,9 @@ static public class CoreActionBodyVerify
         break;
       case CoreActionBody.ReducedMotionPreferenceAction:
         result = Battlement.FlatBuffers.Generated.ReducedMotionPreferenceActionVerify.Verify(verifier, tablePos);
+        break;
+      case CoreActionBody.HostSettingsAction:
+        result = Battlement.FlatBuffers.Generated.HostSettingsActionVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;
@@ -629,6 +634,44 @@ static public class ReducedMotionPreferenceActionVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct HostSettingsAction : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static HostSettingsAction GetRootAsHostSettingsAction(ByteBuffer _bb) { return GetRootAsHostSettingsAction(_bb, new HostSettingsAction()); }
+  public static HostSettingsAction GetRootAsHostSettingsAction(ByteBuffer _bb, HostSettingsAction obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public HostSettingsAction __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.HostSettings? Value { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.HostSettings?)(new Battlement.FlatBuffers.Generated.HostSettings()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+
+  public static Offset<Battlement.FlatBuffers.Generated.HostSettingsAction> CreateHostSettingsAction(FlatBufferBuilder builder,
+      Offset<Battlement.FlatBuffers.Generated.HostSettings> valueOffset = default(Offset<Battlement.FlatBuffers.Generated.HostSettings>)) {
+    builder.StartTable(1);
+    HostSettingsAction.AddValue(builder, valueOffset);
+    return HostSettingsAction.EndHostSettingsAction(builder);
+  }
+
+  public static void StartHostSettingsAction(FlatBufferBuilder builder) { builder.StartTable(1); }
+  public static void AddValue(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.HostSettings> valueOffset) { builder.AddOffset(0, valueOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.HostSettingsAction> EndHostSettingsAction(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // value
+    return new Offset<Battlement.FlatBuffers.Generated.HostSettingsAction>(o);
+  }
+}
+
+
+static public class HostSettingsActionVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyTable(tablePos, 4 /*Value*/, Battlement.FlatBuffers.Generated.HostSettingsVerify.Verify, true)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct CoreAction : IFlatbufferObject
 {
   private Table __p;
@@ -655,6 +698,7 @@ public struct CoreAction : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.MotionAction BodyAsMotionAction() { return Body<Battlement.FlatBuffers.Generated.MotionAction>().Value; }
   public Battlement.FlatBuffers.Generated.ApplicationStateAction BodyAsApplicationStateAction() { return Body<Battlement.FlatBuffers.Generated.ApplicationStateAction>().Value; }
   public Battlement.FlatBuffers.Generated.ReducedMotionPreferenceAction BodyAsReducedMotionPreferenceAction() { return Body<Battlement.FlatBuffers.Generated.ReducedMotionPreferenceAction>().Value; }
+  public Battlement.FlatBuffers.Generated.HostSettingsAction BodyAsHostSettingsAction() { return Body<Battlement.FlatBuffers.Generated.HostSettingsAction>().Value; }
 
   public static void StartCoreAction(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddActionId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> actionIdOffset) { builder.AddStruct(0, actionIdOffset.Value, 0); }

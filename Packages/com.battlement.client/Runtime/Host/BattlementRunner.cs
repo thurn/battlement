@@ -47,6 +47,8 @@ namespace Battlement
         private bool dittoInputActive;
         private BattlementControlledPointerLease? dittoPointerLease;
         private DittoActivationTransaction? dittoActivationTransaction;
+        private HostSettings? publishedHostSettings;
+        private double nextHostSettingsPoll;
         private ApplicationState? publishedApplicationState;
         private ReducedMotionPreference publishedReducedMotionPreference;
         private bool isDisposed;
@@ -1074,6 +1076,7 @@ namespace Battlement
             worldFocus?.Refresh(CanEmitInput);
             PublishApplicationState();
             PublishReducedMotionPreference();
+            PublishHostSettings();
             bool physicalInputAvailable = CanEmitInput && !dittoInputActive;
             configuredRuntime.PointerInput.Update(CanEmitInput, !dittoInputActive);
             configuredRuntime.KeyboardInput.Update(physicalInputAvailable);
@@ -1310,6 +1313,7 @@ namespace Battlement
                 return;
             }
             PublishApplicationState();
+            PublishHostSettings(true);
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -1335,6 +1339,7 @@ namespace Battlement
                 );
             }
             PublishApplicationState();
+            PublishHostSettings(true);
         }
 
         private void PublishApplicationState()
@@ -1350,6 +1355,28 @@ namespace Battlement
                 return;
             publishedApplicationState = state;
             SubmitCoreAction(new ActionBody.ApplicationStateChanged(state));
+        }
+
+        private HostSettings ReadHostSettings(BattlementRunnerOptions configured) =>
+            configured.ReadHostSettings is null
+                ? BattlementHostSettings.Read(configuredRuntime!.Modules.ModuleIds)
+                : configured.ReadHostSettings();
+
+        private void PublishHostSettings(bool force = false)
+        {
+            if (session.Phase != BattlementSessionPhase.Running || configuredRuntime is null)
+                return;
+            BattlementHostSettings.ObserveInput();
+            double now = Time.realtimeSinceStartupAsDouble;
+            if (!force && now < nextHostSettingsPoll)
+                return;
+            nextHostSettingsPoll = now + 0.25;
+            HostSettings current = ReadHostSettings(configuredRuntime.Options);
+            if (publishedHostSettings is not null && publishedHostSettings.Equivalent(current))
+                return;
+            publishedHostSettings = current;
+            BattlementHostSettings.Report(configuredRuntime.Options.Logger, current);
+            SubmitCoreAction(new ActionBody.HostSettingsChanged(current));
         }
 
         private void PublishReducedMotionPreference()
@@ -1736,6 +1763,9 @@ namespace Battlement
             );
             publishedApplicationState = state;
             publishedReducedMotionPreference = BattlementReducedMotion.Preference();
+            publishedHostSettings = ReadHostSettings(configured);
+            BattlementHostSettings.Report(configured.Logger, publishedHostSettings);
+            nextHostSettingsPoll = 0;
             return new Connect(
                 PlatformName(Application.platform),
                 Application.unityVersion,
@@ -1746,6 +1776,7 @@ namespace Battlement
                 configuredRuntime.Modules.ModuleIds
             )
             {
+                HostSettings = publishedHostSettings,
                 ApplicationState = state,
                 ReducedMotionPreference = publishedReducedMotionPreference,
             };

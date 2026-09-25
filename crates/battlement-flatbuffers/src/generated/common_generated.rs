@@ -194,6 +194,302 @@ pub mod battlement {
       }
 
       impl ::flatbuffers::SimpleToVerifyInSlice for ReducedMotionPreference {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_HOST_PLATFORM: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_HOST_PLATFORM: u8 = 4;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_HOST_PLATFORM: [HostPlatform; 5] = [
+        HostPlatform::Unavailable,
+        HostPlatform::MacOs,
+        HostPlatform::Windows,
+        HostPlatform::Web,
+        HostPlatform::Ios,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct HostPlatform(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl HostPlatform {
+        pub const Unavailable: Self = Self(0);
+        pub const MacOs: Self = Self(1);
+        pub const Windows: Self = Self(2);
+        pub const Web: Self = Self(3);
+        pub const Ios: Self = Self(4);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 4;
+        pub const ENUM_VALUES: &'static [Self] = &[
+          Self::Unavailable,
+          Self::MacOs,
+          Self::Windows,
+          Self::Web,
+          Self::Ios,
+        ];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Unavailable => Some("Unavailable"),
+            Self::MacOs => Some("MacOs"),
+            Self::Windows => Some("Windows"),
+            Self::Web => Some("Web"),
+            Self::Ios => Some("Ios"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for HostPlatform {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for HostPlatform {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for HostPlatform {
+        type Output = HostPlatform;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for HostPlatform {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for HostPlatform {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for HostPlatform {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_SETTING_AVAILABILITY: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_SETTING_AVAILABILITY: u8 = 2;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_SETTING_AVAILABILITY: [SettingAvailability; 3] = [
+        SettingAvailability::Unavailable,
+        SettingAvailability::Available,
+        SettingAvailability::Failed,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct SettingAvailability(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl SettingAvailability {
+        pub const Unavailable: Self = Self(0);
+        pub const Available: Self = Self(1);
+        pub const Failed: Self = Self(2);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 2;
+        pub const ENUM_VALUES: &'static [Self] =
+          &[Self::Unavailable, Self::Available, Self::Failed];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Unavailable => Some("Unavailable"),
+            Self::Available => Some("Available"),
+            Self::Failed => Some("Failed"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for SettingAvailability {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for SettingAvailability {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for SettingAvailability {
+        type Output = SettingAvailability;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for SettingAvailability {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for SettingAvailability {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for SettingAvailability {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_DISPLAY_MODE: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_DISPLAY_MODE: u8 = 2;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_DISPLAY_MODE: [DisplayMode; 3] = [
+        DisplayMode::Windowed,
+        DisplayMode::Borderless,
+        DisplayMode::Fullscreen,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct DisplayMode(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl DisplayMode {
+        pub const Windowed: Self = Self(0);
+        pub const Borderless: Self = Self(1);
+        pub const Fullscreen: Self = Self(2);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 2;
+        pub const ENUM_VALUES: &'static [Self] =
+          &[Self::Windowed, Self::Borderless, Self::Fullscreen];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Windowed => Some("Windowed"),
+            Self::Borderless => Some("Borderless"),
+            Self::Fullscreen => Some("Fullscreen"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for DisplayMode {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for DisplayMode {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for DisplayMode {
+        type Output = DisplayMode;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for DisplayMode {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for DisplayMode {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for DisplayMode {}
       // struct Uuid, aligned to 1
       #[repr(transparent)]
       #[derive(Clone, Copy, PartialEq)]
@@ -1560,6 +1856,206 @@ pub mod battlement {
         }
       }
 
+      // struct DisplayResolution, aligned to 4
+      #[repr(transparent)]
+      #[derive(Clone, Copy, PartialEq)]
+      pub struct DisplayResolution(pub [u8; 16]);
+      impl Default for DisplayResolution {
+        fn default() -> Self {
+          Self([0; 16])
+        }
+      }
+      impl ::core::fmt::Debug for DisplayResolution {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          f.debug_struct("DisplayResolution")
+            .field("width", &self.width())
+            .field("height", &self.height())
+            .field("refresh_numerator", &self.refresh_numerator())
+            .field("refresh_denominator", &self.refresh_denominator())
+            .finish()
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for DisplayResolution {}
+      impl<'a> ::flatbuffers::Follow<'a> for DisplayResolution {
+        type Inner = &'a DisplayResolution;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          unsafe { <&'a DisplayResolution>::follow(buf, loc) }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for &'a DisplayResolution {
+        type Inner = &'a DisplayResolution;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          unsafe { ::flatbuffers::follow_cast_ref::<DisplayResolution>(buf, loc) }
+        }
+      }
+      impl<'b> ::flatbuffers::Push for DisplayResolution {
+        type Output = DisplayResolution;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          let src = unsafe {
+            ::core::slice::from_raw_parts(
+              self as *const DisplayResolution as *const u8,
+              <Self as ::flatbuffers::Push>::size(),
+            )
+          };
+          dst.copy_from_slice(src);
+        }
+        #[inline]
+        fn alignment() -> ::flatbuffers::PushAlignment {
+          ::flatbuffers::PushAlignment::new(4)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for DisplayResolution {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.in_buffer::<Self>(pos)
+        }
+      }
+
+      impl<'a> DisplayResolution {
+        #[allow(clippy::too_many_arguments)]
+        pub fn new(
+          width: u32,
+          height: u32,
+          refresh_numerator: u32,
+          refresh_denominator: u32,
+        ) -> Self {
+          let mut s = Self([0; 16]);
+          s.set_width(width);
+          s.set_height(height);
+          s.set_refresh_numerator(refresh_numerator);
+          s.set_refresh_denominator(refresh_denominator);
+          s
+        }
+
+        pub fn width(&self) -> u32 {
+          let mut mem =
+            ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid value in this slot
+          ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+            ::core::ptr::copy_nonoverlapping(
+              self.0[0..].as_ptr(),
+              mem.as_mut_ptr() as *mut u8,
+              ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+            );
+            mem.assume_init()
+          })
+        }
+
+        pub fn set_width(&mut self, x: u32) {
+          let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid value in this slot
+          unsafe {
+            ::core::ptr::copy_nonoverlapping(
+              &x_le as *const _ as *const u8,
+              self.0[0..].as_mut_ptr(),
+              ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+            );
+          }
+        }
+
+        pub fn height(&self) -> u32 {
+          let mut mem =
+            ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid value in this slot
+          ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+            ::core::ptr::copy_nonoverlapping(
+              self.0[4..].as_ptr(),
+              mem.as_mut_ptr() as *mut u8,
+              ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+            );
+            mem.assume_init()
+          })
+        }
+
+        pub fn set_height(&mut self, x: u32) {
+          let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid value in this slot
+          unsafe {
+            ::core::ptr::copy_nonoverlapping(
+              &x_le as *const _ as *const u8,
+              self.0[4..].as_mut_ptr(),
+              ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+            );
+          }
+        }
+
+        pub fn refresh_numerator(&self) -> u32 {
+          let mut mem =
+            ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid value in this slot
+          ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+            ::core::ptr::copy_nonoverlapping(
+              self.0[8..].as_ptr(),
+              mem.as_mut_ptr() as *mut u8,
+              ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+            );
+            mem.assume_init()
+          })
+        }
+
+        pub fn set_refresh_numerator(&mut self, x: u32) {
+          let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid value in this slot
+          unsafe {
+            ::core::ptr::copy_nonoverlapping(
+              &x_le as *const _ as *const u8,
+              self.0[8..].as_mut_ptr(),
+              ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+            );
+          }
+        }
+
+        pub fn refresh_denominator(&self) -> u32 {
+          let mut mem =
+            ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid value in this slot
+          ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+            ::core::ptr::copy_nonoverlapping(
+              self.0[12..].as_ptr(),
+              mem.as_mut_ptr() as *mut u8,
+              ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+            );
+            mem.assume_init()
+          })
+        }
+
+        pub fn set_refresh_denominator(&mut self, x: u32) {
+          let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+          // Safety:
+          // Created from a valid Table for this object
+          // Which contains a valid value in this slot
+          unsafe {
+            ::core::ptr::copy_nonoverlapping(
+              &x_le as *const _ as *const u8,
+              self.0[12..].as_mut_ptr(),
+              ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+            );
+          }
+        }
+      }
+
       pub enum ApplicationStateOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -1693,6 +2189,847 @@ pub mod battlement {
           let mut ds = f.debug_struct("ApplicationState");
           ds.field("focused", &self.focused());
           ds.field("paused", &self.paused());
+          ds.finish()
+        }
+      }
+      pub enum DisplayConfigurationOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct DisplayConfiguration<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for DisplayConfiguration<'a> {
+        type Inner = DisplayConfiguration<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> DisplayConfiguration<'a> {
+        pub const VT_MODE: ::flatbuffers::VOffsetT = 4;
+        pub const VT_RESOLUTION: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          DisplayConfiguration { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args DisplayConfigurationArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<DisplayConfiguration<'bldr>> {
+          let mut builder = DisplayConfigurationBuilder::new(_fbb);
+          if let Some(x) = args.resolution {
+            builder.add_resolution(x);
+          }
+          builder.add_mode(args.mode);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn mode(&self) -> DisplayMode {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<DisplayMode>(DisplayConfiguration::VT_MODE, Some(DisplayMode::Windowed))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn resolution(&self) -> &'a DisplayResolution {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<DisplayResolution>(DisplayConfiguration::VT_RESOLUTION, None)
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for DisplayConfiguration<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<DisplayMode>("mode", Self::VT_MODE, false)?
+            .visit_field::<DisplayResolution>("resolution", Self::VT_RESOLUTION, true)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct DisplayConfigurationArgs<'a> {
+        pub mode: DisplayMode,
+        pub resolution: Option<&'a DisplayResolution>,
+      }
+      impl<'a> Default for DisplayConfigurationArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          DisplayConfigurationArgs {
+            mode: DisplayMode::Windowed,
+            resolution: None, // required field
+          }
+        }
+      }
+
+      pub struct DisplayConfigurationBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DisplayConfigurationBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_mode(&mut self, mode: DisplayMode) {
+          self.fbb_.push_slot::<DisplayMode>(
+            DisplayConfiguration::VT_MODE,
+            mode,
+            DisplayMode::Windowed,
+          );
+        }
+        #[inline]
+        pub fn add_resolution(&mut self, resolution: &DisplayResolution) {
+          self.fbb_.push_slot_always::<&DisplayResolution>(
+            DisplayConfiguration::VT_RESOLUTION,
+            resolution,
+          );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> DisplayConfigurationBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          DisplayConfigurationBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<DisplayConfiguration<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, DisplayConfiguration::VT_RESOLUTION, "resolution");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for DisplayConfiguration<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("DisplayConfiguration");
+          ds.field("mode", &self.mode());
+          ds.field("resolution", &self.resolution());
+          ds.finish()
+        }
+      }
+      pub enum HostSettingsResultOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct HostSettingsResult<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for HostSettingsResult<'a> {
+        type Inner = HostSettingsResult<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> HostSettingsResult<'a> {
+        pub const VT_REQUEST_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_ERROR: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          HostSettingsResult { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args HostSettingsResultArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<HostSettingsResult<'bldr>> {
+          let mut builder = HostSettingsResultBuilder::new(_fbb);
+          if let Some(x) = args.error {
+            builder.add_error(x);
+          }
+          if let Some(x) = args.request_id {
+            builder.add_request_id(x);
+          }
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn request_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(HostSettingsResult::VT_REQUEST_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn error(&self) -> Option<&'a str> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(HostSettingsResult::VT_ERROR, None)
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for HostSettingsResult<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("request_id", Self::VT_REQUEST_ID, true)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("error", Self::VT_ERROR, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct HostSettingsResultArgs<'a> {
+        pub request_id: Option<&'a Uuid>,
+        pub error: Option<::flatbuffers::WIPOffset<&'a str>>,
+      }
+      impl<'a> Default for HostSettingsResultArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          HostSettingsResultArgs {
+            request_id: None, // required field
+            error: None,
+          }
+        }
+      }
+
+      pub struct HostSettingsResultBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HostSettingsResultBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_request_id(&mut self, request_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(HostSettingsResult::VT_REQUEST_ID, request_id);
+        }
+        #[inline]
+        pub fn add_error(&mut self, error: ::flatbuffers::WIPOffset<&'b str>) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<_>>(HostSettingsResult::VT_ERROR, error);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> HostSettingsResultBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          HostSettingsResultBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<HostSettingsResult<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, HostSettingsResult::VT_REQUEST_ID, "request_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for HostSettingsResult<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("HostSettingsResult");
+          ds.field("request_id", &self.request_id());
+          ds.field("error", &self.error());
+          ds.finish()
+        }
+      }
+      pub enum HostSettingsOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct HostSettings<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for HostSettings<'a> {
+        type Inner = HostSettings<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> HostSettings<'a> {
+        pub const VT_PLATFORM: ::flatbuffers::VOffsetT = 4;
+        pub const VT_DISPLAY: ::flatbuffers::VOffsetT = 6;
+        pub const VT_DISPLAY_MODES: ::flatbuffers::VOffsetT = 8;
+        pub const VT_RESOLUTIONS: ::flatbuffers::VOffsetT = 10;
+        pub const VT_APPLIED_DISPLAY: ::flatbuffers::VOffsetT = 12;
+        pub const VT_FRAME_PACING: ::flatbuffers::VOffsetT = 14;
+        pub const VT_FRAME_RATES: ::flatbuffers::VOffsetT = 16;
+        pub const VT_APPLIED_FRAME_RATE: ::flatbuffers::VOffsetT = 18;
+        pub const VT_VSYNC_AVAILABLE: ::flatbuffers::VOffsetT = 20;
+        pub const VT_APPLIED_VSYNC: ::flatbuffers::VOffsetT = 22;
+        pub const VT_KEYBOARD_CONNECTED: ::flatbuffers::VOffsetT = 24;
+        pub const VT_CONTROLLER_COUNT: ::flatbuffers::VOffsetT = 26;
+        pub const VT_DIAGNOSTICS: ::flatbuffers::VOffsetT = 28;
+        pub const VT_DIAGNOSTICS_CONFIGURED: ::flatbuffers::VOffsetT = 30;
+        pub const VT_OBSERVATION_ERROR: ::flatbuffers::VOffsetT = 32;
+        pub const VT_LAST_RESULT: ::flatbuffers::VOffsetT = 34;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          HostSettings { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args HostSettingsArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<HostSettings<'bldr>> {
+          let mut builder = HostSettingsBuilder::new(_fbb);
+          if let Some(x) = args.last_result {
+            builder.add_last_result(x);
+          }
+          if let Some(x) = args.observation_error {
+            builder.add_observation_error(x);
+          }
+          builder.add_controller_count(args.controller_count);
+          builder.add_applied_frame_rate(args.applied_frame_rate);
+          if let Some(x) = args.frame_rates {
+            builder.add_frame_rates(x);
+          }
+          if let Some(x) = args.applied_display {
+            builder.add_applied_display(x);
+          }
+          if let Some(x) = args.resolutions {
+            builder.add_resolutions(x);
+          }
+          if let Some(x) = args.display_modes {
+            builder.add_display_modes(x);
+          }
+          builder.add_diagnostics_configured(args.diagnostics_configured);
+          builder.add_diagnostics(args.diagnostics);
+          builder.add_keyboard_connected(args.keyboard_connected);
+          builder.add_applied_vsync(args.applied_vsync);
+          builder.add_vsync_available(args.vsync_available);
+          builder.add_frame_pacing(args.frame_pacing);
+          builder.add_display(args.display);
+          builder.add_platform(args.platform);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn platform(&self) -> HostPlatform {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<HostPlatform>(HostSettings::VT_PLATFORM, Some(HostPlatform::Unavailable))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn display(&self) -> SettingAvailability {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<SettingAvailability>(
+                HostSettings::VT_DISPLAY,
+                Some(SettingAvailability::Unavailable),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn display_modes(&self) -> ::flatbuffers::Vector<'a, DisplayMode> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, DisplayMode>>>(
+                HostSettings::VT_DISPLAY_MODES,
+                None,
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn resolutions(&self) -> ::flatbuffers::Vector<'a, DisplayResolution> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, DisplayResolution>>>(
+                HostSettings::VT_RESOLUTIONS,
+                None,
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn applied_display(&self) -> Option<DisplayConfiguration<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<DisplayConfiguration>>(
+                HostSettings::VT_APPLIED_DISPLAY,
+                None,
+              )
+          }
+        }
+        #[inline]
+        pub fn frame_pacing(&self) -> SettingAvailability {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<SettingAvailability>(
+                HostSettings::VT_FRAME_PACING,
+                Some(SettingAvailability::Unavailable),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn frame_rates(&self) -> ::flatbuffers::Vector<'a, u32> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(
+                HostSettings::VT_FRAME_RATES,
+                None,
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn applied_frame_rate(&self) -> i32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<i32>(HostSettings::VT_APPLIED_FRAME_RATE, Some(-1))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn vsync_available(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(HostSettings::VT_VSYNC_AVAILABLE, Some(false))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn applied_vsync(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(HostSettings::VT_APPLIED_VSYNC, Some(false))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn keyboard_connected(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(HostSettings::VT_KEYBOARD_CONNECTED, Some(false))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn controller_count(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(HostSettings::VT_CONTROLLER_COUNT, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn diagnostics(&self) -> SettingAvailability {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<SettingAvailability>(
+                HostSettings::VT_DIAGNOSTICS,
+                Some(SettingAvailability::Unavailable),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn diagnostics_configured(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(HostSettings::VT_DIAGNOSTICS_CONFIGURED, Some(false))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn observation_error(&self) -> Option<&'a str> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<&str>>(HostSettings::VT_OBSERVATION_ERROR, None)
+          }
+        }
+        #[inline]
+        pub fn last_result(&self) -> Option<HostSettingsResult<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<HostSettingsResult>>(
+                HostSettings::VT_LAST_RESULT,
+                None,
+              )
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for HostSettings<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+     .visit_field::<HostPlatform>("platform", Self::VT_PLATFORM, false)?
+     .visit_field::<SettingAvailability>("display", Self::VT_DISPLAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DisplayMode>>>("display_modes", Self::VT_DISPLAY_MODES, true)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DisplayResolution>>>("resolutions", Self::VT_RESOLUTIONS, true)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<DisplayConfiguration>>("applied_display", Self::VT_APPLIED_DISPLAY, false)?
+     .visit_field::<SettingAvailability>("frame_pacing", Self::VT_FRAME_PACING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("frame_rates", Self::VT_FRAME_RATES, true)?
+     .visit_field::<i32>("applied_frame_rate", Self::VT_APPLIED_FRAME_RATE, false)?
+     .visit_field::<bool>("vsync_available", Self::VT_VSYNC_AVAILABLE, false)?
+     .visit_field::<bool>("applied_vsync", Self::VT_APPLIED_VSYNC, false)?
+     .visit_field::<bool>("keyboard_connected", Self::VT_KEYBOARD_CONNECTED, false)?
+     .visit_field::<u32>("controller_count", Self::VT_CONTROLLER_COUNT, false)?
+     .visit_field::<SettingAvailability>("diagnostics", Self::VT_DIAGNOSTICS, false)?
+     .visit_field::<bool>("diagnostics_configured", Self::VT_DIAGNOSTICS_CONFIGURED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("observation_error", Self::VT_OBSERVATION_ERROR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<HostSettingsResult>>("last_result", Self::VT_LAST_RESULT, false)?
+     .finish();
+          Ok(())
+        }
+      }
+      pub struct HostSettingsArgs<'a> {
+        pub platform: HostPlatform,
+        pub display: SettingAvailability,
+        pub display_modes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DisplayMode>>>,
+        pub resolutions:
+          Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DisplayResolution>>>,
+        pub applied_display: Option<::flatbuffers::WIPOffset<DisplayConfiguration<'a>>>,
+        pub frame_pacing: SettingAvailability,
+        pub frame_rates: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+        pub applied_frame_rate: i32,
+        pub vsync_available: bool,
+        pub applied_vsync: bool,
+        pub keyboard_connected: bool,
+        pub controller_count: u32,
+        pub diagnostics: SettingAvailability,
+        pub diagnostics_configured: bool,
+        pub observation_error: Option<::flatbuffers::WIPOffset<&'a str>>,
+        pub last_result: Option<::flatbuffers::WIPOffset<HostSettingsResult<'a>>>,
+      }
+      impl<'a> Default for HostSettingsArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          HostSettingsArgs {
+            platform: HostPlatform::Unavailable,
+            display: SettingAvailability::Unavailable,
+            display_modes: None, // required field
+            resolutions: None,   // required field
+            applied_display: None,
+            frame_pacing: SettingAvailability::Unavailable,
+            frame_rates: None, // required field
+            applied_frame_rate: -1,
+            vsync_available: false,
+            applied_vsync: false,
+            keyboard_connected: false,
+            controller_count: 0,
+            diagnostics: SettingAvailability::Unavailable,
+            diagnostics_configured: false,
+            observation_error: None,
+            last_result: None,
+          }
+        }
+      }
+
+      pub struct HostSettingsBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HostSettingsBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_platform(&mut self, platform: HostPlatform) {
+          self.fbb_.push_slot::<HostPlatform>(
+            HostSettings::VT_PLATFORM,
+            platform,
+            HostPlatform::Unavailable,
+          );
+        }
+        #[inline]
+        pub fn add_display(&mut self, display: SettingAvailability) {
+          self.fbb_.push_slot::<SettingAvailability>(
+            HostSettings::VT_DISPLAY,
+            display,
+            SettingAvailability::Unavailable,
+          );
+        }
+        #[inline]
+        pub fn add_display_modes(
+          &mut self,
+          display_modes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, DisplayMode>>,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            HostSettings::VT_DISPLAY_MODES,
+            display_modes,
+          );
+        }
+        #[inline]
+        pub fn add_resolutions(
+          &mut self,
+          resolutions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, DisplayResolution>>,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            HostSettings::VT_RESOLUTIONS,
+            resolutions,
+          );
+        }
+        #[inline]
+        pub fn add_applied_display(
+          &mut self,
+          applied_display: ::flatbuffers::WIPOffset<DisplayConfiguration<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<DisplayConfiguration>>(
+              HostSettings::VT_APPLIED_DISPLAY,
+              applied_display,
+            );
+        }
+        #[inline]
+        pub fn add_frame_pacing(&mut self, frame_pacing: SettingAvailability) {
+          self.fbb_.push_slot::<SettingAvailability>(
+            HostSettings::VT_FRAME_PACING,
+            frame_pacing,
+            SettingAvailability::Unavailable,
+          );
+        }
+        #[inline]
+        pub fn add_frame_rates(
+          &mut self,
+          frame_rates: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, u32>>,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            HostSettings::VT_FRAME_RATES,
+            frame_rates,
+          );
+        }
+        #[inline]
+        pub fn add_applied_frame_rate(&mut self, applied_frame_rate: i32) {
+          self
+            .fbb_
+            .push_slot::<i32>(HostSettings::VT_APPLIED_FRAME_RATE, applied_frame_rate, -1);
+        }
+        #[inline]
+        pub fn add_vsync_available(&mut self, vsync_available: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(HostSettings::VT_VSYNC_AVAILABLE, vsync_available, false);
+        }
+        #[inline]
+        pub fn add_applied_vsync(&mut self, applied_vsync: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(HostSettings::VT_APPLIED_VSYNC, applied_vsync, false);
+        }
+        #[inline]
+        pub fn add_keyboard_connected(&mut self, keyboard_connected: bool) {
+          self.fbb_.push_slot::<bool>(
+            HostSettings::VT_KEYBOARD_CONNECTED,
+            keyboard_connected,
+            false,
+          );
+        }
+        #[inline]
+        pub fn add_controller_count(&mut self, controller_count: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(HostSettings::VT_CONTROLLER_COUNT, controller_count, 0);
+        }
+        #[inline]
+        pub fn add_diagnostics(&mut self, diagnostics: SettingAvailability) {
+          self.fbb_.push_slot::<SettingAvailability>(
+            HostSettings::VT_DIAGNOSTICS,
+            diagnostics,
+            SettingAvailability::Unavailable,
+          );
+        }
+        #[inline]
+        pub fn add_diagnostics_configured(&mut self, diagnostics_configured: bool) {
+          self.fbb_.push_slot::<bool>(
+            HostSettings::VT_DIAGNOSTICS_CONFIGURED,
+            diagnostics_configured,
+            false,
+          );
+        }
+        #[inline]
+        pub fn add_observation_error(
+          &mut self,
+          observation_error: ::flatbuffers::WIPOffset<&'b str>,
+        ) {
+          self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+            HostSettings::VT_OBSERVATION_ERROR,
+            observation_error,
+          );
+        }
+        #[inline]
+        pub fn add_last_result(
+          &mut self,
+          last_result: ::flatbuffers::WIPOffset<HostSettingsResult<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<HostSettingsResult>>(
+              HostSettings::VT_LAST_RESULT,
+              last_result,
+            );
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> HostSettingsBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          HostSettingsBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<HostSettings<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, HostSettings::VT_DISPLAY_MODES, "display_modes");
+          self
+            .fbb_
+            .required(o, HostSettings::VT_RESOLUTIONS, "resolutions");
+          self
+            .fbb_
+            .required(o, HostSettings::VT_FRAME_RATES, "frame_rates");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for HostSettings<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("HostSettings");
+          ds.field("platform", &self.platform());
+          ds.field("display", &self.display());
+          ds.field("display_modes", &self.display_modes());
+          ds.field("resolutions", &self.resolutions());
+          ds.field("applied_display", &self.applied_display());
+          ds.field("frame_pacing", &self.frame_pacing());
+          ds.field("frame_rates", &self.frame_rates());
+          ds.field("applied_frame_rate", &self.applied_frame_rate());
+          ds.field("vsync_available", &self.vsync_available());
+          ds.field("applied_vsync", &self.applied_vsync());
+          ds.field("keyboard_connected", &self.keyboard_connected());
+          ds.field("controller_count", &self.controller_count());
+          ds.field("diagnostics", &self.diagnostics());
+          ds.field("diagnostics_configured", &self.diagnostics_configured());
+          ds.field("observation_error", &self.observation_error());
+          ds.field("last_result", &self.last_result());
           ds.finish()
         }
       }

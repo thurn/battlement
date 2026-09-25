@@ -1,5 +1,6 @@
 //! Application observations and session-bound command handles.
 
+use battlement::host_settings::HostSettings;
 use std::{
   cell::RefCell,
   path::PathBuf,
@@ -61,6 +62,8 @@ pub fn use_viewport_size() -> ScreenSize {
 pub struct HostEnvironment {
   /// Selected native host modules.
   pub modules: Vec<String>,
+  /// Current host-supported settings and applied values.
+  pub settings: HostSettings,
   /// Per-application persistent storage directory.
   pub persistent_data_path: Option<PathBuf>,
 }

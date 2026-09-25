@@ -64,7 +64,8 @@ enum CoreActionKind:ubyte {
   GeometryObservations,
   MotionEvents,
   ApplicationStateChanged,
-  ReducedMotionPreferenceChanged
+  ReducedMotionPreferenceChanged,
+  HostSettingsChanged
 }
 
 table ActivationAction {
@@ -125,6 +126,10 @@ table ReducedMotionPreferenceAction {
   value:ReducedMotionPreference;
 }
 
+table HostSettingsAction {
+  value:HostSettings (required);
+}
+
 union CoreActionBody {
   ActivationAction,
   PointerAction,
@@ -136,7 +141,8 @@ union CoreActionBody {
   GeometryAction,
   MotionAction,
   ApplicationStateAction,
-  ReducedMotionPreferenceAction
+  ReducedMotionPreferenceAction,
+  HostSettingsAction
 }
 
 table CoreAction {

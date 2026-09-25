@@ -155,6 +155,7 @@ fn adapter_accepts_finished_flatbuffers() {
 
 fn connect_bytes() -> Vec<u8> {
   write_connect(&ConnectInput {
+    host_settings: None,
     platform: "test",
     unity_version: "test",
     screen_width: 1920,
