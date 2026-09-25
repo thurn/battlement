@@ -44,6 +44,32 @@ def scratch_repository(path: Path) -> Path:
     return path
 
 
+def verify_retained_output_identity(temporary: Path) -> None:
+    """Retained evidence preserves failures while new source still invalidates jobs."""
+    repository = scratch_repository(temporary / "retained-output-repository")
+    (repository / ".gitignore").write_text((REPOSITORY_ROOT / ".gitignore").read_text())
+    for output, expected in (
+        ("artifacts/unity-tests/fixture/results.xml", "failed"),
+        ("new-source.rs", "inputs-invalidated"),
+        ("artifacts/source.rs", "inputs-invalidated"),
+    ):
+        command = [
+            sys.executable, "-c",
+            "from pathlib import Path; import sys; "
+            "p = Path(sys.argv[1]); p.parent.mkdir(parents=True, exist_ok=True); "
+            "p.write_text('retained fixture'); print('==> Controlled failure'); "
+            "sys.exit(7)",
+            output,
+        ]
+        started = ci_job.start_job(repository, [], purpose=output, command=command)
+        result = ci_job.wait_for(Path(started["handle_path"]), None, 5)
+        assert result["state"] == expected, result
+        assert result["exit_code"] == 7
+        assert (repository / output).read_text() == "retained fixture"
+        assert "Controlled failure" in Path(result["log_path"]).read_text()
+        print(f"CI identity: {output}: {result['state']} (exit {result['exit_code']})")
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-ci-job-test.") as temporary:
         repository = scratch_repository(Path(temporary) / "repository")
@@ -207,6 +233,7 @@ threading.Event().wait()
         assert not ci_job.process_identity.matches(process)
         replacement_final = ci_job.wait_for(Path(replacement["handle_path"]), None, 5)
         assert replacement_final["state"] == "inputs-invalidated"
+        verify_retained_output_identity(Path(temporary))
 
     print("CI job handle tests passed.")
 

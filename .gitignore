@@ -14,9 +14,10 @@
 # Recordings can get excessive in size.
 /[Rr]ecordings/
 
-# Generated visual evidence is retained outside version control.
+# Generated validation evidence is retained outside version control.
 /artifacts/visual-evidence/
 /artifacts/ditto-ci/
+/artifacts/unity-tests/
 /baselines/
 /.logs/
 .ditto.lock.lease
