@@ -14,6 +14,9 @@ mod game_output;
 mod game_session;
 mod input;
 mod persistence;
+mod persistence_file;
+mod persistence_operation;
+mod persistence_store;
 pub mod prelude;
 mod presentation_inspector;
 mod timers;
@@ -41,9 +44,14 @@ pub use game_output::{GameConsumer, GameOutput};
 pub use game_session::{DispatchResult, GameHandle, GameObservation, GameStatus};
 pub use input::{GlobalInput, use_global_input};
 pub use persistence::{
-  FilePersistenceBackend, PersistenceBackend, PersistentState, use_host_module,
-  use_persistent_state, use_persistent_state_with,
+  PersistentState, use_host_module, use_persistent_state, use_persistent_state_with,
 };
+pub use persistence_file::FilePersistenceBackend;
+pub use persistence_operation::{
+  PersistenceBackend, PersistenceCompletion, PersistenceId, PersistenceOperation,
+  PersistenceRequest,
+};
+pub use persistence_store::{PersistenceSnapshot, PersistenceStore};
 pub use presentation_inspector::{InspectorObject, PresentationInspector};
 pub use reactant_core::{
   __register_generated_asset, animation_controls, announcement, app_context, application,

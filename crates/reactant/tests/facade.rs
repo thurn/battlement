@@ -12,3 +12,6 @@ fn facade_and_ui_layer_share_the_core_render_contract() {
   let view: reactant_ui::host::View = View::new();
   require_core_render(view);
 }
+
+#[path = "cases/persistence.rs"]
+mod persistence;

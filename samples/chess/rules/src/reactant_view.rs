@@ -116,10 +116,13 @@ impl Component for PersistentChessApp {
       crate::persistence::SAVE_FILE_NAME,
       self.backend.clone(),
     );
-    ChessApp {
+    if !persistence.hydrated() && persistence.error().is_none() {
+      return Either::left(());
+    }
+    Either::right(ChessApp {
       config: self.config.clone(),
       persistence: Some(persistence),
-    }
+    })
   }
 }
 

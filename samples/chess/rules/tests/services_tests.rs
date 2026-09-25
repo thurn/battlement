@@ -4,8 +4,11 @@ mod support;
 use crate::support::{fixtures, game::ChessTest, storage};
 use chess_rules::{assets, audio};
 use cozy_chess::{Color, Piece, Square};
+use reactant::{
+  PersistenceBackend, PersistenceCompletion, PersistenceOperation, PersistenceRequest,
+};
 use reactant_testing::MemoryPersistence;
-use std::time::Duration;
+use std::{cell::RefCell, path::Path, rc::Rc, time::Duration};
 
 #[test]
 fn saved_moves_survive_a_fresh_engine() {
@@ -129,4 +132,55 @@ fn restart_creates_a_playable_fresh_session() {
   game.play(Square::D2, Square::D4);
   game.expect_piece(Square::D4, Color::White, Piece::Pawn);
   game.expect_piece(Square::D7, Color::Black, Piece::Pawn);
+}
+
+struct DelayedLoad {
+  memory: Rc<MemoryPersistence>,
+  read: RefCell<Option<(PersistenceRequest, PersistenceCompletion)>>,
+}
+
+impl PersistenceBackend for DelayedLoad {
+  fn load(&self, path: &Path) -> Result<Option<Vec<u8>>, String> {
+    self.memory.load(path)
+  }
+
+  fn store(&self, path: &Path, bytes: &[u8]) -> Result<(), String> {
+    self.memory.store(path, bytes)
+  }
+
+  fn remove(&self, path: &Path) -> Result<(), String> {
+    self.memory.remove(path)
+  }
+
+  fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
+    if request.operation == PersistenceOperation::Load {
+      self.read.replace(Some((request, complete)));
+    } else {
+      self.memory.start(request, complete);
+    }
+  }
+}
+
+#[test]
+fn delayed_hydration_restores_the_saved_game_before_initializing_chess() {
+  let memory = MemoryPersistence::empty();
+  let mut first = ChessTest::persisted(memory.clone());
+  first.start();
+  first.play(Square::E2, Square::E4);
+  drop(first);
+  let delayed = Rc::new(DelayedLoad {
+    memory,
+    read: RefCell::new(None),
+  });
+  let mut restored = ChessTest::persisted(delayed.clone());
+  let (read, done) = delayed
+    .read
+    .borrow_mut()
+    .take()
+    .expect("load awaits completion");
+  done(read.id, delayed.load(&read.path));
+  restored.display.settle();
+  restored.start();
+  restored.expect_empty(Square::E2);
+  restored.expect_piece(Square::E4, Color::White, Piece::Pawn);
 }

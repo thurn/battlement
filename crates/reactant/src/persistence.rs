@@ -1,65 +1,23 @@
 //! Typed component-owned persistent state.
 
+use reactant_core::{app_context::HostEnvironment, hooks};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{
-  fs,
-  io::ErrorKind,
-  path::{Path, PathBuf},
+  path::{Component, Path},
   rc::Rc,
 };
 
-use reactant_core::{app_context::HostEnvironment, hooks};
-use serde::{Serialize, de::DeserializeOwned};
+use crate::{
+  persistence_file::FilePersistenceBackend,
+  persistence_operation::{PersistenceBackend, PersistenceId},
+  persistence_store::{PersistenceSnapshot, PersistenceStore},
+};
 
-/// A typed persistent value and its non-fatal storage error.
+/// A rendered persistence snapshot and a stable ordered setter boundary.
 #[derive(Clone)]
 pub struct PersistentState<T: Clone + PartialEq + 'static> {
-  value: Option<T>,
-  error: Option<String>,
-  path: Option<PathBuf>,
-  backend: Rc<dyn PersistenceBackend>,
-  value_setter: hooks::StateSetter<Option<T>>,
-  error_setter: hooks::StateSetter<Option<String>>,
-}
-
-/// Raw persistent storage used by component-owned serialized state.
-pub trait PersistenceBackend {
-  /// Loads bytes at a host-resolved path, returning `None` when no value exists.
-  fn load(&self, path: &Path) -> Result<Option<Vec<u8>>, String>;
-
-  /// Replaces the bytes at a host-resolved path.
-  fn store(&self, path: &Path, bytes: &[u8]) -> Result<(), String>;
-
-  /// Removes the value at a host-resolved path. Missing values are already removed.
-  fn remove(&self, path: &Path) -> Result<(), String>;
-}
-
-/// Filesystem-backed persistence used by default.
-#[derive(Default)]
-pub struct FilePersistenceBackend;
-
-impl PersistenceBackend for FilePersistenceBackend {
-  fn load(&self, path: &Path) -> Result<Option<Vec<u8>>, String> {
-    match fs::read(path) {
-      Ok(bytes) => Ok(Some(bytes)),
-      Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
-      Err(error) => Err(error.to_string()),
-    }
-  }
-
-  fn store(&self, path: &Path, bytes: &[u8]) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-      fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    fs::write(path, bytes).map_err(|error| error.to_string())
-  }
-
-  fn remove(&self, path: &Path) -> Result<(), String> {
-    match fs::remove_file(path) {
-      Ok(()) => Ok(()),
-      Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
-      Err(error) => Err(error.to_string()),
-    }
-  }
+  snapshot: PersistenceSnapshot<T>,
+  store: PersistenceStore<T>,
 }
 
 /// Loads a serde value from the host's persistent-data directory.
@@ -68,10 +26,11 @@ pub fn use_persistent_state<T>(file_name: impl Into<String>) -> PersistentState<
 where
   T: Clone + PartialEq + Serialize + DeserializeOwned + 'static,
 {
-  use_persistent_state_with(file_name, Rc::new(FilePersistenceBackend))
+  self::use_persistent_state_with(file_name, Rc::new(FilePersistenceBackend))
 }
 
-/// Loads typed state through an injected raw-byte persistence backend.
+/// Uses an injected backend; asynchronous hydration is exposed by `hydrated`.
+/// Keep consumers that initialize from storage unmounted until hydration completes.
 pub fn use_persistent_state_with<T>(
   file_name: impl Into<String>,
   backend: Rc<dyn PersistenceBackend>,
@@ -81,8 +40,9 @@ where
 {
   let environment = hooks::use_required_context::<HostEnvironment>();
   let file_name = file_name.into();
+  let mut components = Path::new(&file_name).components();
   assert!(
-    !file_name.is_empty() && std::path::Path::new(&file_name).file_name().is_some(),
+    matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none(),
     "persistent state requires a file name"
   );
   let initial_file_name = file_name.clone();
@@ -95,88 +55,56 @@ where
     .persistent_data_path
     .as_ref()
     .map(|directory| directory.join(&mounted_file_name));
-  let load_path = path.clone();
-  let load_backend = backend.clone();
-  let (initial, initial_error) = hooks::use_memo(
-    move || match load_path {
-      None => (None, None),
-      Some(path) => match load_backend.load(&path) {
-        Ok(Some(bytes)) => match serde_json::from_slice(&bytes) {
-          Ok(value) => (Some(value), None),
-          Err(error) => (
-            None,
-            Some(format!("could not read persistent state: {error}")),
-          ),
-        },
-        Ok(None) => (None, None),
-        Err(error) => (
-          None,
-          Some(format!("could not read persistent state: {error}")),
-        ),
-      },
+  let store = hooks::use_memo(move || PersistenceStore::new(path, backend), ());
+  let (_, set_revision) = hooks::use_state(0_u64);
+  let subscribed = store.clone();
+  hooks::use_effect(
+    move || {
+      subscribed.listen(Rc::new(move || {
+        set_revision.update(|revision| revision.wrapping_add(1))
+      }));
+      move || subscribed.detach()
     },
     (),
   );
-  let (value, value_setter) = hooks::use_state(initial);
-  let (error, error_setter) = hooks::use_state(initial_error);
   PersistentState {
-    value,
-    error,
-    path,
-    backend,
-    value_setter,
-    error_setter,
+    snapshot: store.snapshot(),
+    store,
   }
 }
 
-impl<T> PersistentState<T>
-where
-  T: Clone + PartialEq + Serialize + DeserializeOwned + 'static,
-{
-  /// Returns the last loaded or successfully saved value.
+impl<T: Clone + PartialEq + Serialize + DeserializeOwned + 'static> PersistentState<T> {
+  /// Returns only the last loaded or successfully acknowledged value.
   pub fn value(&self) -> Option<&T> {
-    self.value.as_ref()
+    self.snapshot.durable.as_ref()
   }
-
-  /// Returns the latest non-fatal load, save, or clear error.
+  /// Returns immediately applied intent, including an unsaved value or deletion.
+  pub fn desired(&self) -> Option<&T> {
+    self.snapshot.desired.as_ref()
+  }
+  /// Whether the initial read completed; defaults must not be saved before this.
+  pub fn hydrated(&self) -> bool {
+    self.snapshot.hydrated
+  }
+  /// Identity of the operation awaiting acknowledgment.
+  pub fn pending(&self) -> Option<PersistenceId> {
+    self.snapshot.pending
+  }
+  /// Returns the latest load, serialization, save, or clear failure.
   pub fn error(&self) -> Option<&str> {
-    self.error.as_deref()
+    self.snapshot.error.as_deref()
   }
-
-  /// Serializes and stores a replacement value.
+  /// Applies and queues a replacement, coalescing intermediate queued intent.
   pub fn update(&self, value: T) {
-    let result = self.path.as_ref().map_or(Ok(()), |path| {
-      let bytes = serde_json::to_vec_pretty(&value)
-        .map_err(|error| format!("could not serialize persistent state: {error}"))?;
-      self
-        .backend
-        .store(path, &bytes)
-        .map_err(|error| format!("could not persist state: {error}"))
-    });
-    match result {
-      Ok(()) => {
-        self.value_setter.set(Some(value));
-        self.error_setter.set(None);
-      }
-      Err(error) => self.error_setter.set(Some(error)),
-    }
+    self.store.update(value);
   }
-
-  /// Removes the persisted value. Missing files are already clear.
+  /// Queues deletion after the active operation.
   pub fn clear(&self) {
-    let result = self.path.as_ref().map_or(Ok(()), |path| {
-      self
-        .backend
-        .remove(path)
-        .map_err(|error| format!("could not clear persistent state: {error}"))
-    });
-    match result {
-      Ok(()) => {
-        self.value_setter.set(None);
-        self.error_setter.set(None);
-      }
-      Err(error) => self.error_setter.set(Some(error)),
-    }
+    self.store.clear();
+  }
+  /// Retries the latest intent, or the initial read when hydration failed.
+  pub fn retry(&self) {
+    self.store.retry();
   }
 }
 

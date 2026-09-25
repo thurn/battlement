@@ -16,6 +16,7 @@ reactant-ui.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 taffy.workspace = true
+tempfile = "3.27.0"
 trox.workspace = true
 
 uuid.workspace = true

@@ -266,3 +266,82 @@ fn default_persistence_backend_remains_filesystem_backed() {
   let _ = restored.find_ui(ROOT, "value-11");
   std::fs::remove_dir_all(directory).expect("temporary persistence cleanup");
 }
+
+#[derive(Default)]
+struct DeferredPersistence {
+  calls: RefCell<Vec<(PersistenceRequest, PersistenceCompletion)>>,
+}
+
+impl PersistenceBackend for DeferredPersistence {
+  fn load(&self, _: &Path) -> Result<Option<Vec<u8>>, String> {
+    unreachable!()
+  }
+  fn store(&self, _: &Path, _: &[u8]) -> Result<(), String> {
+    unreachable!()
+  }
+  fn remove(&self, _: &Path) -> Result<(), String> {
+    unreachable!()
+  }
+  fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
+    self.calls.borrow_mut().push((request, complete));
+  }
+}
+
+struct DeferredControls {
+  backend: Rc<DeferredPersistence>,
+}
+
+impl Component for DeferredControls {
+  fn render(&self) -> impl Render {
+    let state = reactant::use_persistent_state_with::<u32>("async.json", self.backend.clone());
+    let status = format!(
+      "saved-{:?}-desired-{:?}-pending-{}",
+      state.value(),
+      state.desired(),
+      state.pending().is_some()
+    );
+    let clear = state.clone();
+    (
+      View::new().name(status),
+      ButtonHost::new(ls("Save"))
+        .name("save")
+        .on_click(move || state.update(12)),
+      ButtonHost::new(ls("Clear"))
+        .name("clear")
+        .on_click(move || clear.clear()),
+    )
+  }
+}
+
+#[test]
+fn async_persistence_wakes_the_component_and_unmount_drains_queued_work() {
+  let backend = Rc::new(DeferredPersistence::default());
+  let source = backend.clone();
+  let mut display = Display::mount_with(
+    move || {
+      application(DeferredControls {
+        backend: source.clone(),
+      })
+    },
+    catalog(),
+    Connect::new("test", "test", ScreenSize::new(1_920, 1_080)).persistent_data_path("memory"),
+  );
+  let _ = display.find_ui(ROOT, "saved-None-desired-None-pending-true");
+  assert_eq!(backend.calls.borrow().len(), 1);
+  let (read, done) = backend.calls.borrow_mut().remove(0);
+  done(read.id, Ok(Some(b"5".to_vec())));
+  display.flush();
+  let _ = display.find_ui(ROOT, "saved-Some(5)-desired-Some(5)-pending-false");
+  display.click_ui(display.find_ui(ROOT, "save"));
+  let _ = display.find_ui(ROOT, "saved-Some(5)-desired-Some(12)-pending-true");
+  let (save, done_save) = backend.calls.borrow_mut().remove(0);
+  display.click_ui(display.find_ui(ROOT, "clear"));
+  assert!(backend.calls.borrow().is_empty());
+  drop(display);
+  done_save(save.id, Ok(None));
+  let (delete, done_delete) = backend.calls.borrow_mut().remove(0);
+  assert_eq!(delete.operation, PersistenceOperation::Remove);
+  done_delete(delete.id, Ok(None));
+  done_save(save.id, Ok(None));
+  assert!(backend.calls.borrow().is_empty());
+}
