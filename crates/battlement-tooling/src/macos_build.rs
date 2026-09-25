@@ -19,6 +19,7 @@ use crate::{
     PendingBuild, SOURCE_MANIFEST_FILE,
   },
   build_identity::{BuildIdentity, CaptureAdapter, NativeInput},
+  cargo_target_cache::CargoTargetCache,
   fingerprint::{CaseSensitivity, FingerprintRootsRequest, GeneratedInput, SourceManifest},
   unity_lease::{CompilerCapacityLease, UnityEditorLease},
 };
@@ -681,14 +682,19 @@ fn resolve_rules(
         .write(&pending.path().join(SOURCE_MANIFEST_FILE))?;
       fs::write(pending.path().join(BUILD_LOG_FILE), [])?;
       let target = rust_target(&request.tools.architecture)?;
-      let target_directory = pending.path().join(".native");
+      let target_cache = CargoTargetCache::acquire(
+        &request.repository,
+        &request.rust_manifest,
+        &identities.rules,
+      )?;
+      let target_directory = target_cache.path();
       let mut cargo = crate::process_priority::command(&request.tools.cargo);
       cargo
         .arg("build")
         .arg("--manifest-path")
         .arg(&request.rust_manifest)
         .args(["--target", target, "--target-dir"])
-        .arg(&target_directory)
+        .arg(target_directory)
         .arg("--lib");
       if request.release_rules {
         cargo
@@ -721,7 +727,6 @@ fn resolve_rules(
         )?));
       }
       fs::copy(plugin, pending.path().join(RULES_ARTIFACT))?;
-      fs::remove_dir_all(target_directory)?;
       Ok(Ok(pending.publish(Path::new(RULES_ARTIFACT), now)?.build))
     }
   }
@@ -877,9 +882,11 @@ fn unity_editor_command(request: &MacosBuildRequest, reason: &str) -> Result<Com
     request.tools.unity_editor.display()
   );
   eprintln!("process.start kind=unity-editor reason={reason}");
-  Ok(crate::process_priority::command(
-    &request.tools.unity_editor,
-  ))
+  let mut command = crate::process_priority::command(&request.tools.unity_editor);
+  if std::env::var_os("DOTNET_USE_POLLING_FILE_WATCHER").is_none() {
+    command.env("DOTNET_USE_POLLING_FILE_WATCHER", "1");
+  }
+  Ok(command)
 }
 
 fn startup_identity(request: &MacosBuildRequest, identity: &BuildIdentity) -> MacosStartupIdentity {

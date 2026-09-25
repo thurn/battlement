@@ -1,14 +1,20 @@
 #![cfg(target_os = "macos")]
 
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, process::Command};
+use std::{
+  fs,
+  os::unix::fs::PermissionsExt,
+  path::{Path, PathBuf},
+  process::Command,
+};
 
 use battlement_tooling::{
   build_cache::{BUILD_LOG_FILE, BuildCache, SOURCE_MANIFEST_FILE},
   build_identity::{CaptureAdapter, NativeInput},
   fingerprint::GeneratedInput,
   macos_build::{
-    MacosBuildOutcome, MacosBuildRequest, MacosBuildResult, MacosBuildTools, MacosStartupIdentity,
-    STARTUP_IDENTITY_FILE, build_macos_player, player_executable, select_macos_player,
+    self, MacosBuildOutcome, MacosBuildRequest, MacosBuildResult, MacosBuildTools,
+    MacosStartupIdentity, STARTUP_IDENTITY_FILE, build_macos_player, player_executable,
+    select_macos_player,
   },
 };
 use tempfile::TempDir;
@@ -120,6 +126,99 @@ fn rules_change_reassembles_without_launching_unity() {
     before.matches("unity:").count(),
     after.matches("unity:").count()
   );
+}
+
+#[test]
+fn real_cargo_reuses_dependencies_and_publishes_changed_rules_and_dependencies() {
+  let fixture = Fixture::new();
+  let manifest = fixture.path("repo/rules/Cargo.toml");
+  fs::write(
+    &manifest,
+    format!(
+      "{}\n[dependencies]\nstable-dependency = {{ path = \"../dependency\" }}\n",
+      fs::read_to_string(&manifest).unwrap()
+    ),
+  )
+  .unwrap();
+  fixture.write(
+    "repo/dependency/Cargo.toml",
+    "[package]\nname = \"stable-dependency\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+  );
+  fixture.write(
+    "repo/dependency/src/lib.rs",
+    "pub fn value() -> i32 { 40 }\n",
+  );
+  let counter = fixture.path("dependency-builds");
+  fixture.write("repo/dependency/build.rs", &format!(
+    "use std::io::Write;\nfn main() {{\nprintln!(\"cargo::rerun-if-changed=src/lib.rs\");\nwriteln!(std::fs::OpenOptions::new().create(true).append(true).open({counter:?}).unwrap(), \"built\").unwrap();\n}}\n"
+  ));
+  fixture.write("repo/rules/src/lib.rs", "#[unsafe(no_mangle)] pub extern \"C\" fn probe_value() -> i32 { stable_dependency::value() + 1 }\n");
+  let mut request = fixture.request();
+  request.tools.cargo = PathBuf::from(env!("CARGO"));
+  assert!(
+    Command::new(&request.tools.cargo)
+      .args(["generate-lockfile", "--offline", "--manifest-path"])
+      .arg(&manifest)
+      .status()
+      .unwrap()
+      .success()
+  );
+  fixture.stage(".");
+  let MacosBuildResult::Ready {
+    build: original, ..
+  } = macos_build::build_macos_player(&request).unwrap()
+  else {
+    panic!("initial real Cargo build failed")
+  };
+  assert_eq!(self::probe_value(&original.player_path()), 41);
+  assert_eq!(fs::read_to_string(&counter).unwrap(), "built\n");
+
+  fixture.write("repo/rules/src/lib.rs", "#[unsafe(no_mangle)] pub extern \"C\" fn probe_value() -> i32 { stable_dependency::value() + 2 }\n");
+  let MacosBuildResult::Ready {
+    build: changed_rules,
+    ..
+  } = macos_build::build_macos_player(&request).unwrap()
+  else {
+    panic!("changed rules failed")
+  };
+  assert_eq!(self::probe_value(&changed_rules.player_path()), 42);
+  assert_eq!(fs::read_to_string(&counter).unwrap(), "built\n");
+
+  fixture.write(
+    "repo/dependency/src/lib.rs",
+    "pub fn value() -> i32 { 50 }\n",
+  );
+  let MacosBuildResult::Ready {
+    build: changed_dependency,
+    ..
+  } = macos_build::build_macos_player(&request).unwrap()
+  else {
+    panic!("changed dependency failed")
+  };
+  assert_eq!(self::probe_value(&changed_dependency.player_path()), 52);
+  assert_eq!(fs::read_to_string(&counter).unwrap(), "built\nbuilt\n");
+  assert_eq!(self::probe_value(&original.player_path()), 41);
+}
+
+fn probe_value(player: &Path) -> i32 {
+  let output = Command::new("python3")
+    .args([
+      "-c",
+      "import ctypes, sys; print(ctypes.CDLL(sys.argv[1]).probe_value())",
+    ])
+    .arg(player.join("Contents/PlugIns/libbattlement_rules.dylib"))
+    .output()
+    .unwrap();
+  assert!(
+    output.status.success(),
+    "{}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+  String::from_utf8(output.stdout)
+    .unwrap()
+    .trim()
+    .parse()
+    .unwrap()
 }
 
 #[test]

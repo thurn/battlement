@@ -330,6 +330,10 @@ class UnityProjectTransaction:
         environment = options.pop("env", None)
         environment = dict(os.environ if environment is None else environment)
         environment["GIT_INDEX_FILE"] = str(self.index_file)
+        if sys.platform == "darwin":
+            # The IL postprocessor's native watcher calls global sync(), which
+            # can stall behind an unrelated unavailable network filesystem.
+            environment.setdefault("DOTNET_USE_POLLING_FILE_WATCHER", "1")
         options["env"] = environment
         if os.name == "nt":
             options["creationflags"] = options.get("creationflags", 0) | subprocess.CREATE_NEW_PROCESS_GROUP

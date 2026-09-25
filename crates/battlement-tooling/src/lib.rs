@@ -24,6 +24,7 @@ pub mod webgl_build;
 mod application_web;
 mod build_cache_cleanup;
 mod build_cache_io;
+mod cargo_target_cache;
 mod fingerprint_rust;
 mod macos_build_staging;
 
