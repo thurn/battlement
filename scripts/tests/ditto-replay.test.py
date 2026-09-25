@@ -140,7 +140,12 @@ else:
     assert "DITTO_ODIFF_PATH" not in os.environ
 pathlib.Path(os.environ["PLAYER_MARKER"]).write_text("executed")
 output = pathlib.Path(sys.argv[sys.argv.index("--output") + 1])
-output.write_text(json.dumps({"status":"passed", "errors":[]}))
+output.write_text(json.dumps({"status":os.environ.get("REPLAY_STATUS", "passed"), "errors":[]}))
+if "REPLAY_EVENTS" in os.environ:
+    run = output.parent / "fake-run"
+    (run / "logs").mkdir(parents=True)
+    (run / "logs/events.jsonl").write_text(os.environ["REPLAY_EVENTS"] + "\\n")
+    print("DITTO_RUN_DIR=" + str(run), file=sys.stderr)
 ''')
         binary.chmod(0o755)
         if os.name == "nt":
@@ -190,15 +195,20 @@ output.write_text(json.dumps({"status":"passed", "errors":[]}))
         ) == "candidate-introduced"
         base_evidence = [root / "base-one.json", root / "base-two.json"]
         candidate_evidence = [root / "candidate-one.json", root / "candidate-two.json"]
+        raw_events = root / "paired-events.jsonl"
         for path in base_evidence:
+            raw_events.write_text(json.dumps({"status": "passed"}) + "\n")
             path.write_text(json.dumps({
                 "replay_semantic_hash": "passed",
                 "replay_event_transcript_hash": "passed-events",
+                "replay_event_log": ditto_replay.retain_transcript(raw_events, path),
             }))
         for path in candidate_evidence:
+            raw_events.write_text(json.dumps({"status": "failed"}) + "\n")
             path.write_text(json.dumps({
                 "replay_semantic_hash": "failed",
                 "replay_event_transcript_hash": "failed-events",
+                "replay_event_log": ditto_replay.retain_transcript(raw_events, path),
             }))
         classification_path = root / "classification.json"
         assert ditto_replay.classify_and_retain(
@@ -231,6 +241,64 @@ output.write_text(json.dumps({"status":"passed", "errors":[]}))
         assert ditto_replay.event_transcript_hash(
             first_events
         ) != ditto_replay.event_transcript_hash(second_events)
+
+        source_events = root / "source-events.jsonl"
+        input_event = {"body": {"result": {"input_trace": {
+            "session": "89d2b5f2-33bf-4ba2-9620-e44b989718df:19",
+            "generation": 20, "receipts": [{"route": "world-logical"}],
+        }}}}
+        source_events.write_text(json.dumps(input_event) + "\n")
+        portable = root / "portable"
+        portable.mkdir()
+        current_recipe = dict(recipe)
+        ditto_replay.save(current_recipe, portable / "replay.json", {
+            **result, "status": "passed", "errors": [],
+        }, source_events)
+        current_recipe["source_event_transcript_hash"] = "obsolete-normalization"
+        (portable / "replay.json").write_text(json.dumps(current_recipe))
+        moved = root / "moved"
+        portable.rename(moved)
+        source_events.unlink()
+        env["REPLAY_EVENTS"] = json.dumps(input_event).replace(
+            "89d2b5f2-33bf-4ba2-9620-e44b989718df", "07d8ce2c-8de8-4bbf-9691-612812298803"
+        )
+
+        def replay_observation():
+            completed = invoke(moved / "replay.json")
+            assert completed.returncode == 0, completed.stderr + completed.stdout
+            evidence = Path(completed.stdout.rsplit("replay evidence: ", 1)[1].splitlines()[0])
+            return json.loads((evidence / "stability.json").read_text()), evidence
+
+        same, evidence = replay_observation()
+        assert same["classification"] == "stability-unestablished"
+        assert same["transcript_comparison"] == "compared"
+        assert same["source_event_transcript_hash"] == same["replay_event_transcript_hash"]
+        assert ditto_replay.paired_observation(evidence / "stability.json") == \
+            ditto_replay.paired_observation(moved / "replay.json")
+        env["REPLAY_EVENTS"] = env["REPLAY_EVENTS"].replace("world-logical", "none")
+        different, _ = replay_observation()
+        assert different["classification"] == "nondeterministic-infrastructure"
+        env["REPLAY_EVENTS"] = env["REPLAY_EVENTS"].replace("none", "world-logical")
+        env["REPLAY_STATUS"] = "failed"
+        different, _ = replay_observation()
+        assert different["classification"] == "nondeterministic-infrastructure"
+        del env["REPLAY_STATUS"]
+        retained_events = moved / current_recipe["source_event_log"]["path"]
+        for changed in (True, False):
+            if changed:
+                retained_events.write_text("changed evidence\n")
+            else:
+                retained_events.unlink()
+            unavailable, _ = replay_observation()
+            assert unavailable["classification"] == "stability-unestablished"
+            assert unavailable["transcript_comparison"] == "unavailable: source transcript missing or changed"
+            try:
+                ditto_replay.paired_observation(moved / "replay.json")
+            except ValueError as error:
+                assert "verified transcript evidence" in str(error)
+            else:
+                raise AssertionError("Unavailable source transcript accepted for attribution")
+        del env["REPLAY_EVENTS"]
         marker.unlink()
 
         no_comparison = ditto_replay.record(

@@ -112,16 +112,18 @@ def paired_observation(path: Path) -> dict:
     document = json.loads(path.read_text())
     if "replay_semantic_hash" in document:
         semantic = document.get("replay_semantic_hash")
-        transcript = document.get("replay_event_transcript_hash")
+        event_log = retained_transcript(document, path, "replay_event_log")
+        transcript = event_transcript_hash(event_log) if event_log else None
     elif "source_semantic_hash" in document:
         semantic = document.get("source_semantic_hash")
-        transcript = document.get("source_event_transcript_hash")
+        event_log = retained_transcript(document, path, "source_event_log")
+        transcript = event_transcript_hash(event_log) if event_log else None
     else:
         semantic = semantic_hash(document)
         event_log = path.parent / "logs/events.jsonl"
         transcript = event_transcript_hash(event_log) if event_log.is_file() else None
     if semantic is None or transcript is None:
-        raise ValueError(f"paired evidence lacks semantic or transcript hash: {path}")
+        raise ValueError(f"paired evidence lacks semantic or verified transcript evidence: {path}")
     return {"semantic_hash": semantic, "event_transcript_hash": transcript}
 
 
@@ -168,6 +170,28 @@ def digest(path: Path) -> str:
     """Hash file contents without loading a player or runner into memory."""
     with path.open("rb") as source:
         return hashlib.file_digest(source, "sha256").hexdigest()
+
+
+def retain_transcript(source: Path, output: Path) -> dict:
+    """Copy immutable raw events beside their portable evidence document."""
+    checksum = digest(source)
+    target = output.parent / f"events-{checksum}.jsonl"
+    if not target.exists():
+        shutil.copyfile(source, target)
+    if digest(target) != checksum:
+        raise RuntimeError(f"Retained transcript changed: {target}")
+    return {"path": target.name, "sha256": checksum}
+
+
+def retained_transcript(document: dict, path: Path, field: str) -> Path | None:
+    """Resolve only raw evidence whose retained content identity still matches."""
+    evidence = document.get(field)
+    if evidence is None:
+        return None
+    source = path.parent / evidence["path"]
+    if not source.is_file() or digest(source) != evidence["sha256"]:
+        return None
+    return source
 
 
 def pin_tool(path: Path, cache: Path) -> dict[str, str]:
@@ -226,8 +250,9 @@ def save(
         recipe["source_status"] = result["status"]
         recipe["build"] = result.get("build")
         recipe["source_semantic_hash"] = semantic_hash(result)
-        if event_log is not None:
-            recipe["source_event_transcript_hash"] = event_transcript_hash(event_log)
+    if event_log is not None:
+        recipe["source_event_log"] = retain_transcript(event_log, output)
+        recipe["source_event_transcript_hash"] = event_transcript_hash(event_log)
     output.write_text(json.dumps(recipe, indent=2, sort_keys=True) + "\n")
 
 
@@ -275,7 +300,8 @@ def replay(recipe_path: Path, repository: Path, scenarios: list[str], output: Pa
     """Run one checked replay and retain separate results without overwriting its source."""
     recipe, arguments, environment = prepare(recipe_path, repository, scenarios)
     output.mkdir(parents=True, exist_ok=False)
-    save(recipe, output / "source-replay.json")
+    source_event_log = retained_transcript(recipe, recipe_path, "source_event_log")
+    save(recipe, output / "source-replay.json", event_log=source_event_log)
     completed = subprocess.run(
         [*arguments, "--output", str(output / "result.json")],
         cwd=repository, env=environment, capture_output=True, text=True,
@@ -302,7 +328,14 @@ def replay(recipe_path: Path, repository: Path, scenarios: list[str], output: Pa
         if replay_event_log is not None and replay_event_log.is_file()
         else None
     )
-    source_event_hash = recipe.get("source_event_transcript_hash")
+    source_event_hash = event_transcript_hash(source_event_log) if source_event_log else None
+    transcript_comparison = (
+        "unavailable: source transcript missing or changed"
+        if source_event_hash is None
+        else "unavailable: replay transcript missing"
+        if replay_event_hash is None
+        else "compared"
+    )
     classification = (
         "nondeterministic-infrastructure"
         if (
@@ -319,7 +352,8 @@ def replay(recipe_path: Path, repository: Path, scenarios: list[str], output: Pa
         )
         else "stability-unestablished"
     )
-    (output / "stability.json").write_text(json.dumps({
+    stability_path = output / "stability.json"
+    stability = {
         "schema": 1,
         "classification": classification,
         "source_run_id": recipe.get("source_run_id"),
@@ -327,10 +361,17 @@ def replay(recipe_path: Path, repository: Path, scenarios: list[str], output: Pa
         "replay_semantic_hash": replay_hash,
         "source_event_transcript_hash": source_event_hash,
         "replay_event_transcript_hash": replay_event_hash,
-    }, indent=2, sort_keys=True) + "\n")
+        "transcript_comparison": transcript_comparison,
+    }
+    if source_event_log is not None:
+        stability["source_event_log"] = retain_transcript(source_event_log, stability_path)
+    if replay_event_log is not None and replay_event_log.is_file():
+        stability["replay_event_log"] = retain_transcript(replay_event_log, stability_path)
+    stability_path.write_text(json.dumps(stability, indent=2, sort_keys=True) + "\n")
     print(completed.stderr, end="")
     print(
         f"Original {recipe['source_run_id']}: {recipe['source_status']}; "
-        f"classification: {classification}; replay evidence: {output}"
+        f"classification: {classification}; transcript: {transcript_comparison}; "
+        f"replay evidence: {output}"
     )
     return completed.returncode
