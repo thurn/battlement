@@ -15,3 +15,19 @@ screen = "hearts"
 [[states]]
 key = "assets.deck"
 screen = "hearts"
+
+[[states]]
+key = "cards.passed"
+screen = "hearts"
+
+[[states]]
+key = "cards.trick"
+screen = "hearts"
+
+[[states]]
+key = "cards.captured"
+screen = "hearts"
+
+[[states]]
+key = "cards.inspection"
+screen = "hearts"

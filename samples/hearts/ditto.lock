@@ -3,6 +3,46 @@ namespace = "battlement/hearts"
 
 [[baselines]]
 profile = "macos"
+scenario = "card destinations"
+checkpoint = "captured pile"
+sha256 = "6347e14c6f0c0d418ec36d910e7f1abf3016e2fb4fab9cc8eb1acb6b0148824c"
+width = 1280
+height = 720
+size_bytes = 555292
+source = "4a72999ee1166983b94ce3b374bfd8ca280eb6285476fc2d5a7e2fd391cae698"
+
+[[baselines]]
+profile = "macos"
+scenario = "card destinations"
+checkpoint = "full trick"
+sha256 = "a1f63802ce40667cd62e5cab1f4a1c361b31bf0ed28f4ca0d2f403694d3b6594"
+width = 1280
+height = 720
+size_bytes = 567992
+source = "4a72999ee1166983b94ce3b374bfd8ca280eb6285476fc2d5a7e2fd391cae698"
+
+[[baselines]]
+profile = "macos"
+scenario = "card destinations"
+checkpoint = "inspection"
+sha256 = "a00667480fcb902e6bc55bc935beb808019dc7f540da608f3687300c200d3e2f"
+width = 1280
+height = 720
+size_bytes = 567225
+source = "4a72999ee1166983b94ce3b374bfd8ca280eb6285476fc2d5a7e2fd391cae698"
+
+[[baselines]]
+profile = "macos"
+scenario = "card destinations"
+checkpoint = "passed hand"
+sha256 = "2080a1ad78648782b1029e47d5946e4ec9ffe3404442ac3af4befa8fbb8bdcae"
+width = 1280
+height = 720
+size_bytes = 570569
+source = "4a72999ee1166983b94ce3b374bfd8ca280eb6285476fc2d5a7e2fd391cae698"
+
+[[baselines]]
+profile = "macos"
 scenario = "new match"
 checkpoint = "initial"
 sha256 = "ef979a5ab10f668528420744a1e295e759ac9287d17d9b7f14ec1a333e747dca"

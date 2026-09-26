@@ -70,3 +70,39 @@ fixture = "cards"
 wait = { object = "root", state = "visible" }
 [[scenarios.steps]]
 screenshot = { name = "deck" }
+
+[[scenarios]]
+name = "card destinations"
+fixture = "layout"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Next layout checkpoint" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card layout 2 / 7" }, role = "heading", name = "Card layout 2 / 7" }
+[[scenarios.steps]]
+screenshot = { name = "passed hand" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Next layout checkpoint" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Next layout checkpoint" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Next layout checkpoint" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Next layout checkpoint" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card layout 6 / 7" }, role = "heading", name = "Card layout 6 / 7" }
+[[scenarios.steps]]
+screenshot = { name = "full trick" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Next layout checkpoint" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Card layout 7 / 7" }, role = "heading", name = "Card layout 7 / 7" }
+[[scenarios.steps]]
+screenshot = { name = "captured pile" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Inspect visible card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "inspection" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Inspect visible card" }, action = "activate" }

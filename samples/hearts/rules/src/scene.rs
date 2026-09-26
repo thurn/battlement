@@ -3,9 +3,7 @@ use battlement::{
 };
 use reactant::{prelude::*, world};
 
-use crate::{HumanView, assets, card_assets, domain::Seat};
-
-const CARD_WIDTH: f64 = 4.31462;
+use crate::{HumanView, assets, domain::Seat};
 
 pub(crate) fn camera() -> world::Camera {
   world::Camera::new()
@@ -17,98 +15,15 @@ pub(crate) fn camera() -> world::Camera {
 }
 
 pub(crate) fn table(view: &HumanView, aspect: f64) -> impl Render {
+  (
+    self::environment(aspect),
+    crate::card_table::CardTable::new(view, aspect),
+  )
+}
+
+pub(crate) fn environment(aspect: f64) -> impl Render {
   let portrait = aspect < 1.0;
   let half_width = 5.7 * aspect;
-  let faces: Vec<_> = view.hands[Seat::South.index()]
-    .iter()
-    .enumerate()
-    .map(|(index, card)| {
-      let (x, z, width, angle) = if portrait {
-        let column = index % 7;
-        let count = if index < 7 {
-          view.hands[Seat::South.index()].len().min(7)
-        } else {
-          view.hands[Seat::South.index()].len() - 7
-        };
-        let spacing = (half_width * 2.0 - 0.65) / 7.0;
-        (
-          (column as f64 - (count as f64 - 1.0) / 2.0) * spacing,
-          -2.5 - (index / 7) as f64 * 1.55,
-          spacing * 1.12,
-          0.0,
-        )
-      } else {
-        let offset = index as f64 - (view.hands[Seat::South.index()].len() as f64 - 1.0) / 2.0;
-        let spacing = ((half_width * 2.0 - 3.0) / 13.0).min(1.16);
-        (
-          offset * spacing,
-          -3.5 - offset * offset * 0.01,
-          spacing * 2.0,
-          offset * 2.3,
-        )
-      };
-      let scale = width / CARD_WIDTH;
-      world::Group::new()
-        .position(Vector3::new(x, 0.12 + index as f64 * 0.008, z))
-        .rotation(self::yaw(angle + 180.0))
-        .child(
-          world::Prefab::at(card_assets::model(card.face.expect("own card face")))
-            .rotation(self::pitch(-90.0))
-            .scale(Vector3::new(scale, scale, scale)),
-        )
-    })
-    .collect();
-  let opponents: Vec<_> = [Seat::North, Seat::West, Seat::East]
-    .into_iter()
-    .map(|seat| {
-      let (x, z, angle, width, spacing) = match seat {
-        Seat::North => (
-          0.0,
-          3.6,
-          180.0,
-          if portrait { 0.72 } else { 1.65 },
-          if portrait { 0.22 } else { 0.56 },
-        ),
-        Seat::West => (
-          -half_width * if portrait { 0.7 } else { 0.60 },
-          0.6,
-          90.0,
-          if portrait { 0.72 } else { 1.5 },
-          if portrait { 0.17 } else { 0.32 },
-        ),
-        Seat::East => (
-          half_width * if portrait { 0.7 } else { 0.60 },
-          0.6,
-          -90.0,
-          if portrait { 0.72 } else { 1.5 },
-          if portrait { 0.17 } else { 0.32 },
-        ),
-        Seat::South => unreachable!(),
-      };
-      let cards: Vec<_> = (0..view.hands[seat.index()].len())
-        .map(|index| {
-          let offset = index as f64 - (view.hands[seat.index()].len() as f64 - 1.0) / 2.0;
-          world::Group::new()
-            .position(Vector3::new(
-              offset * spacing,
-              0.12 + index as f64 * 0.008,
-              -offset * offset * 0.01,
-            ))
-            .rotation(self::yaw(-offset * 2.5))
-            .child(
-              world::Sprite::new()
-                .texture(assets::hearts::cards::BACK)
-                .size(width, width * 6.0 / CARD_WIDTH)
-                .rotation(self::pitch(90.0)),
-            )
-        })
-        .collect();
-      world::Group::new()
-        .position(Vector3::new(x, 0.0, z))
-        .rotation(self::yaw(angle))
-        .child(cards)
-    })
-    .collect();
   (
     world::Plane::new()
       .scale(Vector3::new(6.0, 1.0, 6.0))
@@ -133,8 +48,6 @@ pub(crate) fn table(view: &HumanView, aspect: f64) -> impl Render {
         .shadows(ShadowMode::None),
     ),
     self::forest(half_width, portrait),
-    faces,
-    opponents,
   )
 }
 

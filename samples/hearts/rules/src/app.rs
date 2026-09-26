@@ -8,7 +8,7 @@ use crate::{
   scene,
 };
 
-const ROOT: ObjectId = object_id!("6644ed66-12dc-4590-9af8-19d174a47000");
+pub(crate) const ROOT: ObjectId = object_id!("6644ed66-12dc-4590-9af8-19d174a47000");
 
 struct HeartsRoot {
   initial: HeartsState,
@@ -27,6 +27,7 @@ pub fn application_from_state(initial: HeartsState) -> Application {
 
 pub(crate) fn exported_application() -> Application {
   match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() {
+    Ok("layout") => crate::layout_fixture::application(),
     Ok("cards") => self::configured(HeartsState::new(43), true),
     Ok("restored") => self::application_from_state(HeartsState::new(73)),
     Ok("shell") | Err(_) => self::application(),

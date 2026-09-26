@@ -25,3 +25,27 @@ state = "assets.deck"
 scenario = "owned card faces"
 checkpoint = "deck"
 owner = "shell::every_logical_card_has_its_own_imported_face_and_model_with_one_shared_back"
+
+[[mappings]]
+state = "cards.passed"
+scenario = "card destinations"
+checkpoint = "passed hand"
+owner = "card_table_tests::card_hosts_and_hits_survive_pass_reveal_trick_collection_and_reflow"
+
+[[mappings]]
+state = "cards.trick"
+scenario = "card destinations"
+checkpoint = "full trick"
+owner = "card_table_tests::card_hosts_and_hits_survive_pass_reveal_trick_collection_and_reflow"
+
+[[mappings]]
+state = "cards.captured"
+scenario = "card destinations"
+checkpoint = "captured pile"
+owner = "card_table_tests::card_hosts_and_hits_survive_pass_reveal_trick_collection_and_reflow"
+
+[[mappings]]
+state = "cards.inspection"
+scenario = "card destinations"
+checkpoint = "inspection"
+owner = "card_table_tests::inspection_uses_new_hosts_without_replacing_the_original_card"
