@@ -3,7 +3,11 @@ use reactant::{Application, app_context, hooks, prelude::*, world};
 use trox::{SourceLocale, ls};
 
 use crate::{
-  assets, card_assets, controller,
+  assets, card_assets,
+  card_controls::CardControls,
+  card_input,
+  card_table::CardTable,
+  controller,
   domain::{HeartsState, Seat, cards},
   scene,
 };
@@ -13,6 +17,7 @@ pub(crate) const ROOT: ObjectId = object_id!("6644ed66-12dc-4590-9af8-19d174a470
 struct HeartsRoot {
   initial: HeartsState,
   gallery: bool,
+  interactive: bool,
 }
 
 /// Opens a new match through the same root used for restored state.
@@ -22,23 +27,29 @@ pub fn application() -> Application {
 
 /// Mounts an already validated logical match without replaying its history.
 pub fn application_from_state(initial: HeartsState) -> Application {
-  self::configured(initial, false)
+  self::configured(initial, false, true)
 }
 
 pub(crate) fn exported_application() -> Application {
   match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() {
     Ok("layout") => crate::layout_fixture::application(),
-    Ok("cards") => self::configured(HeartsState::new(43), true),
-    Ok("restored") => self::application_from_state(HeartsState::new(73)),
-    Ok("shell") | Err(_) => self::application(),
+    Ok("cards") => self::configured(HeartsState::new(43), true, false),
+    Ok("restored") => self::configured(HeartsState::new(73), false, false),
+    Ok("shell") => self::configured(HeartsState::new(43), false, false),
+    Ok("input") | Err(_) => self::application(),
+    Ok("play") => self::application_from_state(crate::layout_fixture::playing_state()),
     Ok(name) => panic!("unknown Hearts fixture {name:?}"),
   }
 }
 
-fn configured(initial: HeartsState, gallery: bool) -> Application {
+fn configured(initial: HeartsState, gallery: bool, interactive: bool) -> Application {
   Application::new(assets::hearts::CONTENT)
     .source_locale(SourceLocale::new("en-US").expect("source locale"))
-    .child(HeartsRoot { initial, gallery })
+    .child(HeartsRoot {
+      initial,
+      gallery,
+      interactive,
+    })
     .document(|mut document| {
       document.root_id = ROOT;
       document.element.picking_mode = Prop::Set(PickingMode::Ignore);
@@ -67,9 +78,10 @@ impl Component for HeartsRoot {
     } else {
       HeartsState::new(43)
     };
-    let game = controller::use_hearts(generation, move || initial, Seat::South, true);
+    let game = controller::use_hearts(generation, move || initial, Seat::South, !self.interactive);
     let viewport = app_context::use_viewport_size();
     let aspect = f64::from(viewport.width) / f64::from(viewport.height);
+    let input = card_input::use_card_input(game.clone(), viewport);
     let faces = if self.gallery {
       cards::deck()
     } else {
@@ -126,8 +138,21 @@ impl Component for HeartsRoot {
         )),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((
         surfaces,
-        (!self.gallery).then(|| scene::table(&game.view, aspect)),
+        (!self.gallery).then(|| {
+          let table = CardTable::new(&game.view, aspect).inspect(input.inspection());
+          let table = if self.interactive {
+            Node::new(ContextProvider::new().context(input.clone()).child(table))
+          } else {
+            Node::new(table)
+          };
+          (scene::environment(aspect), table)
+        }),
       )),
+      self.interactive.then(|| {
+        ContextProvider::new()
+          .context(input.clone())
+          .child(CardControls)
+      }),
       (!self.gallery).then(|| {
         View::new()
           .picking_mode(PickingMode::Ignore)

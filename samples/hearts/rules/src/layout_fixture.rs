@@ -64,18 +64,8 @@ impl Component for LayoutFixture {
 
 pub(crate) fn views() -> Vec<HumanView> {
   let projection = Projection::default();
-  let mut state = HeartsState::new(43);
-  let mut states = vec![state.clone()];
-  for seat in Seat::ALL {
-    let cards = state.hand(seat).iter().copied().take(3).collect();
-    transition::apply(
-      &mut state,
-      Intention::SubmitPass { seat, cards },
-      &mut IgnorePresentation,
-    )
-    .expect("fixture pass");
-  }
-  states.push(state.clone());
+  let mut state = self::playing_state();
+  let mut states = vec![HeartsState::new(43), state.clone()];
   let mut checkpoints: Vec<Checkpoint> = Vec::new();
   for _ in 0..4 {
     let Phase::Playing { turn } = state.phase() else {
@@ -94,4 +84,18 @@ pub(crate) fn views() -> Vec<HumanView> {
     .iter()
     .map(|state| projection.view(state, Seat::South))
     .collect()
+}
+
+pub(crate) fn playing_state() -> HeartsState {
+  let mut state = HeartsState::new(43);
+  for seat in Seat::ALL {
+    let cards = state.hand(seat).iter().copied().take(3).collect();
+    transition::apply(
+      &mut state,
+      Intention::SubmitPass { seat, cards },
+      &mut IgnorePresentation,
+    )
+    .expect("fixture pass");
+  }
+  state
 }

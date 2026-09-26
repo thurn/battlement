@@ -5,20 +5,16 @@ use reactant::{prelude::*, world};
 
 use crate::{HumanView, assets, domain::Seat};
 
+const CAMERA_SIZE: f64 = 5.7;
+const CAMERA_TILT: f64 = 60.0;
+
 pub(crate) fn camera() -> world::Camera {
   world::Camera::new()
-    .orthographic(5.7)
+    .orthographic(CAMERA_SIZE)
     .clipping(0.1, 70.0)
     .background(Color::rgb(0.18, 0.26, 0.12))
     .position(Vector3::new(0.0, 20.0, -11.547005))
-    .rotation(self::pitch(60.0))
-}
-
-pub(crate) fn table(view: &HumanView, aspect: f64) -> impl Render {
-  (
-    self::environment(aspect),
-    crate::card_table::CardTable::new(view, aspect),
-  )
+    .rotation(self::pitch(CAMERA_TILT))
 }
 
 pub(crate) fn environment(aspect: f64) -> impl Render {
@@ -197,4 +193,13 @@ fn pitch(degrees: f64) -> Quaternion {
 fn yaw(degrees: f64) -> Quaternion {
   let (sin, cos) = (degrees.to_radians() / 2.0).sin_cos();
   Quaternion::new(0.0, sin, 0.0, cos)
+}
+
+pub(crate) fn table_drag_delta(dx: f64, dy: f64, viewport_height: u32) -> Vector3 {
+  let units = 2.0 * CAMERA_SIZE / f64::from(viewport_height);
+  Vector3::new(
+    dx * units,
+    0.0,
+    -dy * units / CAMERA_TILT.to_radians().sin(),
+  )
 }

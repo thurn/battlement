@@ -2,6 +2,11 @@ mod app;
 #[allow(dead_code)]
 pub mod assets;
 pub mod card_assets;
+mod card_controls;
+mod card_gesture;
+mod card_input;
+#[cfg(test)]
+mod card_input_tests;
 mod card_table;
 #[cfg(test)]
 mod card_table_tests;

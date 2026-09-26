@@ -49,3 +49,57 @@ state = "cards.inspection"
 scenario = "card destinations"
 checkpoint = "inspection"
 owner = "card_table_tests::inspection_uses_new_hosts_without_replacing_the_original_card"
+
+[[mappings]]
+state = "input.passing-controls.three-selected"
+scenario = "passing controls"
+checkpoint = "three selected"
+owner = "card_input_tests::passing_requires_three_and_duplicate_confirmation_exchanges_once"
+
+[[mappings]]
+state = "input.passing-controls.passed"
+scenario = "passing controls"
+checkpoint = "passed"
+owner = "card_input_tests::passing_requires_three_and_duplicate_confirmation_exchanges_once"
+
+[[mappings]]
+state = "input.pointer-card-input.selected"
+scenario = "pointer card input"
+checkpoint = "selected"
+owner = "card_input_tests::illegal_cards_are_inspectable_and_selection_then_confirm_admits_one_play"
+
+[[mappings]]
+state = "input.pointer-card-input.played"
+scenario = "pointer card input"
+checkpoint = "played"
+owner = "card_input_tests::illegal_cards_are_inspectable_and_selection_then_confirm_admits_one_play"
+
+[[mappings]]
+state = "input.touch-drag-cancellation.dragging"
+scenario = "touch drag cancellation"
+checkpoint = "dragging"
+owner = "card_input_tests::invalid_drop_and_capture_loss_restore_the_card_and_valid_drop_plays_once"
+
+[[mappings]]
+state = "input.touch-drag-cancellation.cancelled"
+scenario = "touch drag cancellation"
+checkpoint = "cancelled"
+owner = "card_input_tests::invalid_drop_and_capture_loss_restore_the_card_and_valid_drop_plays_once"
+
+[[mappings]]
+state = "input.touch-drag-cancellation.dropped"
+scenario = "touch drag cancellation"
+checkpoint = "dropped"
+owner = "card_input_tests::invalid_drop_and_capture_loss_restore_the_card_and_valid_drop_plays_once"
+
+[[mappings]]
+state = "input.card-inspection.illegal-selection"
+scenario = "card inspection"
+checkpoint = "illegal selection"
+owner = "card_input_tests::illegal_cards_are_inspectable_and_selection_then_confirm_admits_one_play"
+
+[[mappings]]
+state = "input.card-inspection.inspection"
+scenario = "card inspection"
+checkpoint = "inspection"
+owner = "card_input_tests::illegal_cards_are_inspectable_and_selection_then_confirm_admits_one_play"

@@ -31,3 +31,39 @@ screen = "hearts"
 [[states]]
 key = "cards.inspection"
 screen = "hearts"
+
+[[states]]
+key = "input.passing-controls.three-selected"
+screen = "hearts"
+
+[[states]]
+key = "input.passing-controls.passed"
+screen = "hearts"
+
+[[states]]
+key = "input.pointer-card-input.selected"
+screen = "hearts"
+
+[[states]]
+key = "input.pointer-card-input.played"
+screen = "hearts"
+
+[[states]]
+key = "input.touch-drag-cancellation.dragging"
+screen = "hearts"
+
+[[states]]
+key = "input.touch-drag-cancellation.cancelled"
+screen = "hearts"
+
+[[states]]
+key = "input.touch-drag-cancellation.dropped"
+screen = "hearts"
+
+[[states]]
+key = "input.card-inspection.illegal-selection"
+screen = "hearts"
+
+[[states]]
+key = "input.card-inspection.inspection"
+screen = "hearts"

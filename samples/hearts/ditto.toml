@@ -25,6 +25,7 @@ rust_manifest = "rules/Cargo.toml"
 
 [aliases]
 root = "6644ed66-12dc-4590-9af8-19d174a47000"
+controls = "6644ed66-12dc-4590-9af8-19d174a47014"
 
 [baseline]
 kind = "r2"
@@ -106,3 +107,97 @@ accessibility_action = { target = { role = "button", name = "Inspect visible car
 screenshot = { name = "inspection" }
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Inspect visible card" }, action = "activate" }
+
+[[scenarios]]
+name = "passing controls"
+fixture = "input"
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Seven of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Queen of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Pass three cards" }, role = "button", name = "Pass three cards", disabled = true }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "King of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Pass three cards" }, role = "button", name = "Pass three cards", disabled = false }
+[[scenarios.steps]]
+screenshot = { name = "three selected" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Pass three cards" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Two of Clubs" }, role = "button", name = "Two of Clubs" }
+[[scenarios.steps]]
+screenshot = { name = "passed" }
+
+[[scenarios]]
+name = "pointer card input"
+fixture = "play"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+pointer = { phase = "press", target = [0.105, 0.74] }
+[[scenarios.steps]]
+pointer = { phase = "release", target = [0.105, 0.74] }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Play selected card" }, role = "button", name = "Play selected card", disabled = false }
+[[scenarios.steps]]
+screenshot = { name = "selected" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Play selected card" }, action = "click" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Your turn · select a card, then Play or drag to the center." }, role = "heading", name = "Your turn · select a card, then Play or drag to the center." }
+[[scenarios.steps]]
+screenshot = { name = "played" }
+
+[[scenarios]]
+name = "touch drag cancellation"
+fixture = "play"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "press", target = [0.105, 0.74] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "move", target = [0.30, 0.58] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "release", target = [0.30, 0.58] }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Two of Clubs" }, role = "button", name = "Two of Clubs" }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "press", target = [0.105, 0.74] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "move", target = [0.50, 0.47] }
+[[scenarios.steps]]
+screenshot = { name = "dragging" }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "cancel" }
+[[scenarios.steps]]
+screenshot = { name = "cancelled" }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "press", target = [0.105, 0.74] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "move", target = [0.50, 0.47] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "release", target = [0.50, 0.47] }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Your turn · select a card, then Play or drag to the center." }, role = "heading", name = "Your turn · select a card, then Play or drag to the center." }
+[[scenarios.steps]]
+screenshot = { name = "dropped" }
+
+[[scenarios]]
+name = "card inspection"
+fixture = "play"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Two of Spades" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "illegal selection" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Inspect selected card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "inspection" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Close inspection" }, action = "activate" }

@@ -5,7 +5,8 @@ use reactant::{hooks, native_host, prelude::*, world};
 use uuid::Uuid;
 
 use crate::{
-  assets, card_assets,
+  assets, card_assets, card_gesture,
+  card_input::{self, CardInput},
   domain::Seat,
   projection::{CardToken, HumanView, VisibleCard},
 };
@@ -21,7 +22,7 @@ pub(crate) struct CardTable {
   inspection: Option<VisibleCard>,
 }
 
-struct CardSurface(VisibleCard);
+struct CardSurface(VisibleCard, Option<world::LayoutDestination>);
 
 impl CardTable {
   pub(crate) fn new(view: &HumanView, aspect: f64) -> Self {
@@ -135,7 +136,7 @@ impl Component for CardTable {
         .position(Vector3::new(0.0, 1.0, 0.1))
         .rotation(self::pitch(90.0))
         .scale(Vector3::new(2.0, 2.0, 2.0))
-        .child(CardSurface(card))
+        .child(CardSurface(card, None))
     });
     (hands, trick, piles, inspection)
   }
@@ -144,23 +145,54 @@ impl Component for CardTable {
 impl Component for CardSurface {
   fn render(&self) -> impl Render {
     let reference = native_host::use_object_ref();
-    world::Group::new().reference(reference).child((
-      self.0.face.map(|card| {
-        world::Prefab::at(card_assets::model(card))
-          .rotation(Quaternion::new(0.0, 1.0, 0.0, 0.0))
-          .scale(Vector3::new(
-            1.0 / CARD_WIDTH,
-            1.0 / CARD_WIDTH,
-            1.0 / CARD_WIDTH,
-          ))
-      }),
-      self.0.face.is_none().then(|| {
-        world::Sprite::new()
-          .texture(assets::hearts::cards::BACK)
-          .size(1.0, CARD_HEIGHT)
-      }),
-      world::BoxHitRegion::new().size(Vector3::new(1.0, CARD_HEIGHT, 0.06)),
-    ))
+    let input = hooks::use_optional_context::<CardInput>();
+    let interactive = input
+      .as_ref()
+      .filter(|input| self.1.is_some() && input.owns(self.0.token))
+      .cloned();
+    let (offset, handlers) =
+      card_gesture::use_gesture(self.0.token, self.1.clone(), interactive.clone());
+    let selected = interactive
+      .as_ref()
+      .is_some_and(|input| input.selected(self.0.token));
+    let mut hit = world::BoxHitRegion::new().size(Vector3::new(1.0, CARD_HEIGHT, 0.06));
+    if let Some(input) = interactive {
+      let token = self.0.token;
+      let enabled = input.inspection().is_none();
+      let activate = EventCallback::new(move |_| input.activate(token));
+      hit = hit
+        .capture_on_press(enabled)
+        .events(handlers)
+        .accessible_button(
+          trox::ls(card_input::name(self.0.face.expect("owned face"))),
+          activate.clone(),
+        )
+        .on_click(activate);
+    }
+    world::Group::new()
+      .reference(reference)
+      .position(Vector3::new(
+        offset.x,
+        offset.y + if selected { 0.18 } else { 0.0 },
+        offset.z - if selected { 0.05 } else { 0.0 },
+      ))
+      .child((
+        self.0.face.map(|card| {
+          world::Prefab::at(card_assets::model(card))
+            .rotation(Quaternion::new(0.0, 1.0, 0.0, 0.0))
+            .scale(Vector3::new(
+              1.0 / CARD_WIDTH,
+              1.0 / CARD_WIDTH,
+              1.0 / CARD_WIDTH,
+            ))
+        }),
+        self.0.face.is_none().then(|| {
+          world::Sprite::new()
+            .texture(assets::hearts::cards::BACK)
+            .size(1.0, CARD_HEIGHT)
+        }),
+        hit,
+      ))
   }
 }
 
@@ -254,7 +286,12 @@ fn child(
   index: usize,
 ) -> world::LayoutChild {
   let rest = world::LayoutBox::new(1.0, CARD_HEIGHT);
-  world::LayoutChild::new(destinations[&card.token].clone(), rest, CardSurface(card)).item(
+  world::LayoutChild::new(
+    destinations[&card.token].clone(),
+    rest,
+    CardSurface(card, Some(destinations[&card.token].clone())),
+  )
+  .item(
     world::LayoutItem::new(card.token.id(), rest)
       .orientation(world::LayoutOrientation::Arrangement)
       .depth(-0.12 - index as f64 * 0.008)
