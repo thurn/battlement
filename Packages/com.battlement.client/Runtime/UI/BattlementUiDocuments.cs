@@ -40,6 +40,7 @@ namespace Battlement.UI
         private readonly BattlementUiRepeatControls repeatControls;
         private readonly BattlementUiSyntheticInputAdapter syntheticInput;
         private readonly BattlementUiControlledPointerInput controlledPointerInput;
+        private readonly BattlementUiPanelClock panelClock;
         private readonly BattlementMotionWorld motionWorld;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
@@ -58,13 +59,15 @@ namespace Battlement.UI
             Func<TimeSpan>? scaledNow = null,
             Func<bool>? instantMotion = null,
             Func<Guid, GameObject?>? resolveWorld = null,
-            Func<Camera?>? inputCamera = null
+            Func<Camera?>? inputCamera = null,
+            Func<bool>? controlledTime = null
         )
         {
             hierarchy = new BattlementUiHierarchy();
             placementValidator = new BattlementUiPlacementValidator(hierarchy);
             Func<TimeSpan> uiTime =
                 now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble));
+            panelClock = new BattlementUiPanelClock(uiTime, controlledTime ?? (() => false));
             properties = new BattlementUiElementProperties(
                 emitUiEvent,
                 assetLookup,
@@ -280,6 +283,7 @@ namespace Battlement.UI
                 foreach ((UiDocument description, UIDocument document) in resolved)
                 {
                     UnityEngine.UIElements.VisualElement root = document.rootVisualElement;
+                    panelClock.Bind(root.panel);
                     root.Clear();
                     properties.CaptureDefaults(root, description.RootId);
                     properties.ApplyRoot(root, description.RootId, description);
@@ -392,6 +396,7 @@ namespace Battlement.UI
                 )
                 {
                     VisualElement root = document.rootVisualElement;
+                    panelClock.Bind(root.panel);
                     root.Clear();
                     properties.CaptureDefaults(root, view.RootId);
                     properties.ApplyRoot(root, view.RootId, description);
@@ -584,9 +589,12 @@ namespace Battlement.UI
             focusCoordinator.HasPendingWork
             || scrollControls.HasPendingSettlement
             || stickyCoordinator.HasPendingWork
-            || repeatControls.HasPendingSettlement;
+            || repeatControls.HasPendingSettlement
+            || panelClock.HasPendingActivation(hierarchy.Elements);
 
-        internal bool DittoHasTimedSettlement => scrollControls.HasPendingSettlement;
+        internal bool DittoHasTimedSettlement =>
+            scrollControls.HasPendingSettlement
+            || panelClock.HasPendingActivation(hierarchy.Elements);
 
         internal IReadOnlyCollection<AccessibilityNodeSnapshot> ActiveAccessibility =>
             accessibility.Active;
@@ -764,10 +772,13 @@ namespace Battlement.UI
         {
             foreach (UIDocument document in hierarchy.InputDocuments)
                 if (document != null && document.rootVisualElement.panel is IPanel panel)
+                {
+                    panelClock.Bind(panel);
                     BattlementPointerCaptureTransfer.ReleaseIneligible(
                         panel,
                         focusCoordinator.IsEffectivelyInert
                     );
+                }
             particles.Advance();
             foreach (BattlementUiHierarchy.Entry root in hierarchy.Roots)
                 BattlementTextSpacing.Refresh(root.Element);
@@ -817,6 +828,7 @@ namespace Battlement.UI
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
+            panelClock.Clear();
             syntheticInput.Clear();
             controlledPointerInput.Reset();
             particles.Clear();

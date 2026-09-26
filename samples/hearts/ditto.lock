@@ -75,21 +75,21 @@ source = "bb56605e862c58268b7fc31c39b0d9a4e0831059752ad221a9311697ad01ceff"
 profile = "macos"
 scenario = "inspection focus and mixed input"
 checkpoint = "modal focus"
-sha256 = "21c94ac6e27b23320a7b0d78053bcd116e9f9aea262d9cb864d189654c834b9b"
+sha256 = "fbeaf17d28c2fef4b2a114006e72deb39df28e392efe11fdbc5efe275bf482da"
 width = 1280
 height = 720
-size_bytes = 519597
-source = "bb56605e862c58268b7fc31c39b0d9a4e0831059752ad221a9311697ad01ceff"
+size_bytes = 519594
+source = "0ab7b3fe4c5ad361a8c06b2e54bbdb55fe86aa1087bf12d3cf6c6b2471115504"
 
 [[baselines]]
 profile = "macos"
 scenario = "inspection focus and mixed input"
 checkpoint = "restored focus and selection"
-sha256 = "a374149490bc45acd03b1f45063762ac9b3769c220a2c198b17174050b3499de"
+sha256 = "e895cfa83ef9e6e846a60bbad750df46319a47ad43dffd4699fd817bade49054"
 width = 1280
 height = 720
-size_bytes = 585103
-source = "bb56605e862c58268b7fc31c39b0d9a4e0831059752ad221a9311697ad01ceff"
+size_bytes = 585200
+source = "0ab7b3fe4c5ad361a8c06b2e54bbdb55fe86aa1087bf12d3cf6c6b2471115504"
 
 [[baselines]]
 profile = "macos"

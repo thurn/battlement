@@ -627,7 +627,8 @@ namespace Battlement
                     () => dittoMotionClock.IsInstant,
                     id =>
                         world.TryGetObject(new ObjectId(id), out GameObject? value) ? value : null,
-                    () => world.InputCamera
+                    () => world.InputCamera,
+                    () => dittoMotionClock.IsControlled || dittoMotionClock.IsInstant
                 );
                 runtime.SetUiDocuments(uiDocuments);
                 worldFocus = new BattlementWorldFocusInput(
