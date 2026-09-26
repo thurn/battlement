@@ -1,5 +1,6 @@
 //! Application assembly and scenario configuration.
 
+use std::sync::Arc;
 use std::{
   rc::Rc,
   time::{Duration, Instant},
@@ -22,7 +23,7 @@ const AI_THINK_TIME: Duration = Duration::from_secs(2);
 /// External services used to construct an opaque chess engine.
 pub struct EngineDependencies {
   /// Raw storage for saved progress and local preferences.
-  pub persistence: Option<Rc<dyn PersistenceBackend>>,
+  pub persistence: Option<Arc<dyn PersistenceBackend>>,
   /// Logical position mounted directly; None opens the title screen.
   pub position: Option<Board>,
   /// Rules runner; native applications use its default worker.
@@ -75,7 +76,7 @@ pub(crate) fn application() -> Application {
     think_time,
     Some(43),
     true,
-    Rc::new(reactant::FilePersistenceBackend),
+    Arc::new(reactant::FilePersistenceBackend),
   )
 }
 
@@ -86,7 +87,7 @@ fn configured_application(
   think_time: Duration,
   seed: Option<u64>,
   load_persistence: bool,
-  persistence: Rc<dyn PersistenceBackend>,
+  persistence: Arc<dyn PersistenceBackend>,
 ) -> Application {
   let origin_saved = visual_state == VisualState::Resumed;
   reactant_view::application(ChessConfig {
@@ -116,6 +117,6 @@ fn review_application(name: &str) -> Application {
     Duration::ZERO,
     Some(43),
     false,
-    Rc::new(reactant::FilePersistenceBackend),
+    Arc::new(reactant::FilePersistenceBackend),
   )
 }

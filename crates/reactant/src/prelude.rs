@@ -25,9 +25,9 @@ pub use crate::{
   persistence_file::FilePersistenceBackend,
   persistence_operation::{
     PersistenceBackend, PersistenceCompletion, PersistenceId, PersistenceOperation,
-    PersistenceRequest,
+    PersistenceRequest, PersistenceVersion,
   },
-  persistence_store::{PersistenceSnapshot, PersistenceStore},
+  persistence_store::{PersistenceSnapshot, PersistenceStatus, PersistenceStore},
   presentation_inspector::{InspectorObject, PresentationInspector},
   timers::{use_interval, use_pausable_timeout, use_timeout},
 };

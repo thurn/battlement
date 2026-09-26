@@ -1,8 +1,12 @@
 use std::{
-  cell::{Cell, RefCell},
+  cell::RefCell,
   collections::BTreeMap,
   path::{Path, PathBuf},
   rc::Rc,
+  sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+  },
   time::Duration,
 };
 
@@ -147,40 +151,44 @@ fn persistence_file_names_are_mount_stable() {
 
 #[derive(Default)]
 struct MemoryPersistence {
-  values: RefCell<BTreeMap<PathBuf, Vec<u8>>>,
-  fail: Cell<bool>,
+  values: Mutex<BTreeMap<PathBuf, Vec<u8>>>,
+  fail: AtomicBool,
 }
 
 impl reactant::PersistenceBackend for MemoryPersistence {
+  fn start(self: Arc<Self>, request: PersistenceRequest, complete: PersistenceCompletion) {
+    complete(request.id, request.execute(self.as_ref()));
+  }
   fn load(&self, path: &Path) -> Result<Option<Vec<u8>>, String> {
-    if self.fail.get() {
+    if self.fail.load(Ordering::SeqCst) {
       return Err("injected failure".to_owned());
     }
-    Ok(self.values.borrow().get(path).cloned())
+    Ok(self.values.lock().unwrap().get(path).cloned())
   }
 
   fn store(&self, path: &Path, bytes: &[u8]) -> Result<(), String> {
-    if self.fail.get() {
+    if self.fail.load(Ordering::SeqCst) {
       return Err("injected failure".to_owned());
     }
     self
       .values
-      .borrow_mut()
+      .lock()
+      .unwrap()
       .insert(path.to_owned(), bytes.to_vec());
     Ok(())
   }
 
   fn remove(&self, path: &Path) -> Result<(), String> {
-    if self.fail.get() {
+    if self.fail.load(Ordering::SeqCst) {
       return Err("injected failure".to_owned());
     }
-    self.values.borrow_mut().remove(path);
+    self.values.lock().unwrap().remove(path);
     Ok(())
   }
 }
 
 struct PersistenceControls {
-  backend: Rc<MemoryPersistence>,
+  backend: Arc<MemoryPersistence>,
 }
 
 impl Component for PersistenceControls {
@@ -206,7 +214,7 @@ impl Component for PersistenceControls {
 
 #[test]
 fn injected_persistence_reports_absence_updates_removes_and_errors() {
-  let backend = Rc::new(MemoryPersistence::default());
+  let backend = Arc::new(MemoryPersistence::default());
   let component_backend = backend.clone();
   let mut display = Display::mount_with(
     move || {
@@ -224,16 +232,17 @@ fn injected_persistence_reports_absence_updates_removes_and_errors() {
   let remove = display.find_ui(ROOT, "remove");
   display.click_ui(remove);
   let _ = display.find_ui(ROOT, "absent");
-  backend.fail.set(true);
+  backend.fail.store(true, Ordering::SeqCst);
   display.click_ui(store);
   let _ = display.find_ui(ROOT, "error");
 }
 
-struct FilesystemPersistence;
+struct FilesystemPersistence(Rc<RefCell<Option<PersistentState<u32>>>>);
 
 impl Component for FilesystemPersistence {
   fn render(&self) -> impl Render {
     let state = reactant::use_persistent_state::<u32>("value.json");
+    *self.0.borrow_mut() = Some(state.clone());
     let update = state.clone();
     (
       View::new().name(match state.value() {
@@ -252,24 +261,57 @@ fn default_persistence_backend_remains_filesystem_backed() {
   let directory = std::env::temp_dir().join(format!("reactant-persistence-{}", ObjectId::new_v4()));
   let connect = Connect::new("test", "test", ScreenSize::new(1_920, 1_080))
     .persistent_data_path(directory.to_string_lossy());
+  let captured = Rc::new(RefCell::new(None::<PersistentState<u32>>));
+  let capture = captured.clone();
   let mut first = Display::mount_with(
-    || application(FilesystemPersistence),
+    move || application(FilesystemPersistence(capture.clone())),
     catalog(),
     connect.clone(),
   );
+  first.flush();
+  assert!(
+    captured
+      .borrow()
+      .as_ref()
+      .unwrap()
+      .wait_for_idle(Duration::from_secs(10))
+  );
+  first.flush();
   let store = first.find_ui(ROOT, "store");
   first.click_ui(store);
+  assert!(
+    captured
+      .borrow()
+      .as_ref()
+      .unwrap()
+      .wait_for_idle(Duration::from_secs(10))
+  );
+  first.flush();
   let _ = first.find_ui(ROOT, "value-11");
   drop(first);
 
-  let restored = Display::mount_with(|| application(FilesystemPersistence), catalog(), connect);
+  let capture = captured.clone();
+  let mut restored = Display::mount_with(
+    move || application(FilesystemPersistence(capture.clone())),
+    catalog(),
+    connect,
+  );
+  restored.flush();
+  assert!(
+    captured
+      .borrow()
+      .as_ref()
+      .unwrap()
+      .wait_for_idle(Duration::from_secs(10))
+  );
+  restored.flush();
   let _ = restored.find_ui(ROOT, "value-11");
   std::fs::remove_dir_all(directory).expect("temporary persistence cleanup");
 }
 
 #[derive(Default)]
 struct DeferredPersistence {
-  calls: RefCell<Vec<(PersistenceRequest, PersistenceCompletion)>>,
+  calls: Mutex<Vec<(PersistenceRequest, PersistenceCompletion)>>,
 }
 
 impl PersistenceBackend for DeferredPersistence {
@@ -282,13 +324,13 @@ impl PersistenceBackend for DeferredPersistence {
   fn remove(&self, _: &Path) -> Result<(), String> {
     unreachable!()
   }
-  fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
-    self.calls.borrow_mut().push((request, complete));
+  fn start(self: Arc<Self>, request: PersistenceRequest, complete: PersistenceCompletion) {
+    self.calls.lock().unwrap().push((request, complete));
   }
 }
 
 struct DeferredControls {
-  backend: Rc<DeferredPersistence>,
+  backend: Arc<DeferredPersistence>,
 }
 
 impl Component for DeferredControls {
@@ -315,7 +357,7 @@ impl Component for DeferredControls {
 
 #[test]
 fn async_persistence_wakes_the_component_and_unmount_drains_queued_work() {
-  let backend = Rc::new(DeferredPersistence::default());
+  let backend = Arc::new(DeferredPersistence::default());
   let source = backend.clone();
   let mut display = Display::mount_with(
     move || {
@@ -326,24 +368,28 @@ fn async_persistence_wakes_the_component_and_unmount_drains_queued_work() {
     catalog(),
     Connect::new("test", "test", ScreenSize::new(1_920, 1_080)).persistent_data_path("memory"),
   );
+  display.flush();
+  while display.with_engine(|engine| engine.has_ready_changes()) {
+    display.flush();
+  }
   let _ = display.find_ui(ROOT, "saved-None-desired-None-pending-true");
-  assert_eq!(backend.calls.borrow().len(), 1);
-  let (read, done) = backend.calls.borrow_mut().remove(0);
+  assert_eq!(backend.calls.lock().unwrap().len(), 1);
+  let (read, done) = backend.calls.lock().unwrap().remove(0);
   done(read.id, Ok(Some(b"5".to_vec())));
   display.flush();
   let _ = display.find_ui(ROOT, "saved-Some(5)-desired-Some(5)-pending-false");
   display.click_ui(display.find_ui(ROOT, "save"));
   let _ = display.find_ui(ROOT, "saved-Some(5)-desired-Some(12)-pending-true");
-  let (save, done_save) = backend.calls.borrow_mut().remove(0);
+  let (save, done_save) = backend.calls.lock().unwrap().remove(0);
   display.click_ui(display.find_ui(ROOT, "clear"));
-  assert!(backend.calls.borrow().is_empty());
+  assert!(backend.calls.lock().unwrap().is_empty());
   drop(display);
   done_save(save.id, Ok(None));
-  let (delete, done_delete) = backend.calls.borrow_mut().remove(0);
+  let (delete, done_delete) = backend.calls.lock().unwrap().remove(0);
   assert_eq!(delete.operation, PersistenceOperation::Remove);
   done_delete(delete.id, Ok(None));
   done_save(save.id, Ok(None));
-  assert!(backend.calls.borrow().is_empty());
+  assert!(backend.calls.lock().unwrap().is_empty());
 }
 
 struct PausableTimer {

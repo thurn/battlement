@@ -166,6 +166,11 @@ where
 
   fn has_pending(&self) -> bool {
     self.frozen_wake
+      || self
+        .active
+        .borrow()
+        .as_ref()
+        .is_some_and(|generation| generation.wake.load(Ordering::Acquire))
   }
 
   fn has_pending_change(&self) -> bool {
@@ -316,7 +321,7 @@ impl<S: ExternalStore, V: Clone + 'static> HookSlot for SelectedStoreSlot<S, V> 
     self.store.has_pending()
   }
   fn has_pending_change(&self) -> bool {
-    self.store.has_pending()
+    self.store.frozen_wake
       && context::with_hooks_forbidden(|| {
         let snapshot = crate::store_snapshot::read(&self.store.committed_source);
         let value = (self.committed_select)(&snapshot);

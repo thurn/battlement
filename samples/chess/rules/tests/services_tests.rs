@@ -8,7 +8,11 @@ use reactant::{
   PersistenceBackend, PersistenceCompletion, PersistenceOperation, PersistenceRequest,
 };
 use reactant_testing::MemoryPersistence;
-use std::{cell::RefCell, path::Path, rc::Rc, time::Duration};
+use std::{
+  path::Path,
+  sync::{Arc, Mutex},
+  time::Duration,
+};
 
 #[test]
 fn saved_moves_survive_a_fresh_engine() {
@@ -135,8 +139,8 @@ fn restart_creates_a_playable_fresh_session() {
 }
 
 struct DelayedLoad {
-  memory: Rc<MemoryPersistence>,
-  read: RefCell<Option<(PersistenceRequest, PersistenceCompletion)>>,
+  memory: Arc<MemoryPersistence>,
+  read: Mutex<Option<(PersistenceRequest, PersistenceCompletion)>>,
 }
 
 impl PersistenceBackend for DelayedLoad {
@@ -152,16 +156,16 @@ impl PersistenceBackend for DelayedLoad {
     self.memory.remove(path)
   }
 
-  fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
+  fn start(self: Arc<Self>, request: PersistenceRequest, complete: PersistenceCompletion) {
     if request.operation == PersistenceOperation::Load
       && request
         .path
         .file_name()
         .is_some_and(|name| name == chess_rules::persistence::SAVE_FILE_NAME)
     {
-      self.read.replace(Some((request, complete)));
+      *self.read.lock().unwrap() = Some((request, complete));
     } else {
-      self.memory.start(request, complete);
+      self.memory.clone().start(request, complete);
     }
   }
 }
@@ -173,14 +177,15 @@ fn delayed_hydration_restores_the_saved_game_before_initializing_chess() {
   first.start();
   first.play(Square::E2, Square::E4);
   drop(first);
-  let delayed = Rc::new(DelayedLoad {
+  let delayed = Arc::new(DelayedLoad {
     memory,
-    read: RefCell::new(None),
+    read: Mutex::new(None),
   });
   let mut restored = ChessTest::persisted(delayed.clone());
   let (read, done) = delayed
     .read
-    .borrow_mut()
+    .lock()
+    .unwrap()
     .take()
     .expect("load awaits completion");
   done(read.id, delayed.load(&read.path));

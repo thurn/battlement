@@ -8,7 +8,10 @@ use reactant::{
   PersistenceBackend, PersistenceCompletion, PersistenceOperation, PersistenceRequest,
 };
 use reactant_testing::MemoryPersistence;
-use std::{cell::RefCell, path::Path, rc::Rc};
+use std::{
+  path::Path,
+  sync::{Arc, Mutex},
+};
 use support::game::ChessTest;
 
 #[test]
@@ -142,8 +145,8 @@ fn malformed_fields_and_conflicting_maps_default_independently() {
 }
 
 struct DelayedSettings {
-  memory: Rc<MemoryPersistence>,
-  read: RefCell<Option<(PersistenceRequest, PersistenceCompletion)>>,
+  memory: Arc<MemoryPersistence>,
+  read: Mutex<Option<(PersistenceRequest, PersistenceCompletion)>>,
 }
 
 impl PersistenceBackend for DelayedSettings {
@@ -159,16 +162,16 @@ impl PersistenceBackend for DelayedSettings {
     self.memory.remove(path)
   }
 
-  fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
+  fn start(self: Arc<Self>, request: PersistenceRequest, complete: PersistenceCompletion) {
     if request.operation == PersistenceOperation::Load
       && request
         .path
         .file_name()
         .is_some_and(|name| name == settings::FILE_NAME)
     {
-      self.read.replace(Some((request, complete)));
+      *self.read.lock().unwrap() = Some((request, complete));
     } else {
-      self.memory.start(request, complete);
+      self.memory.clone().start(request, complete);
     }
   }
 }
@@ -176,9 +179,9 @@ impl PersistenceBackend for DelayedSettings {
 #[test]
 fn preference_hydration_precedes_startup_effects_and_never_writes_defaults() {
   let bytes = br#"{"language":"french","master_volume":0}"#;
-  let storage = Rc::new(DelayedSettings {
+  let storage = Arc::new(DelayedSettings {
     memory: MemoryPersistence::with_file("memory/chess-settings.json", bytes),
-    read: RefCell::new(None),
+    read: Mutex::new(None),
   });
   let mut game = ChessTest::persisted(storage.clone());
   assert!(game.display.audio_occurrences().is_empty());
@@ -197,7 +200,7 @@ fn preference_hydration_precedes_startup_effects_and_never_writes_defaults() {
       .unwrap(),
     Some(bytes.to_vec())
   );
-  let (request, complete) = storage.read.borrow_mut().take().unwrap();
+  let (request, complete) = storage.read.lock().unwrap().take().unwrap();
   complete(request.id, storage.load(&request.path));
   game.display.settle();
   game.display.expect_button("JOUER");

@@ -2,10 +2,12 @@
 mod support;
 
 use std::{
-  cell::{Cell, RefCell},
   collections::VecDeque,
   path::Path,
-  rc::Rc,
+  sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+  },
   time::Duration,
 };
 
@@ -20,36 +22,37 @@ const GAME: &str = "memory/chess-game.json";
 const SETTINGS: &str = "memory/chess-settings.json";
 
 struct DelayedProgress {
-  memory: Rc<MemoryPersistence>,
-  delay: Cell<bool>,
-  requests: RefCell<VecDeque<(PersistenceRequest, PersistenceCompletion)>>,
+  memory: Arc<MemoryPersistence>,
+  delay: AtomicBool,
+  requests: Mutex<VecDeque<(PersistenceRequest, PersistenceCompletion)>>,
 }
 
 impl DelayedProgress {
-  fn new() -> Rc<Self> {
-    Rc::new(Self {
+  fn new() -> Arc<Self> {
+    Arc::new(Self {
       memory: MemoryPersistence::with_file(SETTINGS, br#"{"reduce_motion":true,"master_volume":23,"keyboard":{"left":"KeyA","right":"ArrowRight","up":"ArrowUp","down":"ArrowDown","move_piece":"Space","pause":"Escape","restart":"KeyR"}}"#),
-      delay: Cell::new(false),
-      requests: RefCell::new(VecDeque::new()),
+      delay: AtomicBool::new(false),
+      requests: Mutex::new(VecDeque::new()),
     })
   }
 
   fn next(&self, fail: bool) -> (PersistenceRequest, PersistenceCompletion) {
     let (request, complete) = self
       .requests
-      .borrow_mut()
+      .lock()
+      .unwrap()
       .pop_front()
       .expect("pending storage work");
     if fail {
       complete(request.id, Err("injected storage failure".to_owned()));
     } else {
-      self.memory.start(request.clone(), complete.clone());
+      self.memory.clone().start(request.clone(), complete.clone());
     }
     (request, complete)
   }
 
   fn expect_remove(&self) {
-    let requests = self.requests.borrow();
+    let requests = self.requests.lock().unwrap();
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0].0.operation, PersistenceOperation::Remove);
   }
@@ -68,13 +71,13 @@ impl PersistenceBackend for DelayedProgress {
     self.memory.remove(path)
   }
 
-  fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
+  fn start(self: Arc<Self>, request: PersistenceRequest, complete: PersistenceCompletion) {
     if request.path != Path::new(GAME) || request.operation == PersistenceOperation::Load {
-      self.memory.start(request, complete);
-    } else if self.delay.get() {
-      self.requests.borrow_mut().push_back((request, complete));
+      self.memory.clone().start(request, complete);
+    } else if self.delay.load(Ordering::SeqCst) {
+      self.requests.lock().unwrap().push_back((request, complete));
     } else {
-      self.memory.start(request, complete);
+      self.memory.clone().start(request, complete);
     }
   }
 }
@@ -95,15 +98,15 @@ fn erasure_orders_after_pending_save_and_cannot_revive_from_old_completion_or_co
   let preferences = storage.load(Path::new(SETTINGS)).unwrap();
   let mut game = ChessTest::persisted(storage.clone());
   game.start();
-  storage.delay.set(true);
+  storage.delay.store(true, Ordering::SeqCst);
   game.play(Square::E2, Square::E4);
   game.permit_reply(Square::D7, Square::D5);
   self::open_confirmation(&mut game);
   game.display.activate_accessible("Erase");
   game.display.expect_button("Erasing…");
-  assert_eq!(storage.requests.borrow().len(), 1);
+  assert_eq!(storage.requests.lock().unwrap().len(), 1);
   assert!(matches!(
-    storage.requests.borrow()[0].0.operation,
+    storage.requests.lock().unwrap()[0].0.operation,
     PersistenceOperation::Store(_)
   ));
   assert!(game.display.semantic_node("Cancel").state.disabled);
@@ -128,12 +131,15 @@ fn erasure_orders_after_pending_save_and_cannot_revive_from_old_completion_or_co
     storage.load(Path::new("memory/other-game.json")).unwrap(),
     Some(b"unrelated".to_vec())
   );
-  assert!(storage.requests.borrow().is_empty());
+  assert!(storage.requests.lock().unwrap().is_empty());
   game.start();
   game.expect_board(&fixtures::initial());
   drop(game);
-  storage.delay.set(false);
-  let mut restored = ChessTest::persisted(storage);
+  storage.delay.store(false, Ordering::SeqCst);
+  let mut restored = ChessTest::persisted(storage.clone());
+  assert_eq!(storage.requests.lock().unwrap().len(), 1);
+  storage.next(false);
+  restored.display.settle();
   restored.start();
   restored.expect_board(&fixtures::initial());
 }
@@ -145,7 +151,7 @@ fn deletion_failure_cancel_restores_the_latest_recoverable_board() {
   game.start();
   game.play(Square::E2, Square::E4);
   let saved = storage.load(Path::new(GAME)).unwrap();
-  storage.delay.set(true);
+  storage.delay.store(true, Ordering::SeqCst);
   self::open_confirmation(&mut game);
   game.display.activate_accessible("Erase");
   storage.expect_remove();
@@ -153,7 +159,7 @@ fn deletion_failure_cancel_restores_the_latest_recoverable_board() {
   game.display.settle();
   game.display.expect_button("Retry");
   assert_eq!(storage.load(Path::new(GAME)).unwrap(), saved);
-  storage.delay.set(false);
+  storage.delay.store(false, Ordering::SeqCst);
   game.display.activate_accessible("Cancel");
   game.display.activate_accessible("RETURN");
   game.start();
@@ -169,7 +175,7 @@ fn deletion_failure_retries_without_announcing_success_early() {
   let mut game = ChessTest::persisted(storage.clone());
   game.start();
   game.play(Square::E2, Square::E4);
-  storage.delay.set(true);
+  storage.delay.store(true, Ordering::SeqCst);
   self::open_confirmation(&mut game);
   game.display.activate_accessible("Erase");
   storage.next(true);

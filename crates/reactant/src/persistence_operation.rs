@@ -1,18 +1,32 @@
-//! Correlated storage requests and synchronous backend adaptation.
+//! Correlated storage requests and background backend execution.
 
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::{
+  panic::{self, AssertUnwindSafe},
+  sync::Arc,
+  thread,
+};
 
 use uuid::Uuid;
 
 /// A storage request identity, unique across mounted consumers.
 pub type PersistenceId = Uuid;
 
-/// Completion delivered on the application's thread; duplicate/stale IDs are ignored.
-pub type PersistenceCompletion = Rc<dyn Fn(PersistenceId, Result<Option<Vec<u8>>, String>)>;
+/// Thread-safe completion; duplicate and superseded request identities are ignored.
+pub type PersistenceCompletion =
+  Arc<dyn Fn(PersistenceId, Result<Option<Vec<u8>>, String>) + Send + Sync>;
+
+/// Identifies immutable intent within one mounted save-slot owner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PersistenceVersion {
+  /// Save-slot ownership generation.
+  pub owner: Uuid,
+  /// Monotonically increasing intent within the owner.
+  pub revision: u64,
+}
 
 /// Raw persistent storage used by component-owned serialized state.
-pub trait PersistenceBackend {
+pub trait PersistenceBackend: Send + Sync + 'static {
   /// Loads bytes, returning `None` when no value exists.
   fn load(&self, path: &Path) -> Result<Option<Vec<u8>>, String>;
   /// Durably replaces the complete value.
@@ -20,16 +34,27 @@ pub trait PersistenceBackend {
   /// Durably removes the value. Missing values are already removed.
   fn remove(&self, path: &Path) -> Result<(), String>;
 
-  /// Starts one request. Async backends acknowledge only after durable completion.
-  /// Loads complete with bytes or absence; mutations complete with `None`.
-  /// The callback must run on the application thread, never a background worker.
-  fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
-    let result = match request.operation {
-      PersistenceOperation::Load => self.load(&request.path),
-      PersistenceOperation::Store(bytes) => self.store(&request.path, &bytes).map(|()| None),
-      PersistenceOperation::Remove => self.remove(&request.path).map(|()| None),
-    };
-    complete(request.id, result);
+  /// Shares slot ordering between backend instances addressing the same physical storage.
+  /// The default isolates independently injected storage instances.
+  fn namespace(&self) -> Option<&'static str> {
+    None
+  }
+
+  /// Starts blocking backend work off the application thread and acknowledges durability.
+  /// Browser backends override this with their asynchronous host transaction.
+  fn start(self: Arc<Self>, request: PersistenceRequest, complete: PersistenceCompletion) {
+    let failed = complete.clone();
+    let id = request.id;
+    let result = thread::Builder::new()
+      .name("reactant-storage".into())
+      .spawn(move || {
+        let result = panic::catch_unwind(AssertUnwindSafe(|| request.execute(self.as_ref())))
+          .unwrap_or_else(|_| Err("persistence backend panicked".into()));
+        complete(id, result);
+      });
+    if let Err(error) = result {
+      failed(id, Err(error.to_string()));
+    }
   }
 }
 
@@ -38,10 +63,26 @@ pub trait PersistenceBackend {
 pub struct PersistenceRequest {
   /// Echo this identity unchanged in the completion.
   pub id: PersistenceId,
+  /// Immutable intent identity, independent of later queued updates.
+  pub version: PersistenceVersion,
   /// Host-resolved storage location.
   pub path: PathBuf,
   /// Requested read or mutation.
   pub operation: PersistenceOperation,
+}
+
+impl PersistenceRequest {
+  /// Executes blocking I/O on a backend worker, or a deterministic in-memory test backend.
+  pub fn execute(
+    &self,
+    backend: &(impl PersistenceBackend + ?Sized),
+  ) -> Result<Option<Vec<u8>>, String> {
+    match &self.operation {
+      PersistenceOperation::Load => backend.load(&self.path),
+      PersistenceOperation::Store(bytes) => backend.store(&self.path, bytes).map(|()| None),
+      PersistenceOperation::Remove => backend.remove(&self.path).map(|()| None),
+    }
+  }
 }
 
 /// Reads and mutations share one ordered completion channel.

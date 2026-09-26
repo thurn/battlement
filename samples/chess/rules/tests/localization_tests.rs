@@ -1,5 +1,6 @@
 //! Live locale replacement through the application handle preserves ongoing chess work.
 
+use std::sync::Arc;
 use std::{cell::RefCell, rc::Rc};
 
 use battlement::{
@@ -43,7 +44,7 @@ fn display(board: Option<Board>) -> (Display, Rc<RefCell<Option<AppHandle>>>) {
 
 fn display_with_settings(
   board: Option<Board>,
-  persistence: Option<Rc<dyn PersistenceBackend>>,
+  persistence: Option<Arc<dyn PersistenceBackend>>,
 ) -> (Display, Rc<RefCell<Option<AppHandle>>>) {
   let handle = Rc::new(RefCell::new(None));
   let observer = handle.clone();

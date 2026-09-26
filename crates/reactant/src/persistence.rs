@@ -4,13 +4,13 @@ use reactant_core::{app_context::HostEnvironment, hooks};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
   path::{Component, Path},
-  rc::Rc,
+  sync::Arc,
 };
 
 use crate::{
   persistence_file::FilePersistenceBackend,
-  persistence_operation::{PersistenceBackend, PersistenceId},
-  persistence_store::{PersistenceSnapshot, PersistenceStore},
+  persistence_operation::{PersistenceBackend, PersistenceId, PersistenceVersion},
+  persistence_store::{PersistenceSnapshot, PersistenceStatus, PersistenceStore},
 };
 
 /// A rendered persistence snapshot and a stable ordered setter boundary.
@@ -24,19 +24,19 @@ pub struct PersistentState<T: Clone + PartialEq + 'static> {
 /// The file name must remain stable for the lifetime of the component.
 pub fn use_persistent_state<T>(file_name: impl Into<String>) -> PersistentState<T>
 where
-  T: Clone + PartialEq + Serialize + DeserializeOwned + 'static,
+  T: Clone + PartialEq + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
-  self::use_persistent_state_with(file_name, Rc::new(FilePersistenceBackend))
+  self::use_persistent_state_with(file_name, Arc::new(FilePersistenceBackend))
 }
 
 /// Uses an injected backend; asynchronous hydration is exposed by `hydrated`.
 /// Keep consumers that initialize from storage unmounted until hydration completes.
 pub fn use_persistent_state_with<T>(
   file_name: impl Into<String>,
-  backend: Rc<dyn PersistenceBackend>,
+  backend: Arc<dyn PersistenceBackend>,
 ) -> PersistentState<T>
 where
-  T: Clone + PartialEq + Serialize + DeserializeOwned + 'static,
+  T: Clone + PartialEq + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
   let environment = hooks::use_required_context::<HostEnvironment>();
   let file_name = file_name.into();
@@ -55,25 +55,39 @@ where
     .persistent_data_path
     .as_ref()
     .map(|directory| directory.join(&mounted_file_name));
-  let store = hooks::use_memo(move || PersistenceStore::new(path, backend), ());
-  let (_, set_revision) = hooks::use_state(0_u64);
-  let subscribed = store.clone();
+  let store = hooks::use_memo(move || PersistenceStore::pending(path, backend), ());
+  let snapshot = hooks::use_external_store(store.clone());
+  let mounted = store.clone();
   hooks::use_effect(
     move || {
-      subscribed.listen(Rc::new(move || {
-        set_revision.update(|revision| revision.wrapping_add(1))
-      }));
-      move || subscribed.detach()
+      mounted.activate();
+      move || mounted.detach()
     },
-    (),
+    store.clone(),
   );
-  PersistentState {
-    snapshot: store.snapshot(),
-    store,
-  }
+  PersistentState { snapshot, store }
 }
 
-impl<T: Clone + PartialEq + Serialize + DeserializeOwned + 'static> PersistentState<T> {
+impl<T: Clone + PartialEq + Serialize + DeserializeOwned + Send + Sync + 'static>
+  PersistentState<T>
+{
+  /// Returns the current hydration or durable-operation boundary.
+  pub fn status(&self) -> PersistenceStatus {
+    self.snapshot.status()
+  }
+  /// Bounded diagnostic wait; never call from application rendering.
+  #[doc(hidden)]
+  pub fn wait_for_idle(&self, timeout: std::time::Duration) -> bool {
+    self.store.wait_for_idle(timeout)
+  }
+  /// Identifies the latest captured intent for this slot owner.
+  pub fn version(&self) -> PersistenceVersion {
+    self.snapshot.version
+  }
+  /// Identifies the last acknowledged write, independently of current desired intent.
+  pub fn committed_version(&self) -> Option<PersistenceVersion> {
+    self.snapshot.committed
+  }
   /// Returns only the last loaded or successfully acknowledged value.
   pub fn value(&self) -> Option<&T> {
     self.snapshot.durable.as_ref()

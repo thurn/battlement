@@ -1,5 +1,6 @@
 //! React-shaped application and screen composition for the chess sample.
 
+use std::sync::Arc;
 use std::{rc::Rc, time::Duration};
 
 use battlement::{Color as UiColor, Position, Prop, Quaternion, Style, Vector3};
@@ -62,7 +63,7 @@ pub struct ChessConfig {
   /// Optional seed for presentation-only sound selection.
   pub seed: Option<u64>,
   /// Raw storage used for saved progress and local preferences.
-  pub persistence: Option<Rc<dyn PersistenceBackend>>,
+  pub persistence: Option<Arc<dyn PersistenceBackend>>,
 }
 
 /// Assembles the Reactant application, document, camera, and global input policy.
@@ -104,7 +105,7 @@ struct ChessAssembly {
 
 struct PersistentChessApp {
   config: ChessConfig,
-  backend: Rc<dyn PersistenceBackend>,
+  backend: Arc<dyn PersistenceBackend>,
 }
 
 struct ChessApp {

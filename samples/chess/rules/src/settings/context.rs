@@ -1,6 +1,7 @@
 //! Application-lifetime preferences with ordered persistence and session fallback.
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use reactant::{
   PersistenceBackend,
@@ -23,7 +24,7 @@ pub struct SettingsContext {
 
 /// Hydrates preferences before mounting consumers or startup effects.
 pub struct SettingsRoot {
-  pub backend: Option<Rc<dyn PersistenceBackend>>,
+  pub backend: Option<Arc<dyn PersistenceBackend>>,
   pub children: Children,
 }
 
@@ -32,7 +33,7 @@ pub fn use_settings() -> SettingsContext {
 }
 
 struct PersistentSettings {
-  backend: Rc<dyn PersistenceBackend>,
+  backend: Arc<dyn PersistenceBackend>,
   children: Children,
 }
 

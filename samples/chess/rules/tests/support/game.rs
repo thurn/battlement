@@ -31,13 +31,13 @@ impl ChessTest {
     Self::assemble(None, None, &[])
   }
 
-  pub fn persisted(storage: Rc<dyn PersistenceBackend>) -> Self {
+  pub fn persisted(storage: Arc<dyn PersistenceBackend>) -> Self {
     Self::assemble(None, Some(storage), &["battlement.diagnostics"])
   }
 
   pub fn assemble(
     position: Option<Board>,
-    persistence: Option<Rc<dyn PersistenceBackend>>,
+    persistence: Option<Arc<dyn PersistenceBackend>>,
     modules: &[&str],
   ) -> Self {
     Self::configured(position, persistence, modules, Opponent::scripted(), false)
@@ -59,7 +59,7 @@ impl ChessTest {
 
   fn configured(
     position: Option<Board>,
-    persistence: Option<Rc<dyn PersistenceBackend>>,
+    persistence: Option<Arc<dyn PersistenceBackend>>,
     modules: &[&str],
     opponent: Opponent,
     live: bool,

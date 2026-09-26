@@ -24,6 +24,7 @@ pub use host_settings::{set_frame_pacing, use_host_settings};
 mod persistence;
 mod persistence_file;
 mod persistence_operation;
+mod persistence_slot;
 mod persistence_store;
 pub mod prelude;
 mod presentation_inspector;
@@ -66,9 +67,9 @@ pub use persistence::{
 pub use persistence_file::FilePersistenceBackend;
 pub use persistence_operation::{
   PersistenceBackend, PersistenceCompletion, PersistenceId, PersistenceOperation,
-  PersistenceRequest,
+  PersistenceRequest, PersistenceVersion,
 };
-pub use persistence_store::{PersistenceSnapshot, PersistenceStore};
+pub use persistence_store::{PersistenceSnapshot, PersistenceStatus, PersistenceStore};
 pub use presentation_inspector::{InspectorObject, PresentationInspector};
 pub use reactant_core::{
   __register_generated_asset, animation_controls, announcement, app_context, application,

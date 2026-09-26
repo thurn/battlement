@@ -1,6 +1,8 @@
 //! Atomic native filesystem persistence.
 
 use std::path::Path;
+#[cfg(target_os = "emscripten")]
+use std::sync::Arc;
 #[cfg(not(target_os = "emscripten"))]
 use std::{
   fs::{self, File},
@@ -21,7 +23,20 @@ use battlement_native::BrowserPersistenceOperation;
 #[derive(Default)]
 pub struct FilePersistenceBackend;
 
+#[cfg(not(target_os = "emscripten"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Boundary {
+  Write,
+  FileSync,
+  Replace,
+  DirectorySync,
+  Committed,
+}
+
 impl PersistenceBackend for FilePersistenceBackend {
+  fn namespace(&self) -> Option<&'static str> {
+    Some("host-filesystem")
+  }
   #[cfg(not(target_os = "emscripten"))]
   fn load(&self, path: &Path) -> Result<Option<Vec<u8>>, String> {
     match fs::read(path) {
@@ -57,7 +72,7 @@ impl PersistenceBackend for FilePersistenceBackend {
   }
 
   #[cfg(target_os = "emscripten")]
-  fn start(&self, request: PersistenceRequest, complete: PersistenceCompletion) {
+  fn start(self: Arc<Self>, request: PersistenceRequest, complete: PersistenceCompletion) {
     let operation = match &request.operation {
       PersistenceOperation::Load => BrowserPersistenceOperation::Load,
       PersistenceOperation::Store(bytes) => BrowserPersistenceOperation::Store(bytes),
@@ -83,6 +98,16 @@ fn replace(
   bytes: Option<&[u8]>,
   sync: &impl Fn(&File) -> io::Result<()>,
 ) -> io::Result<()> {
+  self::replace_checked(path, bytes, sync, &|_| Ok(()))
+}
+
+#[cfg(not(target_os = "emscripten"))]
+fn replace_checked(
+  path: &Path,
+  bytes: Option<&[u8]>,
+  sync: &impl Fn(&File) -> io::Result<()>,
+  checkpoint: &impl Fn(Boundary) -> io::Result<()>,
+) -> io::Result<()> {
   if bytes.is_none() && !path.try_exists()? {
     return Ok(());
   }
@@ -91,17 +116,23 @@ fn replace(
   let previous = self::backup(path, parent)?;
   let installed = if let Some(bytes) = bytes {
     let mut temporary = NamedTempFile::new_in(parent)?;
+    checkpoint(Boundary::Write)?;
     temporary.write_all(bytes)?;
+    checkpoint(Boundary::FileSync)?;
     temporary.as_file().sync_all()?;
+    checkpoint(Boundary::Replace)?;
     Some(temporary.persist(path).map_err(|error| error.error)?)
   } else {
+    checkpoint(Boundary::Replace)?;
     fs::remove_file(path)?;
     None
   };
   let result = installed
     .as_ref()
     .map_or(Ok(()), sync)
-    .and_then(|()| self::sync_directory(parent, sync));
+    .and_then(|()| checkpoint(Boundary::DirectorySync))
+    .and_then(|()| self::sync_directory(parent, sync))
+    .and_then(|()| checkpoint(Boundary::Committed));
   if let Err(error) = result {
     drop(installed);
     let restored = match previous {
