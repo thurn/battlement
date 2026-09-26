@@ -22,7 +22,7 @@ use battlement_tooling::{
 use uuid::Uuid;
 
 use crate::{
-  macos_startup::{self, Evidence},
+  macos_startup::{self, Evidence, Session},
   native_execution::NativeExecution,
   player_supervision::{PlayerExitStatus, PlayerSupervisor},
   scenario_orchestration::{
@@ -219,7 +219,9 @@ pub fn capture_macos(
         Evidence {
           player_log: &request.player_log_source,
           directory: &request.requirements.storage_directory,
-          launch_ms: launch_duration,
+          session: Session::Launched {
+            duration_ms: launch_duration,
+          },
           startup_ms: elapsed_ms(startup_started),
         },
       ));

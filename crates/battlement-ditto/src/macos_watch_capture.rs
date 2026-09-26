@@ -17,7 +17,7 @@ use battlement_tooling::{
 
 use crate::{
   macos_capture::{MacosCaptureOutcome, MacosCaptureRequest, MacosPlayerLauncher},
-  macos_startup::{self, Evidence},
+  macos_startup::{self, Evidence, Failure, Session},
   native_execution::NativeExecutionClaim,
   player_supervision::PlayerSupervisor,
   scenario_orchestration::{ScenarioMaterializer, ScenarioOrchestrator},
@@ -66,7 +66,7 @@ impl WarmMacosPlayer {
     let orchestrator = Arc::new(ScenarioOrchestrator::new(
       request.job.clone(),
       player_session_id.clone(),
-      request.orchestration_path,
+      request.orchestration_path.clone(),
       request.bail_after,
       now,
       materializer,
@@ -110,7 +110,9 @@ impl WarmMacosPlayer {
             Evidence {
               player_log: &request.player_log_source,
               directory: &request.requirements.storage_directory,
-              launch_ms: launch_duration,
+              session: Session::Launched {
+                duration_ms: launch_duration,
+              },
               startup_ms: elapsed_ms(startup_started),
             },
           ),
@@ -182,7 +184,11 @@ impl WarmMacosPlayer {
 
   /// Reports whether the idle target remains available without creating a run failure.
   pub fn is_alive(&mut self) -> Result<bool> {
-    Ok(self.supervisor.poll()?.is_none())
+    Ok(!self.server.snapshot().expired && self.supervisor.is_alive()?)
+  }
+
+  pub fn server_expired(&self) -> bool {
+    self.server.snapshot().expired
   }
 
   /// Installs and executes another immutable job on the accepted session.
@@ -206,35 +212,27 @@ impl WarmMacosPlayer {
     let orchestrator = Arc::new(ScenarioOrchestrator::new(
       request.job.clone(),
       self.server.player_session_id().to_owned(),
-      request.orchestration_path,
+      request.orchestration_path.clone(),
       request.bail_after,
       now,
       materializer,
     )?);
     let run_timeout_ms = request.job.remaining_run_timeout_ms;
-    self.server.wait_for_next_job(self.timeouts.startup)?;
-    self.server.install_job(
-      request.job,
-      request.requirements.storage_directory.clone(),
-      orchestrator.clone(),
-    )?;
     let startup_started = Instant::now();
-    let startup = wait_for_startup(
-      &self.server,
-      &mut self.supervisor,
-      interrupted,
-      self.timeouts.startup,
-      self.timeouts.poll_interval,
-    )?
-    .context("warm player startup was interrupted")?;
-    ensure!(
-      matches!(startup.started.identity, StartupIdentity::Accepted(_)),
-      "warm player repeated its startup report"
-    );
-    ensure!(
-      startup.decision.action == NextAction::Continue,
-      "warm player job was rejected"
-    );
+    if let Err(failure) = self.attach_job(&request, orchestrator.clone(), interrupted) {
+      return Ok(macos_startup::finish(
+        failure,
+        &self.server,
+        &mut self.supervisor,
+        orchestrator.snapshot(),
+        Evidence {
+          player_log: &self.player_log_source,
+          directory: &request.requirements.storage_directory,
+          session: Session::Accepted(&self.startup_report),
+          startup_ms: elapsed_ms(startup_started),
+        },
+      ));
+    }
     self.finish_job(
       orchestrator,
       &request.requirements.storage_directory,
@@ -248,12 +246,54 @@ impl WarmMacosPlayer {
     )
   }
 
+  fn attach_job(
+    &mut self,
+    request: &MacosCaptureRequest<'_>,
+    orchestrator: Arc<ScenarioOrchestrator>,
+    interrupted: &AtomicBool,
+  ) -> Result<(), Failure> {
+    let started = Instant::now();
+    macos_startup::wait_for_next_job(
+      &self.server,
+      &mut self.supervisor,
+      interrupted,
+      self.timeouts.startup,
+      self.timeouts.poll_interval,
+    )?;
+    self
+      .server
+      .install_job(
+        request.job.clone(),
+        request.requirements.storage_directory.clone(),
+        orchestrator,
+      )
+      .map_err(|error| Failure::ObservationFailed(error.to_string()))?;
+    let startup = macos_startup::wait(
+      &self.server,
+      &mut self.supervisor,
+      interrupted,
+      self.timeouts.startup.saturating_sub(started.elapsed()),
+      self.timeouts.poll_interval,
+    )?;
+    if !matches!(startup.started.identity, StartupIdentity::Accepted(_)) {
+      return Err(Failure::ObservationFailed(
+        "warm player repeated its startup report".to_owned(),
+      ));
+    }
+    if startup.decision.action != NextAction::Continue {
+      return Err(Failure::ObservationFailed(
+        "warm player job was rejected".to_owned(),
+      ));
+    }
+    Ok(())
+  }
+
   /// Ends the exact warm session and lets the player exit after its long poll.
   pub fn shutdown(mut self) {
     self.server.expire();
     let started = Instant::now();
     while started.elapsed() < self.timeouts.shutdown {
-      if self.supervisor.poll().ok().flatten().is_some() {
+      if !self.supervisor.is_alive().unwrap_or(false) {
         return;
       }
       thread::sleep(self.timeouts.poll_interval);
@@ -357,32 +397,6 @@ fn validate(request: &MacosCaptureRequest<'_>) -> Result<()> {
     "warm macOS capture does not own the job's native execution identity"
   );
   Ok(())
-}
-
-fn wait_for_startup(
-  server: &PlayerSessionServer,
-  supervisor: &mut PlayerSupervisor,
-  interrupted: &AtomicBool,
-  timeout: Duration,
-  poll_interval: Duration,
-) -> Result<Option<crate::session_server::StartupFact>> {
-  let started = Instant::now();
-  loop {
-    if let Some(startup) = server.snapshot().startup {
-      return Ok(Some(startup));
-    }
-    if interrupted.load(Ordering::Acquire) {
-      return Ok(None);
-    }
-    if let Some(status) = supervisor.poll()? {
-      anyhow::bail!("macOS player exited before watch startup: {status:?}");
-    }
-    ensure!(
-      started.elapsed() < timeout,
-      "macOS watch startup deadline expired"
-    );
-    thread::sleep(poll_interval);
-  }
 }
 
 fn report(identity: &StartupIdentity) -> Option<StartupReport> {

@@ -13,7 +13,7 @@ use crate::{
   session_server::{PlayerSessionServer, StartupFact},
   wire::{
     common::{DeadlineKind, ErrorCode, ErrorSource},
-    lifecycle::StartupIdentity,
+    lifecycle::{StartupIdentity, StartupReport},
     result::{ErrorOccurrence, PhaseName, PhaseResult, PhaseStatus, PlayerSessionResult},
   },
 };
@@ -25,10 +25,15 @@ pub(crate) enum Failure {
   ObservationFailed(String),
 }
 
+pub(crate) enum Session<'a> {
+  Launched { duration_ms: u64 },
+  Accepted(&'a StartupReport),
+}
+
 pub(crate) struct Evidence<'a> {
   pub player_log: &'a Path,
   pub directory: &'a Path,
-  pub launch_ms: u64,
+  pub session: Session<'a>,
   pub startup_ms: u64,
 }
 
@@ -39,10 +44,34 @@ pub(crate) fn wait(
   timeout: Duration,
   poll_interval: Duration,
 ) -> Result<StartupFact, Failure> {
+  wait_until(supervisor, interrupted, timeout, poll_interval, || {
+    server.snapshot().startup
+  })
+}
+
+pub(crate) fn wait_for_next_job(
+  server: &PlayerSessionServer,
+  supervisor: &mut PlayerSupervisor,
+  interrupted: &AtomicBool,
+  timeout: Duration,
+  poll_interval: Duration,
+) -> Result<(), Failure> {
+  wait_until(supervisor, interrupted, timeout, poll_interval, || {
+    server.waiting_for_next_job().then_some(())
+  })
+}
+
+fn wait_until<T>(
+  supervisor: &mut PlayerSupervisor,
+  interrupted: &AtomicBool,
+  timeout: Duration,
+  poll_interval: Duration,
+  observe: impl Fn() -> Option<T>,
+) -> Result<T, Failure> {
   let started = Instant::now();
   loop {
-    if let Some(startup) = server.snapshot().startup {
-      return Ok(startup);
+    if let Some(value) = observe() {
+      return Ok(value);
     }
     if interrupted.load(Ordering::Acquire) {
       return Err(Failure::Interrupted);
@@ -69,19 +98,20 @@ pub(crate) fn finish(
   let interrupted = matches!(startup, Failure::Interrupted);
   let deadline = matches!(startup, Failure::Expired).then_some(DeadlineKind::Startup);
   let mut errors = Vec::new();
-  let mut phases = vec![
-    phase(PhaseName::Launch, PhaseStatus::Passed, evidence.launch_ms),
-    phase(
-      PhaseName::Startup,
-      if interrupted {
-        PhaseStatus::Interrupted
-      } else {
-        PhaseStatus::Failed
-      },
-      evidence.startup_ms,
-    ),
-  ];
-  phases[1].expired_deadline = deadline;
+  let mut phases = Vec::new();
+  if let Session::Launched { duration_ms } = evidence.session {
+    phases.push(phase(PhaseName::Launch, PhaseStatus::Passed, duration_ms));
+  }
+  let mut startup_phase = phase(
+    PhaseName::Startup,
+    if interrupted {
+      PhaseStatus::Interrupted
+    } else {
+      PhaseStatus::Failed
+    },
+    evidence.startup_ms,
+  );
+  startup_phase.expired_deadline = deadline;
   let failure = match startup {
     Failure::Interrupted => None,
     Failure::Expired => Some((
@@ -95,13 +125,15 @@ pub(crate) fn finish(
     Failure::ObservationFailed(message) => Some((ErrorCode::StartupProbeFailed, message)),
   };
   if let Some((code, message)) = failure {
-    phases[1].error_ids.push(record(
+    startup_phase.error_ids.push(record(
       &mut errors,
       server.player_session_id(),
       code,
       message,
     ));
   }
+  let startup_index = phases.len();
+  phases.push(startup_phase);
   server.expire();
   let cleanup_started = Instant::now();
   let stopped = supervisor.stop();
@@ -123,9 +155,12 @@ pub(crate) fn finish(
       None
     }
   };
+
   phases.push(cleanup);
   let relative = format!("logs/player-{}.log", server.player_session_id());
-  let log = match fs::copy(evidence.player_log, evidence.directory.join(&relative)) {
+  let log = match fs::create_dir_all(evidence.directory.join("logs"))
+    .and_then(|()| fs::copy(evidence.player_log, evidence.directory.join(&relative)))
+  {
     Ok(_) => Some(relative),
     Err(error) if error.kind() == std::io::ErrorKind::NotFound && !evidence.player_log.exists() => {
       None
@@ -142,19 +177,25 @@ pub(crate) fn finish(
       None
     }
   };
-  phases[1].log_path = log.clone();
+  phases[startup_index].log_path = log.clone();
   MacosCaptureOutcome {
     exit_code: if interrupted { 130 } else { 2 },
     player_exit,
     player_session: Some(PlayerSessionResult {
       player_session_id: server.player_session_id().to_owned(),
-      accepted: false,
-      startup_report: server.snapshot().startup.and_then(|startup| {
-        match startup.started.identity {
-          StartupIdentity::Report(identity) => Some(identity.startup_report),
-          StartupIdentity::Accepted(_) => None,
+      accepted: matches!(evidence.session, Session::Accepted(_)),
+      startup_report: match evidence.session {
+        Session::Accepted(report) => Some(report.clone()),
+        Session::Launched { .. } => {
+          server
+            .snapshot()
+            .startup
+            .and_then(|startup| match startup.started.identity {
+              StartupIdentity::Report(identity) => Some(identity.startup_report),
+              StartupIdentity::Accepted(_) => None,
+            })
         }
-      }),
+      },
       diagnostic_paths: log.into_iter().collect(),
     }),
     orchestration,

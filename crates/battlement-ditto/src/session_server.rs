@@ -338,6 +338,11 @@ impl PlayerSessionServer {
     Ok(())
   }
 
+  pub(crate) fn waiting_for_next_job(&self) -> bool {
+    let state = self.state.value.lock().unwrap();
+    !state.route_expired() && state.waiting_for_next_job
+  }
+
   /// Waits until the accepted player is polling for another immutable job.
   pub fn wait_for_next_job(&self, timeout: Duration) -> Result<()> {
     let state = self.state.value.lock().unwrap();

@@ -88,6 +88,11 @@ impl PlayerSupervisor {
     Ok(status)
   }
 
+  pub(crate) fn is_alive(&mut self) -> Result<bool> {
+    self.poll()?;
+    Ok(self.exit_status.is_none())
+  }
+
   /// Stops and reaps the owned target, preserving an already observed exit.
   pub fn stop(&mut self) -> Result<PlayerExitStatus> {
     if let Some(status) = self.exit_status {

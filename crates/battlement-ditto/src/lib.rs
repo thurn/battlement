@@ -179,3 +179,10 @@ where
     }
   }
 }
+
+#[cfg(test)]
+use crate as ditto;
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "../tests/support/macos_fixture.rs"]
+mod macos_fixture;

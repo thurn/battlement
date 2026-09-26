@@ -421,10 +421,7 @@ fn execute_inner(
       interrupted,
     )?,
   };
-  let selected_scenarios = mem::take(&mut result.scenarios);
-  capture.apply_to(result);
-  result.scenarios = selected_scenarios;
-  merge_scenarios(result, capture.orchestration.scenarios);
+  apply_capture(result, capture);
   result.errors.extend(materializer.errors());
   result.phases.insert(
     0,
@@ -477,7 +474,12 @@ impl WatchRuntime {
     if let Some(mut player) = self.player.take() {
       return match player.execute(request, materializer, interrupted) {
         Ok(outcome) => {
-          self.player = Some(player);
+          if outcome.exit_code == 130 || player.server_expired() {
+            player.shutdown();
+            self.player_fingerprint = None;
+          } else {
+            self.player = Some(player);
+          }
           Ok(outcome)
         }
         Err(error) => {
@@ -871,3 +873,14 @@ fn lock_path(suite: &Suite) -> PathBuf {
 #[cfg(test)]
 #[path = "macos_run_tests.rs"]
 mod tests;
+
+fn apply_capture(result: &mut RunResult, capture: macos_capture::MacosCaptureOutcome) {
+  let selected_scenarios = mem::take(&mut result.scenarios);
+  capture.apply_to(result);
+  let executed = mem::replace(&mut result.scenarios, selected_scenarios);
+  merge_scenarios(result, executed);
+}
+
+#[cfg(test)]
+#[path = "../tests/support/warm_capture.rs"]
+mod warm_capture_tests;
