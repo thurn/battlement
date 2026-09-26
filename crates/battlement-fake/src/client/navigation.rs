@@ -110,30 +110,39 @@ impl<E: Engine> FakeClient<E> {
   }
 
   pub(crate) fn reconcile_navigation(&mut self) {
-    if !self.navigation.active || self.navigation.busy {
+    if !self.world.input_enabled() || self.navigation.busy {
       return;
     }
     self.navigation.busy = true;
     for _ in 0..16 {
       let before = (self.focused(), self.navigation.modal);
       let modal = self.ui_world.has_modal();
+      let ui_focus = self.ui_world.reconcile_modal_focus();
       if modal && !self.navigation.modal {
         self.navigation.invoker = self.navigation.focused;
-        self.navigation.modal = true;
-        self.set_navigation_focus(None);
-      } else if !modal && self.navigation.modal {
-        self.navigation.modal = false;
-        let return_to = self.navigation.invoker.take();
-        let candidates = self.navigation_targets();
+      }
+      if modal {
+        self.set_navigation_focus(ui_focus);
+      } else if self.navigation.modal {
+        let invoker = self.navigation.invoker.take();
         self.set_navigation_focus(
-          return_to
-            .filter(|id| candidates.iter().any(|v| v.0 == *id))
-            .or_else(|| candidates.first().map(|v| v.0)),
+          ui_focus
+            .or_else(|| invoker.filter(|id| self.navigation_targets().iter().any(|v| v.0 == *id))),
         );
+      }
+      self.navigation.modal = modal;
+      if !self.navigation.active {
+        break;
       }
       let candidates = self.navigation_targets();
       let current = self.focused();
-      let invalid = current.is_some_and(|id| !candidates.iter().any(|v| v.0 == id));
+      let invalid = current.is_some_and(|id| {
+        if self.ui_world.element(id).is_some() {
+          !self.ui_world.is_focus_eligible(id)
+        } else {
+          !candidates.iter().any(|v| v.0 == id)
+        }
+      });
       if invalid || (modal && current.is_none()) {
         self.set_navigation_focus(candidates.first().map(|v| v.0));
       }

@@ -87,17 +87,15 @@ impl UiWorld {
       .any(|id| self.is_modal(*id) && self.presented_in_hierarchy(*id))
   }
 
-  fn active_modal(&self, root: ObjectId) -> Option<ObjectId> {
+  pub(crate) fn active_modal(&self, root: ObjectId) -> Option<ObjectId> {
     self
-      .elements
-      .values()
-      .filter(|e| e.document_root_id == root)
-      .filter(|e| self.is_modal(e.object_id) && self.presented_in_hierarchy(e.object_id))
-      .max_by_key(|e| self.overlay_order(e.object_id))
-      .map(|e| e.object_id)
+      .focus_traversal(root)
+      .into_iter()
+      .filter(|id| self.is_modal(*id) && self.presented_in_hierarchy(*id))
+      .max_by_key(|id| self.overlay_order(*id))
   }
 
-  fn is_modal(&self, id: ObjectId) -> bool {
+  pub(crate) fn is_modal(&self, id: ObjectId) -> bool {
     matches!(
       self.elements[&id]
         .element
@@ -114,7 +112,7 @@ impl UiWorld {
     }
   }
 
-  fn in_modal_scope(&self, id: ObjectId, scope: ObjectId) -> bool {
+  pub(crate) fn in_modal_scope(&self, id: ObjectId, scope: ObjectId) -> bool {
     let mut current = Some(id);
     while let Some(id) = current {
       if id == scope {

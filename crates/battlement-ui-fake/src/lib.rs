@@ -7,8 +7,11 @@ mod actions;
 mod assets;
 mod choice_groups;
 mod hierarchy;
+mod modal_focus;
 mod motion;
 mod picking;
+
+use crate::modal_focus::ModalFocus;
 
 use std::{
   collections::{HashMap, HashSet},
@@ -334,6 +337,7 @@ pub struct UiWorld {
   font_usage: HashMap<UiFontAddress, usize>,
   repeat_defaults: HashMap<ObjectId, (u32, NonZeroU32)>,
   focused: Option<ObjectId>,
+  modal_focus: HashMap<ObjectId, ModalFocus>,
   pointer_captures: HashMap<i32, ObjectId>,
   selections: HashMap<ObjectId, (u32, u32)>,
 }

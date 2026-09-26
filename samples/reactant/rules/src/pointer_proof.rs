@@ -1,7 +1,7 @@
 use crate::ROOT_ID;
 use battlement::{ObjectId, ParentScene, PickingMode, Position, Prop, Vector3, object_id};
 use reactant::{
-  hooks,
+  element_ref, hooks,
   overlay::{Overlay, OverlayHost},
   prelude::*,
   world,
@@ -33,6 +33,7 @@ pub(crate) fn app() -> crate::ReactantApplication {
 impl Component for PointerProof {
   fn render(&self) -> impl Render {
     let target = reactant::use_portal_target();
+    let trigger = element_ref::use_element_ref();
     let (pass, passthrough) = hooks::use_state(false);
     let (moved, reparent) = hooks::use_state(false);
     let (hidden, hide) = hooks::use_state(false);
@@ -110,7 +111,9 @@ impl Component for PointerProof {
                 Heading::new(ls(format!("World clicks: {clicks}")), 2),
                 Label::new(ls(format!("Captured: {captured} | Reparented: {moved}"))),
                 Button::new(ls("Toggle passthrough")).on_press(passthrough.update_callback(|v| !v)),
-                Button::new(ls("Open outer modal")).on_press(outer_set.update_callback(|_| true)),
+                Button::new(ls("Open outer modal"))
+                  .element_ref(trigger.clone())
+                  .on_press(outer_set.update_callback(|_| true)),
                 Button::new(ls("Reparent card")).on_press(reparent.update_callback(|v| !v)),
                 Button::new(ls("Hide or show card")).on_press(hide.update_callback(|v| !v)),
                 Button::new(ls("Remove or restore card")).on_press(remove.update_callback(|v| !v)),
@@ -150,38 +153,40 @@ impl Component for PointerProof {
                 .child(moved.then_some(card)),
             )),
             outer.then(|| {
-              Overlay::modal(target.clone(), ls("Outer pointer scope")).child(
-                View::new()
-                  .style(
-                    Style::new()
-                      .padding(30.px())
-                      .background_color(Color::rgb(0.12, 0.15, 0.23))
-                      .color(Color::WHITE),
-                  )
-                  .child((
-                    Heading::new(ls("Outer modal owns input"), 1),
-                    Button::new(ls("Open inner modal"))
-                      .on_press(inner_set.update_callback(|_| true)),
-                    Button::new(ls("Close outer modal"))
-                      .on_press(outer_set.update_callback(|_| false)),
-                    inner.then(|| {
-                      Overlay::modal(target.clone(), ls("Inner pointer scope")).child(
-                        View::new()
-                          .style(
-                            Style::new()
-                              .padding(60.px())
-                              .background_color(Color::rgb(0.22, 0.12, 0.25))
-                              .color(Color::WHITE),
-                          )
-                          .child((
-                            Heading::new(ls("Inner modal owns input"), 1),
-                            Button::new(ls("Close inner modal"))
-                              .on_press(inner_set.update_callback(|_| false)),
-                          )),
-                      )
-                    }),
-                  )),
-              )
+              Overlay::modal(target.clone(), ls("Outer pointer scope"))
+                .restore_focus(trigger)
+                .child(
+                  View::new()
+                    .style(
+                      Style::new()
+                        .padding(30.px())
+                        .background_color(Color::rgb(0.12, 0.15, 0.23))
+                        .color(Color::WHITE),
+                    )
+                    .child((
+                      Heading::new(ls("Outer modal owns input"), 1),
+                      Button::new(ls("Open inner modal"))
+                        .on_press(inner_set.update_callback(|_| true)),
+                      Button::new(ls("Close outer modal"))
+                        .on_press(outer_set.update_callback(|_| false)),
+                      inner.then(|| {
+                        Overlay::modal(target.clone(), ls("Inner pointer scope")).child(
+                          View::new()
+                            .style(
+                              Style::new()
+                                .padding(60.px())
+                                .background_color(Color::rgb(0.22, 0.12, 0.25))
+                                .color(Color::WHITE),
+                            )
+                            .child((
+                              Heading::new(ls("Inner modal owns input"), 1),
+                              Button::new(ls("Close inner modal"))
+                                .on_press(inner_set.update_callback(|_| false)),
+                            )),
+                        )
+                      }),
+                    )),
+                )
             }),
           )),
         OverlayHost::new(target),
@@ -194,12 +199,20 @@ mod tests {
   use battlement_fake::assets::FakeAssetCatalog;
   use reactant_testing::Display;
   #[test]
-  fn pointer_scene_mounts() {
+  fn nested_modal_focus_returns_to_the_explicit_trigger() {
     let mut assets = FakeAssetCatalog::new();
     assets.add_scene(crate::CONTENT_SCENE);
     assets.add_texture("reactant/assets/texture");
     assets.add_text_mesh_pro_font("reactant/world/font");
     assets.add_textures(crate::generated_asset_addresses());
-    let _ = Display::mount(crate::pointer_proof::app, assets);
+    let mut display = Display::mount(crate::pointer_proof::app, assets);
+    display.click_button("Open outer modal");
+    display.click_button("Open inner modal");
+    display.click_button("Close inner modal");
+    display.activate_focused();
+    display.click_button("Close inner modal");
+    display.click_button("Close outer modal");
+    display.activate_focused();
+    display.click_button("Close outer modal");
   }
 }
