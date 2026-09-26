@@ -4,10 +4,7 @@ use std::{
   fs,
   path::{Path, PathBuf},
   process::{Child, Command, Stdio},
-  sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-  },
+  sync::{Arc, atomic::AtomicBool},
   thread,
   time::{Duration, Instant},
 };
@@ -22,6 +19,7 @@ use battlement_tooling::{
 use uuid::Uuid;
 
 use crate::{
+  macos_job_failure,
   macos_lifecycle::{self, Evidence, Session, Stage},
   native_execution::NativeExecution,
   player_supervision::{PlayerExitStatus, PlayerSupervisor},
@@ -179,10 +177,10 @@ pub fn capture_macos(
   let orchestrator = Arc::new(ScenarioOrchestrator::new(
     request.job.clone(),
     player_session_id.clone(),
-    request.orchestration_path,
+    request.orchestration_path.clone(),
     request.bail_after,
     now,
-    materializer,
+    materializer.clone(),
   )?);
   let server = PlayerSessionServer::bind_with_identity(
     request.job.clone(),
@@ -285,20 +283,40 @@ pub fn capture_macos(
     None,
   ));
   let run_started = Instant::now();
-  let terminal = loop {
-    if interrupted.load(Ordering::Acquire) {
-      break false;
+  let terminal = match macos_lifecycle::wait_for_execution(
+    &server,
+    &mut supervisor,
+    interrupted,
+    Duration::from_millis(request.job.remaining_run_timeout_ms),
+    request.timeouts.poll_interval,
+  ) {
+    Ok(terminal) => terminal,
+    Err(failure) => {
+      let mut outcome = macos_lifecycle::finish(
+        failure,
+        &server,
+        &mut supervisor,
+        orchestrator.snapshot(),
+        Evidence {
+          player_log: &request.player_log_source,
+          directory: &request.requirements.storage_directory,
+          session: Session::Accepted(&report),
+          duration_ms: elapsed_ms(run_started),
+          stage: Stage::Execution,
+          errors: &request.errors,
+        },
+      );
+      phases.append(&mut outcome.phases);
+      outcome.phases = phases;
+      macos_job_failure::reconstruct(
+        &mut outcome,
+        &request,
+        &server,
+        &orchestrator,
+        materializer.as_ref(),
+      );
+      return Ok(outcome);
     }
-    if server.durable_state().terminal.is_some() {
-      break true;
-    }
-    if let Some(status) = supervisor.poll()? {
-      anyhow::bail!("macOS player exited before durable job completion: {status:?}");
-    }
-    if run_started.elapsed() >= Duration::from_millis(request.job.remaining_run_timeout_ms) {
-      anyhow::bail!("macOS capture exceeded the run deadline");
-    }
-    thread::sleep(request.timeouts.poll_interval);
   };
   server.expire();
   let shutdown = if terminal {

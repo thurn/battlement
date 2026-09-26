@@ -70,6 +70,33 @@ pub(crate) fn wait_for_next_job(
   })
 }
 
+pub(crate) fn wait_for_execution(
+  server: &PlayerSessionServer,
+  supervisor: &mut PlayerSupervisor,
+  interrupted: &AtomicBool,
+  timeout: Duration,
+  poll_interval: Duration,
+) -> Result<bool, Failure> {
+  match wait_until(supervisor, interrupted, timeout, poll_interval, || {
+    if interrupted.load(Ordering::Acquire) {
+      Some(false)
+    } else {
+      server.durable_state().terminal.as_ref().map(|_| true)
+    }
+  }) {
+    Ok(terminal) => Ok(terminal),
+    Err(Failure::Interrupted) => Ok(false),
+    Err(failure) => {
+      server.expire();
+      if server.durable_state().terminal.is_some() {
+        Ok(true)
+      } else {
+        Err(failure)
+      }
+    }
+  }
+}
+
 fn wait_until<T>(
   supervisor: &mut PlayerSupervisor,
   interrupted: &AtomicBool,

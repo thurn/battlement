@@ -12,8 +12,8 @@ use std::{
 use battlement_ditto::{
   self as ditto, macos_capture,
   wire::{
-    common::{DeadlineKind, ErrorCode},
-    result::{PhaseName, PhaseStatus, RunResult, RunStatus},
+    common::{DeadlineKind, ErrorCode, StepStatus},
+    result::{JobStatus, PhaseName, PhaseStatus, RunResult, RunStatus, ScenarioStatus},
   },
 };
 use battlement_tooling::unity_lease::CompilerCapacityLease;
@@ -326,6 +326,112 @@ fn startup_timeout_exit_and_cancellation_retain_truthful_public_evidence() {
     assert_eq!(
       retained.phases[1].expired_deadline,
       startup.expired_deadline
+    );
+  }
+}
+
+#[test]
+fn accepted_execution_losses_retain_durable_results_and_cleanup() {
+  let _guard = CAPTURE_TEST_GATE.lock().unwrap();
+  for mode in ["job-exit", "job-timeout", "job-between"] {
+    let build = FixtureBuild::new(true);
+    let run = tempfile::tempdir().unwrap();
+    let launcher = FixtureLauncher::new(run.path(), json!({}), mode);
+    let mut input = macos_fixture::request(&build.handle, run.path(), 3);
+    input.job.remaining_run_timeout_ms = 500;
+    let mut extra = input.job.scenarios[1].steps[0].clone();
+    extra.index = 1;
+    input.job.scenarios[1].steps.push(extra);
+    let outcome = macos_capture::capture_macos(
+      input,
+      &launcher,
+      Arc::new(PassMaterializer),
+      &AtomicBool::new(false),
+    )
+    .unwrap();
+    assert_eq!(outcome.exit_code, 2);
+    assert_eq!(launcher.count.load(Ordering::SeqCst), 1);
+    let session = outcome.player_session.as_ref().unwrap();
+    assert!(session.accepted);
+    assert!(session.startup_report.is_some());
+    for name in [PhaseName::Launch, PhaseName::Startup, PhaseName::Cleanup] {
+      assert_eq!(
+        outcome
+          .phases
+          .iter()
+          .find(|phase| phase.name == name)
+          .unwrap()
+          .status,
+        PhaseStatus::Passed
+      );
+    }
+    let phase = outcome
+      .phases
+      .iter()
+      .find(|phase| phase.name == PhaseName::Scenarios)
+      .unwrap();
+    assert_eq!(phase.status, PhaseStatus::Failed);
+    assert_eq!(
+      phase.expired_deadline,
+      (mode == "job-timeout").then_some(DeadlineKind::Run)
+    );
+    assert_eq!(outcome.errors.len(), 1, "{mode}: {:?}", outcome.errors);
+    assert_eq!(
+      outcome.errors[0].code,
+      if mode == "job-timeout" {
+        ErrorCode::DeadlineExpired
+      } else {
+        ErrorCode::RuntimeProcessExit
+      }
+    );
+    assert_eq!(
+      outcome.orchestration.jobs[0].status,
+      JobStatus::InfrastructureError
+    );
+    let scenarios = &outcome.orchestration.scenarios;
+    assert_eq!(scenarios.len(), 3);
+    assert_eq!(scenarios[0].status, ScenarioStatus::Passed);
+    assert_eq!(scenarios[1].status, ScenarioStatus::InfrastructureError);
+    assert_eq!(scenarios[1].steps[0].status, StepStatus::Passed);
+    assert_eq!(scenarios[1].steps[0].duration_ms, 3);
+    assert_eq!(
+      scenarios[1].steps[1].status,
+      if mode == "job-between" {
+        StepStatus::NotRun
+      } else {
+        StepStatus::InfrastructureError
+      }
+    );
+    assert!(!scenarios[1].logs.as_ref().unwrap().complete);
+    assert_eq!(scenarios[2].status, ScenarioStatus::NotRun);
+    assert!(outcome.orchestration.pending_recovery.is_none());
+    let diagnostic = session.diagnostic_paths[0].clone();
+    assert_eq!(
+      fs::read_to_string(run.path().join(&diagnostic)).unwrap(),
+      "fixture player log\n"
+    );
+    let mut result = macos_fixture::empty_result();
+    outcome.apply_to(&mut result);
+    result.artifacts = vec![
+      "logs/events.jsonl".to_owned(),
+      diagnostic,
+      "orchestration.json".to_owned(),
+    ];
+    let encoded = result.to_canonical_json().unwrap();
+    let retained: RunResult = serde_json::from_slice(&encoded).unwrap();
+    assert_eq!(retained.status, RunStatus::InfrastructureError);
+    let checkpoint: serde_json::Value =
+      serde_json::from_slice(&fs::read(run.path().join("orchestration.json")).unwrap()).unwrap();
+    assert_eq!(checkpoint["scenarios"].as_array().unwrap().len(), 3);
+    #[cfg(unix)]
+    assert!(
+      !Command::new("kill")
+        .args(["-0", &launcher.pid.load(Ordering::SeqCst).to_string()])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .unwrap()
+        .success()
     );
   }
 }

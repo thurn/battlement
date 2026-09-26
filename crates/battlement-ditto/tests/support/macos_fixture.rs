@@ -435,7 +435,7 @@ for cycle in range(2 if mode.startswith('warm-') else 1):
 
     executed = []
     for sequence, scenario in enumerate(job['scenarios']):
-        if cycle == 1 and sequence == 1 and mode.startswith('warm-job-'):
+        if sequence == 1 and ((cycle == 1 and mode.startswith('warm-job-')) or mode.startswith('job-')):
             first = scenario['steps'][0]
             bodies = [
                 {'context': 'scenario-started', 'scenario_id': scenario['id']},
@@ -446,7 +446,7 @@ for cycle in range(2 if mode.startswith('warm-') else 1):
                     'assertion': None, 'screenshot_artifact_id': None, 'video_input_id': None,
                 }},
             ]
-            if mode != 'warm-job-between':
+            if not mode.endswith('-between'):
                 bodies.append({'context': 'step-started', 'scenario_id': scenario['id'], 'step_index': 1})
             records = []
             for index, body in enumerate(bodies, start=sequence):
@@ -461,7 +461,7 @@ for cycle in range(2 if mode.startswith('warm-') else 1):
             send('PUT', 'jobs/' + job['job_id'] + '/logs/' + session + '?first_sequence=' + str(sequence),
                 payload, 'application/x-ndjson', {'X-Ditto-SHA256': hashlib.sha256(payload).hexdigest()}).close()
             open(os.environ['DITTO_FIXTURE_SETUP'] + '-dispatched', 'w').write('waiting')
-            if mode in ('warm-job-exit', 'warm-job-between'):
+            if mode.endswith(('-exit', '-between')):
                 sys.exit(7)
             while True:
                 time.sleep(0.01)

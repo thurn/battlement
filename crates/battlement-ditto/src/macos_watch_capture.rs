@@ -2,10 +2,7 @@
 
 use std::{
   fs,
-  sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-  },
+  sync::{Arc, atomic::AtomicBool},
   thread,
   time::{Duration, Instant},
 };
@@ -307,29 +304,15 @@ impl WarmMacosPlayer {
     mut phases: Vec<PhaseResult>,
   ) -> Result<MacosCaptureOutcome> {
     let run_started = Instant::now();
-    let terminal = loop {
-      if interrupted.load(Ordering::Acquire) {
-        break false;
-      }
-      if self.server.durable_state().terminal.is_some() {
-        break true;
-      }
-      let failure = match self.supervisor.poll() {
-        Ok(Some(status)) => Some(Failure::Exited(status)),
-        Err(error) => Some(Failure::ObservationFailed(error.to_string())),
-        Ok(None)
-          if run_started.elapsed()
-            >= Duration::from_millis(request.job.remaining_run_timeout_ms) =>
-        {
-          Some(Failure::Expired)
-        }
-        Ok(None) => None,
-      };
-      if let Some(failure) = failure {
-        self.server.expire();
-        if self.server.durable_state().terminal.is_some() {
-          break true;
-        }
+    let terminal = match macos_lifecycle::wait_for_execution(
+      &self.server,
+      &mut self.supervisor,
+      interrupted,
+      Duration::from_millis(request.job.remaining_run_timeout_ms),
+      self.timeouts.poll_interval,
+    ) {
+      Ok(terminal) => terminal,
+      Err(failure) => {
         let mut outcome = macos_lifecycle::finish(
           failure,
           &self.server,
@@ -355,7 +338,6 @@ impl WarmMacosPlayer {
         );
         return Ok(outcome);
       }
-      thread::sleep(self.timeouts.poll_interval);
     };
     let snapshot = orchestrator.snapshot();
     let exit_code = if terminal {
