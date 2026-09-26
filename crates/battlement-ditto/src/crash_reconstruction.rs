@@ -31,7 +31,7 @@ pub(crate) fn reconstruct(
   let player_session = PlayerSessionResult {
     player_session_id: context.player_session_id.clone(),
     accepted: true,
-    startup_report: context.startup_report.clone(),
+    startup_report: Some(context.startup_report.clone()),
     diagnostic_paths: context.diagnostic_paths.clone(),
   };
   let retained_artifact_ids = retained_artifacts(&context.durable.records);

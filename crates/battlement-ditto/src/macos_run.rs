@@ -4,6 +4,7 @@ use std::{
   collections::{BTreeMap, BTreeSet},
   fs,
   io::Write,
+  mem,
   path::{Path, PathBuf},
   sync::{Arc, atomic::AtomicBool},
   time::{Duration, Instant},
@@ -420,9 +421,11 @@ fn execute_inner(
       interrupted,
     )?,
   };
+  let selected_scenarios = mem::take(&mut result.scenarios);
   capture.apply_to(result);
+  result.scenarios = selected_scenarios;
   merge_scenarios(result, capture.orchestration.scenarios);
-  result.errors = materializer.errors();
+  result.errors.extend(materializer.errors());
   result.phases.insert(
     0,
     PhaseResult {

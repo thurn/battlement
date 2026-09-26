@@ -537,7 +537,13 @@ fn player_sessions<'a>(
 
 fn validate_session(session: &PlayerSessionResult, artifacts: &BTreeSet<&str>) -> Result<()> {
   validation::identifier("player_session_id", &session.player_session_id)?;
-  lifecycle_validation::retained_startup_report(&session.startup_report)?;
+  ensure!(
+    !session.accepted || session.startup_report.is_some(),
+    "accepted player session requires a startup report"
+  );
+  if let Some(report) = &session.startup_report {
+    lifecycle_validation::retained_startup_report(report)?;
+  }
   for path in &session.diagnostic_paths {
     retained_path("player diagnostic path", path, artifacts)?;
   }

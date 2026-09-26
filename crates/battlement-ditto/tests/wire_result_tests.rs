@@ -67,7 +67,7 @@ fn complete_result_review_exchange_validates() {
 #[test]
 fn retained_legacy_result_remains_readable() {
   let mut result = complete_result();
-  let report = &mut result.player_sessions[0].startup_report;
+  let report = result.player_sessions[0].startup_report.as_mut().unwrap();
   report.determinism_contract = "ditto-v1".to_owned();
   report.capabilities.insert(1, Capability::Key);
   result.validate().unwrap();
@@ -616,6 +616,9 @@ fn unknown_fields_and_malformed_closed_unions_are_rejected() {
 
 #[test]
 fn result_conditionals_reject_inconsistent_states() {
+  let mut missing_report = complete_result();
+  missing_report.player_sessions[0].startup_report = None;
+  assert!(missing_report.validate().is_err());
   let valid = complete_result();
   rejects(&valid, |result| result.exit_code = 0);
   rejects(&valid, |result| {
@@ -839,7 +842,7 @@ fn complete_result() -> RunResult {
     player_sessions: vec![PlayerSessionResult {
       player_session_id: PLAYER_SESSION_ID.to_owned(),
       accepted: true,
-      startup_report: startup_report(),
+      startup_report: Some(startup_report()),
       diagnostic_paths: vec!["diagnostics/player.log".to_owned()],
     }],
     jobs: vec![JobResult {

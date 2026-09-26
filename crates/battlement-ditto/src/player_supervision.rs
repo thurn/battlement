@@ -39,7 +39,7 @@ pub trait SimulatorApp: Send {
 /// Polls one owned process or Simulator application without affecting unrelated targets.
 pub struct PlayerSupervisor {
   target: Target,
-  observed: bool,
+  exit_status: Option<PlayerExitStatus>,
 }
 
 enum Target {
@@ -65,13 +65,13 @@ impl PlayerSupervisor {
   pub fn ios_simulator(app: Box<dyn SimulatorApp>) -> Self {
     Self {
       target: Target::Simulator(app),
-      observed: false,
+      exit_status: None,
     }
   }
 
   /// Reports an exit once, leaving a running target untouched.
   pub fn poll(&mut self) -> Result<Option<PlayerExitStatus>> {
-    if self.observed {
+    if self.exit_status.is_some() {
       return Ok(None);
     }
     let status = match &mut self.target {
@@ -84,34 +84,52 @@ impl PlayerSupervisor {
         code: None,
       }),
     };
-    self.observed = status.is_some();
+    self.exit_status = status;
+    Ok(status)
+  }
+
+  /// Stops and reaps the owned target, preserving an already observed exit.
+  pub fn stop(&mut self) -> Result<PlayerExitStatus> {
+    if let Some(status) = self.exit_status {
+      return Ok(status);
+    }
+    let status = match &mut self.target {
+      Target::Child { platform, child } => {
+        let exit = match child.try_wait()? {
+          Some(exit) => exit,
+          None => {
+            child.kill()?;
+            child.wait()?
+          }
+        };
+        PlayerExitStatus {
+          platform: *platform,
+          code: exit.code(),
+        }
+      }
+      Target::Simulator(app) => {
+        app.terminate()?;
+        PlayerExitStatus {
+          platform: SupervisedPlatform::IosSimulator,
+          code: None,
+        }
+      }
+    };
+    self.exit_status = Some(status);
     Ok(status)
   }
 
   fn child(platform: SupervisedPlatform, child: Child) -> Self {
     Self {
       target: Target::Child { platform, child },
-      observed: false,
+      exit_status: None,
     }
   }
 }
 
 impl Drop for PlayerSupervisor {
   fn drop(&mut self) {
-    if self.observed {
-      return;
-    }
-    match &mut self.target {
-      Target::Child { child, .. } => {
-        if child.try_wait().ok().flatten().is_none() {
-          let _ = child.kill();
-          let _ = child.wait();
-        }
-      }
-      Target::Simulator(app) => {
-        let _ = app.terminate();
-      }
-    }
+    let _ = self.stop();
   }
 }
 

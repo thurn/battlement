@@ -176,7 +176,7 @@ pub fn capture_ios(
       player_session: self::startup_report(&server).map(|startup_report| PlayerSessionResult {
         player_session_id,
         accepted: false,
-        startup_report,
+        startup_report: Some(startup_report),
         diagnostic_paths: vec![diagnostic],
       }),
       orchestration: orchestrator.snapshot(),
@@ -209,7 +209,7 @@ pub fn capture_ios(
       player_session: report.map(|startup_report| PlayerSessionResult {
         player_session_id,
         accepted: false,
-        startup_report,
+        startup_report: Some(startup_report),
         diagnostic_paths: vec![diagnostic],
       }),
       orchestration: orchestrator.snapshot(),
@@ -281,7 +281,7 @@ pub fn capture_ios(
     player_session: Some(PlayerSessionResult {
       player_session_id,
       accepted: true,
-      startup_report: report,
+      startup_report: Some(report),
       diagnostic_paths: vec![diagnostic],
     }),
     orchestration,

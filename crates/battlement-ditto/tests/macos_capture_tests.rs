@@ -5,7 +5,7 @@ use std::{
   process::{Child, Command, Stdio},
   sync::{
     Arc, Barrier, Mutex,
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
   },
   thread,
   time::{Duration, Instant},
@@ -18,15 +18,15 @@ use battlement_ditto::{
   scenario_orchestration::{MaterializedScenario, ScenarioMaterializer},
   session_server::PlayerSessionRequirements,
   wire::{
-    common::StepStatus,
+    common::{DeadlineKind, ErrorCode, StepStatus},
     job::{
       Capability, Command as JobCommand, Display, InputTarget, Job, Motion, Platform,
       ResolvedProfile, ResolvedScenario, ResolvedStep, StepKind,
     },
     lifecycle::{PlayerStepResult, ScenarioBoundaryOutcome, ScenarioComplete},
     result::{
-      LogSpan, Recovery, ResultCommand, RunResult, RunStatus, ScenarioResult, ScenarioStatus,
-      ScenarioTimings, StepResult,
+      LogSpan, PhaseName, PhaseStatus, Recovery, ResultCommand, RunResult, RunStatus,
+      ScenarioResult, ScenarioStatus, ScenarioTimings, StepResult,
     },
   },
 };
@@ -200,6 +200,8 @@ fn independent_native_captures_overlap_with_distinct_ownership() {
         .as_ref()
         .unwrap()
         .startup_report
+        .as_ref()
+        .unwrap()
         .native_execution_id
         .clone()
         .unwrap()
@@ -236,6 +238,117 @@ fn player_startup_deadline_begins_after_machine_capacity_admission() {
   assert!(outcome.phases[0].duration_ms < 2_000);
 }
 
+#[test]
+fn startup_timeout_exit_and_cancellation_retain_truthful_public_evidence() {
+  let _guard = CAPTURE_TEST_GATE.lock().unwrap();
+  for mode in ["timeout", "early-exit", "cancel"] {
+    let build = FixtureBuild::new(true);
+    let run = tempfile::tempdir().unwrap();
+    let launcher = FixtureLauncher::new(
+      run.path(),
+      json!({}),
+      if mode == "early-exit" {
+        "exit-before-startup"
+      } else {
+        "no-startup"
+      },
+    );
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let signal = if mode == "cancel" {
+      let interrupted = interrupted.clone();
+      let ready = run.path().join("setup-startup");
+      Some(thread::spawn(move || {
+        let started = Instant::now();
+        while !ready.exists() {
+          assert!(started.elapsed() < Duration::from_secs(5));
+          thread::sleep(Duration::from_millis(5));
+        }
+        interrupted.store(true, Ordering::Release);
+      }))
+    } else {
+      None
+    };
+    let mut input = request(&build.handle, run.path(), 1);
+    input.timeouts.startup = Duration::from_millis(300);
+    let outcome =
+      capture_macos(input, &launcher, Arc::new(PassMaterializer), &interrupted).unwrap();
+    if let Some(signal) = signal {
+      signal.join().unwrap();
+    }
+    assert_eq!(outcome.exit_code, if mode == "cancel" { 130 } else { 2 });
+    assert_eq!(outcome.phases[0].name, PhaseName::Launch);
+    assert_eq!(outcome.phases[0].status, PhaseStatus::Passed);
+    let startup = &outcome.phases[1];
+    assert_eq!(startup.name, PhaseName::Startup);
+    assert_eq!(
+      startup.status,
+      if mode == "cancel" {
+        PhaseStatus::Interrupted
+      } else {
+        PhaseStatus::Failed
+      }
+    );
+    assert!(startup.duration_ms > 0);
+    assert_eq!(
+      startup.expired_deadline,
+      (mode == "timeout").then_some(DeadlineKind::Startup)
+    );
+    if mode == "timeout" {
+      assert!(startup.duration_ms >= 300);
+    }
+    assert_eq!(outcome.phases[2].name, PhaseName::Cleanup);
+    assert_eq!(outcome.phases[2].status, PhaseStatus::Passed);
+    let session = outcome.player_session.as_ref().unwrap();
+    assert!(!session.accepted);
+    assert!(session.startup_report.is_none());
+    let diagnostic = session.diagnostic_paths[0].clone();
+    assert_eq!(startup.log_path.as_deref(), Some(diagnostic.as_str()));
+    assert_eq!(
+      fs::read_to_string(run.path().join(&diagnostic)).unwrap(),
+      "fixture player log\n"
+    );
+    assert!(outcome.orchestration.jobs.is_empty());
+    if mode == "early-exit" {
+      assert_eq!(outcome.player_exit.unwrap().code, Some(7));
+    }
+    if mode != "cancel" {
+      assert_eq!(
+        outcome.errors[0].code,
+        if mode == "timeout" {
+          ErrorCode::DeadlineExpired
+        } else {
+          ErrorCode::RuntimeProcessExit
+        }
+      );
+      assert_eq!(
+        outcome.errors[0].player_session_id.as_deref(),
+        Some(session.player_session_id.as_str())
+      );
+    } else {
+      assert!(outcome.errors.is_empty());
+    }
+    #[cfg(unix)]
+    assert!(
+      !Command::new("kill")
+        .args(["-0", &launcher.pid.load(Ordering::SeqCst).to_string()])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .unwrap()
+        .success()
+    );
+    let mut result = empty_result();
+    outcome.apply_to(&mut result);
+    result.artifacts = vec![diagnostic];
+    let encoded = result.to_canonical_json().unwrap();
+    let retained: RunResult = serde_json::from_slice(&encoded).unwrap();
+    assert_eq!(
+      retained.phases[1].expired_deadline,
+      startup.expired_deadline
+    );
+  }
+}
+
 struct FixtureLauncher {
   script: PathBuf,
   log: PathBuf,
@@ -243,6 +356,7 @@ struct FixtureLauncher {
   override_value: String,
   mode: &'static str,
   count: Arc<AtomicUsize>,
+  pid: AtomicU32,
   launch_barrier: Option<Arc<Barrier>>,
 }
 
@@ -257,6 +371,7 @@ impl FixtureLauncher {
       override_value: serde_json::to_string(&override_value).unwrap(),
       mode,
       count: Arc::new(AtomicUsize::new(0)),
+      pid: AtomicU32::new(0),
       launch_barrier: None,
     }
   }
@@ -282,24 +397,24 @@ impl MacosPlayerLauncher for FixtureLauncher {
     if let Some(barrier) = &self.launch_barrier {
       barrier.wait();
     }
-    Ok(
-      Command::new(env::var_os("BATTLEMENT_PYTHON").unwrap_or_else(|| {
-        if cfg!(windows) {
-          "python3".into()
-        } else {
-          "/usr/bin/python3".into()
-        }
-      }))
-      .arg(&self.script)
-      .arg(session_url)
-      .env("DITTO_FIXTURE_LOG", &self.log)
-      .env("DITTO_FIXTURE_SETUP", &self.setup)
-      .env("DITTO_FIXTURE_OVERRIDE", &self.override_value)
-      .env("DITTO_FIXTURE_MODE", self.mode)
-      .stdout(Stdio::null())
-      .stderr(Stdio::null())
-      .spawn()?,
-    )
+    let child = Command::new(env::var_os("BATTLEMENT_PYTHON").unwrap_or_else(|| {
+      if cfg!(windows) {
+        "python3".into()
+      } else {
+        "/usr/bin/python3".into()
+      }
+    }))
+    .arg(&self.script)
+    .arg(session_url)
+    .env("DITTO_FIXTURE_LOG", &self.log)
+    .env("DITTO_FIXTURE_SETUP", &self.setup)
+    .env("DITTO_FIXTURE_OVERRIDE", &self.override_value)
+    .env("DITTO_FIXTURE_MODE", self.mode)
+    .stdout(Stdio::null())
+    .stderr(Stdio::null())
+    .spawn()?;
+    self.pid.store(child.id(), Ordering::SeqCst);
+    Ok(child)
   }
 }
 
@@ -555,6 +670,12 @@ import urllib.request
 base = sys.argv[1].rstrip('/')
 log_path = os.environ['DITTO_FIXTURE_LOG']
 open(log_path, 'w').write('fixture player log\n')
+if os.environ['DITTO_FIXTURE_MODE'] == 'exit-before-startup':
+    sys.exit(7)
+if os.environ['DITTO_FIXTURE_MODE'] == 'no-startup':
+    open(os.environ['DITTO_FIXTURE_SETUP'] + '-startup', 'w').write('waiting')
+    while True:
+        time.sleep(0.01)
 
 def send(method, path, value=None, content_type='application/json', headers=None):
     body = None if value is None else (value if isinstance(value, bytes) else json.dumps(value).encode())

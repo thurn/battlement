@@ -22,6 +22,7 @@ use battlement_tooling::{
 use uuid::Uuid;
 
 use crate::{
+  macos_startup::{self, Evidence},
   native_execution::NativeExecution,
   player_supervision::{PlayerExitStatus, PlayerSupervisor},
   scenario_orchestration::{
@@ -33,8 +34,8 @@ use crate::{
     job::{Command as JobCommand, Job, Platform},
     lifecycle::{NextAction, StartupIdentity},
     result::{
-      PhaseName, PhaseResult, PhaseStatus, PlayerSessionResult, RunResult, RunStatus,
-      ScenarioStatus,
+      ErrorOccurrence, PhaseName, PhaseResult, PhaseStatus, PlayerSessionResult, RunResult,
+      RunStatus, ScenarioStatus,
     },
   },
 };
@@ -86,6 +87,7 @@ pub struct MacosCaptureOutcome {
   pub player_session: Option<PlayerSessionResult>,
   pub orchestration: ScenarioOrchestrationSnapshot,
   pub phases: Vec<PhaseResult>,
+  pub errors: Vec<ErrorOccurrence>,
 }
 
 impl MacosPlayerLauncher for ImmutableMacosLauncher {
@@ -141,6 +143,7 @@ impl MacosCaptureOutcome {
     };
     result.exit_code = self.exit_code;
     result.phases = self.phases.clone();
+    result.errors.extend(self.errors.clone());
     result.player_sessions = self.player_session.clone().into_iter().collect();
     result.jobs = self.orchestration.jobs.clone();
     result.scenarios = self.orchestration.scenarios.clone();
@@ -199,62 +202,35 @@ pub fn capture_macos(
   let mut supervisor = PlayerSupervisor::macos(child);
   let launch_duration = elapsed_ms(launch_started);
   let startup_started = Instant::now();
-  let startup = wait_for_startup(
+  let startup = match macos_startup::wait(
     &server,
     &mut supervisor,
     interrupted,
-    request.timeouts,
-    startup_started,
-  )?;
+    request.timeouts.startup,
+    request.timeouts.poll_interval,
+  ) {
+    Ok(startup) => startup,
+    Err(stopped) => {
+      return Ok(macos_startup::finish(
+        stopped,
+        &server,
+        &mut supervisor,
+        orchestrator.snapshot(),
+        Evidence {
+          player_log: &request.player_log_source,
+          directory: &request.requirements.storage_directory,
+          launch_ms: launch_duration,
+          startup_ms: elapsed_ms(startup_started),
+        },
+      ));
+    }
+  };
   let mut phases = vec![phase(
     PhaseName::Launch,
     PhaseStatus::Passed,
     launch_duration,
     None,
   )];
-  let Some(startup) = startup else {
-    server.expire();
-    let player_exit = wait_for_exit(
-      &mut supervisor,
-      request.timeouts.interrupt_grace,
-      request.timeouts.poll_interval,
-    )?;
-    let diagnostic = retain_player_log(
-      &request.player_log_source,
-      &request.requirements.storage_directory,
-      &player_session_id,
-    )?;
-    phases.push(phase(
-      PhaseName::Startup,
-      PhaseStatus::Interrupted,
-      elapsed_ms(startup_started),
-      None,
-    ));
-    phases.push(phase_with_log(
-      PhaseName::Cleanup,
-      PhaseStatus::Passed,
-      diagnostic.clone(),
-    ));
-    let report = server
-      .snapshot()
-      .startup
-      .and_then(|startup| match startup.started.identity {
-        StartupIdentity::Report(identity) => Some(identity.startup_report),
-        StartupIdentity::Accepted(_) => None,
-      });
-    return Ok(MacosCaptureOutcome {
-      exit_code: 130,
-      player_exit,
-      player_session: report.map(|startup_report| PlayerSessionResult {
-        player_session_id,
-        accepted: false,
-        startup_report,
-        diagnostic_paths: vec![diagnostic],
-      }),
-      orchestration: orchestrator.snapshot(),
-      phases,
-    });
-  };
   let report = match &startup.started.identity {
     StartupIdentity::Report(identity) => Some(identity.startup_report.clone()),
     StartupIdentity::Accepted(_) => None,
@@ -278,12 +254,13 @@ pub fn capture_macos(
       &player_session_id,
     )?;
     return Ok(MacosCaptureOutcome {
+      errors: Vec::new(),
       exit_code: 2,
       player_exit,
       player_session: report.map(|startup_report| PlayerSessionResult {
         player_session_id,
         accepted: false,
-        startup_report,
+        startup_report: Some(startup_report),
         diagnostic_paths: vec![diagnostic],
       }),
       orchestration: orchestrator.snapshot(),
@@ -352,12 +329,13 @@ pub fn capture_macos(
   phases.extend(boundary_phases(&orchestration));
   phases.push(phase(PhaseName::Cleanup, PhaseStatus::Passed, 0, None));
   Ok(MacosCaptureOutcome {
+    errors: Vec::new(),
     exit_code,
     player_exit,
     player_session: Some(PlayerSessionResult {
       player_session_id,
       accepted: true,
-      startup_report: report,
+      startup_report: Some(report),
       diagnostic_paths: vec![diagnostic],
     }),
     orchestration,
@@ -433,31 +411,6 @@ fn validate_timeouts(timeouts: MacosCaptureTimeouts) -> Result<()> {
     "poll interval must be positive"
   );
   Ok(())
-}
-
-fn wait_for_startup(
-  server: &PlayerSessionServer,
-  supervisor: &mut PlayerSupervisor,
-  interrupted: &AtomicBool,
-  timeouts: MacosCaptureTimeouts,
-  started: Instant,
-) -> Result<Option<crate::session_server::StartupFact>> {
-  loop {
-    if let Some(startup) = server.snapshot().startup {
-      return Ok(Some(startup));
-    }
-    if interrupted.load(Ordering::Acquire) {
-      return Ok(None);
-    }
-    if let Some(status) = supervisor.poll()? {
-      anyhow::bail!("macOS player exited before startup: {status:?}");
-    }
-    ensure!(
-      started.elapsed() < timeouts.startup,
-      "macOS startup deadline expired"
-    );
-    thread::sleep(timeouts.poll_interval);
-  }
 }
 
 fn wait_for_exit(
@@ -543,17 +496,6 @@ fn phase(
     duration_ms,
     expired_deadline,
     log_path: None,
-    error_ids: Vec::new(),
-  }
-}
-
-fn phase_with_log(name: PhaseName, status: PhaseStatus, log_path: String) -> PhaseResult {
-  PhaseResult {
-    name,
-    status,
-    duration_ms: 0,
-    expired_deadline: None,
-    log_path: Some(log_path),
     error_ids: Vec::new(),
   }
 }

@@ -272,7 +272,7 @@ pub fn capture_webgl(
       player_session: report.map(|startup_report| PlayerSessionResult {
         player_session_id,
         accepted: false,
-        startup_report,
+        startup_report: Some(startup_report),
         diagnostic_paths: diagnostics.clone(),
       }),
       orchestration: orchestrator.snapshot(),
@@ -348,7 +348,7 @@ pub fn capture_webgl(
     player_session: Some(PlayerSessionResult {
       player_session_id: player_session_id.clone(),
       accepted: true,
-      startup_report: report,
+      startup_report: Some(report),
       diagnostic_paths: self::retain_browser_log(
         &request.browser_log_source,
         &request.requirements.storage_directory,

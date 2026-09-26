@@ -225,7 +225,7 @@ pub enum PhaseStatus {
 pub struct PlayerSessionResult {
   pub player_session_id: String,
   pub accepted: bool,
-  pub startup_report: StartupReport,
+  pub startup_report: Option<StartupReport>,
   pub diagnostic_paths: Vec<String>,
 }
 

@@ -482,7 +482,8 @@ fn markdown(result: &RunResult, summary: &PerformanceResult) -> String {
   if let Some(baseline) = result
     .player_sessions
     .iter()
-    .find_map(|session| session.startup_report.observer_baseline.as_ref())
+    .filter_map(|session| session.startup_report.as_ref())
+    .find_map(|report| report.observer_baseline.as_ref())
   {
     output.push_str(&format!(
       "\nStartup observer plumbing baseline: {} pixels; texture setup {:.3} ms; request CPU {:.3} ms; request-to-callback {:.3} ms; callback-to-main-thread {:.3} ms. This two-by-two asynchronous probe is not a full-frame cost estimate.\n",

@@ -17,6 +17,7 @@ use battlement_tooling::{
 
 use crate::{
   macos_capture::{MacosCaptureOutcome, MacosCaptureRequest, MacosPlayerLauncher},
+  macos_startup::{self, Evidence},
   native_execution::NativeExecutionClaim,
   player_supervision::PlayerSupervisor,
   scenario_orchestration::{ScenarioMaterializer, ScenarioOrchestrator},
@@ -90,46 +91,37 @@ impl WarmMacosPlayer {
     let mut supervisor = PlayerSupervisor::macos(child);
     let launch_duration = elapsed_ms(launch_started);
     let startup_started = Instant::now();
-    let startup = wait_for_startup(
+    let startup = match macos_startup::wait(
       &server,
       &mut supervisor,
       interrupted,
       request.timeouts.startup,
       request.timeouts.poll_interval,
-    )?;
+    ) {
+      Ok(startup) => startup,
+      Err(stopped) => {
+        return Ok(WarmLaunch {
+          player: None,
+          outcome: macos_startup::finish(
+            stopped,
+            &server,
+            &mut supervisor,
+            orchestrator.snapshot(),
+            Evidence {
+              player_log: &request.player_log_source,
+              directory: &request.requirements.storage_directory,
+              launch_ms: launch_duration,
+              startup_ms: elapsed_ms(startup_started),
+            },
+          ),
+        });
+      }
+    };
     let mut phases = vec![phase(
       PhaseName::Launch,
       PhaseStatus::Passed,
       launch_duration,
     )];
-    let Some(startup) = startup else {
-      server.expire();
-      phases.push(phase(
-        PhaseName::Startup,
-        PhaseStatus::Interrupted,
-        elapsed_ms(startup_started),
-      ));
-      let diagnostic = retain_log(
-        &request.player_log_source,
-        &request.requirements.storage_directory,
-        server.player_session_id(),
-      )?;
-      return Ok(WarmLaunch {
-        player: None,
-        outcome: MacosCaptureOutcome {
-          exit_code: 130,
-          player_exit: None,
-          player_session: startup_report(&server).map(|startup_report| PlayerSessionResult {
-            player_session_id: server.player_session_id().to_owned(),
-            accepted: false,
-            startup_report,
-            diagnostic_paths: vec![diagnostic],
-          }),
-          orchestration: orchestrator.snapshot(),
-          phases,
-        },
-      });
-    };
     let report = report(&startup.started.identity)
       .context("fresh macOS player did not report startup facts")?;
     if startup.decision.action != NextAction::Continue {
@@ -147,12 +139,13 @@ impl WarmMacosPlayer {
       return Ok(WarmLaunch {
         player: None,
         outcome: MacosCaptureOutcome {
+          errors: Vec::new(),
           exit_code: 2,
           player_exit: None,
           player_session: Some(PlayerSessionResult {
             player_session_id: server.player_session_id().to_owned(),
             accepted: false,
-            startup_report: report,
+            startup_report: Some(report),
             diagnostic_paths: vec![diagnostic],
           }),
           orchestration: orchestrator.snapshot(),
@@ -319,12 +312,13 @@ impl WarmMacosPlayer {
       self.server.player_session_id(),
     )?;
     Ok(MacosCaptureOutcome {
+      errors: Vec::new(),
       exit_code,
       player_exit: None,
       player_session: Some(PlayerSessionResult {
         player_session_id: self.server.player_session_id().to_owned(),
         accepted: true,
-        startup_report: self.startup_report.clone(),
+        startup_report: Some(self.startup_report.clone()),
         diagnostic_paths: vec![diagnostic],
       }),
       orchestration: snapshot,
@@ -389,13 +383,6 @@ fn wait_for_startup(
     );
     thread::sleep(poll_interval);
   }
-}
-
-fn startup_report(server: &PlayerSessionServer) -> Option<StartupReport> {
-  server
-    .snapshot()
-    .startup
-    .and_then(|startup| report(&startup.started.identity))
 }
 
 fn report(identity: &StartupIdentity) -> Option<StartupReport> {

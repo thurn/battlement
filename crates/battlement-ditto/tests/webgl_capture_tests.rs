@@ -68,7 +68,10 @@ fn configured_headless_player_completes_through_the_same_origin_launcher() {
   assert_eq!(outcome.player_exit.unwrap().code, Some(0));
   let session = outcome.player_session.unwrap();
   assert!(session.accepted);
-  assert_eq!(session.startup_report.platform, Platform::Webgl);
+  assert_eq!(
+    session.startup_report.as_ref().unwrap().platform,
+    Platform::Webgl
+  );
   assert_eq!(session.diagnostic_paths.len(), 1);
   assert!(
     fs::read_to_string(run.path().join(&session.diagnostic_paths[0]))
