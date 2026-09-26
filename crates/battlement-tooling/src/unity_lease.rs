@@ -14,6 +14,8 @@ use std::{
 use anyhow::{Context, Result};
 use fs2::FileExt;
 
+use crate::build_control::BuildControl;
+
 const UNITY_EDITOR_SLOTS: usize = 2;
 const MACHINE_CAPACITY_SLOTS: usize = 6;
 const BROWSER_CAPACITY_UNITS: usize = 1;
@@ -88,10 +90,16 @@ impl CompilerCapacityLease {
 
   /// Waits for the capacity assigned to one three-job Cargo writer.
   pub fn acquire(directory: &Path) -> Result<Self> {
+    Self::acquire_with_control(directory, BuildControl::default())
+  }
+
+  /// Waits for capacity while honoring this caller's cancellation.
+  pub fn acquire_with_control(directory: &Path, control: BuildControl<'_>) -> Result<Self> {
+    control.check()?;
     if inherited_compiler_capacity(directory) >= COMPILER_CAPACITY_UNITS {
       return Ok(Self { _capacity: None });
     }
-    wait_for_capacity(directory, COMPILER_CAPACITY_UNITS, || {
+    wait_for_capacity_controlled(directory, control, COMPILER_CAPACITY_UNITS, || {
       Self::try_acquire(directory)
     })
   }
@@ -112,17 +120,24 @@ impl BrowserCapacityLease {
 
   /// Waits for a browser slot before joining machine-capacity admission.
   pub fn acquire(directory: &Path) -> Result<Self> {
-    let browser = wait_for_resource(directory, "browser", BROWSER_SLOTS, 1, || {
+    Self::acquire_with_control(directory, BuildControl::default())
+  }
+
+  /// Waits for capacity while honoring this caller's cancellation.
+  pub fn acquire_with_control(directory: &Path, control: BuildControl<'_>) -> Result<Self> {
+    control.check()?;
+    let browser = wait_for_resource(directory, "browser", BROWSER_SLOTS, 1, control, || {
       SlotSet::try_acquire(directory, "browser", BROWSER_SLOTS, 1)
     })?;
-    let capacity = wait_for_capacity(directory, BROWSER_CAPACITY_UNITS, || {
-      SlotSet::try_acquire(
-        directory,
-        "machine-heavy",
-        MACHINE_CAPACITY_SLOTS,
-        BROWSER_CAPACITY_UNITS,
-      )
-    })?;
+    let capacity =
+      wait_for_capacity_controlled(directory, control, BROWSER_CAPACITY_UNITS, || {
+        SlotSet::try_acquire(
+          directory,
+          "machine-heavy",
+          MACHINE_CAPACITY_SLOTS,
+          BROWSER_CAPACITY_UNITS,
+        )
+      })?;
     Ok(Self {
       _capacity: capacity,
       _browser: browser,
@@ -149,7 +164,13 @@ impl NativePlayerCapacityLease {
 
   /// Waits until one bounded native player session can start.
   pub fn acquire(directory: &Path) -> Result<Self> {
-    wait_for_capacity(directory, NATIVE_PLAYER_CAPACITY_UNITS, || {
+    Self::acquire_with_control(directory, BuildControl::default())
+  }
+
+  /// Waits for capacity while honoring this caller's cancellation.
+  pub fn acquire_with_control(directory: &Path, control: BuildControl<'_>) -> Result<Self> {
+    control.check()?;
+    wait_for_capacity_controlled(directory, control, NATIVE_PLAYER_CAPACITY_UNITS, || {
       Self::try_acquire(directory)
     })
   }
@@ -177,7 +198,13 @@ impl UnityEditorLease {
 
   /// Waits until one shared slot can be acquired.
   pub fn acquire(directory: &Path) -> Result<Self> {
-    wait_for_capacity(directory, UNITY_EDITOR_CAPACITY_UNITS, || {
+    Self::acquire_with_control(directory, BuildControl::default())
+  }
+
+  /// Waits for capacity while honoring this caller's cancellation.
+  pub fn acquire_with_control(directory: &Path, control: BuildControl<'_>) -> Result<Self> {
+    control.check()?;
+    wait_for_capacity_controlled(directory, control, UNITY_EDITOR_CAPACITY_UNITS, || {
       Self::try_acquire(directory)
     })
   }
@@ -397,8 +424,9 @@ fn inherited_compiler_capacity(directory: &Path) -> usize {
   parse_inherited_compiler_capacity(std::env::var(INHERITED_COMPILER_CAPACITY).ok().as_deref())
 }
 
-fn wait_for_capacity<T>(
+fn wait_for_capacity_controlled<T>(
   directory: &Path,
+  control: BuildControl<'_>,
   units: usize,
   acquire: impl FnMut() -> Result<Option<T>>,
 ) -> Result<T> {
@@ -407,6 +435,7 @@ fn wait_for_capacity<T>(
     "machine-heavy",
     MACHINE_CAPACITY_SLOTS,
     units,
+    control,
     acquire,
   )
 }
@@ -416,12 +445,14 @@ fn wait_for_resource<T>(
   name: &str,
   count: usize,
   units: usize,
+  control: BuildControl<'_>,
   mut acquire: impl FnMut() -> Result<Option<T>>,
 ) -> Result<T> {
   let ticket = AdmissionTicket::join(directory, name)?;
   let started = std::time::Instant::now();
   let mut next_diagnostic = Duration::from_secs(1);
   loop {
+    control.check()?;
     if ticket.is_first()?
       && let Some(lease) = acquire()?
     {

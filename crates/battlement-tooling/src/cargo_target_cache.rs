@@ -6,7 +6,7 @@ use std::{
 use anyhow::Result;
 use sha2::{Digest, Sha256};
 
-use crate::{build_cache_io, build_identity::BuildIdentity};
+use crate::{build_control::BuildControl, build_identity::BuildIdentity};
 
 pub(crate) struct CargoTargetCache {
   path: PathBuf,
@@ -19,6 +19,7 @@ impl CargoTargetCache {
     repository: &Path,
     manifest: &Path,
     identity: &BuildIdentity,
+    control: BuildControl<'_>,
   ) -> Result<Self> {
     let inputs = identity
       .inputs
@@ -29,7 +30,7 @@ impl CargoTargetCache {
     let path = repository
       .join("target/ditto-rules")
       .join(format!("{key:x}"));
-    let lock = build_cache_io::lock_exclusive(&path.with_extension("lock"))?;
+    let lock = control.lock_exclusive(&path.with_extension("lock"))?;
     Ok(Self { path, _lock: lock })
   }
 

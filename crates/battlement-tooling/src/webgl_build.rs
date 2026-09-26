@@ -21,6 +21,7 @@ use crate::{
     BUILD_LOG_FILE, BuildAccess, BuildCache, BuildFailure, BuildHandle, NearestBuildMismatch,
     PendingBuild, SOURCE_MANIFEST_FILE,
   },
+  build_control::BuildControl,
   build_identity::{
     BuildIdentity, BuildIdentityRequest, BuildTarget, CaptureAdapter, NativeInput, RustToolchain,
   },
@@ -115,7 +116,9 @@ pub enum WebglBuildResult {
 pub fn select_webgl_player(
   request: &WebglBuildRequest,
   allow_build: bool,
+  control: BuildControl<'_>,
 ) -> Result<WebglBuildResult> {
+  control.check()?;
   self::validate_request(request)?;
   let mut generated_inputs = request.generated_inputs.clone();
   generated_inputs.push(self::recipe_input());
@@ -128,11 +131,12 @@ pub fn select_webgl_player(
   })?;
   let identity = self::build_identity(request, &source)?;
   let now = self::unix_time()?;
-  match request.cache.acquire(
+  match request.cache.acquire_with_control(
     &request.repository.canonicalize()?.to_string_lossy(),
     &request.suite,
     &identity,
     now,
+    control,
   )? {
     BuildAccess::Reused(build) => {
       self::validate_startup_identity(&build, &self::startup_identity(request, &identity))?;
@@ -143,7 +147,7 @@ pub fn select_webgl_player(
       })
     }
     BuildAccess::Build(pending) if allow_build => {
-      self::build_pending(request, pending, source, now)
+      self::build_pending(request, pending, source, now, control)
     }
     BuildAccess::Build(pending) => {
       let identity = pending.identity().clone();
@@ -242,6 +246,7 @@ fn build_pending(
   pending: PendingBuild,
   source: SourceManifest,
   now: u64,
+  control: BuildControl<'_>,
 ) -> Result<WebglBuildResult> {
   source.write(&pending.path().join(SOURCE_MANIFEST_FILE))?;
   fs::write(pending.path().join(BUILD_LOG_FILE), [])?;
@@ -293,8 +298,9 @@ fn build_pending(
     )
     .args(["-Z", "build-std=std,panic_unwind"])
     .env("PATH", env::join_paths(paths)?);
-  let compiler_capacity = CompilerCapacityLease::acquire(&request.resource_slots)?;
-  let cargo_output = self::run_logged(cargo, pending.path(), "rust")?;
+  let compiler_capacity =
+    CompilerCapacityLease::acquire_with_control(&request.resource_slots, control)?;
+  let cargo_output = self::run_logged(cargo, pending.path(), "rust", control)?;
   drop(compiler_capacity);
   if !cargo_output.status.success() {
     return self::failed(pending, "rust", &cargo_output, now);
@@ -319,7 +325,7 @@ fn build_pending(
   let startup = self::startup_identity(request, pending.identity());
   let startup_bytes = self::json_bytes(&startup)?;
   fs::write(pending.path().join(STARTUP_IDENTITY_FILE), &startup_bytes)?;
-  let _lease = UnityEditorLease::acquire(&request.resource_slots)?;
+  let _lease = UnityEditorLease::acquire_with_control(&request.resource_slots, control)?;
   let staging = ProjectStaging::webgl(&request.unity_project, &plugin, &startup_bytes)?;
   let unity_log = pending.path().join("unity.log");
   let mut unity =
@@ -336,7 +342,7 @@ fn build_pending(
       "BATTLEMENT_DITTO_DIAGNOSTICS",
       if request.diagnostics { "1" } else { "0" },
     );
-  let unity_output = self::run_logged(unity, pending.path(), "unity")?;
+  let unity_output = self::run_logged(unity, pending.path(), "unity", control)?;
   if unity_log.is_file() {
     self::append_log(pending.path(), &fs::read(&unity_log)?)?;
   }
@@ -500,10 +506,15 @@ fn failed_with_ids(
   }))
 }
 
-fn run_logged(mut command: Command, staging: &Path, phase: &str) -> Result<Output> {
+fn run_logged(
+  mut command: Command,
+  staging: &Path,
+  phase: &str,
+  control: BuildControl<'_>,
+) -> Result<Output> {
   self::append_log(staging, format!("==> {phase}\n").as_bytes())?;
-  let output = command
-    .output()
+  let output = control
+    .output(&mut command)
     .with_context(|| format!("launch {phase} build"))?;
   self::append_log(staging, &output.stdout)?;
   self::append_log(staging, &output.stderr)?;

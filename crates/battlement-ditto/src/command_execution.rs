@@ -31,13 +31,13 @@ pub fn execute(
         .target();
       match target {
         crate::config::model::Target::Macos => {
-          macos_run::build(&suite, options, stdout, preparation.as_ref())
+          macos_run::build(&suite, options, stdout, preparation.as_ref(), interrupted)
         }
         crate::config::model::Target::Webgl => {
-          webgl_run::build(&suite, options, stdout, preparation.as_ref())
+          webgl_run::build(&suite, options, stdout, preparation.as_ref(), interrupted)
         }
         crate::config::model::Target::IosSimulator => {
-          crate::ios_run::build(&suite, options, stdout, preparation.as_ref())
+          crate::ios_run::build(&suite, options, stdout, preparation.as_ref(), interrupted)
         }
       }
     }

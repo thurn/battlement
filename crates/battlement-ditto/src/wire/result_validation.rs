@@ -695,7 +695,10 @@ fn validate_status_reason(status: ScenarioStatus, reason: Option<&str>) -> Resul
       "skipped scenario requires an unsupported capability reason"
     ),
     ScenarioStatus::NotRun => ensure!(
-      reason == "bail" || reason == "run-infrastructure-error",
+      matches!(
+        reason,
+        "bail" | "run-infrastructure-error" | "run-interrupted"
+      ),
       "not-run scenario has an unknown reason"
     ),
     _ => unreachable!("reached statuses have no reason"),

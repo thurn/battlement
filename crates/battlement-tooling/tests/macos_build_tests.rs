@@ -9,6 +9,7 @@ use std::{
 
 use battlement_tooling::{
   build_cache::{BUILD_LOG_FILE, BuildCache, SOURCE_MANIFEST_FILE},
+  build_control::BuildControl,
   build_identity::{CaptureAdapter, NativeInput},
   fingerprint::GeneratedInput,
   macos_build::{
@@ -311,7 +312,7 @@ fn no_build_explains_the_nearest_cached_source() {
   let MacosBuildResult::Required {
     identity,
     nearest: Some(nearest),
-  } = select_macos_player(&fixture.request(), false).unwrap()
+  } = select_macos_player(&fixture.request(), false, BuildControl::default()).unwrap()
   else {
     panic!("changed fixture did not report a required build")
   };

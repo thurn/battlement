@@ -7,6 +7,8 @@ use std::{
   time::{SystemTime, UNIX_EPOCH},
 };
 
+use battlement_tooling::build_control::BuildInterrupted;
+
 use anyhow::{Context, Result};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
@@ -298,7 +300,32 @@ fn execute_cycle_inner(
       )),
     };
     if let Err(error) = execution {
-      infrastructure_error(&mut result, &format!("{error:#}"));
+      if error.is::<BuildInterrupted>() {
+        result.status = RunStatus::Interrupted;
+        result.exit_code = 130;
+        result.phases.push(PhaseResult {
+          name: if result.build.is_some() {
+            PhaseName::Launch
+          } else {
+            PhaseName::Build
+          },
+          status: PhaseStatus::Interrupted,
+          duration_ms: started.elapsed().as_millis() as u64,
+          expired_deadline: None,
+          log_path: None,
+          error_ids: Vec::new(),
+        });
+        for scenario in &mut result.scenarios {
+          if scenario.status == ScenarioStatus::NotRun {
+            scenario.status_reason = Some("run-interrupted".to_owned());
+            for step in &mut scenario.steps {
+              step.status_reason = scenario.status_reason.clone();
+            }
+          }
+        }
+      } else {
+        infrastructure_error(&mut result, &format!("{error:#}"));
+      }
     }
   }
   result.duration_ms = started.elapsed().as_millis() as u64;

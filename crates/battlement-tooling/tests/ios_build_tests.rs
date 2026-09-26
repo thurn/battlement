@@ -4,6 +4,7 @@ use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, process::Command};
 
 use battlement_tooling::{
   build_cache::{BUILD_LOG_FILE, BuildCache, SOURCE_MANIFEST_FILE},
+  build_control::BuildControl,
   build_identity::CaptureAdapter,
   ios_build::{
     IosBuildOutcome, IosBuildRequest, IosBuildResult, IosBuildTools, STARTUP_IDENTITY_FILE,
@@ -15,7 +16,7 @@ use tempfile::TempDir;
 #[test]
 fn clean_fixture_builds_fixed_app_and_exactly_reuses_it() {
   let fixture = Fixture::new();
-  let result = select_ios_player(&fixture.request(), true).unwrap();
+  let result = select_ios_player(&fixture.request(), true, BuildControl::default()).unwrap();
   if let IosBuildResult::Failed(failure) = &result {
     panic!(
       "fixture build failed: {}",
@@ -35,7 +36,8 @@ fn clean_fixture_builds_fixed_app_and_exactly_reuses_it() {
   assert!(startup.diagnostics);
   drop(build);
 
-  let IosBuildResult::Ready { outcome, .. } = select_ios_player(&fixture.request(), true).unwrap()
+  let IosBuildResult::Ready { outcome, .. } =
+    select_ios_player(&fixture.request(), true, BuildControl::default()).unwrap()
   else {
     panic!("exact reuse failed")
   };
@@ -62,7 +64,7 @@ fn clean_fixture_builds_fixed_app_and_exactly_reuses_it() {
 fn no_build_reports_required_and_rust_failure_is_terminal() {
   let fixture = Fixture::new();
   assert!(matches!(
-    select_ios_player(&fixture.request(), false).unwrap(),
+    select_ios_player(&fixture.request(), false, BuildControl::default()).unwrap(),
     IosBuildResult::Required { .. }
   ));
   fs::write(
@@ -70,7 +72,9 @@ fn no_build_reports_required_and_rust_failure_is_terminal() {
     "COMPILATION_FAILURE\n",
   )
   .unwrap();
-  let IosBuildResult::Failed(failure) = select_ios_player(&fixture.request(), true).unwrap() else {
+  let IosBuildResult::Failed(failure) =
+    select_ios_player(&fixture.request(), true, BuildControl::default()).unwrap()
+  else {
     panic!("broken source unexpectedly built")
   };
   assert_eq!(failure.phase, "rust");

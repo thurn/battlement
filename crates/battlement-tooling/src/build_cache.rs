@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
   build_cache_cleanup, build_cache_io,
+  build_control::BuildControl,
   build_identity::{BuildIdentity, NoBuildDecision},
   fingerprint::SourceManifest,
 };
@@ -177,11 +178,30 @@ impl BuildCache {
     identity: &BuildIdentity,
     now_unix_s: u64,
   ) -> Result<BuildAccess> {
+    self.acquire_with_control(
+      repository,
+      suite,
+      identity,
+      now_unix_s,
+      BuildControl::default(),
+    )
+  }
+
+  /// Waits for a fingerprint while honoring the requesting build's cancellation.
+  pub fn acquire_with_control(
+    &self,
+    repository: &str,
+    suite: &str,
+    identity: &BuildIdentity,
+    now_unix_s: u64,
+    control: BuildControl<'_>,
+  ) -> Result<BuildAccess> {
+    control.check()?;
     identity.validate()?;
     ensure!(!repository.is_empty(), "build repository is empty");
     ensure!(!suite.is_empty(), "build suite is empty");
     let fingerprint = &identity.fingerprint;
-    let build_lock = build_cache_io::lock_exclusive(&self.build_lock_path(fingerprint))?;
+    let build_lock = control.lock_exclusive(&self.build_lock_path(fingerprint))?;
     let active_lock = build_cache_io::lock_shared(&self.active_lock_path(fingerprint))?;
     let entry = self.entry_path(fingerprint);
     if entry.is_dir() {

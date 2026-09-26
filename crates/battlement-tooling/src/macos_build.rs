@@ -18,6 +18,7 @@ use crate::{
     BUILD_LOG_FILE, BuildAccess, BuildCache, BuildFailure, BuildHandle, NearestBuildMismatch,
     PendingBuild, SOURCE_MANIFEST_FILE,
   },
+  build_control::BuildControl,
   build_identity::{BuildIdentity, CaptureAdapter, NativeInput},
   cargo_target_cache::CargoTargetCache,
   fingerprint::{CaseSensitivity, FingerprintRootsRequest, GeneratedInput, SourceManifest},
@@ -224,14 +225,16 @@ impl Drop for StagedShellProject {
 
 /// Builds or reuses the exact assembled macOS player selected by current inputs.
 pub fn build_macos_player(request: &MacosBuildRequest) -> Result<MacosBuildResult> {
-  select_macos_player(request, true)
+  select_macos_player(request, true, BuildControl::default())
 }
 
 /// Selects an exact assembled macOS player and optionally permits cache misses.
 pub fn select_macos_player(
   request: &MacosBuildRequest,
   allow_build: bool,
+  control: BuildControl<'_>,
 ) -> Result<MacosBuildResult> {
+  control.check()?;
   validate_request(request)?;
   let identities = component_identities(request).with_context(|| {
     format!(
@@ -245,10 +248,13 @@ pub fn select_macos_player(
     .canonicalize()?
     .to_string_lossy()
     .into_owned();
-  match request
-    .cache
-    .acquire(&repository, &request.suite, &identities.assembly, now)?
-  {
+  match request.cache.acquire_with_control(
+    &repository,
+    &request.suite,
+    &identities.assembly,
+    now,
+    control,
+  )? {
     BuildAccess::Reused(build) => {
       event("assembly", &identities.assembly, "reused", "exact-hit");
       validate_startup_identity(&build, &startup_identity(request, &identities.assembly))?;
@@ -260,7 +266,7 @@ pub fn select_macos_player(
     }
     BuildAccess::Build(pending) if allow_build => {
       event("assembly", &identities.assembly, "created", "cache-miss");
-      build_assembly(request, pending, identities, &repository, now)
+      build_assembly(request, pending, identities, &repository, now, control)
     }
     BuildAccess::Build(pending) => {
       let identity = pending.identity().clone();
@@ -471,26 +477,27 @@ fn build_assembly(
   identities: ComponentIdentities,
   repository: &str,
   now: u64,
+  control: BuildControl<'_>,
 ) -> Result<MacosBuildResult> {
   identities
     .assembly_source
     .write(&pending.path().join(SOURCE_MANIFEST_FILE))?;
   fs::write(pending.path().join(BUILD_LOG_FILE), [])?;
-  let rules = match resolve_rules(request, &identities, repository, now)? {
+  let rules = match resolve_rules(request, &identities, repository, now, control)? {
     Ok(build) => build,
     Err(failure) => {
       pending.discard()?;
       return Ok(MacosBuildResult::Failed(failure));
     }
   };
-  let shell = match resolve_shell(request, &identities, repository, now)? {
+  let shell = match resolve_shell(request, &identities, repository, now, control)? {
     Ok(build) => build,
     Err(failure) => {
       pending.discard()?;
       return Ok(MacosBuildResult::Failed(failure));
     }
   };
-  let content = match resolve_content(request, &identities, repository, now)? {
+  let content = match resolve_content(request, &identities, repository, now, control)? {
     Ok(build) => build,
     Err(failure) => {
       pending.discard()?;
@@ -533,7 +540,7 @@ fn build_assembly(
   if reactant_catalog.is_file() {
     fs::copy(reactant_catalog, player.join(PLAYER_REACTANT_CATALOG))?;
   }
-  sign_assembled_player(&plugin, &player, pending.path())?;
+  sign_assembled_player(&plugin, &player, pending.path(), control)?;
   Ok(MacosBuildResult::Ready {
     build: pending.publish(Path::new(PLAYER), now)?.build,
     outcome: MacosBuildOutcome::Created,
@@ -545,11 +552,15 @@ fn resolve_shell(
   identities: &ComponentIdentities,
   repository: &str,
   now: u64,
+  control: BuildControl<'_>,
 ) -> Result<std::result::Result<BuildHandle, MacosBuildFailure>> {
-  match request
-    .cache
-    .acquire(repository, "__macos-shell", &identities.shell, now)?
-  {
+  match request.cache.acquire_with_control(
+    repository,
+    "__macos-shell",
+    &identities.shell,
+    now,
+    control,
+  )? {
     BuildAccess::Reused(build) => {
       event("shell", &identities.shell, "reused", "exact-hit");
       Ok(Ok(build))
@@ -579,8 +590,8 @@ fn resolve_shell(
           "BATTLEMENT_DITTO_DIAGNOSTICS",
           if request.diagnostics { "1" } else { "0" },
         );
-      let _lease = UnityEditorLease::acquire(&request.resource_slots)?;
-      let output = run_logged(unity, pending.path(), "shell")?;
+      let _lease = UnityEditorLease::acquire_with_control(&request.resource_slots, control)?;
+      let output = run_logged(unity, pending.path(), "shell", control)?;
       drop(project);
       append_unity_log(pending.path(), &unity_log)?;
       if !output.status.success() {
@@ -606,11 +617,12 @@ fn resolve_content(
   identities: &ComponentIdentities,
   repository: &str,
   now: u64,
+  control: BuildControl<'_>,
 ) -> Result<std::result::Result<BuildHandle, MacosBuildFailure>> {
   let suite = format!("{}::content", request.suite);
   match request
     .cache
-    .acquire(repository, &suite, &identities.content, now)?
+    .acquire_with_control(repository, &suite, &identities.content, now, control)?
   {
     BuildAccess::Reused(build) => {
       event("content", &identities.content, "reused", "exact-hit");
@@ -640,8 +652,8 @@ fn resolve_content(
           pending.path().join(CONTENT_ARTIFACT),
         )
         .env("BATTLEMENT_DITTO_SCENE_PATH", unity_scene(request)?);
-      let _lease = UnityEditorLease::acquire(&request.resource_slots)?;
-      let output = run_logged(unity, pending.path(), "content")?;
+      let _lease = UnityEditorLease::acquire_with_control(&request.resource_slots, control)?;
+      let output = run_logged(unity, pending.path(), "content", control)?;
       append_unity_log(pending.path(), &unity_log)?;
       if !output.status.success() {
         return Ok(Err(failed(pending, "content", &output, now)?));
@@ -665,11 +677,12 @@ fn resolve_rules(
   identities: &ComponentIdentities,
   repository: &str,
   now: u64,
+  control: BuildControl<'_>,
 ) -> Result<std::result::Result<BuildHandle, MacosBuildFailure>> {
   let suite = format!("{}::rules", request.suite);
   match request
     .cache
-    .acquire(repository, &suite, &identities.rules, now)?
+    .acquire_with_control(repository, &suite, &identities.rules, now, control)?
   {
     BuildAccess::Reused(build) => {
       event("rules", &identities.rules, "reused", "exact-hit");
@@ -686,6 +699,7 @@ fn resolve_rules(
         &request.repository,
         &request.rust_manifest,
         &identities.rules,
+        control,
       )?;
       let target_directory = target_cache.path();
       let mut cargo = crate::process_priority::command(&request.tools.cargo);
@@ -702,8 +716,8 @@ fn resolve_rules(
           .args(["--config", RELEASE_DEBUG_CONFIG])
           .args(["--config", RELEASE_SPLIT_DEBUG_CONFIG]);
       }
-      let capacity = CompilerCapacityLease::acquire(&request.resource_slots)?;
-      let output = run_logged(cargo, pending.path(), "rules")?;
+      let capacity = CompilerCapacityLease::acquire_with_control(&request.resource_slots, control)?;
+      let output = run_logged(cargo, pending.path(), "rules", control)?;
       drop(capacity);
       if !output.status.success() {
         return Ok(Err(failed(pending, "rules", &output, now)?));
@@ -926,15 +940,20 @@ fn validate_assembly_identity(
   Ok(())
 }
 
-fn sign_assembled_player(plugin: &Path, player: &Path, staging: &Path) -> Result<()> {
+fn sign_assembled_player(
+  plugin: &Path,
+  player: &Path,
+  staging: &Path,
+  control: BuildControl<'_>,
+) -> Result<()> {
   if !player.join("Contents/Info.plist").is_file() {
     return Ok(());
   }
-  verify_plugin(plugin, staging)?;
+  verify_plugin(plugin, staging, control)?;
   for target in [plugin, player] {
     let mut command = Command::new("/usr/bin/codesign");
     command.args(["--force", "--sign", "-"]).arg(target);
-    let output = run_logged(command, staging, "codesign")?;
+    let output = run_logged(command, staging, "codesign", control)?;
     ensure!(
       output.status.success(),
       "codesign failed for {}",
@@ -944,10 +963,10 @@ fn sign_assembled_player(plugin: &Path, player: &Path, staging: &Path) -> Result
   Ok(())
 }
 
-fn verify_plugin(plugin: &Path, staging: &Path) -> Result<()> {
+fn verify_plugin(plugin: &Path, staging: &Path, control: BuildControl<'_>) -> Result<()> {
   let mut lipo = Command::new("/usr/bin/lipo");
   lipo.args(["-archs"]).arg(plugin);
-  let architectures = run_logged(lipo, staging, "verify-plugin-architecture")?;
+  let architectures = run_logged(lipo, staging, "verify-plugin-architecture", control)?;
   ensure!(
     architectures.status.success(),
     "lipo could not inspect rules plugin"
@@ -960,7 +979,7 @@ fn verify_plugin(plugin: &Path, staging: &Path) -> Result<()> {
   );
   let mut nm = Command::new("/usr/bin/nm");
   nm.args(["-gjU"]).arg(plugin);
-  let symbols = run_logged(nm, staging, "verify-plugin-exports")?;
+  let symbols = run_logged(nm, staging, "verify-plugin-exports", control)?;
   ensure!(
     symbols.status.success(),
     "nm could not inspect rules plugin"
@@ -1053,10 +1072,15 @@ fn failed_with_ids(
   })
 }
 
-fn run_logged(mut command: Command, staging: &Path, phase: &str) -> Result<Output> {
+fn run_logged(
+  mut command: Command,
+  staging: &Path,
+  phase: &str,
+  control: BuildControl<'_>,
+) -> Result<Output> {
   append_log(staging, format!("==> {phase}\n").as_bytes())?;
-  let output = command
-    .output()
+  let output = control
+    .output(&mut command)
     .with_context(|| format!("launch {phase} build"))?;
   append_log(staging, &output.stdout)?;
   append_log(staging, &output.stderr)?;

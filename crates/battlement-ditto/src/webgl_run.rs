@@ -11,6 +11,7 @@ use std::{
 use anyhow::{Context, Result};
 use battlement_tooling::{
   build_cache::{BUILD_LOG_FILE, BuildCache, DEFAULT_BUILD_CACHE_BYTES},
+  build_control::BuildControl,
   build_identity::{CaptureAdapter, NativeInput},
   discovery::HostDiscovery,
   host::{Host, SystemHost},
@@ -47,6 +48,7 @@ pub(crate) fn build(
   options: BuildOptions,
   stdout: &mut dyn Write,
   preparation: &dyn PlayerPreparation,
+  interrupted: &AtomicBool,
 ) -> Result<u8> {
   let profile_name = options.profile.as_deref().unwrap_or(&suite.default_profile);
   let profile = suite
@@ -65,8 +67,11 @@ pub(crate) fn build(
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::Webgl)?,
   )?;
-  let selected =
-    webgl_build::select_webgl_player(&self::build_request(suite, &discovery, preparation)?, true)?;
+  let selected = webgl_build::select_webgl_player(
+    &self::build_request(suite, &discovery, preparation)?,
+    true,
+    BuildControl::new(interrupted),
+  )?;
   let (build, disposition) = match selected {
     WebglBuildResult::Ready { build, outcome } => (
       build,
@@ -144,7 +149,9 @@ pub(crate) fn execute(
   }
   let request = self::build_request(suite, &discovery, options.preparation.as_ref())?;
   let build_started = Instant::now();
-  let selected = webgl_build::select_webgl_player(&request, !options.no_build)?;
+  let selected =
+    webgl_build::select_webgl_player(&request, !options.no_build, BuildControl::new(interrupted))?;
+  BuildControl::new(interrupted).check()?;
   let build_duration = build_started.elapsed().as_millis() as u64;
   let (build, disposition) = match selected {
     WebglBuildResult::Ready { build, outcome } => (

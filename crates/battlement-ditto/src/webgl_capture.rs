@@ -15,6 +15,7 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use battlement_tooling::{
   build_cache::BuildHandle,
+  build_control::BuildControl,
   unity_lease::BrowserCapacityLease,
   webgl_build::{self, WebglStartupIdentity},
 };
@@ -177,7 +178,10 @@ pub fn capture_webgl(
 ) -> Result<WebglCaptureOutcome> {
   let identity = self::validate_build(&request)?;
   self::validate_timeouts(request.timeouts)?;
-  let _capacity = BrowserCapacityLease::acquire(&request.resource_slots)?;
+  let _capacity = BrowserCapacityLease::acquire_with_control(
+    &request.resource_slots,
+    BuildControl::new(interrupted),
+  )?;
   let player_session_id = Uuid::new_v4().to_string();
   let origin = Instant::now();
   let now = Arc::new(move || origin.elapsed().as_millis() as u64);
@@ -198,6 +202,7 @@ pub fn capture_webgl(
     &request.build.player_path(),
   )?;
   let launch_started = Instant::now();
+  BuildControl::new(interrupted).check()?;
   let launch = launcher.launch(
     &server.launcher_url(),
     request.headless_command,

@@ -15,6 +15,7 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use battlement_tooling::{
   build_cache::BuildHandle,
+  build_control::BuildControl,
   macos_build::{self, MacosStartupIdentity},
   unity_lease::NativePlayerCapacityLease,
 };
@@ -155,7 +156,10 @@ pub fn capture_macos(
   let _native_claim = request.native_execution.claim_capture()?;
   let identity = validate_build(&request)?;
   validate_timeouts(request.timeouts)?;
-  let _capacity = NativePlayerCapacityLease::acquire(&request.resource_slots)?;
+  let _capacity = NativePlayerCapacityLease::acquire_with_control(
+    &request.resource_slots,
+    BuildControl::new(interrupted),
+  )?;
   let player_session_id = Uuid::new_v4().to_string();
   let origin = Instant::now();
   let now = Arc::new(move || origin.elapsed().as_millis() as u64);
@@ -175,6 +179,7 @@ pub fn capture_macos(
   )?;
   let launch_started = Instant::now();
   let executable = macos_build::player_executable(request.build)?;
+  BuildControl::new(interrupted).check()?;
   let child = launcher.launch(
     &executable,
     &server.base_url(),

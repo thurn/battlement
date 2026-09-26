@@ -4,6 +4,7 @@ pub mod addressables;
 pub mod application;
 pub mod author;
 pub mod build_cache;
+pub mod build_control;
 pub mod build_identity;
 pub mod developer_tools;
 pub mod discovery;

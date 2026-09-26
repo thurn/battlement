@@ -13,6 +13,7 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use battlement_tooling::{
   build_cache::BuildHandle,
+  build_control::BuildControl,
   ios_build::{self, IosStartupIdentity},
   unity_lease::NativePlayerCapacityLease,
 };
@@ -108,7 +109,10 @@ pub fn capture_ios(
   let _native_claim = request.native_execution.claim_capture()?;
   let identity = self::validate_build(&request)?;
   self::validate_timeouts(request.timeouts)?;
-  let _capacity = NativePlayerCapacityLease::acquire(&request.resource_slots)?;
+  let _capacity = NativePlayerCapacityLease::acquire_with_control(
+    &request.resource_slots,
+    BuildControl::new(interrupted),
+  )?;
   let player_session_id = Uuid::new_v4().to_string();
   let origin = Instant::now();
   let now = Arc::new(move || origin.elapsed().as_millis() as u64);
@@ -127,6 +131,7 @@ pub fn capture_ios(
     orchestrator.clone(),
   )?;
   let launch_started = Instant::now();
+  BuildControl::new(interrupted).check()?;
   request.simulator.lock().unwrap().install_and_launch(
     &ios_build::player_app(request.build)?,
     &server.base_url(),

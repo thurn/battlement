@@ -69,6 +69,8 @@ use std::{
   },
 };
 
+use battlement_tooling::build_control::BuildInterrupted;
+
 use anyhow::{Result, ensure};
 
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
@@ -168,7 +170,11 @@ where
     }
     Err(error) => {
       let _ = writeln!(stderr, "error: {error:#}");
-      2
+      if error.is::<BuildInterrupted>() {
+        130
+      } else {
+        2
+      }
     }
   }
 }
