@@ -125,3 +125,48 @@ fn presentation_inspector_stays_open_as_the_game_advances() {
     "game advancement closed the inspector"
   );
 }
+
+#[test]
+fn canceled_delivery_fixture_records_identity_without_private_payloads() {
+  let diagnostics = reactant::delivery_diagnostics::DeliveryDiagnostics::default();
+  let captured = diagnostics.clone();
+  let mut assets = battlement_fake::assets::FakeAssetCatalog::new();
+  assets.add_scene(crate::CONTENT_SCENE);
+  assets.add_textures(crate::generated_asset_addresses());
+  let mut display = reactant_testing::Display::mount(
+    move || crate::delivery_proof::with_diagnostics(captured.clone()),
+    assets,
+  );
+  display.poll();
+  display.flush();
+  display.settle();
+  assert!(
+    display
+      .accessibility()
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Cancel queued observation")),
+    "initial semantics: {:?}; records: {:?}",
+    display.accessibility(),
+    diagnostics.records()
+  );
+  display.activate_accessible("Cancel queued observation");
+  display.flush();
+  display.settle();
+  let records = diagnostics.records();
+  let canceled = records
+    .iter()
+    .find(|record| record.observation_commits == Some((31337, 31337)))
+    .expect("queued observation diagnosed");
+  assert_eq!(
+    canceled.disposition,
+    reactant::delivery_diagnostics::DeliveryDisposition::CanceledScope
+  );
+  assert_eq!(canceled.commands.get("AccessibilityUpdate"), Some(&1));
+  assert_ne!(canceled.batch_scope, canceled.current_scope);
+  assert!(!format!("{records:?}").contains("private announcement"));
+  assert!(
+    !display.accessibility().nodes.is_empty(),
+    "canceled snapshot must not erase semantics"
+  );
+}

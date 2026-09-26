@@ -73,6 +73,7 @@ pub mod context;
 mod context_selector;
 pub mod control_behavior;
 pub mod cooperative_executor;
+pub mod delivery_diagnostics;
 pub mod display_store;
 mod effect;
 pub mod element_ref;

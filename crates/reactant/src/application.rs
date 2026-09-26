@@ -18,6 +18,7 @@ use trox::{Bundle, Localizer, SourceLocale};
 
 use crate::{
   GameConsumer,
+  delivery_diagnostics::DeliveryDiagnostics,
   game_app::{Coordinator, GameApp},
   host_clock::HostClock,
 };
@@ -50,6 +51,12 @@ impl Application {
       self.app = self.app.spawner(InlineSpawner);
     }
     self.coordinator.set_worker(worker);
+    self
+  }
+
+  /// Captures bounded payload-free delivery records and emits them to native tracing.
+  pub fn delivery_diagnostics(mut self, diagnostics: DeliveryDiagnostics) -> Self {
+    self.app = self.app.delivery_diagnostics(diagnostics);
     self
   }
 

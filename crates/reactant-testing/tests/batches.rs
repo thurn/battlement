@@ -8,7 +8,11 @@ use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use battlement_fake::assets::FakeAssetCatalog;
 use failure_recorder::FailureRecorder;
 use reactant::{
-  GameConsumer, GameHandle, GameStatus, host::ButtonHost, prelude::*, testing::App,
+  GameConsumer, GameHandle, GameStatus,
+  delivery_diagnostics::{DeliveryDiagnostics, DeliveryDisposition, RECORD_LIMIT},
+  host::ButtonHost,
+  prelude::*,
+  testing::App,
   testing::GameApp,
 };
 use reactant_core::app_output::DeliveryLimits;
@@ -107,6 +111,18 @@ fn setup(
   GameConsumer<QueueGame>,
   ObjectId,
 ) {
+  self::setup_diagnostics(limits, None)
+}
+
+fn setup_diagnostics(
+  limits: DeliveryLimits,
+  diagnostics: Option<DeliveryDiagnostics>,
+) -> (
+  TestDisplay,
+  GameHandle<QueueGame>,
+  GameConsumer<QueueGame>,
+  ObjectId,
+) {
   let mut app = App::with_model("queue/content", 0_usize)
     .delivery_limits(limits)
     .root(|menu| {
@@ -118,6 +134,12 @@ fn setup(
         GameRoot::new(QueueView),
       ))
     });
+  if let Some(diagnostics) = diagnostics {
+    // Both builder orders preserve the attached recorder.
+    app = app
+      .delivery_diagnostics(diagnostics)
+      .delivery_limits(limits);
+  }
   let game = app.start_game::<QueueGame>(0, self::context);
   let consumer = app.game_consumer::<QueueGame>();
   consumer.resume_automatic_submission();
@@ -331,4 +353,73 @@ fn host_failure_after_acceptance_keeps_recoverable_rules_and_persistent_menu() {
       .text(),
     Some("1")
   );
+}
+
+#[test]
+fn delivery_diagnostics_distinguish_deferred_canceled_and_admitted_output() {
+  let diagnostics = DeliveryDiagnostics::default();
+  let (mut display, game, consumer, _) = self::setup_diagnostics(
+    DeliveryLimits {
+      gameplay_bytes: 10000,
+      ..DeliveryLimits::default()
+    },
+    Some(diagnostics.clone()),
+  );
+  game.dispatch(3);
+  assert!(consumer.wait_for_worker_stopped(TIMEOUT));
+  for _ in 0..5 {
+    display.poll();
+  }
+  let pending = diagnostics
+    .records()
+    .into_iter()
+    .find(|record| record.disposition == DeliveryDisposition::DeferredAdmission)
+    .unwrap_or_else(|| panic!("pending output: {:?}", diagnostics.records()));
+  let before = diagnostics.records().len();
+  for _ in 0..200 {
+    display.poll();
+  }
+  assert_eq!(
+    diagnostics.records().len(),
+    before,
+    "unchanged pending output is not repeated"
+  );
+  game.stop();
+  display.poll();
+  let records = diagnostics.records();
+  let canceled = records
+    .iter()
+    .find(|record| {
+      record.batch_id == pending.batch_id
+        && record.disposition == DeliveryDisposition::CanceledScope
+    })
+    .expect("canceled queued output");
+  assert_eq!(canceled.observation_commits, pending.observation_commits);
+  assert_eq!(canceled.batch_scope, pending.batch_scope);
+  assert_ne!(canceled.current_scope, canceled.batch_scope);
+  assert!(!canceled.commands.is_empty());
+  assert!(
+    !records
+      .iter()
+      .any(|record| record.batch_id == pending.batch_id
+        && record.disposition == DeliveryDisposition::Submitted)
+  );
+  assert!(diagnostics.suppressed() == 0);
+
+  let replacement = display.with_engine(|app| app.start_game::<QueueGame>(77, self::context));
+  display.poll();
+  display.poll();
+  assert_eq!(replacement.status(), GameStatus::Ready);
+  assert!(diagnostics.records().iter().any(|record| record.disposition
+    == DeliveryDisposition::Submitted
+    && record.batch_scope != pending.batch_scope));
+  let mut replacement = replacement;
+  for _ in 0..150 {
+    replacement.stop();
+    display.poll();
+    replacement = display.with_engine(|app| app.start_game::<QueueGame>(77, self::context));
+    display.poll();
+  }
+  assert_eq!(diagnostics.records().len(), RECORD_LIMIT);
+  assert!(diagnostics.suppressed() > 0);
 }

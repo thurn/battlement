@@ -16,6 +16,7 @@ use crate::{
   app_root::AppRoot,
   app_runtime::{AppRuntime, RuntimeSlot},
   cooperative_executor::CooperativeExecutor,
+  delivery_diagnostics::DeliveryDiagnostics,
   executor::{BoxFuture, SpawnedTask, Spawner},
   portal::PortalTarget,
   render::{Node, Render},
@@ -113,10 +114,19 @@ impl<G: 'static> App<G> {
     }
   }
 
+  /// Captures bounded payload-free delivery records and emits them to native tracing.
+  pub fn delivery_diagnostics(mut self, diagnostics: DeliveryDiagnostics) -> Self {
+    self.require_configuring();
+    self.output.diagnostics = Some(diagnostics);
+    self
+  }
+
   /// Configures gameplay transport admission before connecting.
   pub fn delivery_limits(mut self, limits: DeliveryLimits) -> Self {
     self.require_configuring();
+    let diagnostics = self.output.diagnostics.clone();
     self.output = OutputDelivery::new(limits);
+    self.output.diagnostics = diagnostics;
     self
   }
 

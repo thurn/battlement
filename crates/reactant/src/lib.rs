@@ -77,11 +77,12 @@ pub use presentation_inspector::{InspectorObject, PresentationInspector};
 pub use reactant_core::{
   __register_generated_asset, animation_controls, announcement, app_context, application,
   asset_generator, audio, callback, component, components, context, control_behavior,
-  cooperative_executor, display_store, element_behavior, element_ref, error_boundary, event,
-  executor, external_store, focus, geometry, gesture, hooks, host, host_node, identity, key,
-  label_binding, layout, local_point, motion, motion_config, motion_value, native_host,
-  navigation_handlers, overlay, paint, pointer_handlers, portal, presence, presentation, props,
-  render, resource, resource_control, scale_to_fit, semantics, suspense, visibility,
+  cooperative_executor, delivery_diagnostics, display_store, element_behavior, element_ref,
+  error_boundary, event, executor, external_store, focus, geometry, gesture, hooks, host,
+  host_node, identity, key, label_binding, layout, local_point, motion, motion_config,
+  motion_value, native_host, navigation_handlers, overlay, paint, pointer_handlers, portal,
+  presence, presentation, props, render, resource, resource_control, scale_to_fit, semantics,
+  suspense, visibility,
 };
 pub use reactant_rules::{GameReducer, ReducerOutput};
 pub use timers::{use_interval, use_pausable_timeout, use_timeout};

@@ -9,6 +9,7 @@ mod composed_effects;
 mod composition;
 mod context_memo;
 mod controls;
+mod delivery_proof;
 mod design_system;
 mod destruction_queue_proof;
 mod draw_reflow_proof;

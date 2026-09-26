@@ -9,6 +9,7 @@ use battlement_native::{EngineError, EngineResponse, ResponseBudget};
 use crate::{
   app_delivery::{DeliveryMessage, DeliveryResponse},
   app_runtime::{AppOutput, AppRuntime},
+  delivery_diagnostics::{DeliveryDiagnostics, DeliveryDisposition},
 };
 
 /// Bounds gameplay allocations while reserving independent app/control delivery.
@@ -30,6 +31,8 @@ impl Default for DeliveryLimits {
 }
 
 pub(crate) struct OutputDelivery {
+  pub(crate) diagnostics: Option<DeliveryDiagnostics>,
+  deferred: bool,
   limits: DeliveryLimits,
   gameplay: ResponseBudget,
   control: ResponseBudget,
@@ -57,6 +60,8 @@ impl OutputDelivery {
       "invalid response message limit"
     );
     Self {
+      diagnostics: None,
+      deferred: false,
       limits,
       gameplay: ResponseBudget::new(limits.gameplay_bytes),
       control: ResponseBudget::new(32 * 1024 * 1024),
@@ -112,6 +117,8 @@ impl OutputDelivery {
         cancel.cancel_scope = Some(old);
         controls.push(DeliveryMessage::Batch(cancel));
       }
+      self.record_pending(active, DeliveryDisposition::CanceledScope);
+      self.deferred = false;
       self.scope = active;
       self.pending.clear();
       self.encoded = None;
@@ -137,9 +144,18 @@ impl OutputDelivery {
         DeliveryMessage::Batch(mut batch) if batch.work_scope.is_some() => {
           if batch.work_scope == active {
             self.replace_pending_observation(&batch);
+            self.deferred = false;
             self.pending.push(DeliveryMessage::Batch(batch));
             self.encoded = None;
           } else {
+            if let Some(diagnostics) = &self.diagnostics {
+              diagnostics.record(&batch, active, DeliveryDisposition::CanceledScope, |body| {
+                !matches!(
+                  body,
+                  CommandBody::VisualElementDestroy(_) | CommandBody::ObjectDestroy(_)
+                )
+              });
+            }
             batch.cancel_scope = batch.work_scope.take();
             batch.start = battlement::BatchStart::Now;
             for group in &mut batch.groups {
@@ -200,6 +216,7 @@ impl OutputDelivery {
       }
     }
     if !controls.is_empty() {
+      self.record_deferred();
       response.messages = controls;
       let mut encoded = self::encode(&response)?;
       if !self.control.admit(&mut encoded) {
@@ -214,6 +231,7 @@ impl OutputDelivery {
     }
     if let Some(encoded) = &mut self.encoded {
       if !self.gameplay.admit(encoded) {
+        self.record_deferred();
         return Ok(None);
       }
       self.record_submission(runtime.as_deref());
@@ -238,6 +256,11 @@ impl OutputDelivery {
       let DeliveryMessage::Batch(batch) = message else {
         return true;
       };
+      if let Some(diagnostics) = &self.diagnostics {
+        diagnostics.record(batch, self.scope, DeliveryDisposition::SupersededObservation, |body| {
+          matches!(body, CommandBody::AccessibilityUpdate(update) if update.snapshot.is_some())
+        });
+      }
       for group in &mut batch.groups {
         group.commands.retain_mut(|command| {
           if let CommandBody::AccessibilityUpdate(update) = &mut command.body {
@@ -252,7 +275,26 @@ impl OutputDelivery {
     });
   }
 
+  fn record_pending(&self, active: Option<u64>, disposition: DeliveryDisposition) {
+    if let Some(diagnostics) = &self.diagnostics {
+      for message in &self.pending {
+        if let DeliveryMessage::Batch(batch) = message {
+          diagnostics.record(batch, active, disposition, |_| true);
+        }
+      }
+    }
+  }
+
+  fn record_deferred(&mut self) {
+    if !self.deferred && !self.pending.is_empty() {
+      self.record_pending(self.scope, DeliveryDisposition::DeferredAdmission);
+      self.deferred = true;
+    }
+  }
+
   fn record_submission(&mut self, runtime: Option<&dyn AppRuntime>) {
+    self.record_pending(self.scope, DeliveryDisposition::Submitted);
+    self.deferred = false;
     let publication = self.publication.is_some();
     for message in self.pending.drain(..) {
       if let DeliveryMessage::Batch(batch) = message {
@@ -274,6 +316,8 @@ impl OutputDelivery {
   }
 
   fn fail(&mut self, runtime: Option<&dyn AppRuntime>, message: String) {
+    self.record_pending(self.scope, DeliveryDisposition::RejectedOutput);
+    self.deferred = false;
     if let (Some(runtime), Some(scope)) = (runtime, self.scope) {
       runtime.fail_work(scope, message);
     }
