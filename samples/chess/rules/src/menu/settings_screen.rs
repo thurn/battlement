@@ -27,7 +27,7 @@ use crate::menu::{
 use crate::settings::reporting;
 use crate::settings::{self, Language, SettingsChange, SettingsContext, SettingsSaveStatus};
 use battlement::Overflow;
-use battlement::host_settings::{DisplayMode, DisplayResolution, HostSettings};
+use battlement::host_settings::HostSettings;
 use battlement::{Color, WhiteSpace, host_settings::SettingAvailability};
 
 /// The source settings screen; the host owns routing and external URL requests.
@@ -174,49 +174,9 @@ fn panel(
       SettingsTab::Gameplay => {
         Either::Left(self::gameplay(settings, host, set_active_modal, overlay))
       }
-      SettingsTab::Graphics => Either::Right(Either::Left(
-        GraphicsSettings::new()
-          .resolution(
-            value
-              .resolution(host)
-              .map(|resolution| format!("{} × {}", resolution.width, resolution.height))
-              .unwrap_or_else(|| "Current display".to_owned()),
-          )
-          .max_framerate(format!("{} FPS", value.framerate(host)))
-          .display_mode(
-            match value.display_mode {
-              DisplayMode::Borderless => "Borderless",
-              DisplayMode::Fullscreen => "Fullscreen",
-              DisplayMode::Windowed => "Windowed",
-            }
-            .to_owned(),
-          )
-          .screenshake(value.screenshake)
-          .vsync(value.vsync)
-          .overlay(overlay)
-          .on_resolution_change(
-            settings
-              .callback(SettingsChange::Resolution)
-              .map_input(self::resolution_from_label),
-          )
-          .on_max_framerate_change(settings.callback(SettingsChange::MaxFramerate).map_input(
-            |label: String| {
-              label
-                .trim_end_matches(" FPS")
-                .parse::<u32>()
-                .expect("framerate option")
-            },
-          ))
-          .on_display_mode_change(settings.callback(SettingsChange::DisplayMode).map_input(
-            |label: String| match label.as_str() {
-              "Fullscreen" => DisplayMode::Fullscreen,
-              "Windowed" => DisplayMode::Windowed,
-              _ => DisplayMode::Borderless,
-            },
-          ))
-          .on_screenshake_change(settings.callback(SettingsChange::Screenshake))
-          .on_vsync_change(settings.callback(SettingsChange::Vsync)),
-      )),
+      SettingsTab::Graphics => {
+        Either::Right(Either::Left(GraphicsSettings::new().overlay(overlay)))
+      }
       SettingsTab::Sound => Either::Right(Either::Right(
         SoundSettings::new()
           .master_volume(value.master_volume)
@@ -356,16 +316,6 @@ fn multiline_row_height(scale: FontScale) -> f32 {
     FontScale::Percent100 => 159.0,
     FontScale::Percent150 => 227.0,
     FontScale::Percent200 => 211.0,
-  }
-}
-
-fn resolution_from_label(label: String) -> DisplayResolution {
-  let (width, height) = label.split_once(" × ").expect("resolution option");
-  DisplayResolution {
-    width: width.parse().expect("resolution width"),
-    height: height.parse().expect("resolution height"),
-    refresh_numerator: 60,
-    refresh_denominator: 1,
   }
 }
 

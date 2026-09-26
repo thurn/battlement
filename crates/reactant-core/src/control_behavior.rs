@@ -269,7 +269,7 @@ pub fn dialog(
 ) -> ControlBehavior<()> {
   let mut semantic = named(SemanticRole::Dialog, name);
   let mut interaction = InteractionProps::new();
-  if let Some(on_dismiss) = on_dismiss {
+  if let Some(on_dismiss) = on_dismiss.clone() {
     semantic = semantic.action(AccessibilityAction::Dismiss);
     interaction = self::accessible(
       "dialog-dismiss",
@@ -277,26 +277,26 @@ pub fn dialog(
         .clone()
         .map(|action| (action == AccessibilityAction::Dismiss).then_some(())),
     );
-    interaction.handlers.push(Handler::event_callback(
-      "dialog-cancel",
-      battlement::UiEventKind::NavigationCancel,
-      crate::event_handler::HandlerPhase::Default,
-      |body| match body {
-        battlement::UiEventBody::NavigationCancel(v) => v,
-        _ => unreachable!(),
-      },
-      on_dismiss.map(
-        |event: crate::event::ReactantEvent<battlement::NavigationEvent>| {
-          if event.default_prevented() {
-            return None;
-          }
-          event.prevent_default();
-          event.stop_propagation();
-          Some(())
-        },
-      ),
-    ));
   }
+  interaction.handlers.push(Handler::event_callback(
+    "dialog-cancel",
+    battlement::UiEventKind::NavigationCancel,
+    crate::event_handler::HandlerPhase::Default,
+    |body| match body {
+      battlement::UiEventBody::NavigationCancel(v) => v,
+      _ => unreachable!(),
+    },
+    on_dismiss.unwrap_or_else(EventCallback::noop).map(
+      |event: crate::event::ReactantEvent<battlement::NavigationEvent>| {
+        if event.default_prevented() {
+          return None;
+        }
+        event.prevent_default();
+        event.stop_propagation();
+        Some(())
+      },
+    ),
+  ));
   ControlBehavior {
     semantic,
     focus: FocusProps::new(),

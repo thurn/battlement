@@ -32,6 +32,8 @@ pub struct SelectControl {
   label: Child,
   /// Omits the separator above the first row.
   first: bool,
+  /// Defers restoration while an action-owned modal temporarily covers this control.
+  suspend_focus: bool,
   /// Offsets the control vertically without moving its row label.
   offset_y: f32,
   /// Sets the minimum row height in portrait design pixels.
@@ -61,6 +63,18 @@ impl Component for SelectControl {
       &self.options,
       &self.value,
     ));
+    hooks::use_effect(
+      {
+        let set_open = set_open.clone();
+        let set_restore_focus = set_restore_focus.clone();
+        move || {
+          if open {
+            select_navigation::dismiss(set_open, set_restore_focus);
+          }
+        }
+      },
+      self.options.clone(),
+    );
     let anchor = element_ref::use_element_ref();
     let measured_anchor = geometry::use_geometry(anchor.clone());
     let popover_scale = hooks::use_memo(
@@ -130,16 +144,17 @@ impl Component for SelectControl {
       },
       (),
     );
+    let suspend_focus = self.suspend_focus;
     hooks::use_effect(
       {
         let trigger_reference = trigger_reference.clone();
         move || {
-          if restore_focus {
+          if restore_focus && !suspend_focus {
             trigger_reference.focus();
           }
         }
       },
-      restore_focus,
+      (restore_focus, suspend_focus),
     );
     SettingRow::new()
       .label(self.label.render())

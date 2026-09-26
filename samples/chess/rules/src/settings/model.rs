@@ -2,7 +2,9 @@
 
 use battlement::{
   PhysicalKey,
-  host_settings::{DisplayMode, DisplayResolution, HostPlatform, HostSettings},
+  host_settings::{
+    DisplayConfiguration, DisplayMode, DisplayResolution, HostPlatform, HostSettings,
+  },
 };
 use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -61,9 +63,8 @@ pub enum SettingsChange {
   ReduceMotion(bool),
   IncreaseMoveDuration(bool),
   UploadCrashReports(bool),
-  Resolution(DisplayResolution),
+  Display(DisplayConfiguration),
   MaxFramerate(u32),
-  DisplayMode(DisplayMode),
   Screenshake(bool),
   Vsync(bool),
   MasterVolume(u32),
@@ -157,9 +158,11 @@ impl SettingsChange {
       Self::ReduceMotion(next) => value.reduce_motion = next,
       Self::IncreaseMoveDuration(next) => value.increase_move_duration = next,
       Self::UploadCrashReports(next) => value.upload_crash_reports = next,
-      Self::Resolution(next) if self::valid_resolution(next) => value.resolution = Some(next),
+      Self::Display(next) if self::valid_resolution(next.resolution) => {
+        value.resolution = Some(next.resolution);
+        value.display_mode = next.mode;
+      }
       Self::MaxFramerate(next) if self::valid_framerate(next) => value.max_framerate = Some(next),
-      Self::DisplayMode(next) => value.display_mode = next,
       Self::Screenshake(next) => value.screenshake = next,
       Self::Vsync(next) => value.vsync = next,
       Self::MasterVolume(next) if next <= 100 => value.master_volume = next,

@@ -28,7 +28,7 @@ use crate::{
   promotion_dialog::PromotionDialog,
   reactant_game::{ChessContext, ChessGame, ChessPolicy, ChessState},
   saved_progress,
-  settings::{self, Language, SettingsRoot, audio::AudioSettings},
+  settings::{self, Language, SettingsRoot, audio::AudioSettings, graphics},
 };
 use crate::{
   opponent::Opponent,
@@ -116,6 +116,7 @@ struct ChessApp {
 impl Component for ChessAssembly {
   fn render(&self) -> impl Render {
     reporting::use_reporting();
+    graphics::use_frame_pacing();
     match &self.config.persistence {
       Some(backend) => Either::left(PersistentChessApp {
         config: self.config.clone(),

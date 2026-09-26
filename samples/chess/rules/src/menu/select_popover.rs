@@ -8,6 +8,7 @@ use crate::menu::{
 };
 use battlement::{Color, Gradient, Length, PopoverPlacement, Scale, Style, TransformOrigin};
 use reactant::{
+  app_context,
   element_ref::ElementRef,
   hooks,
   overlay::Overlay,
@@ -52,13 +53,17 @@ pub(crate) struct SelectPopover {
 impl Component for SelectPopover {
   fn render(&self) -> impl Render {
     let is_present = use_is_present();
+    let viewport = app_context::use_viewport_size();
+    let visible_height = self::height(self.font_scale, self.options.len())
+      .min(viewport.height as f32 * 0.5 / self.popover_scale);
+
     Overlay::popover(self.overlay.clone(), self.anchor.clone())
       .host_name("select-popover")
       .placement(PopoverPlacement::bottom_start().offset(6.0))
       .style(
         Style::new()
           .width(self::width(self.font_scale) * self.popover_scale)
-          .height(self::height(self.font_scale, self.options.len()) * self.popover_scale),
+          .height(visible_height * self.popover_scale),
       )
       .child(
         View::new()
@@ -77,79 +82,102 @@ impl Component for SelectPopover {
           .exit(dropdown_motion::menu_exit(self.reduced_motion))
           .transition(dropdown_motion::menu_transition(self.reduced_motion))
           .child(
-            ListBox::new(tx(
-              "Options",
-              "Settings selector options accessibility label.",
-            ))
-            .host_name("select-listbox")
-            .semantic_visibility(if is_present {
-              SemanticVisibility::Exposed
-            } else {
-              SemanticVisibility::Hidden
-            })
-            .style(
-              Style::new()
-                .width(self::width(self.font_scale))
-                .height(self::height(self.font_scale, self.options.len()))
-                .padding_top(11)
-                .padding_bottom(11)
-                .padding_left(9)
-                .padding_right(9)
-                .scale(Scale::uniform(self.popover_scale))
-                .transform_origin(TransformOrigin::two_dimensional(
-                  Length::Px(0.0),
-                  Length::Px(0.0),
-                )),
-            )
-            .configure_host({
-              let options = self.options.clone();
-              let set_active_index = self.set_active_index.clone();
-              let set_open = self.set_open.clone();
-              let set_restore_focus = self.set_restore_focus.clone();
-              let active_index = self.active_index;
-              move |host| {
-                host
-                  .paint(self::popover_paint())
-                  .on_key_down_event({
-                    let options = options.clone();
-                    let set_active_index = set_active_index.clone();
-                    let set_open = set_open.clone();
-                    let set_restore_focus = set_restore_focus.clone();
-                    move |event| {
-                      select_navigation::list_key(
-                        event,
-                        active_index,
-                        &options,
-                        set_active_index.clone(),
-                        set_open.clone(),
-                        set_restore_focus.clone(),
-                      );
+            View::new()
+              .name("select-popover-viewport")
+              .style(
+                Style::new()
+                  .width(self::width(self.font_scale))
+                  .height(visible_height)
+                  .flex_shrink(0)
+                  .scale(Scale::uniform(self.popover_scale))
+                  .transform_origin(TransformOrigin::two_dimensional(
+                    Length::Px(0.0),
+                    Length::Px(0.0),
+                  )),
+              )
+              .paint(self::popover_paint())
+              .child(
+                ScrollRegion::new(tx(
+                  "Options",
+                  "Settings selector options accessibility label.",
+                ))
+                .host_name("select-options-scroll")
+                .style(
+                  Style::new()
+                    .width(self::width(self.font_scale))
+                    .height(visible_height),
+                )
+                .child(
+                  ListBox::new(tx(
+                    "Options",
+                    "Settings selector options accessibility label.",
+                  ))
+                  .host_name("select-listbox")
+                  .semantic_visibility(if is_present {
+                    SemanticVisibility::Exposed
+                  } else {
+                    SemanticVisibility::Hidden
+                  })
+                  .style(
+                    Style::new()
+                      .width(self::width(self.font_scale))
+                      .height(self::height(self.font_scale, self.options.len()))
+                      .padding_top(11)
+                      .padding_bottom(11)
+                      .padding_left(9)
+                      .padding_right(9)
+                      .flex_shrink(0),
+                  )
+                  .configure_host({
+                    let options = self.options.clone();
+                    let set_active_index = self.set_active_index.clone();
+                    let set_open = self.set_open.clone();
+                    let set_restore_focus = self.set_restore_focus.clone();
+                    let active_index = self.active_index;
+                    move |host| {
+                      host
+                        .on_key_down_event({
+                          let options = options.clone();
+                          let set_active_index = set_active_index.clone();
+                          let set_open = set_open.clone();
+                          let set_restore_focus = set_restore_focus.clone();
+                          move |event| {
+                            select_navigation::list_key(
+                              event,
+                              active_index,
+                              &options,
+                              set_active_index.clone(),
+                              set_open.clone(),
+                              set_restore_focus.clone(),
+                            );
+                          }
+                        })
+                        .on_navigation_move_event({
+                          let set_active_index = set_active_index.clone();
+                          move |event| {
+                            select_navigation::list_navigation(
+                              event,
+                              active_index,
+                              options.len(),
+                              set_active_index.clone(),
+                            );
+                          }
+                        })
+                        .on_navigation_cancel(move || {
+                          select_navigation::dismiss(set_open.clone(), set_restore_focus.clone());
+                        })
                     }
                   })
-                  .on_navigation_move_event({
-                    let set_active_index = set_active_index.clone();
-                    move |event| {
-                      select_navigation::list_navigation(
-                        event,
-                        active_index,
-                        options.len(),
-                        set_active_index.clone(),
-                      );
-                    }
-                  })
-                  .on_navigation_cancel(move || {
-                    select_navigation::dismiss(set_open.clone(), set_restore_focus.clone());
-                  })
-              }
-            })
-            .child(
-              self
-                .options
-                .iter()
-                .enumerate()
-                .map(|(index, option)| self.option(index, option))
-                .collect::<Vec<_>>(),
-            ),
+                  .child(
+                    self
+                      .options
+                      .iter()
+                      .enumerate()
+                      .map(|(index, option)| self.option(index, option))
+                      .collect::<Vec<_>>(),
+                  ),
+                ),
+              ),
           ),
       )
   }

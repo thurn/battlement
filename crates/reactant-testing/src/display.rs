@@ -103,6 +103,11 @@ where
     self.client.set_host_settings(settings);
   }
 
+  /// Fails the next host-owned display recovery or confirmation write.
+  pub fn fail_next_display_save(&mut self) {
+    self.client.fail_next_display_save();
+  }
+
   /// Connects an engine with deterministic fake platform metadata.
   #[must_use]
   pub fn connect(engine: E, assets: impl Into<Arc<FakeAssetCatalog>>) -> Self {

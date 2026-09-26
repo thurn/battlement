@@ -11,6 +11,7 @@ use std::{
   time::Duration,
 };
 
+use battlement::ControllerButton;
 use cozy_chess::{Color, Piece, Square};
 use reactant::{
   PersistenceBackend, PersistenceCompletion, PersistenceOperation, PersistenceRequest,
@@ -112,6 +113,8 @@ fn erasure_orders_after_pending_save_and_cannot_revive_from_old_completion_or_co
   assert!(game.display.semantic_node("Cancel").state.disabled);
   assert!(game.display.semantic_node("Erasing…").state.disabled);
   game.pause();
+  game.display.expect_button("Erasing…");
+  game.display.press_controller_button(ControllerButton::East);
   game.display.expect_button("Erasing…");
   game.restart();
   game.advance(Duration::from_secs(10));

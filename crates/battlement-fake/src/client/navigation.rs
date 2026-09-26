@@ -18,7 +18,7 @@ pub(super) struct Navigation {
 impl<E: Engine> FakeClient<E> {
   pub(super) fn route_semantic_key(&mut self, key: PhysicalKey) -> bool {
     self.reconcile_navigation();
-    if !self.owns_world_navigation() {
+    if !self.owns_semantic_navigation() {
       return false;
     }
     match key {
@@ -36,7 +36,7 @@ impl<E: Engine> FakeClient<E> {
 
   pub(super) fn route_controller_navigation(&mut self, direction: NavigationDirection) -> bool {
     self.reconcile_navigation();
-    if !self.owns_world_navigation() {
+    if !self.owns_semantic_navigation() {
       return false;
     }
     self.navigate(direction);
@@ -45,7 +45,7 @@ impl<E: Engine> FakeClient<E> {
 
   pub(super) fn route_controller_button(&mut self, button: battlement::ControllerButton) -> bool {
     self.reconcile_navigation();
-    if !self.owns_world_navigation() {
+    if !self.owns_semantic_navigation() {
       return false;
     }
     match button {
@@ -193,21 +193,26 @@ impl<E: Engine> FakeClient<E> {
     if world.is_empty() { ui } else { world }
   }
 
-  fn owns_world_navigation(&self) -> bool {
-    self.world.input_enabled()
-      && (self.navigation.focused.is_some()
-        || self.navigation.invoker.is_some()
-        || self
-          .world
-          .objects()
-          .filter(|object| object.active_in_hierarchy())
-          .filter(|object| !object.pointer_events().is_empty())
-          .filter(|object| {
-            object
-              .world_pointer
-              .is_some_and(|settings| settings.focusable)
-          })
-          .any(|object| self.focus_position(object.id()).is_some()))
+  fn owns_semantic_navigation(&self) -> bool {
+    if !self.world.input_enabled() {
+      return false;
+    }
+    if self.ui_world.has_modal() || self.ui_world.focused().is_some() {
+      return true;
+    }
+    self.navigation.focused.is_some()
+      || self.navigation.invoker.is_some()
+      || self
+        .world
+        .objects()
+        .filter(|object| object.active_in_hierarchy())
+        .filter(|object| !object.pointer_events().is_empty())
+        .filter(|object| {
+          object
+            .world_pointer
+            .is_some_and(|settings| settings.focusable)
+        })
+        .any(|object| self.focus_position(object.id()).is_some())
   }
 
   fn focus_position(&self, id: ObjectId) -> Option<PanelPoint> {

@@ -3,6 +3,8 @@
 pub(crate) mod audio;
 pub mod bindings;
 mod context;
+pub(crate) mod display;
+pub(crate) mod graphics;
 mod model;
 pub mod reporting;
 mod save_status;

@@ -43,6 +43,7 @@ pub struct ArcadeModal {
   cancel_label: Option<LocalizedString>,
   danger: bool,
   busy: bool,
+  confirm_disabled: bool,
   #[builder(default = true)]
   close_on_escape: bool,
   #[builder(required)]
@@ -69,6 +70,7 @@ struct OpenArcadeModal {
   cancel_label: Option<LocalizedString>,
   danger: bool,
   busy: bool,
+  confirm_disabled: bool,
   close_on_escape: bool,
   reduce_motion: bool,
   #[builder(required)]
@@ -94,6 +96,7 @@ struct ModalBody {
   cancel_label: Option<LocalizedString>,
   danger: bool,
   busy: bool,
+  confirm_disabled: bool,
   close_on_escape: bool,
   reduce_motion: bool,
   #[builder(required)]
@@ -129,6 +132,7 @@ impl Component for ArcadeModal {
       .cancel_label(self.cancel_label.clone())
       .danger(self.danger)
       .busy(self.busy)
+      .confirm_disabled(self.confirm_disabled)
       .close_on_escape(self.close_on_escape)
       .reduce_motion(self.reduce_motion)
       .on_confirm(self.on_confirm.clone())
@@ -205,6 +209,7 @@ impl OpenArcadeModal {
           .cancel_label(self.cancel_label.clone())
           .danger(self.danger)
           .busy(self.busy)
+          .confirm_disabled(self.confirm_disabled)
           .close_on_escape(self.close_on_escape)
           .reduce_motion(self.reduce_motion)
           .on_confirm(self.on_confirm.clone())
@@ -269,7 +274,7 @@ impl Component for ModalBody {
               .label(self.confirm_label.clone())
               .autofocus(self.autofocus_actions && self.cancel_label.is_none())
               .danger(self.danger)
-              .busy(self.busy)
+              .busy(self.busy || self.confirm_disabled)
               .reference(confirm)
               .on_press(self.on_confirm.clone())
               .on_close(self.on_close.clone())
