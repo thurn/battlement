@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 
 from platform_support import executable_name, user_cache_path
+import resource_slots
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -102,6 +103,7 @@ def require_complete_catalog(path: Path) -> None:
 
 def validate() -> None:
     """Regenerate in temporary trees and reject stale reports or bundles."""
+    check_argument_sources()
     executable = trox_executable()
     stale: list[Path] = []
     with tempfile.TemporaryDirectory(prefix="battlement-trox-") as temporary:
@@ -125,6 +127,28 @@ def validate() -> None:
     if stale:
         formatted = "\n".join(str(path) for path in stale)
         raise RuntimeError(f"Trox generated artifacts are stale:\n{formatted}")
+
+
+def check_argument_sources() -> None:
+    """Reject opaque locals before extraction can record an incompatible scalar."""
+    from ci import cargo_environment
+
+    sources = []
+    for relative_root, inputs, _artifacts in CONFIGURATIONS:
+        for relative in inputs:
+            path = REPOSITORY_ROOT / relative_root / relative
+            if path.is_dir() and path.name == "src":
+                sources.append(path)
+            elif path.suffix == ".rs":
+                sources.append(path)
+    with resource_slots.compiler_capacity_lease():
+        subprocess.run(
+            ["cargo", "run", "--locked", "--quiet", "-p", "battlement-tooling",
+             "--bin", "trox-argument-check", "--", *map(str, sources)],
+            cwd=REPOSITORY_ROOT,
+            env=cargo_environment(None),
+            check=True,
+        )
 
 
 if __name__ == "__main__":

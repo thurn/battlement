@@ -19,6 +19,7 @@ pub mod plugin;
 pub mod plugin_build;
 pub mod process_priority;
 pub mod project;
+pub mod trox_arguments;
 pub mod unity_lease;
 pub mod web_archive;
 pub mod webgl_build;
