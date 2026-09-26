@@ -85,6 +85,19 @@ def producers_for(
         has_reactant = any("asset_generator::generate" in path.read_text(errors="replace") for path in sources)
         sample_paths = [path for path in paths if path.startswith(f"samples/{sample}/")]
         explicit = sample in requested
+        project_assets_changed = any(path in {
+            "scripts/project_assets.py",
+            "Packages/com.battlement.client/Editor/BattlementProjectAssets.cs",
+        } for path in paths)
+        declared_changed = any(
+            path.startswith(f"samples/{sample}/Assets/")
+            or path == f"samples/{sample}/project-assets.json"
+            for path in sample_paths
+        )
+        project_assets_requested = any((explicit, declared_changed, project_assets_changed))
+        project_assets_selected = (root / "project-assets.json").is_file() and project_assets_requested
+        if project_assets_selected:
+            selected.append((sample, "project-assets"))
         addressable_changed = any(
             "/Assets/AddressableAssetsData/" in f"/{path}"
             or path.endswith("/rules/src/assets.rs")
@@ -100,11 +113,13 @@ def producers_for(
             )
             for path in sample_paths
         )
-        if addressable_owned and (explicit or all_generators or addressable_changed):
+        addressable_requested = any((explicit, all_generators, addressable_changed))
+        if project_assets_selected or (addressable_owned and addressable_requested):
             selected.append((sample, "addressables"))
         if has_reactant and (explicit or all_generators or reactant_changed):
             selected.append((sample, "reactant-assets"))
-    return sorted(selected, key=lambda item: (item[1] != "reactant-assets", item[0]))
+    order = {"project-assets": 0, "reactant-assets": 1, "addressables": 2}
+    return sorted(selected, key=lambda item: (order[item[1]], item[0]))
 
 
 def validate_metadata(repository: Path, samples: list[str]) -> None:
@@ -133,7 +148,21 @@ def relevant_inputs(repository: Path, producers: list[tuple[str, str]]) -> list[
     for sample, producer in producers:
         configuration = project_configuration(repository / "samples" / sample)
         paths.update({str(configuration.relative_to(repository)), f"samples/{sample}/rules"})
-        if producer == "addressables":
+        if producer == "project-assets":
+            paths.update({f"samples/{sample}/project-assets.json",
+                          "scripts/project_assets.py",
+                          "Packages/com.battlement.client/Editor/BattlementProjectAssets.cs"})
+            declaration = json.loads((repository / "samples" / sample / "project-assets.json").read_text())
+            sources = {item["texture"] for item in declaration["materials"]}
+            sources.update(item["path"] for item in declaration["models"])
+            sources.update(item["path"] for item in declaration["addresses"])
+            for source in sources:
+                if source.startswith("Assets/Generated/") or source.endswith(".unity"):
+                    continue
+                paths.add(f"samples/{sample}/{source}")
+                if not source.endswith(".fbx"):
+                    paths.add(f"samples/{sample}/{source}.meta")
+        elif producer == "addressables":
             paths.add(f":(exclude)samples/{sample}/rules/src/assets.rs")
             paths.add(f"samples/{sample}/Assets/AddressableAssetsData")
             paths.add("crates/battlement-tooling/src/addressables.rs")
@@ -172,6 +201,10 @@ def run_producer(
     runner=operation_log.run,
 ) -> None:
     sample, kind = producer
+    if kind == "project-assets":
+        runner([sys.executable, "scripts/project_assets.py", "check" if check else "generate",
+                "--project", f"samples/{sample}"], cwd=repository)
+        return
     command = ["cargo", "run", "--quiet", "-p", "rt", "--"]
     if kind == "reactant-assets":
         command.extend(["assets", "check" if check else "generate", "--project", f"samples/{sample}"])
@@ -183,7 +216,9 @@ def run_producer(
 def generated_paths(producers: list[tuple[str, str]]) -> list[str]:
     paths = []
     for sample, kind in producers:
-        if kind == "addressables":
+        if kind == "project-assets":
+            paths.extend([f"samples/{sample}/Assets", f"samples/{sample}/ProjectSettings"])
+        elif kind == "addressables":
             paths.append(f"samples/{sample}/rules/src/assets.rs")
         else:
             paths.extend([

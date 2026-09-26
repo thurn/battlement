@@ -1,0 +1,4 @@
+[project]
+application = "Battlement Hearts.app"
+scene = "Assets/Scenes/Main.unity"
+manifest-path = "rules/Cargo.toml"

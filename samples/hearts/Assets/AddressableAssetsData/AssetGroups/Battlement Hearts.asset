@@ -1,0 +1,593 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Battlement Hearts
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Battlement Hearts
+  m_GUID: 463efacaf948c455d9a8ab01777f828c
+  m_SerializeEntries:
+  - m_GUID: 017e0cf48778c40ffb3eed0c8ef1573e
+    m_Address: hearts/cards/diamonds/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 05c3fc83133584c508c4dada0550c145
+    m_Address: hearts/forest/rock-1-a-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0721bb0f111094bebad12e264b2ecaa3
+    m_Address: hearts/faces/diamonds/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0825dfd21e30a4781b942cdbc6a48bd0
+    m_Address: hearts/faces/spades/nine
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 09c1610dea6df4ac7a40663697686c0b
+    m_Address: hearts/faces/clubs/ace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0c5c7b6b876414c8296dac5bccb1c1b6
+    m_Address: hearts/faces/spades/ace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0d066db14e4114cff919234eb625519e
+    m_Address: hearts/forest/tree-2-a-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0d9b3c1b0482e46488271eebf4ee5953
+    m_Address: hearts/cards/clubs/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 103c4ec2ec7a34b64a50e9a09969917f
+    m_Address: hearts/faces/clubs/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 109bcc59b2c1144749ec24c2cd206df0
+    m_Address: hearts/faces/clubs/four
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 15e7513aafd4b49f7a1a21e89356c398
+    m_Address: hearts/faces/hearts/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1a2b2b295270e45b69058384a42628aa
+    m_Address: hearts/cards/clubs/nine
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1ebf850f0e388433a8652f164dd04c82
+    m_Address: hearts/cards/clubs/four
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 23d72515d8dcb400ba0cd0e17f85ca48
+    m_Address: hearts/cards/hearts/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 25cc99bd9130a4adc8f53d1667a31581
+    m_Address: hearts/faces/hearts/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 25deabaf3bb894dff9f05fae7a2a2ef8
+    m_Address: hearts/faces/spades/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 27e8b8e9db76b4c2e978874701789886
+    m_Address: hearts/cards/back
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 28449bbcedef9427e8f29ae84fbac286
+    m_Address: hearts/faces/spades/seven
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 29619c2b76e694c0cae8ccfff47d53c4
+    m_Address: hearts/faces/diamonds/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2c24b90e5dfff4749859a90ab0b434f2
+    m_Address: hearts/faces/clubs/nine
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2d49ccaa20aa646469d67a8fa6e403bb
+    m_Address: hearts/cards/diamonds/ace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2dad41881508a46bbb6e7e45d2f6203c
+    m_Address: hearts/cards/hearts/nine
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2fab0b404c24c41428218624fc2cea74
+    m_Address: hearts/cards/diamonds/five
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 37a04c1c3d52d43d092d457410903c97
+    m_Address: hearts/cards/hearts/ten
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3bf52f4ddb6284e25ab8e247cbf7b740
+    m_Address: hearts/cards/hearts/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3ea79e5359c8e4825be350729f8d42bd
+    m_Address: hearts/cards/diamonds/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4126377aea59e4f909b19247f35bb4d9
+    m_Address: hearts/cards/spades/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 418418347be6b47828bce9a62d9541b4
+    m_Address: hearts/cards/spades/four
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 422ba35a33b304164bcdf0f18c2db08a
+    m_Address: hearts/faces/spades/ten
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4331215b5d4d147dcb8474afab7ed4f4
+    m_Address: hearts/cards/clubs/ten
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4362eaf977312451f86c1fd3eba688dc
+    m_Address: hearts/cards/diamonds/ten
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 450741a5501984368ae2e145476bae43
+    m_Address: hearts/faces/clubs/ten
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 47a5a0711008d4103ba4fdb5155e7fed
+    m_Address: hearts/fonts/control
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 47e46448c79584fad91edd0406a47dbe
+    m_Address: hearts/cards/diamonds/seven
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4c8ef3c16faaa4f749cdc6afa7b23db4
+    m_Address: hearts/cards/diamonds/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5042c4d058a3844d1b1093d5989af8ce
+    m_Address: hearts/cards/spades/ten
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 508229a7534ce4c79bf81db982f5f444
+    m_Address: hearts/cards/diamonds/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 512ce16877e0044d49c9866dbdb2673c
+    m_Address: hearts/faces/hearts/seven
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5183e86a08d174ac5baad60e10a329b8
+    m_Address: hearts/cards/diamonds/nine
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5bc307d1c967543c2b7dbce1fde2b19b
+    m_Address: hearts/cards/hearts/seven
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5c5ceb1a86cbb40f48d226727e630a1d
+    m_Address: hearts/cards/spades/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5d771c7461bb3488f86ca965f17df89b
+    m_Address: hearts/faces/diamonds/ten
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5e6bb3736a1594e50bf868baa1f7aa48
+    m_Address: hearts/forest/tree-1-a-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5fca2327a7d5b479496c46f870a246e7
+    m_Address: hearts/forest/bush-1-a-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 623d983833fdd492da07c6d7ac936f0c
+    m_Address: hearts/faces/clubs/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 64e437bae3021404493215077a9694a5
+    m_Address: hearts/cards/clubs/seven
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6565a6e4444da481da286e4ce57c42b8
+    m_Address: hearts/faces/diamonds/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6e118e4d8298a43c59933260f14e62a8
+    m_Address: hearts/faces/spades/five
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7081b46e12b4f439a95e91b6a89076fb
+    m_Address: hearts/forest/hill-4x2x2-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 70fb3c7ab25184344bbb1952656d2d85
+    m_Address: hearts/faces/hearts/four
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 71343cd8ef1f845ceba6a7fe699ad9d5
+    m_Address: hearts/faces/diamonds/four
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7361e6e1138b547ac984816c784cfd59
+    m_Address: hearts/cards/clubs/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7d0fa1b5946614f5ba558b5a26638e7e
+    m_Address: hearts/faces/spades/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7d89f920831804012836d5e0fd92b934
+    m_Address: hearts/content
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 80452b70ef1f048ea980460a3c3ef7c2
+    m_Address: hearts/faces/clubs/seven
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 842296bbaf42b48ba9a0ed6000579e8f
+    m_Address: hearts/faces/clubs/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 862622b4cd8db4bf0874ff9fd1bbaa41
+    m_Address: hearts/faces/spades/four
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8898cd83af002417c8b2b655dc5cde29
+    m_Address: hearts/faces/clubs/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8a8a1cb41b02c4d858cf832017ff4dc0
+    m_Address: hearts/cards/hearts/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8b0fd015d68904340bded44caf04eac2
+    m_Address: hearts/faces/spades/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8b8d42463bc0441d4b6f147976dba8a5
+    m_Address: hearts/faces/spades/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8d2ec74f990824fd6a80219e4aa361c7
+    m_Address: hearts/cards/hearts/five
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 905e464da1567413e942e5351f00bb60
+    m_Address: hearts/cards/diamonds/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9779e799335c34435b689ebb53eda8e4
+    m_Address: hearts/faces/diamonds/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9b0b52afeaa4e4efdabf6097cc021a04
+    m_Address: hearts/faces/hearts/five
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9ba352e332df3496e81d278448386210
+    m_Address: hearts/faces/hearts/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9f82c7c624aad4aad95d0e9b9c447d2f
+    m_Address: hearts/faces/hearts/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a391e29fc5de643b6895a5ed6ede001f
+    m_Address: hearts/cards/spades/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a4afb251a12984d1eb590ff6f7bc33aa
+    m_Address: hearts/cards/hearts/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a634c3d28e0ed427d86c95fc3fb817f4
+    m_Address: hearts/faces/clubs/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a9dafee5a1d3d447ea72c7caf0e407f3
+    m_Address: hearts/cards/clubs/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b0049583cd8a54abdb50940227bad743
+    m_Address: hearts/faces/hearts/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b59f0b6e3c98d4708ba31e16c9b56fbf
+    m_Address: hearts/faces/clubs/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b8c635c773d8b48ff98fe432393ae47e
+    m_Address: hearts/cards/diamonds/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b94f9cadbf0c3439787bd80ef36b82d2
+    m_Address: hearts/cards/clubs/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bcfad134e8b874378bf51885554207d5
+    m_Address: hearts/faces/diamonds/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bdd26467c8c3d4a84ba8a30c373a5a7f
+    m_Address: hearts/cards/clubs/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: be4cd384011da43968a4554083a58417
+    m_Address: hearts/faces/diamonds/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c08e8d11180154d25bb5cdd1f162b06c
+    m_Address: hearts/faces/clubs/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c26996bcadcca4f8f8a7f7beaf04a65b
+    m_Address: hearts/faces/hearts/nine
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c2c7469649d464ccb8be3a52719b1c75
+    m_Address: hearts/cards/clubs/ace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c2fc1f19097fe4b2ea66176f3cb44f9b
+    m_Address: hearts/cards/hearts/four
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c436e80f5f0e04ca3a126852e658e22b
+    m_Address: hearts/faces/diamonds/five
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c48d9343f2e7e401e911a26e3ce75aa1
+    m_Address: hearts/cards/spades/ace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c4db437964c0649e7ababf18c07e8a81
+    m_Address: hearts/faces/diamonds/ace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c5f007d2a02274da3958969506f77c41
+    m_Address: hearts/forest/grass-1-a-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c696b453892de493396d5cff6f97a896
+    m_Address: hearts/cards/spades/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c6c88baa5baa246c79eef54bbffc9de1
+    m_Address: hearts/faces/spades/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c76812ad1f1164f34baf7e2c5e25e73c
+    m_Address: hearts/cards/spades/seven
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cc2ffde8eb81d483f92d27b4dfb2a1e9
+    m_Address: hearts/cards/spades/five
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ccd134ec9aa6e4526b72019853578d0c
+    m_Address: hearts/faces/diamonds/nine
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cdfa6527869dc449291c40b9af5806c2
+    m_Address: hearts/faces/diamonds/seven
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d376b8152c4de4966bbf2272467200e6
+    m_Address: hearts/cards/diamonds/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d4aa4cefd5de44aac9e76b22d40c41ec
+    m_Address: hearts/cards/spades/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d685349c9c0cd433e9923b850d58c483
+    m_Address: hearts/faces/hearts/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d84213cb104b5452fa13a382279cf269
+    m_Address: hearts/cards/clubs/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d9a9921f0b69a4078973484e6c2df22d
+    m_Address: hearts/cards/clubs/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: da2d74b3dc6ba42ccb62fd7afbb72638
+    m_Address: hearts/cards/clubs/five
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dafce4f643af142f098ddc4c9f3aadac
+    m_Address: hearts/faces/hearts/ace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: db759c2c79d8c444485fba26acb360e9
+    m_Address: hearts/cards/diamonds/four
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dd7defc5ff30940bbb9c022f92db3718
+    m_Address: hearts/cards/spades/nine
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: de53b1b5ab44042778fefac14aa9d54e
+    m_Address: hearts/cards/hearts/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: de6c18566eb994d6ea0b3539ca696444
+    m_Address: hearts/faces/spades/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e38f338e910af4541a0fa0dd27529924
+    m_Address: hearts/cards/spades/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e836a102c79cb4aac9d80b5c476fb51f
+    m_Address: hearts/faces/clubs/five
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e88fa18b7061b4e058b7024ef46c113d
+    m_Address: hearts/faces/spades/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e94a8c82b12704245996db2f6e9f07e4
+    m_Address: hearts/faces/hearts/ten
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: eb0d4cb8b0d0f4fa194be8c735f02020
+    m_Address: hearts/cards/hearts/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ed0b975b1ccd84c61ac3697c8b68097f
+    m_Address: hearts/cards/hearts/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f4997acf2c10d4b7cb3354a849001eaf
+    m_Address: hearts/faces/hearts/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fc15bdf88ca2e4bb7b1635985f4a0bd0
+    m_Address: hearts/faces/diamonds/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fcc3eddf9bbcd4b6fa347d2f125952cc
+    m_Address: hearts/cards/hearts/ace
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: feb40494074f843e384319a02d5e4eae
+    m_Address: hearts/cards/spades/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 4b8e91bd930764170a73edf01d0ea3f6, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: ef5bd32d6e57b4ad290db68f91795b38, type: 2}
+    - {fileID: 11400000, guid: 0b6241559f4384d6da3f1d78868bcdec, type: 2}
+    m_SchemaDisplayOrder:
+    - Battlement Hearts_BundledAssetGroupSchema
+    - Battlement Hearts_ContentUpdateGroupSchema
+  m_IncludeInBuild: 1
+  m_IncludeInBuildMigrated: 1

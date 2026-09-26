@@ -302,12 +302,13 @@ def main() -> None:
         assert gated.returncode == 0, gated.stderr
         gate = json.loads((artifact_root(gated) / "gate.json").read_text())
         assert gate["status"] == "passed"
-        assert len(gate["samples"]) == 5
         assert gate["budget_seconds"] == 120
-        suites = [
-            tomllib.loads(path.read_text())
-            for path in sorted((REPOSITORY_ROOT / "samples").glob("*/ditto.toml"))
-        ]
+        suite_paths = sorted((REPOSITORY_ROOT / "samples").glob("*/ditto.toml"))
+        suites = [tomllib.loads(path.read_text()) for path in suite_paths]
+        assert {sample["sample"] for sample in gate["samples"]} == {
+            path.parent.name for path in suite_paths
+        }
+        assert len(gate["samples"]) == len(suites)
         assert gate["scenario_count"] == sum(
             len(suite["scenarios"]) for suite in suites
         )
@@ -333,12 +334,12 @@ def main() -> None:
             if event.get("event") == "process.started"
             and event.get("operation_id") == native_start["operation_id"]
         ]
-        assert len(child_processes) == 5
+        assert len(child_processes) == len(suites)
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], {
             **environment, "FAKE_BARRIER_ROOT": str(root / "single-barrier"),
-            "FAKE_BARRIER_COUNT": "5",
+            "FAKE_BARRIER_COUNT": str(len(suites)),
         })
         assert gated.returncode == 0, gated.stderr
         gate = json.loads((artifact_root(gated) / "gate.json").read_text())
@@ -351,7 +352,7 @@ def main() -> None:
         for parallel_environment in (parallel_environment_a, parallel_environment_b):
             parallel_environment.update({
                 "FAKE_BARRIER_ROOT": str(root / "parallel-barrier"),
-                "FAKE_BARRIER_COUNT": "10",
+                "FAKE_BARRIER_COUNT": str(2 * len(suites)),
             })
         parallel_a = subprocess.Popen(
             [sys.executable, str(RUNNER), "gate"], cwd=REPOSITORY_ROOT,
@@ -376,7 +377,7 @@ def main() -> None:
         for invocation_root in (root_a, root_b):
             verified = ditto_evidence.read(invocation_root / "evidence.json", invocation_root.name)
             assert verified["status"] == "passed"
-            assert len([item for item in verified["files"] if item["path"].endswith("/result.json")]) == 5
+            assert len([item for item in verified["files"] if item["path"].endswith("/result.json")]) == len(suites)
         # Both failures remain independently discoverable after the latest alias changes.
         failed_runs = [subprocess.Popen(
             [sys.executable, str(RUNNER), "gate"], cwd=REPOSITORY_ROOT,
@@ -389,7 +390,7 @@ def main() -> None:
             failed_root = artifact_root(subprocess.CompletedProcess([], 1, stdout, stderr))
             verified = ditto_evidence.read(failed_root / "evidence.json", failed_root.name)
             assert verified["status"] == "failed"
-            assert len([item for item in verified["files"] if item["path"].endswith("/run.tar.gz")]) == 5
+            assert len([item for item in verified["files"] if item["path"].endswith("/run.tar.gz")]) == len(suites)
         result_path = root_a / "basic/result.json"
         original_result = result_path.read_bytes()
         for mutation in ("remove", "alter"):
@@ -496,7 +497,7 @@ def main() -> None:
         environment["DITTO_CI_BRANCH"] = "master"
         published = run(["publish"], environment)
         assert published.returncode == 0, published.stderr
-        assert len((root / "published").read_text().splitlines()) == 5
+        assert len((root / "published").read_text().splitlines()) == len(suites)
 
         environment["DITTO_CI_BRANCH"] = "feature"
         skipped = run(["publish"], environment)

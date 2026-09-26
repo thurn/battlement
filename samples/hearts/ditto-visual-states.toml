@@ -1,0 +1,17 @@
+version = 1
+
+[[states]]
+key = "match.initial"
+screen = "hearts"
+
+[[states]]
+key = "match.restored"
+screen = "hearts"
+
+[[states]]
+key = "match.reset"
+screen = "hearts"
+
+[[states]]
+key = "assets.deck"
+screen = "hearts"

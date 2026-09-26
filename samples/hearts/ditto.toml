@@ -1,0 +1,68 @@
+name = "hearts"
+default_profile = "macos"
+
+[timeouts]
+run = "8m"
+build = "15m"
+launch = "90s"
+baseline_download = "2m"
+
+[defaults]
+step_timeout = "5s"
+scenario_timeout = "45s"
+motion = "instant"
+
+[defaults.comparison]
+threshold = 0.1
+anti_alias = true
+max_changed_percent = 0.01
+
+[player]
+reactant = true
+unity_project = "."
+scene = "Assets/Scenes/Main.unity"
+rust_manifest = "rules/Cargo.toml"
+
+[aliases]
+root = "6644ed66-12dc-4590-9af8-19d174a47000"
+
+[baseline]
+kind = "r2"
+namespace = "battlement/hearts"
+public_base_url = "https://pub-e284c2ca25814355bb2c85707405b77c.r2.dev"
+account_id_env = "BATTLEMENT_R2_ACCOUNT_ID"
+bucket_env = "BATTLEMENT_R2_BUCKET"
+access_key_id_env = "BATTLEMENT_R2_ACCESS_KEY_ID"
+secret_access_key_env = "BATTLEMENT_R2_SECRET_ACCESS_KEY"
+
+[profiles.macos]
+target = "macos"
+display = { width = 1280, height = 720, scale = 1.0 }
+
+[[scenarios]]
+name = "new match"
+fixture = "shell"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios]]
+name = "restore and reset"
+fixture = "restored"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "New game" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "owned card faces"
+fixture = "cards"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "deck" }

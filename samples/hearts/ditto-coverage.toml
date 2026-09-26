@@ -1,0 +1,27 @@
+version = 1
+sample = "hearts"
+canonical_profile = "macos"
+
+[[mappings]]
+state = "match.initial"
+scenario = "new match"
+checkpoint = "initial"
+owner = "shell::restoring_then_resetting_displays_only_the_current_human_hand_and_shared_back"
+
+[[mappings]]
+state = "match.restored"
+scenario = "restore and reset"
+checkpoint = "restored"
+owner = "shell::restoring_then_resetting_displays_only_the_current_human_hand_and_shared_back"
+
+[[mappings]]
+state = "match.reset"
+scenario = "restore and reset"
+checkpoint = "reset"
+owner = "shell::restoring_then_resetting_displays_only_the_current_human_hand_and_shared_back"
+
+[[mappings]]
+state = "assets.deck"
+scenario = "owned card faces"
+checkpoint = "deck"
+owner = "shell::every_logical_card_has_its_own_imported_face_and_model_with_one_shared_back"
