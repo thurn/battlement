@@ -98,7 +98,15 @@ impl MacosPlayerLauncher for ImmutableMacosLauncher {
     height: u32,
     native_execution_id: Option<&str>,
   ) -> Result<Child> {
-    let mut command = Command::new(executable);
+    let mut command = if cfg!(target_os = "macos") {
+      // caffeinate execs the player in-place and monitors it from a child process,
+      // preserving the supervised PID, exit status and signal handling.
+      let mut command = Command::new("/usr/bin/caffeinate");
+      command.args(["-u", "-d", "-i", "--"]).arg(executable);
+      command
+    } else {
+      Command::new(executable)
+    };
     command
       .arg("--battlement-ditto-url")
       .arg(session_url)

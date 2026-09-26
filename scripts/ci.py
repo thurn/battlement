@@ -988,8 +988,6 @@ def run_ditto_validation(
     if explicit_samples:
         for sample in samples:
             command.extend(["--sample", sample])
-    if platform.system() == "Darwin":
-        command = ["/usr/bin/caffeinate", "-u", "-d", "-i", "--", *command]
     failure = None
     try:
         run_step("Run Ditto full suite", command, environment=environment)
