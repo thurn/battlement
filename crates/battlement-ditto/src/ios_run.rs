@@ -19,6 +19,7 @@ use battlement_tooling::{
 
 use crate::{
   build_lease,
+  build_output::{self, Failure},
   cli::BuildOptions,
   config::model::{Profile, StepKind, Suite, Target, VideoStep},
   execution_materializer::{self, ExecutionMaterializer, NativeVideoResolver},
@@ -79,7 +80,21 @@ pub(crate) fn build(
       },
     ),
     IosBuildResult::Required { .. } => unreachable!("builds are allowed"),
-    IosBuildResult::Failed(failure) => anyhow::bail!(failure.message),
+    IosBuildResult::Failed(failure) => {
+      return build_output::report_failure(
+        suite,
+        profile_name,
+        &options,
+        Failure {
+          identity: &failure.identity,
+          phase: &failure.phase,
+          error_ids: &failure.error_ids,
+          message: &failure.message,
+          log_path: &failure.log_path,
+        },
+        stdout,
+      );
+    }
   };
   let value = serde_json::json!({
     "schema": 1,

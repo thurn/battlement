@@ -19,6 +19,7 @@ use battlement_tooling::{
 
 use crate::{
   build_lease,
+  build_output::{self, Failure},
   cli::BuildOptions,
   config::model::{Profile, Suite, Target},
   execution_materializer::{self, ExecutionMaterializer},
@@ -75,7 +76,21 @@ pub(crate) fn build(
       },
     ),
     WebglBuildResult::Required { .. } => unreachable!("builds are allowed"),
-    WebglBuildResult::Failed(failure) => anyhow::bail!(failure.message),
+    WebglBuildResult::Failed(failure) => {
+      return build_output::report_failure(
+        suite,
+        profile_name,
+        &options,
+        Failure {
+          identity: &failure.identity,
+          phase: &failure.phase,
+          error_ids: &failure.error_ids,
+          message: &failure.message,
+          log_path: &failure.log_path,
+        },
+        stdout,
+      );
+    }
   };
   let value = serde_json::json!({
     "schema": 1,

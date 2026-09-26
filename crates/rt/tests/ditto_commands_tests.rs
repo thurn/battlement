@@ -10,6 +10,10 @@ use std::{os::unix::fs::PermissionsExt, path::Path};
 
 static NATIVE_EXECUTION: Mutex<()> = Mutex::new(());
 
+#[cfg(target_os = "macos")]
+#[path = "support/ditto_build.rs"]
+mod build_checks;
+
 #[test]
 fn core_command_matrix_parses_complete_options() {
   assert!(matches!(

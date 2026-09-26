@@ -25,6 +25,7 @@ use crate::{
     self, BaselineProposal, BaselineUpdateRequest, ScenarioUpdate, ScenarioUpdateStatus,
   },
   build_lease,
+  build_output::{self, Failure},
   cli::BuildOptions,
   config::model::{Baseline, Profile, StepKind, Suite, Target, VideoStep},
   execution_materializer::{self, ExecutionMaterializer},
@@ -88,7 +89,21 @@ pub(crate) fn build(
       },
     ),
     MacosBuildResult::Required { .. } => unreachable!("builds are allowed"),
-    MacosBuildResult::Failed(failure) => anyhow::bail!(failure.message),
+    MacosBuildResult::Failed(failure) => {
+      return build_output::report_failure(
+        suite,
+        profile_name,
+        &options,
+        Failure {
+          identity: &failure.identity,
+          phase: &failure.phase,
+          error_ids: &failure.error_ids,
+          message: &failure.message,
+          log_path: &failure.log_path,
+        },
+        stdout,
+      );
+    }
   };
   let assembly = macos_build::macos_assembly_identity(&build)
     .with_context(|| format!("read macOS build assembly in {}", build.path().display()))?;
