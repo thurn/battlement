@@ -768,6 +768,15 @@ where
         .unwrap_or_else(|error| panic!("geometry registry update failed: {error:?}")),
       CommandBody::AccessibilityUpdate(value) => {
         if let Some(snapshot) = &value.snapshot {
+          for node in &snapshot.nodes {
+            assert!(
+              self.ui_world.element(node.object_id).is_some()
+                || self.world.object(node.object_id).is_some(),
+              "accessibility host {:?} ({:?}) is not live",
+              node.object_id,
+              node.label,
+            );
+          }
           self.accessibility = snapshot.clone();
         }
       }

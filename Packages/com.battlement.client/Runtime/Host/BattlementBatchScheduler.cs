@@ -437,7 +437,8 @@ namespace Battlement
                     || earlier.Start == BatchStart.AfterEarlierAssetPreparation;
             }
             if (scheduled.WorkScope.HasValue && earlier.WorkScope != scheduled.WorkScope)
-                return earlier.ContainsAssetPreparation;
+                return earlier.ContainsAssetPreparation
+                    || earlier.Start == BatchStart.AfterEarlierAssetPreparation;
             return scheduled.Admission.WaitsThroughSequence is long through
                 && earlier.Admission.Sequence <= through;
         }

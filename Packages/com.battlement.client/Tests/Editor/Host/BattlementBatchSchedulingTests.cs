@@ -445,6 +445,50 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ScopedWorkWaitsForApplicationMutationsButNotOtherGames()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            var menu = new ObjectId(Guid.NewGuid());
+            var observed = new ObjectId(Guid.NewGuid());
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(
+                        session,
+                        BatchStart.Now,
+                        Group(Wait(TimeSpan.FromHours(1)))
+                    ) with
+                    {
+                        WorkScope = 8,
+                    },
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierAssetPreparation,
+                        Group(Wait(TimeSpan.FromMilliseconds(200))),
+                        Group(Create(menu))
+                    ),
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierBlockingWork,
+                        Group(Create(observed))
+                    ) with
+                    {
+                        WorkScope = 7,
+                    }
+                )
+            );
+            Assert.That(HasIdentity(menu), Is.False);
+            Assert.That(HasIdentity(observed), Is.False);
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(200));
+            harness.Runner.RunFrame();
+            Assert.That(HasIdentity(menu), Is.True);
+            Assert.That(HasIdentity(observed), Is.True);
+            Assert.That(Failures(harness), Is.Empty);
+        }
+
+        [Test]
         public void UnorderedReferenceToPendingUiChangeFailsAtAdmission()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

@@ -12,7 +12,9 @@ pub(crate) fn depends_on(later: &ScheduledBatch, earlier: &ScheduledBatch) -> bo
   match later.start {
     BatchStart::Now => false,
     BatchStart::AfterEarlierBlockingWork => {
-      later.scope.is_none() || earlier.scope == later.scope || earlier.prepares_assets
+      let app_work =
+        earlier.prepares_assets || earlier.start == BatchStart::AfterEarlierAssetPreparation;
+      later.scope.is_none() || earlier.scope == later.scope || app_work
     }
     BatchStart::AfterEarlierAssetPreparation => {
       earlier.prepares_assets || earlier.start == BatchStart::AfterEarlierAssetPreparation

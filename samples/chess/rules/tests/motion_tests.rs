@@ -243,3 +243,22 @@ fn disabling_shake_during_navigation_restores_baseline_without_replaying_it() {
     activate_without_time(&mut game, "Screenshake");
   }
 }
+
+#[test]
+fn rapid_settings_return_keeps_accessible_hosts_live() {
+  let mut game = ChessTest::from_position(fixtures::capture());
+  game
+    .display
+    .activate_accessible("\u{2068}White Bishop\u{2069} at \u{2068}d4\u{2069}");
+  activate_without_time(&mut game, "Move to \u{2068}e5\u{2069}");
+  game.advance(Duration::from_millis(667));
+  for label in ["Main menu", "SETTINGS", "Graphics", "Screenshake"] {
+    activate_without_time(&mut game, label);
+    game.advance(Duration::from_millis(33));
+  }
+  activate_without_time(&mut game, "RETURN");
+  game.display.settle();
+  game.display.activate_accessible("PLAY");
+  game.display.settle();
+  game.expect_piece(Square::E5, Color::White, Piece::Bishop);
+}
