@@ -35,8 +35,8 @@ reason = "Cooperative computation cleanup and latest-only replacement under a fi
 kind = "worker"
 
 [[risks]]
-paths = ["samples/chess/rules/src/settings/audio.rs", "samples/chess/rules/src/menu/background_music.rs", "samples/chess/rules/src/menu/sound_settings.rs", "crates/reactant-core/src/audio.rs"]
-reason = "Chess browser audio gains, background mute and resume feedback"
+paths = ["samples/chess/rules/src/settings/audio.rs", "samples/chess/rules/src/menu/background_music.rs", "samples/chess/rules/src/menu/sound_settings.rs", "crates/reactant-core/src/audio.rs", "crates/reactant-core/src/audio_playback.rs", "Packages/com.battlement.client/Runtime/Host/BattlementAudio*.cs"]
+reason = "Chess browser startup and settings compatibility with audio-host changes"
 samples = ["chess"]
 
 [[risks]]

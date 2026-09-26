@@ -120,6 +120,14 @@
     {"path": "Assets/ThirdParty/KayKit/ForestNaturePack/Hill_4x2x2_Color1.fbx","materials": {"forest": "Assets/Generated/Imported/Forest.mat"}}
   ],
   "addresses": [
+    {"address": "hearts/audio/music", "path": "Assets/ThirdParty/NotJam/Drag and Dread.opus"},
+    {"address": "hearts/audio/results-music", "path": "Assets/ThirdParty/NotJam/Switch with Me.opus"},
+    {"address": "hearts/audio/deal", "path": "Assets/ThirdParty/NotJam/click_3.opus"},
+    {"address": "hearts/audio/pass", "path": "Assets/ThirdParty/NotJam/swipe_metallic.opus"},
+    {"address": "hearts/audio/select", "path": "Assets/ThirdParty/NotJam/click.opus"},
+    {"address": "hearts/audio/land", "path": "Assets/ThirdParty/NotJam/bounce_1.opus"},
+    {"address": "hearts/audio/collect", "path": "Assets/ThirdParty/NotJam/click_4.opus"},
+    {"address": "hearts/audio/result", "path": "Assets/ThirdParty/NotJam/lap_complete.opus"},
     {"address": "hearts/materials/clearing", "path": "Assets/Generated/Imported/Clearing.mat"},
     {"address": "hearts/content","path": "Assets/Scenes/Content.unity"},
     {"address": "hearts/fonts/control","path": "Assets/ThirdParty/Fonts/Barlow Condensed 700 UI.asset"},

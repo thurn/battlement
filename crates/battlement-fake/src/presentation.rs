@@ -172,6 +172,18 @@ where
     if let Some(scope) = batch.cancel_scope {
       self.canceled_scopes.insert(scope);
       self.paused_scopes.remove(&scope);
+      let audio: Vec<_> = self
+        .work_audio
+        .iter()
+        .filter(|(_, owner)| **owner == scope)
+        .map(|(id, _)| *id)
+        .collect();
+      for id in audio {
+        if self.world.audio(id).is_some() {
+          self.world.audio_remove(id);
+        }
+        self.work_audio.remove(&id);
+      }
       let owned = self
         .work_objects
         .iter()
@@ -322,6 +334,7 @@ where
     self.scheduled_batches.clear();
     self.operations.clear();
     self.work_objects.clear();
+    self.work_audio.clear();
     self.motion.clear_scope_pauses();
   }
 
@@ -436,7 +449,11 @@ where
             if cancellation && self.missing_cleanup_target(&command.body) {
               continue;
             }
-            self.record_work_creation(&command.body, self.scheduled_batches[index].scope);
+            self.record_work_creation(
+              command.command_id,
+              &command.body,
+              self.scheduled_batches[index].scope,
+            );
             let destroyed = matches!(
               command.body,
               CommandBody::VisualElementDestroy(_) | CommandBody::ObjectDestroy(_)
@@ -486,11 +503,22 @@ where
     }
   }
 
-  fn record_work_creation(&mut self, command: &CommandBody, scope: Option<u64>) {
+  fn record_work_creation(
+    &mut self,
+    id: battlement::CommandId,
+    command: &CommandBody,
+    scope: Option<u64>,
+  ) {
     let Some(scope) = scope else {
       return;
     };
     match command {
+      CommandBody::AudioPlay(_) => {
+        self.work_audio.insert(id, scope);
+      }
+      CommandBody::AudioStop(value) => {
+        self.work_audio.remove(&value.audio_command_id);
+      }
       CommandBody::VisualElementCreate(value) => self.record_work_ui(&value.node, scope),
       CommandBody::ObjectCreate(value) => {
         self

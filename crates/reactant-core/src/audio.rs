@@ -1,4 +1,6 @@
-//! Shared audio settings independent of individual playback lifetimes.
+//! Shared audio mixing and component-owned playback.
+
+pub use crate::audio_playback::{AudioSettings, AudioTrack, use_audio};
 
 use battlement::{AudioMix, Command, CommandBody};
 

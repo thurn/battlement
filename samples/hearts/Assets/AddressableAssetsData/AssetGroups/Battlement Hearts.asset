@@ -20,6 +20,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 02791618febcd4cc6b60bb704bdb3255
+    m_Address: hearts/audio/result
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 05c3fc83133584c508c4dada0550c145
     m_Address: hearts/forest/rock-1-a-color1
     m_ReadOnly: 0
@@ -80,6 +85,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 20551766571cd409abed2274f4b26a54
+    m_Address: hearts/audio/collect
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 23d72515d8dcb400ba0cd0e17f85ca48
     m_Address: hearts/cards/hearts/queen
     m_ReadOnly: 0
@@ -135,6 +145,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3a5f61c83d1e74dc396cfa4caa2b896a
+    m_Address: hearts/audio/select
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3bf52f4ddb6284e25ab8e247cbf7b740
     m_Address: hearts/cards/hearts/king
     m_ReadOnly: 0
@@ -175,6 +190,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 479d79abdd8b44de78a71697fbd4d48f
+    m_Address: hearts/audio/land
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 47a5a0711008d4103ba4fdb5155e7fed
     m_Address: hearts/fonts/control
     m_ReadOnly: 0
@@ -187,6 +207,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4c8ef3c16faaa4f749cdc6afa7b23db4
     m_Address: hearts/cards/diamonds/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4e162ad05c60d47478d1416804296734
+    m_Address: hearts/audio/results-music
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -405,6 +430,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bf3082318a20646b59fd0232d921fe22
+    m_Address: hearts/audio/music
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c08e8d11180154d25bb5cdd1f162b06c
     m_Address: hearts/faces/clubs/jack
     m_ReadOnly: 0
@@ -497,6 +527,16 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d84213cb104b5452fa13a382279cf269
     m_Address: hearts/cards/clubs/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d89f99b2f84fc4619850c049725f6a52
+    m_Address: hearts/audio/pass
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d8fff857b0aa4402395ff0c33c298e49
+    m_Address: hearts/audio/deal
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

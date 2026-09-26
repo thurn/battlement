@@ -148,7 +148,7 @@ namespace Battlement
         )
         {
             TimeSpan fadeOut = RequireDuration(requestedFadeOut, "Audio fade-out");
-            if (suppressed.Remove(audioCommandId.Value))
+            if (IsFinished(audioCommandId))
             {
                 return null;
             }
@@ -165,13 +165,15 @@ namespace Battlement
 
         public IBattlementCommandOperation? Pause(CommandId audioCommandId)
         {
-            Require(audioCommandId).Pause();
+            if (!IsFinished(audioCommandId))
+                Require(audioCommandId).Pause();
             return null;
         }
 
         public IBattlementCommandOperation? Resume(CommandId audioCommandId)
         {
-            Require(audioCommandId).Resume();
+            if (!IsFinished(audioCommandId))
+                Require(audioCommandId).Resume();
             return null;
         }
 
@@ -242,7 +244,7 @@ namespace Battlement
         private IBattlementCommandOperation? SetVolume(CommandId audioCommandId, double requested)
         {
             float volume = RequireVolume(requested);
-            if (suppressed.Contains(audioCommandId.Value))
+            if (IsFinished(audioCommandId))
             {
                 return null;
             }
@@ -360,6 +362,9 @@ namespace Battlement
             inactive.Push(instance);
         }
 
+        private bool IsFinished(CommandId id) =>
+            suppressed.Contains(id.Value) || releasedPlayheads.ContainsKey(id.Value);
+
         private BattlementAudioInstance Require(CommandId id)
         {
             if (
@@ -426,20 +431,25 @@ namespace Battlement
         {
             private readonly BattlementAudioSources owner;
             private readonly BattlementAudioInstance instance;
+            private readonly Guid commandId;
             private bool pausedByScope;
             private TimeSpan? pausedAt;
 
             public PlaybackOperation(
                 BattlementAudioSources owner,
                 BattlementAudioInstance instance
-            ) => (this.owner, this.instance) = (owner, instance);
+            ) => (this.owner, this.instance, commandId) = (owner, instance, instance.CommandId);
 
-            public bool IsInfinite => instance.IsActive && instance.IsLooping;
+            private bool IsCurrent => instance.IsActive && instance.CommandId == commandId;
 
-            public bool IsHeld => instance.IsActive && instance.IsHeld;
+            public bool IsInfinite => IsCurrent && instance.IsLooping;
+
+            public bool IsHeld => IsCurrent && instance.IsHeld;
 
             public bool IsComplete(TimeSpan now)
             {
+                if (!IsCurrent)
+                    return true;
                 if (instance.UpdatePlayback(now))
                 {
                     owner.Release(instance);
@@ -449,11 +459,15 @@ namespace Battlement
                 return false;
             }
 
-            public void Cancel() => owner.Release(instance);
+            public void Cancel()
+            {
+                if (IsCurrent)
+                    owner.Release(instance);
+            }
 
             public void Pause(TimeSpan now)
             {
-                if (instance.IsPaused)
+                if (!IsCurrent || instance.IsPaused)
                     return;
                 instance.Pause();
                 pausedByScope = true;
@@ -462,7 +476,7 @@ namespace Battlement
 
             public void Resume(TimeSpan now)
             {
-                if (!pausedByScope)
+                if (!IsCurrent || !pausedByScope)
                     return;
                 pausedByScope = false;
                 if (pausedAt is TimeSpan paused)
@@ -479,6 +493,7 @@ namespace Battlement
             private readonly TimeSpan started;
             private readonly TimeSpan duration;
             private readonly float initialEnvelope;
+            private readonly Guid commandId;
 
             public FadeOutOperation(
                 BattlementAudioSources owner,
@@ -486,19 +501,20 @@ namespace Battlement
                 TimeSpan started,
                 TimeSpan duration
             ) =>
-                (this.owner, this.instance, this.started, this.duration, initialEnvelope) = (
-                    owner,
-                    instance,
-                    started,
-                    duration,
-                    instance.FadeEnvelope
-                );
+                (
+                    this.owner,
+                    this.instance,
+                    this.started,
+                    this.duration,
+                    initialEnvelope,
+                    commandId
+                ) = (owner, instance, started, duration, instance.FadeEnvelope, instance.CommandId);
 
             public bool IsInfinite => false;
 
             public bool IsComplete(TimeSpan now)
             {
-                if (!instance.IsActive)
+                if (!instance.IsActive || instance.CommandId != commandId)
                 {
                     return true;
                 }
@@ -523,17 +539,20 @@ namespace Battlement
         {
             private readonly BattlementAudioInstance instance;
             private readonly IBattlementCommandOperation inner;
+            private readonly Guid commandId;
 
             public ActiveAudioOperation(
                 BattlementAudioInstance instance,
                 IBattlementCommandOperation inner
-            ) => (this.instance, this.inner) = (instance, inner);
+            ) => (this.instance, this.inner, commandId) = (instance, inner, instance.CommandId);
 
-            public bool IsInfinite => instance.IsActive && inner.IsInfinite;
+            private bool IsCurrent => instance.IsActive && instance.CommandId == commandId;
+
+            public bool IsInfinite => IsCurrent && inner.IsInfinite;
 
             public bool IsComplete(TimeSpan now)
             {
-                if (instance.IsActive)
+                if (IsCurrent)
                 {
                     return inner.IsComplete(now);
                 }

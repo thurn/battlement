@@ -6,7 +6,7 @@ use reactant::{Application, app_context, hooks, overlay::OverlayHost, prelude::*
 use trox::{SourceLocale, ls};
 
 use crate::{
-  assets, card_assets,
+  assets, audio, card_assets,
   card_controls::CardControls,
   card_input,
   card_table::CardTable,
@@ -88,6 +88,11 @@ fn configured(initial: HeartsState, gallery: bool, interactive: bool) -> Applica
 impl Component for HeartsRoot {
   fn render(&self) -> impl Render {
     let overlay = reactant::use_portal_target();
+    let (mix, set_mix) = hooks::use_state(battlement::AudioMix {
+      music: 0.22,
+      effects: 0.65,
+      ..battlement::AudioMix::default()
+    });
     let (generation, reset) = hooks::use_state(0_u64);
     let initial = if generation == 0 {
       self.initial.clone()
@@ -192,6 +197,24 @@ impl Component for HeartsRoot {
                 .child(scene::seats(&game.view, aspect < 1.0))
             }),
           )),
+        self.interactive.then(|| {
+          View::new()
+            .picking_mode(PickingMode::Ignore)
+            .style(
+              Style::new()
+                .width(100.pct())
+                .height(100.pct())
+                .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
+            )
+            .child(audio::SoundControls { mix, set_mix })
+        }),
+        self.interactive.then(|| reactant::audio::AudioMixProvider {
+          mix,
+          children: Children::new(reactant::GameRoot::new(audio::GameAudio {
+            phase: game.view.table.phase,
+            selection: input.audio_occurrence(),
+          })),
+        }),
         OverlayHost::new(overlay),
       ))
   }

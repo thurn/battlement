@@ -175,9 +175,70 @@ fn catalog() -> FakeAssetCatalog {
       PreparedAsset::UiFont(address) => catalog.add_ui_font(address.clone()),
       PreparedAsset::Texture(address) => catalog.add_texture(address.clone()),
       PreparedAsset::Prefab(address) => catalog.add_prefab(address.clone(), FakePrefab::new()),
+      PreparedAsset::AudioClip(address) => catalog.add_audio_clip(address.clone()),
       PreparedAsset::Material(address) => catalog.add_material(address.clone()),
       _ => panic!("unexpected Hearts asset: {asset:?}"),
     }
   }
   catalog
+}
+
+#[test]
+fn music_and_effects_controls_preserve_playhead_and_new_game_disposes_old_audio() {
+  let mut display = Display::mount(hearts::application, self::catalog());
+  display.flush();
+  let music: Vec<_> = display
+    .audio_occurrences()
+    .iter()
+    .filter(|s| s.looping)
+    .collect();
+  assert_eq!(music.len(), 1);
+  let id = music[0].command_id;
+  assert_eq!(display.world().audio_mix().music, 0.22);
+  assert_eq!(display.world().audio_mix().effects, 0.65);
+  display.activate_accessible("Music on");
+  display.flush();
+  assert_eq!(display.audio(id).unwrap().output_volume(), 0.0);
+  assert_eq!(display.world().audio_mix().effects, 0.65);
+  display.activate_accessible("Effects on");
+  display.flush();
+  assert_eq!(display.world().audio_mix().effects, 0.0);
+  display.activate_accessible("Music off");
+  display.flush();
+  assert_eq!(display.audio(id).unwrap().output_volume(), 0.22);
+  assert_eq!(
+    display
+      .audio_occurrences()
+      .iter()
+      .filter(|s| s.looping)
+      .count(),
+    1
+  );
+  display.set_application_state(battlement::application::ApplicationState {
+    focused: false,
+    paused: true,
+  });
+  display.flush();
+  display.set_application_state(battlement::application::ApplicationState::default());
+  display.flush();
+  assert_eq!(
+    display
+      .audio_occurrences()
+      .iter()
+      .filter(|s| s.looping)
+      .count(),
+    1
+  );
+  display.activate_accessible("New game");
+  display.flush();
+  assert!(display.audio(id).is_none());
+  assert_eq!(
+    display
+      .audio_occurrences()
+      .iter()
+      .filter(|s| s.looping)
+      .count(),
+    2
+  );
+  assert_eq!(display.world().audio_mix().effects, 0.0);
 }

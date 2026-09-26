@@ -2,7 +2,7 @@
 
 use battlement::RenderOrder;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use battlement::{
   AnimatorState, CameraState, GameObject, GameObjectKind, ImageState, MaterialAddress,
@@ -285,6 +285,7 @@ pub struct FakeWorld {
   controller_input: Option<battlement::ControllerInputSettings>,
   debug_log_viewer_visible: bool,
   debug_fps_viewer_visible: bool,
+  released_audio: HashSet<battlement::CommandId>,
   audio: HashMap<battlement::CommandId, FakeAudio>,
   audio_mix: battlement::AudioMix,
 }
@@ -503,6 +504,7 @@ impl FakeWorld {
       }),
       debug_log_viewer_visible: false,
       debug_fps_viewer_visible: false,
+      released_audio: HashSet::new(),
       audio: HashMap::new(),
       audio_mix: battlement::AudioMix::default(),
     };
@@ -1019,9 +1021,10 @@ impl FakeWorld {
 
   pub(crate) fn audio_remove(&mut self, command_id: battlement::CommandId) {
     assert!(
-      self.audio.remove(&command_id).is_some(),
+      self.audio.remove(&command_id).is_some() || self.released_audio.contains(&command_id),
       "unknown audio command: {command_id}"
     );
+    self.released_audio.insert(command_id);
   }
 
   pub(crate) fn prepared(&self, asset: &PreparedAsset) -> bool {

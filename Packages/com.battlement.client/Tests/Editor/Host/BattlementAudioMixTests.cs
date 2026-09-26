@@ -16,6 +16,30 @@ namespace Battlement.Tests
     public sealed class BattlementAudioMixTests
     {
         [Test]
+        public void ReplacedPlaybackCannotControlAReusedSourceAndCleanupIsIdempotent()
+        {
+            using var fixture = new Fixture();
+            var old = fixture.Play(AudioBus.Music, 0.8);
+            fixture.Submit(new CommandBody.Audio.Stop(old.Command.Id, TimeSpan.FromSeconds(1)));
+            fixture.Advance(100);
+            fixture.Submit(new CommandBody.Audio.Stop(old.Command.Id, TimeSpan.Zero));
+            var current = fixture.Play(AudioBus.Music, 0.6);
+            fixture.Advance(1200);
+            Assert.That(current.Source.gameObject.activeSelf, Is.True);
+            Assert.That(current.Source.volume, Is.EqualTo(0.6f).Within(0.001f));
+            fixture.Submit(new CommandBody.Audio.Stop(old.Command.Id, TimeSpan.Zero));
+            fixture.Submit(new CommandBody.Audio.Pause(old.Command.Id));
+            fixture.Submit(new CommandBody.Audio.Resume(old.Command.Id));
+            Assert.That(current.Source.volume, Is.EqualTo(0.6f).Within(0.001f));
+            fixture.Submit(new CommandBody.Audio.Stop(current.Command.Id, TimeSpan.Zero));
+            fixture.Submit(new CommandBody.Audio.Stop(current.Command.Id, TimeSpan.Zero));
+            Assert.That(
+                Fixture.ActiveSources().Where(source => source.gameObject.activeSelf),
+                Is.Empty
+            );
+        }
+
+        [Test]
         public void LiveMixerChangesComposeWithCrossfadesAndMuteWithoutRestartingSounds()
         {
             using var fixture = new Fixture();

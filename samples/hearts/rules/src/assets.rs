@@ -6,6 +6,28 @@ pub mod hearts {
   /// Addressable key `hearts/content` (UnityEditor.SceneAsset) from `Assets/Scenes/Content.unity` in group `Battlement Hearts`.
   pub const CONTENT: SceneAddress = SceneAddress::from_static("hearts/content");
 
+  pub mod audio {
+    use battlement::AudioClipAddress;
+
+    /// Addressable key `hearts/audio/collect` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click_4.opus` in group `Battlement Hearts`.
+    pub const COLLECT: AudioClipAddress = AudioClipAddress::from_static("hearts/audio/collect");
+    /// Addressable key `hearts/audio/deal` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click_3.opus` in group `Battlement Hearts`.
+    pub const DEAL: AudioClipAddress = AudioClipAddress::from_static("hearts/audio/deal");
+    /// Addressable key `hearts/audio/land` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_1.opus` in group `Battlement Hearts`.
+    pub const LAND: AudioClipAddress = AudioClipAddress::from_static("hearts/audio/land");
+    /// Addressable key `hearts/audio/music` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Drag and Dread.opus` in group `Battlement Hearts`.
+    pub const MUSIC: AudioClipAddress = AudioClipAddress::from_static("hearts/audio/music");
+    /// Addressable key `hearts/audio/pass` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/swipe_metallic.opus` in group `Battlement Hearts`.
+    pub const PASS: AudioClipAddress = AudioClipAddress::from_static("hearts/audio/pass");
+    /// Addressable key `hearts/audio/result` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/lap_complete.opus` in group `Battlement Hearts`.
+    pub const RESULT: AudioClipAddress = AudioClipAddress::from_static("hearts/audio/result");
+    /// Addressable key `hearts/audio/results-music` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Switch with Me.opus` in group `Battlement Hearts`.
+    pub const RESULTS_MUSIC: AudioClipAddress =
+      AudioClipAddress::from_static("hearts/audio/results-music");
+    /// Addressable key `hearts/audio/select` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click.opus` in group `Battlement Hearts`.
+    pub const SELECT: AudioClipAddress = AudioClipAddress::from_static("hearts/audio/select");
+  }
+
   pub mod cards {
     use battlement::TextureAddress;
 
@@ -305,6 +327,14 @@ use battlement::PreparedAsset;
 
 /// Every generated address that maps directly to a prepared runtime asset.
 pub const ASSET_CATALOG: &[PreparedAsset] = &[
+  PreparedAsset::AudioClip(hearts::audio::COLLECT),
+  PreparedAsset::AudioClip(hearts::audio::DEAL),
+  PreparedAsset::AudioClip(hearts::audio::LAND),
+  PreparedAsset::AudioClip(hearts::audio::MUSIC),
+  PreparedAsset::AudioClip(hearts::audio::PASS),
+  PreparedAsset::AudioClip(hearts::audio::RESULT),
+  PreparedAsset::AudioClip(hearts::audio::RESULTS_MUSIC),
+  PreparedAsset::AudioClip(hearts::audio::SELECT),
   PreparedAsset::Texture(hearts::cards::BACK),
   PreparedAsset::Prefab(hearts::cards::clubs::ACE),
   PreparedAsset::Prefab(hearts::cards::clubs::EIGHT),

@@ -63,6 +63,7 @@ pub mod app_runtime;
 pub mod application;
 pub mod asset_generator;
 pub mod audio;
+mod audio_playback;
 #[doc(hidden)]
 pub mod builder_support;
 pub mod callback;

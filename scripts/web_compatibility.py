@@ -97,9 +97,10 @@ def check_site(
 
 def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> str:
     return """async (page) => {
-      const logs = [], failures = [], canceledRequests = [], startupProgress = [];
+      const logs = [], failures = [], canceledRequests = [], startupProgress = [], runtimeAdvisories = [];
       let initialized = false;
       const blockingWarning = 'Blocking on the main thread is very dangerous, see https://emscripten.org/docs/porting/pthreads.html#blocking-on-the-main-browser-thread';
+      const pacingWarning = 'Looks like you are rendering without using requestAnimationFrame for the main loop. You should use 0 for the frame rate in emscripten_set_main_loop in order to use requestAnimationFrame, as that can greatly improve your frame rates!';
       const unityStartupWait = text => {
         if (initialized) return false;
         return text.startsWith(blockingWarning + '\\n') && [
@@ -114,6 +115,7 @@ def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> s
         if (text.includes('battlement.host.connected')) initialized = true;
         const loading = !initialized && /^(still waiting on run dependencies:|dependency: (?:dataUrl|loading-workers)|\\(end of list\\))$/.test(text.trim());
         if (loading || unityStartupWait(text)) startupProgress.push(text);
+        else if (text.startsWith(pacingWarning + '\\n') && /at (?:Object\\.)?MainLoop_runner(?: |\\()/.test(text)) runtimeAdvisories.push(text);
         else if (message.type() === 'error') failures.push(text.slice(0, 2000));
       };
       const onError = error => failures.push(String(error));
@@ -133,17 +135,17 @@ def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> s
       page.on('requestfailed', onRequest);
       try {
         page.setDefaultTimeout(30000);
-        // Emscripten emits warnOnce through console.error. Capture its origin so
-        // only Unity's known asset-startup mutex warning can be classified.
-        await page.addInitScript(warning => {
+        // Emscripten emits warnOnce through console.error. Classify only known
+        // asset-startup waits and the intentional capped-frame-loop advisory.
+        await page.addInitScript(warnings => {
           const original = console.error;
           console.error = function (...args) {
-            if (args.length === 1 && args[0] === warning) {
-              return original.call(console, warning + '\\n' + new Error().stack);
+            if (args.length === 1 && warnings.includes(args[0])) {
+              return original.call(console, args[0] + '\\n' + new Error().stack);
             }
             return original.apply(console, args);
           };
-        }, blockingWarning);
+        }, [blockingWarning, pacingWarning]);
         const result = await (CONTRACT)(page, {
           url: URL_VALUE, evidencePrefix: EVIDENCE_VALUE, logs, start: SHARED_VALUE,
           async waitForLog(pattern) {
@@ -157,7 +159,7 @@ def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> s
           throw new Error('The sample contract omitted its interaction/assertion result');
         }
         if (failures.length) throw new Error(failures.join('\\n'));
-        return { ...result, status: 'passed', console: logs, canceledRequests, startupProgress };
+        return { ...result, status: 'passed', console: logs, canceledRequests, startupProgress, runtimeAdvisories };
       } catch (error) {
         await page.screenshot({ path: EVIDENCE_VALUE + '-failed.png', fullPage: true, timeout: 10000 }).catch(() => {});
         throw new Error(`${error}\\nConsole: ${logs.join('\\n')}\\nNetwork/errors: ${failures.join('\\n')}`);

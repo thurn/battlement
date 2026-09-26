@@ -350,6 +350,7 @@ fn mount_with_aspect(initial: HeartsState, aspect: DisplayStore<f64>) -> (Displa
       PreparedAsset::Texture(a) => assets.add_texture(a.clone()),
       PreparedAsset::Prefab(a) => assets.add_prefab(a.clone(), FakePrefab::new()),
       PreparedAsset::Material(a) => assets.add_material(a.clone()),
+      PreparedAsset::AudioClip(address) => assets.add_audio_clip(address.clone()),
       _ => panic!("unexpected asset"),
     }
   }

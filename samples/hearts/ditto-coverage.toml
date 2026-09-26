@@ -151,3 +151,15 @@ state = "navigation.inspection-focus-and-mixed-input.mixed-input-played"
 scenario = "inspection focus and mixed input"
 checkpoint = "mixed input played"
 owner = "card_input_tests::inspection_traps_navigation_and_restores_invoker_without_clearing_selection"
+
+[[mappings]]
+state = "audio.independent-sound-controls.muted"
+scenario = "independent sound controls"
+checkpoint = "muted"
+owner = "shell::music_and_effects_controls_preserve_playhead_and_new_game_disposes_old_audio"
+
+[[mappings]]
+state = "audio.independent-sound-controls.restored"
+scenario = "independent sound controls"
+checkpoint = "restored"
+owner = "shell::music_and_effects_controls_preserve_playhead_and_new_game_disposes_old_audio"

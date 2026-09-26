@@ -11,6 +11,7 @@ use crate::{
 
 #[derive(Clone, PartialEq)]
 struct Selection {
+  audio_occurrence: u64,
   epoch: (u64, u32, bool),
   cards: Vec<CardToken>,
   inspection: Option<CardToken>,
@@ -40,6 +41,7 @@ pub(crate) fn use_card_input(game: HeartsController, viewport: ScreenSize) -> Ca
     game.view.table.phase == Phase::Passing,
   );
   let empty = Selection {
+    audio_occurrence: 0,
     epoch,
     cards: Vec::new(),
     inspection: None,
@@ -82,6 +84,10 @@ pub(crate) fn name(card: CardId) -> String {
 }
 
 impl CardInput {
+  pub(crate) fn audio_occurrence(&self) -> u64 {
+    self.0.selection.audio_occurrence
+  }
+
   pub(crate) fn version(&self) -> GameVersion {
     self.0.version
   }
@@ -174,6 +180,12 @@ impl CardInput {
       return;
     } else {
       next.cards = vec![token];
+    }
+    if next.cards != self.0.selection.cards {
+      next.audio_occurrence = next
+        .audio_occurrence
+        .checked_add(1)
+        .expect("selection occurrence");
     }
     self.0.setter.set(next);
   }

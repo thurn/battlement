@@ -37,7 +37,7 @@ const REACTANT_CATALOG: &str =
   "Assets/Generated/BattlementReactant/Resources/BattlementReactantAssetCatalog.json";
 const RULES_ARTIFACT: &str = "libbattlement_rules.dylib";
 const CONTENT_ARTIFACT: &str = "aa";
-const RECIPE_VERSION: &str = "1";
+const RECIPE_VERSION: &str = "2";
 const SHELL_ASSETS: &[&str] = &[
   "Assets/AddressableAssetsData",
   "Assets/AddressableAssetsData.meta",
@@ -575,7 +575,13 @@ fn resolve_shell(
       let project = stage_shell_project(request, pending.path())?;
       let mut unity = unity_editor_command(request, "shell-miss")?;
       unity
-        .args(["-batchmode", "-nographics", "-quit", "-projectPath"])
+        .args([
+          "-batchmode",
+          "-nographics",
+          "--burst-disable-compilation",
+          "-quit",
+          "-projectPath",
+        ])
         .arg(project.path())
         .args([
           "-buildTarget",
@@ -637,7 +643,13 @@ fn resolve_content(
       let unity_log = pending.path().join("unity.log");
       let mut unity = unity_command(request, &request.unity_project, "content-miss")?;
       unity
-        .args(["-batchmode", "-nographics", "-quit", "-projectPath"])
+        .args([
+          "-batchmode",
+          "-nographics",
+          "--burst-disable-compilation",
+          "-quit",
+          "-projectPath",
+        ])
         .arg(&request.unity_project)
         .args([
           "-buildTarget",

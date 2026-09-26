@@ -18,6 +18,7 @@ process.stdin.on('data', chunk => input += chunk);
 process.stdin.on('end', async () => {
   const check = eval('(' + JSON.parse(input) + ')');
   const warning = 'Blocking on the main thread is very dangerous, see https://emscripten.org/docs/porting/pthreads.html#blocking-on-the-main-browser-thread';
+  const pacing = 'Looks like you are rendering without using requestAnimationFrame for the main loop. You should use 0 for the frame rate in emscripten_set_main_loop in order to use requestAnimationFrame, as that can greatly improve your frame rates!';
   const unity = 'Error\n at build.wasm.UnityGUID::Init()\n at build.wasm.AssetBundleLoadFromStreamAsyncOperation::TryInitializeMemoryCache()';
   const cases = [
     {name:'verified Unity startup', stack:unity, message:warning, passes:true},
@@ -27,6 +28,9 @@ process.stdin.on('end', async () => {
     {name:'ordinary error', stack:unity, message:'Storage transaction failed'},
     {name:'missing stack', stack:'', message:warning},
     {name:'ordinary loader progress', message:'dependency: loading-workers', passes:true},
+    {name:'capped frame loop', stack:'Error\n at Object.MainLoop_runner [as runner] (framework.js:3559)', message:pacing, connected:true, passes:true, advisory:true},
+    {name:'unidentified pacing warning', stack:'Error\n at another_operation()', message:pacing},
+    {name:'modified pacing warning', stack:'Error\n at MainLoop_runner (framework.js:3559)', message:pacing+' unexpected failure'},
   ];
   for (const scenario of cases) {
     const listeners = new Map();
@@ -51,8 +55,9 @@ process.stdin.on('end', async () => {
     if(scenario.passes) {
       const result=await check(page);
       assert.equal(result.status,'passed',scenario.name);
-      assert.equal(result.startupProgress.length,1,scenario.name);
-      if(scenario.stack) assert.ok(result.startupProgress[0].includes(scenario.stack));
+      const evidence = scenario.advisory ? result.runtimeAdvisories : result.startupProgress;
+      assert.equal(evidence.length,1,scenario.name);
+      if(scenario.stack) assert.ok(evidence[0].includes(scenario.stack));
     } else {
       await assert.rejects(check(page),undefined,scenario.name);
     }

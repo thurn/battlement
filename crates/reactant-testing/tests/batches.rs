@@ -212,7 +212,9 @@ fn full_gameplay_budget_holds_final_acceptance_but_menus_and_stop_remain_live() 
   for _ in 0..5 {
     display.poll();
   }
-  assert!(consumer.wait_for_publication(TIMEOUT, |o| o.waiting_for_capacity));
+  assert!(consumer.wait_for_publication(TIMEOUT, |o| {
+    o.waiting_for_capacity && o.published - o.consumed == 32
+  }));
   let held = consumer.publication_observation();
   assert_eq!(game.status(), GameStatus::Busy);
   assert_eq!(game.accepted_state(), 0);

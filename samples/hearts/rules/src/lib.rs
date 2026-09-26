@@ -1,6 +1,7 @@
 mod app;
 #[allow(dead_code)]
 pub mod assets;
+mod audio;
 pub mod card_assets;
 mod card_controls;
 mod card_gesture;

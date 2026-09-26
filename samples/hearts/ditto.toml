@@ -283,6 +283,10 @@ navigation = { action = "right" }
 [[scenarios.steps]]
 navigation = { action = "previous" }
 [[scenarios.steps]]
+navigation = { action = "previous" }
+[[scenarios.steps]]
+navigation = { action = "previous" }
+[[scenarios.steps]]
 navigation = { action = "activate" }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "dialog", name = "Card inspection" }, role = "dialog", name = "Card inspection" }
@@ -316,3 +320,26 @@ navigation = { action = "activate" }
 wait = { object = "controls", state = "enabled" }
 [[scenarios.steps]]
 screenshot = { name = "mixed input played" }
+
+[[scenarios]]
+name = "independent sound controls"
+fixture = "input"
+motion = "controlled"
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Music on" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Effects on" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "muted" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "New game" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Music off" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Effects off" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "restored" }

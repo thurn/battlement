@@ -198,6 +198,7 @@ fn mount(store: DisplayStore<Input>) -> Display {
       PreparedAsset::UiFont(address) => catalog.add_ui_font(address.clone()),
       PreparedAsset::Texture(address) => catalog.add_texture(address.clone()),
       PreparedAsset::Prefab(address) => catalog.add_prefab(address.clone(), FakePrefab::new()),
+      PreparedAsset::AudioClip(address) => catalog.add_audio_clip(address.clone()),
       PreparedAsset::Material(address) => catalog.add_material(address.clone()),
       _ => panic!("unexpected Hearts asset: {asset:?}"),
     }

@@ -99,3 +99,11 @@ screen = "hearts"
 [[states]]
 key = "navigation.inspection-focus-and-mixed-input.mixed-input-played"
 screen = "hearts"
+
+[[states]]
+key = "audio.independent-sound-controls.muted"
+screen = "hearts"
+
+[[states]]
+key = "audio.independent-sound-controls.restored"
+screen = "hearts"
