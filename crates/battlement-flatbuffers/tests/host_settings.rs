@@ -1,5 +1,6 @@
 use battlement::{
   Action, ActionBody, ActionId, CommandId, Connect, ScreenSize, SessionId,
+  display::{DisplayPreview, DisplayPreviewState},
   host_settings::{
     DisplayConfiguration, DisplayMode, DisplayResolution, HostPlatform, HostSettings,
     HostSettingsResult, SettingAvailability,
@@ -26,6 +27,12 @@ fn settings() -> HostSettings {
     applied_display: Some(DisplayConfiguration {
       mode: DisplayMode::Windowed,
       resolution,
+    }),
+    window_bounds: Some(ScreenSize::new(2560, 1440)),
+    display_preview: Some(DisplayPreview {
+      request_id: CommandId::new_v4(),
+      state: DisplayPreviewState::Confirmable,
+      remaining_seconds: 12,
     }),
     frame_pacing: SettingAvailability::Available,
     frame_rates: vec![30, 60, 144],

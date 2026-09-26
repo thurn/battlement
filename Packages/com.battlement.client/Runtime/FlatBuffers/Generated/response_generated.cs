@@ -124,6 +124,7 @@ public enum CoreCommandKind : byte
   MotionSetWorldDescriptor = 101,
   AudioSetMix = 102,
   ApplicationSetFramePacing = 103,
+  ApplicationDisplay = 104,
 };
 
 public enum CoreCommandPayload : byte
@@ -220,6 +221,7 @@ public enum CoreCommandPayload : byte
   WorldMotionPayload = 89,
   AudioMixPayload = 90,
   FramePacingPayload = 91,
+  DisplayCommandPayload = 92,
 };
 
 
@@ -504,6 +506,9 @@ static public class CoreCommandPayloadVerify
       case CoreCommandPayload.FramePacingPayload:
         result = Battlement.FlatBuffers.Generated.FramePacingPayloadVerify.Verify(verifier, tablePos);
         break;
+      case CoreCommandPayload.DisplayCommandPayload:
+        result = Battlement.FlatBuffers.Generated.DisplayCommandPayloadVerify.Verify(verifier, tablePos);
+        break;
       default: result = true;
         break;
     }
@@ -671,6 +676,7 @@ public struct CoreCommand : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.WorldMotionPayload PayloadAsWorldMotionPayload() { return Payload<Battlement.FlatBuffers.Generated.WorldMotionPayload>().Value; }
   public Battlement.FlatBuffers.Generated.AudioMixPayload PayloadAsAudioMixPayload() { return Payload<Battlement.FlatBuffers.Generated.AudioMixPayload>().Value; }
   public Battlement.FlatBuffers.Generated.FramePacingPayload PayloadAsFramePacingPayload() { return Payload<Battlement.FlatBuffers.Generated.FramePacingPayload>().Value; }
+  public Battlement.FlatBuffers.Generated.DisplayCommandPayload PayloadAsDisplayCommandPayload() { return Payload<Battlement.FlatBuffers.Generated.DisplayCommandPayload>().Value; }
 
   public static void StartCoreCommand(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddCommandId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> commandIdOffset) { builder.AddStruct(0, commandIdOffset.Value, 0); }

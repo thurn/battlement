@@ -77,6 +77,13 @@ public enum ParticleSpawnLocationKind : byte
   WorldPosition = 1,
 };
 
+public enum DisplayOperation : byte
+{
+  Preview = 0,
+  Confirm = 1,
+  Cancel = 2,
+};
+
 public enum InputCaptureOperation : byte
 {
   BeginKeyboard = 0,
@@ -2444,6 +2451,42 @@ static public class FramePacingPayloadVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*MaximumFrameRate*/, 4 /*uint*/, 4, false)
       && verifier.VerifyField(tablePos, 6 /*Vsync*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
+public struct DisplayCommandPayload : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static DisplayCommandPayload GetRootAsDisplayCommandPayload(ByteBuffer _bb) { return GetRootAsDisplayCommandPayload(_bb, new DisplayCommandPayload()); }
+  public static DisplayCommandPayload GetRootAsDisplayCommandPayload(ByteBuffer _bb, DisplayCommandPayload obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public DisplayCommandPayload __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.DisplayOperation Operation { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.DisplayOperation)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.DisplayOperation.Preview; } }
+  public Battlement.FlatBuffers.Generated.DisplayConfiguration? Configuration { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.DisplayConfiguration?)(new Battlement.FlatBuffers.Generated.DisplayConfiguration()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.Uuid? PreviewId { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+
+  public static void StartDisplayCommandPayload(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void AddOperation(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.DisplayOperation operation) { builder.AddByte(0, (byte)operation, 0); }
+  public static void AddConfiguration(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.DisplayConfiguration> configurationOffset) { builder.AddOffset(1, configurationOffset.Value, 0); }
+  public static void AddPreviewId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> previewIdOffset) { builder.AddStruct(2, previewIdOffset.Value, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.DisplayCommandPayload> EndDisplayCommandPayload(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<Battlement.FlatBuffers.Generated.DisplayCommandPayload>(o);
+  }
+}
+
+
+static public class DisplayCommandPayloadVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Operation*/, 1 /*Battlement.FlatBuffers.Generated.DisplayOperation*/, 1, false)
+      && verifier.VerifyTable(tablePos, 6 /*Configuration*/, Battlement.FlatBuffers.Generated.DisplayConfigurationVerify.Verify, false)
+      && verifier.VerifyField(tablePos, 8 /*PreviewId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

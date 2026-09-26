@@ -8,6 +8,51 @@ namespace Battlement.Tests
 {
     internal static partial class BattlementFlatBufferResponseFixtures
     {
+        private static Payload DisplayOperation(FlatBufferBuilder builder, DisplayCommand value)
+        {
+            Offset<Wire.DisplayConfiguration> configuration = default;
+            if (value is DisplayCommand.Preview preview)
+            {
+                DisplayConfiguration target = preview.Configuration;
+                Wire.DisplayConfiguration.StartDisplayConfiguration(builder);
+                Wire.DisplayConfiguration.AddMode(builder, (Wire.DisplayMode)target.Mode);
+                Wire.DisplayConfiguration.AddResolution(
+                    builder,
+                    Wire.DisplayResolution.CreateDisplayResolution(
+                        builder,
+                        target.Resolution.Width,
+                        target.Resolution.Height,
+                        target.Resolution.RefreshNumerator,
+                        target.Resolution.RefreshDenominator
+                    )
+                );
+                configuration = Wire.DisplayConfiguration.EndDisplayConfiguration(builder);
+            }
+            Wire.DisplayCommandPayload.StartDisplayCommandPayload(builder);
+            Wire.DisplayCommandPayload.AddConfiguration(builder, configuration);
+            if (value is DisplayCommand.Confirm confirm)
+            {
+                Wire.DisplayCommandPayload.AddOperation(builder, Wire.DisplayOperation.Confirm);
+                Wire.DisplayCommandPayload.AddPreviewId(
+                    builder,
+                    Uuid(builder, confirm.PreviewId.Value)
+                );
+            }
+            else if (value is DisplayCommand.Cancel cancel)
+            {
+                Wire.DisplayCommandPayload.AddOperation(builder, Wire.DisplayOperation.Cancel);
+                Wire.DisplayCommandPayload.AddPreviewId(
+                    builder,
+                    Uuid(builder, cancel.PreviewId.Value)
+                );
+            }
+            return new Payload(
+                Wire.CoreCommandKind.ApplicationDisplay,
+                Wire.CoreCommandPayload.DisplayCommandPayload,
+                Wire.DisplayCommandPayload.EndDisplayCommandPayload(builder).Value
+            );
+        }
+
         internal static Offset<Wire.CoreCommand> WriteCommand(
             FlatBufferBuilder builder,
             Command command
@@ -15,6 +60,7 @@ namespace Battlement.Tests
         {
             Payload payload = command.Body switch
             {
+                CommandBody.ApplicationDisplay value => DisplayOperation(builder, value.Value),
                 CommandBody.ApplicationOpenUrl value => ExternalUrl(builder, value),
                 CommandBody.ApplicationSetFramePacing value => new Payload(
                     Wire.CoreCommandKind.ApplicationSetFramePacing,

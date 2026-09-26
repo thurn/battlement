@@ -7,7 +7,7 @@ use crate::{
   VisualElementCreate, VisualElementDestroy, VisualElementPerformAction, VisualElementUpdate,
 };
 
-use crate::application::ExternalUrlRequest;
+use crate::{application::ExternalUrlRequest, display::DisplayCommand};
 
 use super::*;
 
@@ -18,6 +18,8 @@ pub enum CommandBody {
   ApplicationOpenUrl(ExternalUrlRequest),
   /// Apply platform-aware frame pacing without changing display configuration.
   ApplicationSetFramePacing(crate::frame_pacing::FramePacing),
+  /// Preview, confirm, or revert a host-owned desktop display transaction.
+  ApplicationDisplay(DisplayCommand),
   /// Control local reporting APIs and metadata through the selected module.
   ///
   /// Execution is local and synchronous. Success does not acknowledge report

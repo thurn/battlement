@@ -88,6 +88,14 @@ table HostSettingsResult {
   error:string;
 }
 
+enum DisplayPreviewState:ubyte { Applying, Confirmable, Reverting }
+
+table DisplayPreview {
+  request_id:Uuid (required);
+  state:DisplayPreviewState;
+  remaining_seconds:uint;
+}
+
 table HostSettings {
   platform:HostPlatform;
   display:SettingAvailability;
@@ -108,4 +116,6 @@ table HostSettings {
   diagnostics_error:string;
   observation_error:string;
   last_result:HostSettingsResult;
+  window_bounds:ScreenSize;
+  display_preview:DisplayPreview;
 }

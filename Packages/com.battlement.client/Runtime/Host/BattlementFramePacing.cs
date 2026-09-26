@@ -18,11 +18,23 @@ namespace Battlement
         private readonly IFramePacingBackend backend;
         private FramePacing? requested;
         private CommandId requestId;
+        private HostSettingsResult? reported;
+        private readonly Action<HostSettingsResult>? report;
 
-        public BattlementFramePacing(IFramePacingBackend? backend = null) =>
+        public BattlementFramePacing(
+            IFramePacingBackend? backend = null,
+            Action<HostSettingsResult>? report = null
+        )
+        {
             this.backend = backend ?? new UnityBackend();
+            this.report = report;
+        }
 
-        public void Reset() => requested = null;
+        public void Reset()
+        {
+            requested = null;
+            reported = null;
+        }
 
         public void Apply(CommandId id, FramePacing value, HostSettings host)
         {
@@ -79,7 +91,13 @@ namespace Battlement
                 error ??= exception.Message;
                 host = host with { FramePacing = SettingAvailability.Failed };
             }
-            return host with { LastResult = new HostSettingsResult(requestId, error) };
+            var result = new HostSettingsResult(requestId, error);
+            if (reported != result)
+            {
+                reported = result;
+                report?.Invoke(result);
+            }
+            return host with { LastResult = result };
         }
 
         public static uint[] Rates(HostPlatform platform, RefreshRate refresh)

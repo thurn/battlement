@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::CommandId;
+use crate::{CommandId, ScreenSize, display::DisplayPreview};
 
 /// Platform classes with supported settings policies.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -89,6 +89,10 @@ pub struct HostSettings {
   pub resolutions: Vec<DisplayResolution>,
   /// Currently observed display configuration, when queryable.
   pub applied_display: Option<DisplayConfiguration>,
+  /// Current monitor bounds for filtering windowed display choices.
+  pub window_bounds: Option<ScreenSize>,
+  /// Active host-owned preview, including its real-time watchdog.
+  pub display_preview: Option<DisplayPreview>,
   /// Availability of software frame pacing.
   pub frame_pacing: SettingAvailability,
   /// Supported software caps, ordered from low to high.
@@ -127,6 +131,8 @@ impl Default for HostSettings {
       display_modes: Vec::new(),
       resolutions: Vec::new(),
       applied_display: None,
+      window_bounds: None,
+      display_preview: None,
       frame_pacing: SettingAvailability::Unavailable,
       frame_rates: Vec::new(),
       applied_frame_rate: -1,

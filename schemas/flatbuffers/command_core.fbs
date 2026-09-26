@@ -239,6 +239,13 @@ table AudioPlayPayload {
 
 table FramePacingPayload { maximum_frame_rate:uint; vsync:bool; }
 
+enum DisplayOperation:ubyte { Preview, Confirm, Cancel }
+table DisplayCommandPayload {
+  operation:DisplayOperation;
+  configuration:DisplayConfiguration;
+  preview_id:Uuid;
+}
+
 table AudioMixPayload {
   master:double = 1.0;
   music:double = 1.0;

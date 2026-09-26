@@ -490,6 +490,101 @@ pub mod battlement {
       }
 
       impl ::flatbuffers::SimpleToVerifyInSlice for DisplayMode {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MIN_DISPLAY_PREVIEW_STATE: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_DISPLAY_PREVIEW_STATE: u8 = 2;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_DISPLAY_PREVIEW_STATE: [DisplayPreviewState; 3] = [
+        DisplayPreviewState::Applying,
+        DisplayPreviewState::Confirmable,
+        DisplayPreviewState::Reverting,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct DisplayPreviewState(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl DisplayPreviewState {
+        pub const Applying: Self = Self(0);
+        pub const Confirmable: Self = Self(1);
+        pub const Reverting: Self = Self(2);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 2;
+        pub const ENUM_VALUES: &'static [Self] =
+          &[Self::Applying, Self::Confirmable, Self::Reverting];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Applying => Some("Applying"),
+            Self::Confirmable => Some("Confirmable"),
+            Self::Reverting => Some("Reverting"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for DisplayPreviewState {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for DisplayPreviewState {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for DisplayPreviewState {
+        type Output = DisplayPreviewState;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for DisplayPreviewState {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for DisplayPreviewState {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for DisplayPreviewState {}
       // struct Uuid, aligned to 1
       #[repr(transparent)]
       #[derive(Clone, Copy, PartialEq)]
@@ -2478,6 +2573,176 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum DisplayPreviewOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct DisplayPreview<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for DisplayPreview<'a> {
+        type Inner = DisplayPreview<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> DisplayPreview<'a> {
+        pub const VT_REQUEST_ID: ::flatbuffers::VOffsetT = 4;
+        pub const VT_STATE: ::flatbuffers::VOffsetT = 6;
+        pub const VT_REMAINING_SECONDS: ::flatbuffers::VOffsetT = 8;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          DisplayPreview { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args DisplayPreviewArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<DisplayPreview<'bldr>> {
+          let mut builder = DisplayPreviewBuilder::new(_fbb);
+          builder.add_remaining_seconds(args.remaining_seconds);
+          if let Some(x) = args.request_id {
+            builder.add_request_id(x);
+          }
+          builder.add_state(args.state);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn request_id(&self) -> &'a Uuid {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(DisplayPreview::VT_REQUEST_ID, None)
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn state(&self) -> DisplayPreviewState {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<DisplayPreviewState>(
+                DisplayPreview::VT_STATE,
+                Some(DisplayPreviewState::Applying),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn remaining_seconds(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(DisplayPreview::VT_REMAINING_SECONDS, Some(0))
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for DisplayPreview<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<Uuid>("request_id", Self::VT_REQUEST_ID, true)?
+            .visit_field::<DisplayPreviewState>("state", Self::VT_STATE, false)?
+            .visit_field::<u32>("remaining_seconds", Self::VT_REMAINING_SECONDS, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct DisplayPreviewArgs<'a> {
+        pub request_id: Option<&'a Uuid>,
+        pub state: DisplayPreviewState,
+        pub remaining_seconds: u32,
+      }
+      impl<'a> Default for DisplayPreviewArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          DisplayPreviewArgs {
+            request_id: None, // required field
+            state: DisplayPreviewState::Applying,
+            remaining_seconds: 0,
+          }
+        }
+      }
+
+      pub struct DisplayPreviewBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DisplayPreviewBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_request_id(&mut self, request_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(DisplayPreview::VT_REQUEST_ID, request_id);
+        }
+        #[inline]
+        pub fn add_state(&mut self, state: DisplayPreviewState) {
+          self.fbb_.push_slot::<DisplayPreviewState>(
+            DisplayPreview::VT_STATE,
+            state,
+            DisplayPreviewState::Applying,
+          );
+        }
+        #[inline]
+        pub fn add_remaining_seconds(&mut self, remaining_seconds: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(DisplayPreview::VT_REMAINING_SECONDS, remaining_seconds, 0);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> DisplayPreviewBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          DisplayPreviewBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<DisplayPreview<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          self
+            .fbb_
+            .required(o, DisplayPreview::VT_REQUEST_ID, "request_id");
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for DisplayPreview<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("DisplayPreview");
+          ds.field("request_id", &self.request_id());
+          ds.field("state", &self.state());
+          ds.field("remaining_seconds", &self.remaining_seconds());
+          ds.finish()
+        }
+      }
       pub enum HostSettingsOffset {}
       #[derive(Copy, Clone, PartialEq)]
 
@@ -2515,6 +2780,8 @@ pub mod battlement {
         pub const VT_DIAGNOSTICS_ERROR: ::flatbuffers::VOffsetT = 36;
         pub const VT_OBSERVATION_ERROR: ::flatbuffers::VOffsetT = 38;
         pub const VT_LAST_RESULT: ::flatbuffers::VOffsetT = 40;
+        pub const VT_WINDOW_BOUNDS: ::flatbuffers::VOffsetT = 42;
+        pub const VT_DISPLAY_PREVIEW: ::flatbuffers::VOffsetT = 44;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -2531,6 +2798,12 @@ pub mod battlement {
           args: &'args HostSettingsArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<HostSettings<'bldr>> {
           let mut builder = HostSettingsBuilder::new(_fbb);
+          if let Some(x) = args.display_preview {
+            builder.add_display_preview(x);
+          }
+          if let Some(x) = args.window_bounds {
+            builder.add_window_bounds(x);
+          }
           if let Some(x) = args.last_result {
             builder.add_last_result(x);
           }
@@ -2817,6 +3090,31 @@ pub mod battlement {
               )
           }
         }
+        #[inline]
+        pub fn window_bounds(&self) -> Option<&'a ScreenSize> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<ScreenSize>(HostSettings::VT_WINDOW_BOUNDS, None)
+          }
+        }
+        #[inline]
+        pub fn display_preview(&self) -> Option<DisplayPreview<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<DisplayPreview>>(
+                HostSettings::VT_DISPLAY_PREVIEW,
+                None,
+              )
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for HostSettings<'_> {
@@ -2845,6 +3143,8 @@ pub mod battlement {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("diagnostics_error", Self::VT_DIAGNOSTICS_ERROR, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("observation_error", Self::VT_OBSERVATION_ERROR, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<HostSettingsResult>>("last_result", Self::VT_LAST_RESULT, false)?
+     .visit_field::<ScreenSize>("window_bounds", Self::VT_WINDOW_BOUNDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<DisplayPreview>>("display_preview", Self::VT_DISPLAY_PREVIEW, false)?
      .finish();
           Ok(())
         }
@@ -2870,6 +3170,8 @@ pub mod battlement {
         pub diagnostics_error: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub observation_error: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub last_result: Option<::flatbuffers::WIPOffset<HostSettingsResult<'a>>>,
+        pub window_bounds: Option<&'a ScreenSize>,
+        pub display_preview: Option<::flatbuffers::WIPOffset<DisplayPreview<'a>>>,
       }
       impl<'a> Default for HostSettingsArgs<'a> {
         #[inline]
@@ -2894,6 +3196,8 @@ pub mod battlement {
             diagnostics_error: None,
             observation_error: None,
             last_result: None,
+            window_bounds: None,
+            display_preview: None,
           }
         }
       }
@@ -3063,6 +3367,24 @@ pub mod battlement {
             );
         }
         #[inline]
+        pub fn add_window_bounds(&mut self, window_bounds: &ScreenSize) {
+          self
+            .fbb_
+            .push_slot_always::<&ScreenSize>(HostSettings::VT_WINDOW_BOUNDS, window_bounds);
+        }
+        #[inline]
+        pub fn add_display_preview(
+          &mut self,
+          display_preview: ::flatbuffers::WIPOffset<DisplayPreview<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<DisplayPreview>>(
+              HostSettings::VT_DISPLAY_PREVIEW,
+              display_preview,
+            );
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> HostSettingsBuilder<'a, 'b, A> {
@@ -3110,6 +3432,8 @@ pub mod battlement {
           ds.field("diagnostics_error", &self.diagnostics_error());
           ds.field("observation_error", &self.observation_error());
           ds.field("last_result", &self.last_result());
+          ds.field("window_bounds", &self.window_bounds());
+          ds.field("display_preview", &self.display_preview());
           ds.finish()
         }
       }

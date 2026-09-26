@@ -47,6 +47,13 @@ public enum DisplayMode : byte
   Fullscreen = 2,
 };
 
+public enum DisplayPreviewState : byte
+{
+  Applying = 0,
+  Confirmable = 1,
+  Reverting = 2,
+};
+
 public struct Uuid : IFlatbufferObject
 {
   private Struct __p;
@@ -375,6 +382,43 @@ static public class HostSettingsResultVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct DisplayPreview : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static DisplayPreview GetRootAsDisplayPreview(ByteBuffer _bb) { return GetRootAsDisplayPreview(_bb, new DisplayPreview()); }
+  public static DisplayPreview GetRootAsDisplayPreview(ByteBuffer _bb, DisplayPreview obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public DisplayPreview __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public Battlement.FlatBuffers.Generated.Uuid? RequestId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.DisplayPreviewState State { get { int o = __p.__offset(6); return o != 0 ? (Battlement.FlatBuffers.Generated.DisplayPreviewState)__p.bb.Get(o + __p.bb_pos) : Battlement.FlatBuffers.Generated.DisplayPreviewState.Applying; } }
+  public uint RemainingSeconds { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+
+  public static void StartDisplayPreview(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void AddRequestId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> requestIdOffset) { builder.AddStruct(0, requestIdOffset.Value, 0); }
+  public static void AddState(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.DisplayPreviewState state) { builder.AddByte(1, (byte)state, 0); }
+  public static void AddRemainingSeconds(FlatBufferBuilder builder, uint remainingSeconds) { builder.AddUint(2, remainingSeconds, 0); }
+  public static Offset<Battlement.FlatBuffers.Generated.DisplayPreview> EndDisplayPreview(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    builder.Required(o, 4);  // request_id
+    return new Offset<Battlement.FlatBuffers.Generated.DisplayPreview>(o);
+  }
+}
+
+
+static public class DisplayPreviewVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*RequestId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
+      && verifier.VerifyField(tablePos, 6 /*State*/, 1 /*Battlement.FlatBuffers.Generated.DisplayPreviewState*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*RemainingSeconds*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct HostSettings : IFlatbufferObject
 {
   private Table __p;
@@ -431,51 +475,10 @@ public struct HostSettings : IFlatbufferObject
 #endif
   public byte[] GetObservationErrorArray() { return __p.__vector_as_array<byte>(38); }
   public Battlement.FlatBuffers.Generated.HostSettingsResult? LastResult { get { int o = __p.__offset(40); return o != 0 ? (Battlement.FlatBuffers.Generated.HostSettingsResult?)(new Battlement.FlatBuffers.Generated.HostSettingsResult()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.ScreenSize? WindowBounds { get { int o = __p.__offset(42); return o != 0 ? (Battlement.FlatBuffers.Generated.ScreenSize?)(new Battlement.FlatBuffers.Generated.ScreenSize()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public Battlement.FlatBuffers.Generated.DisplayPreview? DisplayPreview { get { int o = __p.__offset(44); return o != 0 ? (Battlement.FlatBuffers.Generated.DisplayPreview?)(new Battlement.FlatBuffers.Generated.DisplayPreview()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
-  public static Offset<Battlement.FlatBuffers.Generated.HostSettings> CreateHostSettings(FlatBufferBuilder builder,
-      Battlement.FlatBuffers.Generated.HostPlatform platform = Battlement.FlatBuffers.Generated.HostPlatform.Unavailable,
-      Battlement.FlatBuffers.Generated.SettingAvailability display = Battlement.FlatBuffers.Generated.SettingAvailability.Unavailable,
-      VectorOffset display_modesOffset = default(VectorOffset),
-      VectorOffset resolutionsOffset = default(VectorOffset),
-      Offset<Battlement.FlatBuffers.Generated.DisplayConfiguration> applied_displayOffset = default(Offset<Battlement.FlatBuffers.Generated.DisplayConfiguration>),
-      Battlement.FlatBuffers.Generated.SettingAvailability frame_pacing = Battlement.FlatBuffers.Generated.SettingAvailability.Unavailable,
-      VectorOffset frame_ratesOffset = default(VectorOffset),
-      int applied_frame_rate = -1,
-      bool vsync_available = false,
-      bool applied_vsync = false,
-      bool keyboard_connected = false,
-      uint controller_count = 0,
-      Battlement.FlatBuffers.Generated.SettingAvailability diagnostics = Battlement.FlatBuffers.Generated.SettingAvailability.Unavailable,
-      bool diagnostics_configured = false,
-      bool? capture_exceptions = null,
-      bool? performance_reporting = null,
-      StringOffset diagnostics_errorOffset = default(StringOffset),
-      StringOffset observation_errorOffset = default(StringOffset),
-      Offset<Battlement.FlatBuffers.Generated.HostSettingsResult> last_resultOffset = default(Offset<Battlement.FlatBuffers.Generated.HostSettingsResult>)) {
-    builder.StartTable(19);
-    HostSettings.AddLastResult(builder, last_resultOffset);
-    HostSettings.AddObservationError(builder, observation_errorOffset);
-    HostSettings.AddDiagnosticsError(builder, diagnostics_errorOffset);
-    HostSettings.AddControllerCount(builder, controller_count);
-    HostSettings.AddAppliedFrameRate(builder, applied_frame_rate);
-    HostSettings.AddFrameRates(builder, frame_ratesOffset);
-    HostSettings.AddAppliedDisplay(builder, applied_displayOffset);
-    HostSettings.AddResolutions(builder, resolutionsOffset);
-    HostSettings.AddDisplayModes(builder, display_modesOffset);
-    HostSettings.AddPerformanceReporting(builder, performance_reporting);
-    HostSettings.AddCaptureExceptions(builder, capture_exceptions);
-    HostSettings.AddDiagnosticsConfigured(builder, diagnostics_configured);
-    HostSettings.AddDiagnostics(builder, diagnostics);
-    HostSettings.AddKeyboardConnected(builder, keyboard_connected);
-    HostSettings.AddAppliedVsync(builder, applied_vsync);
-    HostSettings.AddVsyncAvailable(builder, vsync_available);
-    HostSettings.AddFramePacing(builder, frame_pacing);
-    HostSettings.AddDisplay(builder, display);
-    HostSettings.AddPlatform(builder, platform);
-    return HostSettings.EndHostSettings(builder);
-  }
-
-  public static void StartHostSettings(FlatBufferBuilder builder) { builder.StartTable(19); }
+  public static void StartHostSettings(FlatBufferBuilder builder) { builder.StartTable(21); }
   public static void AddPlatform(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.HostPlatform platform) { builder.AddByte(0, (byte)platform, 0); }
   public static void AddDisplay(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.SettingAvailability display) { builder.AddByte(1, (byte)display, 0); }
   public static void AddDisplayModes(FlatBufferBuilder builder, VectorOffset displayModesOffset) { builder.AddOffset(2, displayModesOffset.Value, 0); }
@@ -506,6 +509,8 @@ public struct HostSettings : IFlatbufferObject
   public static void AddDiagnosticsError(FlatBufferBuilder builder, StringOffset diagnosticsErrorOffset) { builder.AddOffset(16, diagnosticsErrorOffset.Value, 0); }
   public static void AddObservationError(FlatBufferBuilder builder, StringOffset observationErrorOffset) { builder.AddOffset(17, observationErrorOffset.Value, 0); }
   public static void AddLastResult(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.HostSettingsResult> lastResultOffset) { builder.AddOffset(18, lastResultOffset.Value, 0); }
+  public static void AddWindowBounds(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.ScreenSize> windowBoundsOffset) { builder.AddStruct(19, windowBoundsOffset.Value, 0); }
+  public static void AddDisplayPreview(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.DisplayPreview> displayPreviewOffset) { builder.AddOffset(20, displayPreviewOffset.Value, 0); }
   public static Offset<Battlement.FlatBuffers.Generated.HostSettings> EndHostSettings(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 8);  // display_modes
@@ -540,6 +545,8 @@ static public class HostSettingsVerify
       && verifier.VerifyString(tablePos, 36 /*DiagnosticsError*/, false)
       && verifier.VerifyString(tablePos, 38 /*ObservationError*/, false)
       && verifier.VerifyTable(tablePos, 40 /*LastResult*/, Battlement.FlatBuffers.Generated.HostSettingsResultVerify.Verify, false)
+      && verifier.VerifyField(tablePos, 42 /*WindowBounds*/, 8 /*Battlement.FlatBuffers.Generated.ScreenSize*/, 4, false)
+      && verifier.VerifyTable(tablePos, 44 /*DisplayPreview*/, Battlement.FlatBuffers.Generated.DisplayPreviewVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

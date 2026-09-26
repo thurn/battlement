@@ -21,6 +21,7 @@ pub mod asset_dependencies;
 pub mod assets;
 mod command_builders;
 pub mod commands;
+pub mod display;
 pub mod frame_pacing;
 pub mod geometry;
 pub mod hit_region;

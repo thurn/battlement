@@ -66,6 +66,7 @@ namespace Battlement
             DirectParticleStop = null;
             DirectOpenUrl = null;
             DirectFramePacing = null;
+            DirectDisplay = null;
             DirectComponent = null;
             DirectAnimator = null;
             DirectGeometry = null;
@@ -541,6 +542,11 @@ namespace Battlement
         internal BattlementDirectObjectReparent? DirectObjectReparent { get; }
         internal BattlementDirectParticleSpawn? DirectParticleSpawn { get; }
         internal BattlementDirectAudioPlay? DirectAudioPlay { get; }
+        internal DisplayCommand? DirectDisplay { get; }
+
+        internal BattlementCommandExecution(CommandId id, bool isBlocking, DisplayCommand display)
+            : this(id, isBlocking) => DirectDisplay = display;
+
         internal FramePacing? DirectFramePacing { get; }
 
         internal BattlementCommandExecution(CommandId id, bool isBlocking, FramePacing pacing)
@@ -2911,6 +2917,15 @@ namespace Battlement
                 return true;
             if (TryReadComponent(command, commandId, out execution))
                 return true;
+            if (command.Kind == Wire.CoreCommandKind.ApplicationDisplay)
+            {
+                execution = new BattlementCommandExecution(
+                    commandId,
+                    command.Blocking,
+                    BattlementDisplayCommandReader.Read(command.PayloadAsDisplayCommandPayload())
+                );
+                return true;
+            }
             if (command.Kind == Wire.CoreCommandKind.ApplicationSetFramePacing)
             {
                 var payload = command.PayloadAsFramePacingPayload();
@@ -4302,6 +4317,7 @@ namespace Battlement
                     return true;
                 }
 
+                case Wire.CoreCommandKind.ApplicationDisplay:
                 case Wire.CoreCommandKind.ApplicationSetFramePacing:
                 case Wire.CoreCommandKind.ApplicationOpenUrl:
                     break;

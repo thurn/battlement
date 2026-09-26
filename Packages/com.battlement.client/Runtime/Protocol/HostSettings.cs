@@ -53,6 +53,8 @@ namespace Battlement
         public IReadOnlyList<DisplayResolution> Resolutions { get; init; } =
             Array.Empty<DisplayResolution>();
         public DisplayConfiguration? AppliedDisplay { get; init; }
+        public ScreenSize? WindowBounds { get; init; }
+        public DisplayPreview? DisplayPreview { get; init; }
         public SettingAvailability FramePacing { get; init; }
         public IReadOnlyList<uint> FrameRates { get; init; } = Array.Empty<uint>();
         public int AppliedFrameRate { get; init; } = -1;

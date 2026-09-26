@@ -709,6 +709,100 @@ pub mod battlement {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
       )]
+      pub const ENUM_MIN_DISPLAY_OPERATION: u8 = 0;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      pub const ENUM_MAX_DISPLAY_OPERATION: u8 = 2;
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
+      #[allow(non_camel_case_types)]
+      pub const ENUM_VALUES_DISPLAY_OPERATION: [DisplayOperation; 3] = [
+        DisplayOperation::Preview,
+        DisplayOperation::Confirm,
+        DisplayOperation::Cancel,
+      ];
+
+      #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+      #[repr(transparent)]
+      pub struct DisplayOperation(pub u8);
+      #[allow(non_upper_case_globals)]
+      impl DisplayOperation {
+        pub const Preview: Self = Self(0);
+        pub const Confirm: Self = Self(1);
+        pub const Cancel: Self = Self(2);
+
+        pub const ENUM_MIN: u8 = 0;
+        pub const ENUM_MAX: u8 = 2;
+        pub const ENUM_VALUES: &'static [Self] = &[Self::Preview, Self::Confirm, Self::Cancel];
+        /// Returns the variant's name or "" if unknown.
+        pub fn variant_name(self) -> Option<&'static str> {
+          match self {
+            Self::Preview => Some("Preview"),
+            Self::Confirm => Some("Confirm"),
+            Self::Cancel => Some("Cancel"),
+            _ => None,
+          }
+        }
+      }
+      impl ::core::fmt::Debug for DisplayOperation {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+          if let Some(name) = self.variant_name() {
+            f.write_str(name)
+          } else {
+            f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+          }
+        }
+      }
+      impl<'a> ::flatbuffers::Follow<'a> for DisplayOperation {
+        type Inner = Self;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+          Self(b)
+        }
+      }
+
+      impl ::flatbuffers::Push for DisplayOperation {
+        type Output = DisplayOperation;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+          unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+        }
+      }
+
+      impl ::flatbuffers::EndianScalar for DisplayOperation {
+        type Scalar = u8;
+        #[inline]
+        fn to_little_endian(self) -> u8 {
+          self.0.to_le()
+        }
+        #[inline]
+        #[allow(clippy::wrong_self_convention)]
+        fn from_little_endian(v: u8) -> Self {
+          let b = u8::from_le(v);
+          Self(b)
+        }
+      }
+
+      impl<'a> ::flatbuffers::Verifiable for DisplayOperation {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          u8::run_verifier(v, pos)
+        }
+      }
+
+      impl ::flatbuffers::SimpleToVerifyInSlice for DisplayOperation {}
+      #[deprecated(
+        since = "2.0.0",
+        note = "Use associated constants instead. This will no longer be generated in 2021."
+      )]
       pub const ENUM_MIN_INPUT_CAPTURE_OPERATION: u8 = 0;
       #[deprecated(
         since = "2.0.0",
@@ -10971,6 +11065,186 @@ pub mod battlement {
           let mut ds = f.debug_struct("FramePacingPayload");
           ds.field("maximum_frame_rate", &self.maximum_frame_rate());
           ds.field("vsync", &self.vsync());
+          ds.finish()
+        }
+      }
+      pub enum DisplayCommandPayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct DisplayCommandPayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for DisplayCommandPayload<'a> {
+        type Inner = DisplayCommandPayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> DisplayCommandPayload<'a> {
+        pub const VT_OPERATION: ::flatbuffers::VOffsetT = 4;
+        pub const VT_CONFIGURATION: ::flatbuffers::VOffsetT = 6;
+        pub const VT_PREVIEW_ID: ::flatbuffers::VOffsetT = 8;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          DisplayCommandPayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args DisplayCommandPayloadArgs<'args>,
+        ) -> ::flatbuffers::WIPOffset<DisplayCommandPayload<'bldr>> {
+          let mut builder = DisplayCommandPayloadBuilder::new(_fbb);
+          if let Some(x) = args.preview_id {
+            builder.add_preview_id(x);
+          }
+          if let Some(x) = args.configuration {
+            builder.add_configuration(x);
+          }
+          builder.add_operation(args.operation);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn operation(&self) -> DisplayOperation {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<DisplayOperation>(
+                DisplayCommandPayload::VT_OPERATION,
+                Some(DisplayOperation::Preview),
+              )
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn configuration(&self) -> Option<DisplayConfiguration<'a>> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<::flatbuffers::ForwardsUOffset<DisplayConfiguration>>(
+                DisplayCommandPayload::VT_CONFIGURATION,
+                None,
+              )
+          }
+        }
+        #[inline]
+        pub fn preview_id(&self) -> Option<&'a Uuid> {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<Uuid>(DisplayCommandPayload::VT_PREVIEW_ID, None)
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for DisplayCommandPayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<DisplayOperation>("operation", Self::VT_OPERATION, false)?
+            .visit_field::<::flatbuffers::ForwardsUOffset<DisplayConfiguration>>(
+              "configuration",
+              Self::VT_CONFIGURATION,
+              false,
+            )?
+            .visit_field::<Uuid>("preview_id", Self::VT_PREVIEW_ID, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct DisplayCommandPayloadArgs<'a> {
+        pub operation: DisplayOperation,
+        pub configuration: Option<::flatbuffers::WIPOffset<DisplayConfiguration<'a>>>,
+        pub preview_id: Option<&'a Uuid>,
+      }
+      impl<'a> Default for DisplayCommandPayloadArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+          DisplayCommandPayloadArgs {
+            operation: DisplayOperation::Preview,
+            configuration: None,
+            preview_id: None,
+          }
+        }
+      }
+
+      pub struct DisplayCommandPayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DisplayCommandPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_operation(&mut self, operation: DisplayOperation) {
+          self.fbb_.push_slot::<DisplayOperation>(
+            DisplayCommandPayload::VT_OPERATION,
+            operation,
+            DisplayOperation::Preview,
+          );
+        }
+        #[inline]
+        pub fn add_configuration(
+          &mut self,
+          configuration: ::flatbuffers::WIPOffset<DisplayConfiguration<'b>>,
+        ) {
+          self
+            .fbb_
+            .push_slot_always::<::flatbuffers::WIPOffset<DisplayConfiguration>>(
+              DisplayCommandPayload::VT_CONFIGURATION,
+              configuration,
+            );
+        }
+        #[inline]
+        pub fn add_preview_id(&mut self, preview_id: &Uuid) {
+          self
+            .fbb_
+            .push_slot_always::<&Uuid>(DisplayCommandPayload::VT_PREVIEW_ID, preview_id);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> DisplayCommandPayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          DisplayCommandPayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<DisplayCommandPayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for DisplayCommandPayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("DisplayCommandPayload");
+          ds.field("operation", &self.operation());
+          ds.field("configuration", &self.configuration());
+          ds.field("preview_id", &self.preview_id());
           ds.finish()
         }
       }

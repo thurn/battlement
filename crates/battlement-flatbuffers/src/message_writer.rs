@@ -1,4 +1,4 @@
-use battlement::RenderOrder;
+use battlement::{RenderOrder, display::DisplayCommand};
 
 use std::{
   cell::RefCell,
@@ -2252,6 +2252,23 @@ impl MessageWriter {
       blocking,
       wire::CoreCommandKind::AudioPlay,
       wire::CoreCommandPayload::AudioPlayPayload,
+      payload.as_union_value(),
+    )
+  }
+
+  /// Requests a host-owned display preview, confirmation, or rollback.
+  pub fn set_display(
+    &mut self,
+    command_id: [u8; 16],
+    blocking: bool,
+    value: DisplayCommand,
+  ) -> Result<CoreCommandOffset, ProtocolError> {
+    let payload = crate::display::write(&mut self.builder, value)?;
+    self.core_command(
+      command_id,
+      blocking,
+      wire::CoreCommandKind::ApplicationDisplay,
+      wire::CoreCommandPayload::DisplayCommandPayload,
       payload.as_union_value(),
     )
   }

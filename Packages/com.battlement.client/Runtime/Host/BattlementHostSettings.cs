@@ -108,6 +108,7 @@ namespace Battlement
                     DisplayModes = Modes(platform),
                     Resolutions = resolutions,
                     AppliedDisplay = new DisplayConfiguration(Mode(Screen.fullScreenMode), applied),
+                    WindowBounds = desktop ? BattlementDisplayBackend.ReadWindowBounds() : null,
                     FramePacing =
                         rates.Length > 0
                             ? SettingAvailability.Available

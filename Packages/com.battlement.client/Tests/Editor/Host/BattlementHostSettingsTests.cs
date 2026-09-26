@@ -113,6 +113,12 @@ namespace Battlement.Tests
                     DisplayMode.Windowed,
                     new DisplayResolution(1920, 1080, 60000, 1001)
                 ),
+                WindowBounds = new ScreenSize(2560, 1440),
+                DisplayPreview = new DisplayPreview(
+                    new CommandId(Guid.NewGuid()),
+                    DisplayPreviewState.Confirmable,
+                    12
+                ),
                 FramePacing = SettingAvailability.Available,
                 FrameRates = new uint[] { 30, 60, 144 },
                 AppliedFrameRate = 60,
@@ -202,6 +208,12 @@ namespace Battlement.Tests
             Assert.That(wire.ResolutionsLength, Is.EqualTo(1));
             Assert.That(wire.Resolutions(0)!.Value.RefreshDenominator, Is.EqualTo(1001));
             Assert.That(wire.AppliedDisplay!.Value.Resolution!.Value.Width, Is.EqualTo(1920));
+            Assert.That(wire.WindowBounds!.Value.Width, Is.EqualTo(2560));
+            Assert.That(
+                wire.DisplayPreview!.Value.State,
+                Is.EqualTo(Wire.DisplayPreviewState.Confirmable)
+            );
+            Assert.That(wire.DisplayPreview!.Value.RemainingSeconds, Is.EqualTo(12));
             Assert.That(wire.FramePacing, Is.EqualTo(Wire.SettingAvailability.Available));
             Assert.That(wire.FrameRatesLength, Is.EqualTo(3));
             Assert.That(wire.AppliedFrameRate, Is.EqualTo(60));

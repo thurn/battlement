@@ -1,5 +1,6 @@
 use battlement::{
-  CommandId,
+  CommandId, ScreenSize,
+  display::{DisplayPreview, DisplayPreviewState},
   host_settings::{
     DisplayConfiguration, DisplayMode, DisplayResolution, HostPlatform, HostSettings,
     HostSettingsResult, SettingAvailability,
@@ -62,6 +63,25 @@ impl<'a> HostSettingsView<'a> {
           Ok(DisplayConfiguration {
             mode: self::mode(display.mode())?,
             resolution: self::resolution(display.resolution())?,
+          })
+        })
+        .transpose()?,
+      window_bounds: value
+        .window_bounds()
+        .map(|size| ScreenSize::new(size.width(), size.height())),
+      display_preview: value
+        .display_preview()
+        .map(|preview| {
+          Ok(DisplayPreview {
+            request_id: CommandId::from_uuid(Uuid::from_bytes(preview.request_id().0))
+              .map_err(|_| self::error("display preview ID must be nonzero"))?,
+            state: match preview.state().0 {
+              0 => DisplayPreviewState::Applying,
+              1 => DisplayPreviewState::Confirmable,
+              2 => DisplayPreviewState::Reverting,
+              _ => return Err(self::error("unknown display preview state")),
+            },
+            remaining_seconds: preview.remaining_seconds(),
           })
         })
         .transpose()?,
@@ -142,6 +162,19 @@ pub(crate) fn write<'a>(
     .diagnostics_error
     .as_ref()
     .map(|value| builder.create_string(value));
+  let window_bounds = value
+    .window_bounds
+    .map(|size| wire::ScreenSize::new(size.width, size.height));
+  let display_preview = value.display_preview.map(|preview| {
+    wire::DisplayPreview::create(
+      builder,
+      &wire::DisplayPreviewArgs {
+        request_id: Some(&wire::Uuid(*preview.request_id.as_uuid().as_bytes())),
+        state: wire::DisplayPreviewState(preview.state as u8),
+        remaining_seconds: preview.remaining_seconds,
+      },
+    )
+  });
   Ok(wire::HostSettings::create(
     builder,
     &wire::HostSettingsArgs {
@@ -164,11 +197,24 @@ pub(crate) fn write<'a>(
       diagnostics_error,
       observation_error,
       last_result,
+      window_bounds: window_bounds.as_ref(),
+      display_preview,
     },
   ))
 }
 
 fn validate(value: &HostSettings) -> Result<(), ProtocolError> {
+  if let Some(size) = value.window_bounds
+    && (size.width == 0 || size.height == 0)
+  {
+    return Err(self::error("invalid window bounds"));
+  }
+  if value
+    .display_preview
+    .is_some_and(|preview| preview.remaining_seconds > 15)
+  {
+    return Err(self::error("invalid display preview deadline"));
+  }
   if value.display_modes.len() > 3 || value.resolutions.len() > 4096 {
     return Err(self::error("too many display choices"));
   }

@@ -85,6 +85,8 @@ where
   pub(crate) assets: Arc<FakeAssetCatalog>,
   pub(crate) connect: Connect,
   pub(crate) frame_pacing: Option<(battlement::CommandId, battlement::frame_pacing::FramePacing)>,
+  pacing_result: Option<battlement::host_settings::HostSettingsResult>,
+  pub(crate) display: crate::display::DisplayFake,
   pub(crate) diagnostics: DiagnosticsFake,
   pub(crate) session_id: battlement::SessionId,
   pub(crate) world: FakeWorld,
@@ -134,6 +136,9 @@ where
   pub fn set_application_state(&mut self, state: ApplicationState) {
     self.connect.application_state = state;
     if !state.focused || state.paused {
+      let mut host = self.connect.host_settings.clone();
+      self.display.lose_owner(&mut host);
+      self.set_host_settings(host);
       self.held_keys.clear();
       self.held_controller_buttons.clear();
       self.held_navigation = None;
@@ -148,11 +153,19 @@ where
   pub fn set_host_settings(&mut self, mut settings: HostSettings) {
     if let Some((request_id, preference)) = self.frame_pacing {
       let applied = preference.apply_to(&mut settings);
-      settings.last_result = Some(battlement::host_settings::HostSettingsResult {
+      let result = battlement::host_settings::HostSettingsResult {
         request_id,
         error: (!applied).then(|| "Frame pacing is unavailable.".to_owned()),
-      });
+      };
+      if self.pacing_result.as_ref() != Some(&result) {
+        settings.last_result = Some(result.clone());
+        self.pacing_result = Some(result);
+      }
     }
+    settings.last_result = settings
+      .last_result
+      .or_else(|| self.connect.host_settings.last_result.clone());
+    self.display.observe(&mut settings);
     let keyboard_removed =
       self.connect.host_settings.keyboard_connected && !settings.keyboard_connected;
     let controllers_removed =
@@ -288,6 +301,8 @@ where
       ui_world: UiWorld::default(),
       motion: crate::motion::MotionWorld::default(),
       frame_pacing: None,
+      pacing_result: None,
+      display: crate::display::DisplayFake::default(),
       accessibility: battlement::AccessibilitySnapshot::default(),
       geometry_registry: GeometryRegistry::default(),
       admitted_batches: HashSet::new(),
@@ -335,6 +350,8 @@ where
   /// Reconnects the engine using the original connection metadata.
   pub fn reconnect(&mut self) {
     self.frame_pacing = None;
+    self.pacing_result = None;
+    self.display.lose_owner(&mut self.connect.host_settings);
     self.connect.host_settings.last_result = None;
     let request = connect_message(&self.connect);
     let message = battlement_flatbuffers::ConnectView::read(request.as_bytes())
@@ -430,8 +447,29 @@ where
     }
   }
 
+  /// Advances host watchdog time without advancing rules or presentation clocks.
+  pub fn advance_host_time(&mut self, duration: Duration) {
+    let milliseconds = u64::try_from(duration.as_millis()).expect("fake host time overflow");
+    assert_eq!(
+      Duration::from_millis(milliseconds),
+      duration,
+      "host time uses whole milliseconds"
+    );
+    let mut host = self.connect.host_settings.clone();
+    self.display.advance(milliseconds, &mut host);
+    if host != self.connect.host_settings {
+      self.set_host_settings(host);
+    }
+  }
+
+  /// Fails the next display recovery or confirmation write.
+  pub fn fail_next_display_save(&mut self) {
+    self.display.fail_next_save = true;
+  }
+
   /// Advances virtual rules and presentation time without inventing a rendered frame.
   pub fn advance_time(&mut self, duration: Duration) {
+    self.advance_host_time(duration);
     let milliseconds = u64::try_from(duration.as_millis())
       .expect("fake presentation time exceeds the supported range");
     assert_eq!(

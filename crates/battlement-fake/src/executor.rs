@@ -61,6 +61,14 @@ where
     command
       .validate()
       .unwrap_or_else(|error| panic!("command {} validation failed: {error}", command.command_id));
+    if let CommandBody::ApplicationDisplay(value) = &command.body {
+      let mut host = self.connect.host_settings.clone();
+      if self.display.execute(command.command_id, *value, &mut host) {
+        self.set_host_settings(host);
+      }
+      self.record_executed(command, batch_id, group_index, command_index);
+      return true;
+    }
     if let CommandBody::ApplicationSetFramePacing(value) = &command.body {
       self.frame_pacing = Some((command.command_id, *value));
       self.set_host_settings(self.connect.host_settings.clone());
@@ -760,7 +768,7 @@ where
           self.accessibility = snapshot.clone();
         }
       }
-      CommandBody::ApplicationSetFramePacing(_) => {
+      CommandBody::ApplicationSetFramePacing(_) | CommandBody::ApplicationDisplay(_) => {
         unreachable!("pacing reports its outcome before execution")
       }
       CommandBody::ApplicationOpenUrl(_) => {}

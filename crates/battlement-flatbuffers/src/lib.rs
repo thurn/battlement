@@ -8,6 +8,7 @@ mod connect;
 mod core_action_geometry;
 mod core_action_motion;
 mod core_client;
+mod display;
 mod geometry;
 mod hit_region;
 mod host_settings;

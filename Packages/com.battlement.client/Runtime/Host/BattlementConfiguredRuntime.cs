@@ -1,8 +1,10 @@
 #nullable enable
 
 using System;
+using System.IO;
 using Battlement.Errors;
 using Battlement.UI;
+using UnityEngine;
 
 namespace Battlement
 {
@@ -12,6 +14,15 @@ namespace Battlement
         internal BattlementConfiguredRuntime(BattlementRunnerOptions options)
         {
             Options = options ?? throw new ArgumentNullException(nameof(options));
+            FramePacing = new BattlementFramePacing(report: result => LastSettingResult = result);
+            Display = new BattlementDisplayPreview(
+                new BattlementDisplayBackend(),
+                new BattlementDisplayRecoveryStore(
+                    Path.Combine(Application.persistentDataPath, "Battlement", "display.json")
+                ),
+                () => Time.realtimeSinceStartupAsDouble,
+                result => LastSettingResult = result
+            );
         }
 
         internal BattlementRunnerOptions Options { get; }
@@ -94,7 +105,9 @@ namespace Battlement
         internal BattlementGeometrySampler GeometrySampler =>
             Require(geometrySampler, nameof(GeometrySampler));
 
-        internal BattlementFramePacing FramePacing { get; } = new();
+        internal BattlementFramePacing FramePacing { get; }
+        internal BattlementDisplayPreview Display { get; }
+        internal HostSettingsResult? LastSettingResult { get; set; }
 
         private BattlementModules? modules;
 

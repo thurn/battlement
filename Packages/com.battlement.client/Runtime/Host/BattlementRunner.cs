@@ -386,6 +386,7 @@ namespace Battlement
             Reset(() => configuredRuntime?.ControllerInput.StopHaptics(), ref failure);
             Reset(() => configuredRuntime?.InputCapture.Reset(), ref failure);
             Reset(() => configuredRuntime?.FramePacing.Reset(), ref failure);
+            Reset(() => configuredRuntime?.Display.LoseOwner(), ref failure);
             Reset(() => configuredRuntime?.BatchScheduler.BeginSession(), ref failure);
             Reset(() => configuredRuntime?.GeometrySampler.Reset(), ref failure);
             Reset(geometryFrames.Reset, ref failure);
@@ -700,7 +701,8 @@ namespace Battlement
                     modules,
                     checkedOptions.OpenExternalUrl,
                     (id, value) =>
-                        runtime.FramePacing.Apply(id, value, ReadHostSettings(checkedOptions))
+                        runtime.FramePacing.Apply(id, value, ReadHostSettings(checkedOptions)),
+                    ApplyDisplay
                 );
                 BattlementBatchScheduler batchScheduler = new BattlementBatchScheduler(
                     dittoMotionClock,
@@ -1270,8 +1272,25 @@ namespace Battlement
 
         private void Update()
         {
+            ObserveDisplayRecovery();
             if (!dittoInputActive)
                 RunFrame();
+        }
+
+        private void ObserveDisplayRecovery()
+        {
+            if (configuredRuntime?.Display.NeedsObservation != true)
+                return;
+            if (session.Phase == BattlementSessionPhase.Running)
+            {
+                PublishHostSettings();
+                return;
+            }
+            double now = Time.realtimeSinceStartupAsDouble;
+            if (now < nextHostSettingsPoll)
+                return;
+            nextHostSettingsPoll = now + 0.25;
+            ReadHostSettings(configuredRuntime.Options);
         }
 
         private void LateUpdate()
@@ -1348,6 +1367,7 @@ namespace Battlement
             );
             if (pauseStatus)
             {
+                configuredRuntime?.Display.LoseOwner();
                 RejectDittoActivationTransaction(
                     "Application suspension interrupted semantic activation."
                 );
@@ -1371,6 +1391,8 @@ namespace Battlement
         private void OnApplicationFocus(bool hasFocus)
         {
             hasApplicationFocus = hasFocus;
+            if (!hasFocus)
+                configuredRuntime?.Display.LoseOwner();
             Debug.Log(
                 $"[Battlement/Ditto-trace] application-focus focus={hasFocus} "
                     + $"paused={isApplicationPaused} ditto={dittoInputActive}"
@@ -1418,7 +1440,40 @@ namespace Battlement
                     configuredRuntime.Modules.ReadReporting
                 )
                 : configured.ReadHostSettings();
-            return configuredRuntime!.FramePacing.Reconcile(observed);
+            BattlementConfiguredRuntime runtime = configuredRuntime!;
+            observed = runtime.FramePacing.Reconcile(observed);
+            runtime.Display.Observe(observed, hasApplicationFocus && !isApplicationPaused);
+            return observed with
+            {
+                DisplayPreview = runtime.Display.Observation,
+                LastResult = runtime.LastSettingResult ?? observed.LastResult,
+                ObservationError = runtime.Display.RecoveryError ?? observed.ObservationError,
+            };
+        }
+
+        private void ApplyDisplay(CommandId id, DisplayCommand command)
+        {
+            BattlementConfiguredRuntime runtime = configuredRuntime!;
+            HostSettings observed = ReadHostSettings(runtime.Options);
+            switch (command)
+            {
+                case DisplayCommand.Preview preview:
+                    runtime.Display.Begin(
+                        id,
+                        preview.Configuration,
+                        observed,
+                        hasApplicationFocus && !isApplicationPaused
+                    );
+                    break;
+                case DisplayCommand.Confirm confirm:
+                    runtime.Display.Confirm(id, confirm.PreviewId, observed);
+                    break;
+                case DisplayCommand.Cancel cancel:
+                    runtime.Display.Cancel(id, cancel.PreviewId);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(command));
+            }
         }
 
         private void PublishHostSettings(bool force = false)
@@ -2234,6 +2289,9 @@ namespace Battlement
         {
             try
             {
+                configuredRuntime!.LastSettingResult = null;
+                configuredRuntime.Display.LoseOwner();
+                configuredRuntime.FramePacing.Reset();
                 configuredRuntime!.UiDocuments.SetInputEnabled(false);
                 configuredRuntime.PointerInput.Reset();
                 configuredRuntime.KeyboardInput.Reset();

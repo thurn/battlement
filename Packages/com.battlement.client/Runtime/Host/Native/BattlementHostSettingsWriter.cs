@@ -53,30 +53,48 @@ namespace Battlement
             StringOffset observationError = value.ObservationError is null
                 ? default
                 : builder.CreateString(value.ObservationError);
-            return Wire.HostSettings.CreateHostSettings(
-                builder,
-                (Wire.HostPlatform)value.Platform,
-                (Wire.SettingAvailability)value.Display,
-                modes,
-                resolutions,
-                applied,
-                (Wire.SettingAvailability)value.FramePacing,
-                rates,
-                value.AppliedFrameRate,
-                value.VsyncAvailable,
-                value.AppliedVsync,
-                value.KeyboardConnected,
-                value.ControllerCount,
-                (Wire.SettingAvailability)value.Diagnostics,
-                value.DiagnosticsConfigured,
-                value.CaptureExceptions,
-                value.PerformanceReporting,
-                value.DiagnosticsError is null
-                    ? default
-                    : builder.CreateString(value.DiagnosticsError),
-                observationError,
-                result
-            );
+            Offset<Wire.DisplayPreview> preview = default;
+            if (value.DisplayPreview is DisplayPreview active)
+            {
+                Wire.DisplayPreview.StartDisplayPreview(builder);
+                Wire.DisplayPreview.AddState(builder, (Wire.DisplayPreviewState)active.State);
+                Wire.DisplayPreview.AddRemainingSeconds(builder, active.RemainingSeconds);
+                Wire.DisplayPreview.AddRequestId(
+                    builder,
+                    BattlementFlatBufferWriter.WriteUuid(builder, active.RequestId.Value)
+                );
+                preview = Wire.DisplayPreview.EndDisplayPreview(builder);
+            }
+            StringOffset diagnosticsError = value.DiagnosticsError is null
+                ? default
+                : builder.CreateString(value.DiagnosticsError);
+            Wire.HostSettings.StartHostSettings(builder);
+            Wire.HostSettings.AddPlatform(builder, (Wire.HostPlatform)value.Platform);
+            Wire.HostSettings.AddDisplay(builder, (Wire.SettingAvailability)value.Display);
+            Wire.HostSettings.AddDisplayModes(builder, modes);
+            Wire.HostSettings.AddResolutions(builder, resolutions);
+            Wire.HostSettings.AddAppliedDisplay(builder, applied);
+            Wire.HostSettings.AddFramePacing(builder, (Wire.SettingAvailability)value.FramePacing);
+            Wire.HostSettings.AddFrameRates(builder, rates);
+            Wire.HostSettings.AddAppliedFrameRate(builder, value.AppliedFrameRate);
+            Wire.HostSettings.AddVsyncAvailable(builder, value.VsyncAvailable);
+            Wire.HostSettings.AddAppliedVsync(builder, value.AppliedVsync);
+            Wire.HostSettings.AddKeyboardConnected(builder, value.KeyboardConnected);
+            Wire.HostSettings.AddControllerCount(builder, value.ControllerCount);
+            Wire.HostSettings.AddDiagnostics(builder, (Wire.SettingAvailability)value.Diagnostics);
+            Wire.HostSettings.AddDiagnosticsConfigured(builder, value.DiagnosticsConfigured);
+            Wire.HostSettings.AddCaptureExceptions(builder, value.CaptureExceptions);
+            Wire.HostSettings.AddPerformanceReporting(builder, value.PerformanceReporting);
+            Wire.HostSettings.AddDiagnosticsError(builder, diagnosticsError);
+            Wire.HostSettings.AddObservationError(builder, observationError);
+            Wire.HostSettings.AddLastResult(builder, result);
+            Wire.HostSettings.AddDisplayPreview(builder, preview);
+            if (value.WindowBounds is ScreenSize bounds)
+                Wire.HostSettings.AddWindowBounds(
+                    builder,
+                    Wire.ScreenSize.CreateScreenSize(builder, bounds.Width, bounds.Height)
+                );
+            return Wire.HostSettings.EndHostSettings(builder);
         }
 
         private static Offset<Wire.DisplayResolution> Resolution(
@@ -93,6 +111,18 @@ namespace Battlement
 
         private static void Validate(HostSettings value)
         {
+            if (
+                value.WindowBounds is ScreenSize bounds
+                && (bounds.Width == 0 || bounds.Height == 0)
+            )
+                throw new InvalidDataException("Invalid window bounds.");
+            if (value.DisplayPreview is DisplayPreview preview)
+            {
+                if (preview.RequestId.Value == Guid.Empty || preview.RemainingSeconds > 15)
+                    throw new InvalidDataException("Invalid display preview.");
+                if ((byte)preview.State > (byte)DisplayPreviewState.Reverting)
+                    throw new InvalidDataException("Unknown display preview state.");
+            }
             if ((byte)value.Platform > (byte)HostPlatform.Ios)
                 throw new InvalidDataException("Unknown host platform.");
             foreach (

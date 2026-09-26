@@ -27,6 +27,7 @@ namespace Battlement
         private readonly BattlementModules modules;
         private readonly Action<string> openExternalUrl;
         private readonly Action<CommandId, FramePacing> applyFramePacing;
+        private readonly Action<CommandId, DisplayCommand> applyDisplay;
 
         public BattlementCommandExecutor(
             BattlementWorld world,
@@ -46,7 +47,8 @@ namespace Battlement
             Action<BattlementDirectGeometryCommand> updateDirectGeometry,
             BattlementModules modules,
             Action<string> openExternalUrl,
-            Action<CommandId, FramePacing> applyFramePacing
+            Action<CommandId, FramePacing> applyFramePacing,
+            Action<CommandId, DisplayCommand> applyDisplay
         )
         {
             this.world = world;
@@ -78,6 +80,7 @@ namespace Battlement
             this.modules = modules;
             this.openExternalUrl = openExternalUrl;
             this.applyFramePacing = applyFramePacing;
+            this.applyDisplay = applyDisplay;
         }
 
         public void ResetWorkOwnership() => workOwnership.Clear();
@@ -441,6 +444,8 @@ namespace Battlement
                 is BattlementDirectInputConfiguration inputConfiguration
             )
                 return LaunchDirectInputConfiguration(inputConfiguration);
+            if (command.DirectDisplay is DisplayCommand display)
+                return ExecuteUi(() => applyDisplay(command.Id, display));
             if (command.DirectFramePacing is FramePacing pacing)
                 return ExecuteUi(() => applyFramePacing(command.Id, pacing));
             if (command.DirectOpenUrl is BattlementDirectOpenUrl openUrl)

@@ -292,6 +292,11 @@ pub(crate) fn write_command<'a>(
         payload.as_union_value(),
       )
     }
+    CommandBody::ApplicationDisplay(value) => (
+      wire::CoreCommandKind::ApplicationDisplay,
+      wire::CoreCommandPayload::DisplayCommandPayload,
+      crate::display::write(builder, *value)?.as_union_value(),
+    ),
     CommandBody::Diagnostics(value) => {
       let args = match value {
         DiagnosticsCommand::SetMetadata(value) => command_wire::DiagnosticsPayloadArgs {
@@ -3331,6 +3336,7 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     wire::CoreCommandKind::ApplicationSetFramePacing => {
       wire::CoreCommandPayload::FramePacingPayload
     }
+    wire::CoreCommandKind::ApplicationDisplay => wire::CoreCommandPayload::DisplayCommandPayload,
     wire::CoreCommandKind::AudioStop => wire::CoreCommandPayload::AudioStopPayload,
     wire::CoreCommandKind::AudioPause | wire::CoreCommandKind::AudioResume => {
       wire::CoreCommandPayload::AudioPlaybackPayload
@@ -3415,6 +3421,13 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
           "frame-rate ceiling must be between 1 and 1000",
         ));
       }
+    }
+    wire::CoreCommandKind::ApplicationDisplay => {
+      crate::display::read(
+        value
+          .payload_as_display_command_payload()
+          .expect("kind/payload checked"),
+      )?;
     }
     wire::CoreCommandKind::AudioSetMix => {
       let body = value

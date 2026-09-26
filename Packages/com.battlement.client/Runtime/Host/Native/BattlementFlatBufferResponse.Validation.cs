@@ -670,6 +670,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ParticleSpawn:
                     break;
+                case Wire.CoreCommandKind.ApplicationDisplay:
                 case Wire.CoreCommandKind.ApplicationSetFramePacing:
                 case Wire.CoreCommandKind.AudioSetMix:
                 case Wire.CoreCommandKind.AudioPlay:
@@ -1098,6 +1099,9 @@ namespace Battlement
                         throw new InvalidDataException("Looping audio must be nonblocking.");
                     return true;
                 }
+                case Wire.CoreCommandKind.ApplicationDisplay:
+                    BattlementDisplayCommandReader.Read(value.PayloadAsDisplayCommandPayload());
+                    return true;
                 case Wire.CoreCommandKind.ApplicationSetFramePacing:
                     if (value.PayloadAsFramePacingPayload().MaximumFrameRate is < 1 or > 1000)
                         throw new InvalidDataException(
@@ -1886,6 +1890,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ParticleSpawn:
                     break;
+                case Wire.CoreCommandKind.ApplicationDisplay:
                 case Wire.CoreCommandKind.ApplicationSetFramePacing:
                 case Wire.CoreCommandKind.AudioSetMix:
                 case Wire.CoreCommandKind.AudioPlay:
@@ -2264,6 +2269,7 @@ namespace Battlement
                     break;
                 case Wire.CoreCommandKind.ParticleSpawn:
                     break;
+                case Wire.CoreCommandKind.ApplicationDisplay:
                 case Wire.CoreCommandKind.ApplicationSetFramePacing:
                 case Wire.CoreCommandKind.AudioSetMix:
                 case Wire.CoreCommandKind.AudioPlay:
@@ -3682,6 +3688,8 @@ namespace Battlement
                 Wire.CoreCommandKind.ParticleSpawn => Wire.CoreCommandPayload.ParticleSpawnPayload,
                 Wire.CoreCommandKind.AudioPlay => Wire.CoreCommandPayload.AudioPlayPayload,
                 Wire.CoreCommandKind.AudioSetMix => Wire.CoreCommandPayload.AudioMixPayload,
+                Wire.CoreCommandKind.ApplicationDisplay =>
+                    Wire.CoreCommandPayload.DisplayCommandPayload,
                 Wire.CoreCommandKind.ApplicationSetFramePacing =>
                     Wire.CoreCommandPayload.FramePacingPayload,
                 Wire.CoreCommandKind.AudioStop => Wire.CoreCommandPayload.AudioStopPayload,

@@ -1,6 +1,10 @@
 //! Owned fake-state copies made only after response verification.
 
-use battlement::{Command, CommandBody, ConflictPolicy, PropertyCommand};
+use battlement::{
+  Command, CommandBody, ConflictPolicy, PropertyCommand,
+  display::DisplayCommand,
+  host_settings::{DisplayConfiguration, DisplayMode, DisplayResolution},
+};
 use battlement_flatbuffers::schema_generated::{
   accessibility_generated as accessibility, command_core_generated as payload,
   common_generated as common, geometry_generated as geometry,
@@ -25,6 +29,40 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
           .ok_or_else(missing)?
           .url()
           .to_owned(),
+      })
+    }
+    Kind::ApplicationDisplay => {
+      let body = value
+        .payload_as_display_command_payload()
+        .expect("validated display payload");
+      CommandBody::ApplicationDisplay(match body.operation() {
+        payload::DisplayOperation::Preview => {
+          let configuration = body
+            .configuration()
+            .expect("validated display configuration");
+          let resolution = configuration.resolution();
+          DisplayCommand::Preview(DisplayConfiguration {
+            mode: match configuration.mode().0 {
+              0 => DisplayMode::Windowed,
+              1 => DisplayMode::Borderless,
+              2 => DisplayMode::Fullscreen,
+              _ => unreachable!("validated display mode"),
+            },
+            resolution: DisplayResolution {
+              width: resolution.width(),
+              height: resolution.height(),
+              refresh_numerator: resolution.refresh_numerator(),
+              refresh_denominator: resolution.refresh_denominator(),
+            },
+          })
+        }
+        payload::DisplayOperation::Confirm => DisplayCommand::Confirm(command_id(
+          body.preview_id().expect("validated preview ID"),
+        )?),
+        payload::DisplayOperation::Cancel => DisplayCommand::Cancel(command_id(
+          body.preview_id().expect("validated preview ID"),
+        )?),
+        _ => unreachable!("validated display operation"),
       })
     }
     Kind::ApplicationSetFramePacing => {

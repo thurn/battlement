@@ -439,7 +439,7 @@ Use saved maps for seven actions, accurate defaults, shortcut precedence/reserva
 
 ### S15 — Apply and recover desktop display previews
 
-**Depends on:** S01, S03. **Owner:** Unity desktop display transactions.
+**Depends on:** S01, S03, S16. **Owner:** Unity desktop display transactions.
 Implement typed resolution/mode preview, readback, confirm/cancel, 15-second host watchdog, durable prior/confirmed recovery records, and safe fallback after crash/monitor changes. Timeout must not depend on paused game clocks. Windows exclusive fullscreen only.
 **Acceptance:** native Windows/macOS changes match readback; timeout/focus loss/failure reverts; stale IDs cannot confirm a newer preview; process termination during preview recovers prior confirmed state; confirmation persistence failure reverts; changed monitor has a usable fallback.
 
@@ -653,7 +653,7 @@ Epic: **hv-ou5**. Approval decision: **hv-ou5.1**.
 | S12 | `hv-ou5.13` | S04, S11, I04, I11 |
 | S13 | `hv-ou5.14` | S03, I03 |
 | S14 | `hv-ou5.15` | S04, S13, I04, I13 |
-| S15 | `hv-ou5.16` | S01, S03, I01, I03 |
+| S15 | `hv-ou5.16` | S01, S03, S16, I01, I03, I16 |
 | S16 | `hv-ou5.17` | S03, I03 |
 | S17 | `hv-ou5.18` | S04, S15, S16, I04, I15, I16 |
 | S18 | `hv-ou5.19` | S04, I04 |
