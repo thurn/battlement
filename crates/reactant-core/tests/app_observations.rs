@@ -133,3 +133,30 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
     )
   );
 }
+
+#[test]
+fn unavailable_system_motion_preserves_the_application_reduction_policy() {
+  let values = Rc::new(RefCell::new(Vec::new()));
+  let mut app = App::new("app/content")
+    .ui(MotionConfig::new(Observed(Rc::clone(&values))).reduced_motion(ReducedMotion::Always));
+  let initial = app.connect_test(&app_support::connect()).unwrap();
+  let _ = app.poll().unwrap();
+  assert!(values.borrow().last().unwrap().3);
+  for preference in [
+    ReducedMotionPreference::Reduce,
+    ReducedMotionPreference::NoPreference,
+    ReducedMotionPreference::Unavailable,
+  ] {
+    app
+      .submit_test(ClientMessage::Action(Action::new(
+        ActionId::new_v4(),
+        initial.session_id,
+        ActionBody::ReducedMotionPreferenceChanged(preference),
+      )))
+      .unwrap();
+    let _ = app.poll().unwrap();
+    let observed = values.borrow().last().copied().unwrap();
+    assert_eq!(observed.2, preference);
+    assert!(observed.3);
+  }
+}

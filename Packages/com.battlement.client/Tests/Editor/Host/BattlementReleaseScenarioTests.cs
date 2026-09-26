@@ -73,6 +73,43 @@ namespace Battlement.Tests
             Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
         }
 
+        [Test]
+        public void SystemMotionChangesReachTheNativeRustEngine()
+        {
+            var preference = ReducedMotionPreference.NoPreference;
+            using var host = ReleaseScenarioHost.Create("timing", () => preference);
+            host.Connect();
+            Assert.That(NativeFixture.fixture_motion_preference(), Is.EqualTo((byte)preference));
+            foreach (
+                var value in new[]
+                {
+                    ReducedMotionPreference.Reduce,
+                    ReducedMotionPreference.Unavailable,
+                    ReducedMotionPreference.NoPreference,
+                }
+            )
+            {
+                preference = value;
+                host.RunFrame();
+                Assert.That(NativeFixture.fixture_motion_preference(), Is.EqualTo((byte)value));
+                UnityEngine.Debug.Log($"Native Rust motion preference: {value}");
+            }
+            host.RunFrame();
+            Assert.That(
+                host.Observer.Actions.Select(action => action.Body)
+                    .OfType<ActionBody.ReducedMotionPreferenceChanged>()
+                    .Select(action => action.Value),
+                Is.EqualTo(
+                    new[]
+                    {
+                        ReducedMotionPreference.Reduce,
+                        ReducedMotionPreference.Unavailable,
+                        ReducedMotionPreference.NoPreference,
+                    }
+                )
+            );
+        }
+
         private static void RunBatchFailures(ReleaseScenarioHost host, Mouse mouse)
         {
             host.Connect();
@@ -381,6 +418,9 @@ namespace Battlement.Tests
             internal static extern UIntPtr fixture_outstanding_buffers();
 
             [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
+            internal static extern byte fixture_motion_preference();
+
+            [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
             internal static extern UIntPtr fixture_submit_calls();
 
             [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
@@ -400,7 +440,8 @@ namespace Battlement.Tests
             GameObject hostObject,
             BattlementRunner runner,
             IBattlementTransport transport,
-            string scenario
+            string scenario,
+            Func<ReducedMotionPreference>? readReducedMotionPreference
         )
         {
             this.hostObject = hostObject;
@@ -427,7 +468,8 @@ namespace Battlement.Tests
                     customCommandTypes: new[] { $"fixture.release.{scenario}" },
                     flatBufferResponseSchema: flatBuffers,
                     flatBufferClientSchema: flatBuffers,
-                    coreMessageObserver: Observer
+                    coreMessageObserver: Observer,
+                    readReducedMotionPreference: readReducedMotionPreference
                 )
             );
             Runner.RegisterFlatBufferCommand<
@@ -446,7 +488,10 @@ namespace Battlement.Tests
 
         public RecordingCoreMessageObserver Observer { get; }
 
-        public static ReleaseScenarioHost Create(string scenario)
+        public static ReleaseScenarioHost Create(
+            string scenario,
+            Func<ReducedMotionPreference>? readReducedMotionPreference = null
+        )
         {
             Scene scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
@@ -459,7 +504,8 @@ namespace Battlement.Tests
                 hostObject,
                 runner,
                 new BattlementNativeTransport(),
-                scenario
+                scenario,
+                readReducedMotionPreference
             );
         }
 

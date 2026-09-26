@@ -1434,11 +1434,11 @@ namespace Battlement
 
         private void PublishReducedMotionPreference()
         {
-            ReducedMotionPreference preference = BattlementReducedMotion.Preference();
-            if (
-                session.Phase != BattlementSessionPhase.Running
-                || preference == publishedReducedMotionPreference
-            )
+            if (session.Phase != BattlementSessionPhase.Running || configuredRuntime is null)
+                return;
+            ReducedMotionPreference preference =
+                configuredRuntime.Options.ReadReducedMotionPreference();
+            if (preference == publishedReducedMotionPreference)
                 return;
             publishedReducedMotionPreference = preference;
             SubmitCoreAction(new ActionBody.ReducedMotionPreferenceChanged(preference));
@@ -1815,7 +1815,7 @@ namespace Battlement
                 isApplicationPaused
             );
             publishedApplicationState = state;
-            publishedReducedMotionPreference = BattlementReducedMotion.Preference();
+            publishedReducedMotionPreference = configured.ReadReducedMotionPreference();
             publishedHostSettings = ReadHostSettings(configured);
             BattlementHostSettings.Report(configured.Logger, publishedHostSettings);
             nextHostSettingsPoll = 0;

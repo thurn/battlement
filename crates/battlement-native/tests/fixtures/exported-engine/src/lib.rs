@@ -5,6 +5,7 @@
 mod fixture_response;
 #[allow(clippy::all, missing_docs, unsafe_op_in_unsafe_fn, unused_imports)]
 mod fixture_response_generated;
+mod motion_observation;
 mod release_scenarios;
 
 use std::sync::{
@@ -98,6 +99,7 @@ impl Engine for FixtureEngine {
   const WIRE_DIGEST_C: &'static [u8; 65] = fixture_response::WIRE_DIGEST_C;
 
   fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    motion_observation::record(message.reduced_motion_preference().ordinal());
     if ReleaseScenario::from_connect(message).is_some_and(ReleaseScenario::is_integration) {
       CONNECT_CALLS.fetch_add(1, Ordering::Relaxed);
       tracing::event!(
@@ -219,6 +221,7 @@ impl Engine for FixtureEngine {
         .map_err(FlatBufferSubmitError::engine);
     }
     if let Ok(message) = CoreClientMessageView::read(bytes) {
+      motion_observation::submit(message);
       SUBMIT_CALLS.fetch_add(1, Ordering::Relaxed);
       if self.mode == "panic-submit" {
         panic!("fixture submit panic");

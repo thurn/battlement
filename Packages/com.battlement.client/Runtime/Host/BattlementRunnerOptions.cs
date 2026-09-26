@@ -26,10 +26,13 @@ namespace Battlement
             IBattlementFlatBufferResponseViewSchema? flatBufferResponseSchema = null,
             IBattlementFlatBufferClientSchema? flatBufferClientSchema = null,
             IBattlementCoreMessageObserver? coreMessageObserver = null,
-            Func<HostSettings>? readHostSettings = null
+            Func<HostSettings>? readHostSettings = null,
+            Func<ReducedMotionPreference>? readReducedMotionPreference = null
         )
         {
             ReadHostSettings = readHostSettings;
+            ReadReducedMotionPreference =
+                readReducedMotionPreference ?? UI.BattlementReducedMotion.Preference;
             OpenExternalUrl = openExternalUrl ?? Application.OpenURL;
             Transport = Preconditions.CheckNotNull(transport, nameof(transport));
             AssetStorage = Preconditions.CheckNotNull(assetStorage, nameof(assetStorage));
@@ -52,6 +55,8 @@ namespace Battlement
         public Action<string> OpenExternalUrl { get; }
 
         public Func<HostSettings>? ReadHostSettings { get; }
+
+        public Func<ReducedMotionPreference> ReadReducedMotionPreference { get; }
 
         public IBattlementTransport Transport { get; }
 

@@ -3,7 +3,7 @@
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
 using System;
 #endif
-#if (UNITY_WEBGL || UNITY_STANDALONE_OSX) && !UNITY_EDITOR
+#if !UNITY_EDITOR
 using System.Runtime.InteropServices;
 #endif
 
@@ -22,6 +22,16 @@ namespace Battlement.UI
                 0 => ReducedMotionPreference.NoPreference,
                 _ => ReducedMotionPreference.Unavailable,
             };
+#elif UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            if (!SystemParametersInfo(0x1042, 0, out bool animationsEnabled, 0))
+                return ReducedMotionPreference.Unavailable;
+            return animationsEnabled
+                ? ReducedMotionPreference.NoPreference
+                : ReducedMotionPreference.Reduce;
+#elif UNITY_IOS && !UNITY_EDITOR
+            return UIAccessibilityIsReduceMotionEnabled()
+                ? ReducedMotionPreference.Reduce
+                : ReducedMotionPreference.NoPreference;
 #elif UNITY_STANDALONE_OSX && !UNITY_EDITOR
             IntPtr workspace = SendObject(
                 ObjectiveCClass("NSWorkspace"),
@@ -40,6 +50,24 @@ namespace Battlement.UI
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern int BattlementPrefersReducedMotion();
+#endif
+
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        // SPI_GETCLIENTAREAANIMATION returns the system animation preference.
+        [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SystemParametersInfo(
+            uint action,
+            uint parameter,
+            [MarshalAs(UnmanagedType.Bool)] out bool value,
+            uint flags
+        );
+#endif
+
+#if UNITY_IOS && !UNITY_EDITOR
+        [DllImport("__Internal")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static extern bool UIAccessibilityIsReduceMotionEnabled();
 #endif
 
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
