@@ -40,6 +40,6 @@ reason = "Chess browser audio gains, background mute and resume feedback"
 samples = ["chess"]
 
 [[risks]]
-paths = ["crates/reactant/src/persistence*.rs", "crates/battlement-native/src/browser_persistence.rs", "Packages/com.battlement.client/Runtime/BattlementPersistence.jslib"]
-reason = "Settings persistence must wait for serialized browser storage transactions"
-samples = ["chess"]
+paths = ["crates/reactant/src/persistence*.rs", "crates/battlement-native/src/browser_persistence.rs", "Packages/com.battlement.client/Runtime/BattlementPersistence.jslib", "crates/reactant/examples/browser_persistence*", "fixtures/browser-persistence/*", "scripts/browser_persistence_proof.py", "web/checks/persistence.js"]
+reason = "Typed browser persistence must acknowledge real IndexedDB transactions and survive reload, failure, and owner replacement"
+kind = "persistence"

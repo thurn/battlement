@@ -31,6 +31,10 @@ kind = "fixture"
 paths = ["crates/reactant-rules/src/computation.rs"]
 reason = "Finite computation worker pool"
 kind = "worker"
+[[risks]]
+paths = ["crates/reactant/src/persistence_store.rs"]
+reason = "Actual IndexedDB durability"
+kind = "persistence"
 ''')
         names = ["basic", "chess"]
         worker = select(root, ["crates/reactant-rules/src/computation.rs"], names)
@@ -39,6 +43,12 @@ kind = "worker"
         ]
         assert not worker.players and not worker.fixtures
         assert worker.report()["workers"] == worker.workers
+        persistence = select(root, ["crates/reactant/src/persistence_store.rs"], names)
+        assert persistence and persistence.persistence == [
+            "crates/reactant/src/persistence_store.rs: Actual IndexedDB durability"
+        ]
+        assert not persistence.players and not persistence.fixtures and not persistence.workers
+        assert persistence.report()["persistence"] == persistence.persistence
         assert not select(root, ["samples/chess/rules/src/settings.rs", "docs/readme.md"], names)
         assert set(select(root, ["web/init.js"], names).players) == set(names)
         assert list(select(root, ["samples/basic/rules/src/platform.rs"], names).players) == ["basic"]

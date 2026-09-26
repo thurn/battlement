@@ -25,12 +25,14 @@ class Selection:
     players: dict[str, list[str]] = field(default_factory=dict)
     fixtures: list[str] = field(default_factory=list)
     workers: list[str] = field(default_factory=list)
+    persistence: list[str] = field(default_factory=list)
 
     def report(self) -> dict[str, object]:
-        return {"fixtures": self.fixtures, "players": self.players, "workers": self.workers}
+        return {"fixtures": self.fixtures, "players": self.players,
+                "workers": self.workers, "persistence": self.persistence}
 
     def __bool__(self) -> bool:
-        return bool(self.players or self.fixtures or self.workers)
+        return any((self.players, self.fixtures, self.workers, self.persistence))
 
 
 def select(repository: Path, paths: list[str], names: list[str]) -> Selection:
@@ -41,9 +43,9 @@ def select(repository: Path, paths: list[str], names: list[str]) -> Selection:
         kind = risk.get("kind", "player")
         samples = risk.get("samples", [])
         declared = names if samples == ["*"] else samples
-        if kind not in {"fixture", "player", "worker"} or not reason:
+        if kind not in {"fixture", "player", "worker", "persistence"} or not reason:
             raise RuntimeError("Browser risk declares an unknown kind or empty reason")
-        if kind in {"fixture", "worker"} and samples:
+        if kind != "player" and samples:
             raise RuntimeError("Fixture browser risks cannot select Unity samples")
         if kind == "player" and (not declared or not set(declared).issubset(names)):
             raise RuntimeError("Browser risk declares an unknown sample or empty reason")
@@ -66,6 +68,9 @@ def select(repository: Path, paths: list[str], names: list[str]) -> Selection:
                 samples = names if samples == ["*"] else samples
                 if kind == "worker":
                     selected.workers.append(f"{path}: {reason}")
+                    continue
+                if kind == "persistence":
+                    selected.persistence.append(f"{path}: {reason}")
                     continue
                 if kind == "fixture":
                     fixture_reasons.append(reason)
@@ -116,6 +121,9 @@ def validate_affected(repository: Path) -> None:
         import webgl_worker_proof
         artifact = Path(user_cache_path("Battlement", "engine-evidence")) / f"worker-{uuid.uuid4()}.json"
         webgl_worker_proof.run(artifact)
+    if selected.persistence:
+        import browser_persistence_proof
+        browser_persistence_proof.run()
     if not (selected.fixtures or selected.players):
         return
     # Preparation owns its compiler cache and Unity project lease.
