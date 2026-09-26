@@ -36,6 +36,7 @@ REACTANT_ASSET_INPUTS = (
     "crates/battlement-reactant-asset-macros/",
     "crates/battlement-reactant-asset-syntax/",
     "crates/battlement-reactant-assets/",
+    "crates/battlement-tooling/src/unity_lease.rs",
     "scripts/reactant_asset_validation.py",
 )
 

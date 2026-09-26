@@ -1,9 +1,12 @@
 use std::{
   collections::{BTreeMap, BTreeSet},
-  env,
+  env, fs,
   io::{BufRead, BufReader},
   path::{Path, PathBuf},
   process::{Command, Stdio},
+  sync::mpsc,
+  thread,
+  time::{Duration, Instant},
 };
 
 use anyhow::{Result, bail};
@@ -251,6 +254,59 @@ fn compiler_player_and_browser_count_their_actual_child_capacity() {
   );
   drop(player);
   drop(compiler);
+}
+
+#[test]
+fn browser_waiters_leave_available_compiler_and_player_capacity_usable() {
+  let temporary = TempDir::new().unwrap();
+  let first = BrowserCapacityLease::acquire(temporary.path()).unwrap();
+  let second = BrowserCapacityLease::acquire(temporary.path()).unwrap();
+  let directory = temporary.path().to_owned();
+  let browser = thread::spawn(move || {
+    let _lease = BrowserCapacityLease::acquire(&directory).unwrap();
+  });
+  let deadline = Instant::now() + Duration::from_secs(2);
+  let queued = loop {
+    if fs::read_dir(temporary.path()).unwrap().any(|entry| {
+      entry
+        .unwrap()
+        .file_name()
+        .to_string_lossy()
+        .contains(".queue.")
+    }) {
+      break true;
+    }
+    if Instant::now() >= deadline {
+      break false;
+    }
+    thread::sleep(Duration::from_millis(10));
+  };
+  let (sender, receiver) = mpsc::channel();
+  let directory = temporary.path().to_owned();
+  let compiler_sender = sender.clone();
+  let compiler = thread::spawn(move || {
+    let _lease = CompilerCapacityLease::acquire(&directory).unwrap();
+    compiler_sender.send("compiler").unwrap();
+  });
+  let directory = temporary.path().to_owned();
+  let player = thread::spawn(move || {
+    let _lease = NativePlayerCapacityLease::acquire(&directory).unwrap();
+    sender.send("player").unwrap();
+  });
+  let admitted = (0..2)
+    .filter_map(|_| receiver.recv_timeout(Duration::from_secs(2)).ok())
+    .collect::<BTreeSet<_>>();
+  drop(first);
+  drop(second);
+  browser.join().unwrap();
+  compiler.join().unwrap();
+  player.join().unwrap();
+  assert!(queued, "browser waiter did not publish admission");
+  assert_eq!(
+    admitted,
+    BTreeSet::from(["compiler", "player"]),
+    "a full browser resource blocked available machine capacity"
+  );
 }
 
 #[test]

@@ -54,10 +54,13 @@ if slots := os.environ.get("FAKE_ADMISSION_ROOT"):
     import resource_slots
     with Path(os.environ["FAKE_WAIT_PID"]).open("a") as waiting:
         waiting.write(str(os.getpid()) + "\n")
-    capacity = resource_slots.LeaseGroup(
-        resource_slots.SlotLease(Path(slots), "machine-heavy", 6, 2),
-        resource_slots.SlotLease(Path(slots), "native-player", 3),
-    )
+    if os.environ.get("FAKE_ADMISSION_RESOURCE") == "browser":
+        capacity = resource_slots.SlotLease(Path(slots), "browser", 2)
+    else:
+        capacity = resource_slots.LeaseGroup(
+            resource_slots.SlotLease(Path(slots), "machine-heavy", 6, 2),
+            resource_slots.SlotLease(Path(slots), "native-player", 3),
+        )
     capacity.__enter__()
     Path(os.environ["FAKE_ADMITTED"]).touch()
     # Neither an unlocked abandoned ticket nor diagnostic text proves admission.
@@ -155,12 +158,13 @@ def verify_admission_watchdog(root: Path, environment: dict[str, str]) -> None:
         "FAKE_WAIT_PID": str(pid_path),
         "DITTO_CI_SAMPLE_TIMEOUT_SECONDS": "0.4",
     }
-    for mode in ("pass", "stall", "cancel", "cancel-gate"):
+    for mode in ("browser-pass", "pass", "stall", "cancel", "cancel-gate"):
         marker.unlink(missing_ok=True)
         pid_path.unlink(missing_ok=True)
-        holder = resource_slots.SlotLease(slots, "machine-heavy", 6, 6)
+        resource, count = ("browser", 2) if mode == "browser-pass" else ("machine-heavy", 6)
+        holder = resource_slots.SlotLease(slots, resource, count, count)
         holder.__enter__()
-        case = env | ({"FAKE_SLEEP": "10", "FAKE_CHILD_MARKER": str(child_marker)}
+        case = env | {"FAKE_ADMISSION_RESOURCE": resource} | ({"FAKE_SLEEP": "10", "FAKE_CHILD_MARKER": str(child_marker)}
                       if mode == "stall" else {})
         arguments = (["gate", "--sample", "chess", "--sample", "reactant"]
                      if mode == "cancel-gate" else ["sample", "chess"])
@@ -182,7 +186,7 @@ def verify_admission_watchdog(root: Path, environment: dict[str, str]) -> None:
                 assert time.monotonic() < deadline, "runner did not queue"
                 time.sleep(0.01)
             # An unrelated queue inspection must not hide a live child's ticket.
-            with (slots / ".machine-heavy.admission.lock").open("a+") as guard:
+            with (slots / f".{resource}.admission.lock").open("a+") as guard:
                 platform_support.lock_file(guard)
                 try:
                     time.sleep(0.8)
@@ -197,7 +201,7 @@ def verify_admission_watchdog(root: Path, environment: dict[str, str]) -> None:
             stdout, stderr = process.communicate(timeout=5)
             completed = subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
             evidence = artifact_root(completed)
-            if mode == "pass":
+            if mode in ("pass", "browser-pass"):
                 assert process.returncode == 0, stderr
                 assert marker.exists()
             elif mode == "stall":
@@ -220,9 +224,9 @@ def verify_admission_watchdog(root: Path, environment: dict[str, str]) -> None:
                 process.communicate()
         for pid in pids:
             assert resource_slots.active_admission_ticket(pid, slots) is None
-            for ticket in slots.glob(f".machine-heavy.queue.*.{pid:010d}.*.lock"):
+            for ticket in slots.glob(f".*.queue.*.{pid:010d}.*.lock"):
                 ticket.unlink()
-        for name, count in (("machine-heavy", 6), ("native-player", 3)):
+        for name, count in (("machine-heavy", 6), ("native-player", 3), ("browser", 2)):
             with resource_slots.SlotLease(slots, name, count, count):
                 pass
 

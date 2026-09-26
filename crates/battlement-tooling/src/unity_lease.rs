@@ -110,10 +110,22 @@ impl BrowserCapacityLease {
     )
   }
 
-  /// Waits until one bounded browser session can start.
+  /// Waits for a browser slot before joining machine-capacity admission.
   pub fn acquire(directory: &Path) -> Result<Self> {
-    wait_for_capacity(directory, BROWSER_CAPACITY_UNITS, || {
-      Self::try_acquire(directory)
+    let browser = wait_for_resource(directory, "browser", BROWSER_SLOTS, 1, || {
+      SlotSet::try_acquire(directory, "browser", BROWSER_SLOTS, 1)
+    })?;
+    let capacity = wait_for_capacity(directory, BROWSER_CAPACITY_UNITS, || {
+      SlotSet::try_acquire(
+        directory,
+        "machine-heavy",
+        MACHINE_CAPACITY_SLOTS,
+        BROWSER_CAPACITY_UNITS,
+      )
+    })?;
+    Ok(Self {
+      _capacity: capacity,
+      _browser: browser,
     })
   }
 }
@@ -388,9 +400,25 @@ fn inherited_compiler_capacity(directory: &Path) -> usize {
 fn wait_for_capacity<T>(
   directory: &Path,
   units: usize,
+  acquire: impl FnMut() -> Result<Option<T>>,
+) -> Result<T> {
+  wait_for_resource(
+    directory,
+    "machine-heavy",
+    MACHINE_CAPACITY_SLOTS,
+    units,
+    acquire,
+  )
+}
+
+fn wait_for_resource<T>(
+  directory: &Path,
+  name: &str,
+  count: usize,
+  units: usize,
   mut acquire: impl FnMut() -> Result<Option<T>>,
 ) -> Result<T> {
-  let ticket = AdmissionTicket::join(directory, "machine-heavy")?;
+  let ticket = AdmissionTicket::join(directory, name)?;
   let started = std::time::Instant::now();
   let mut next_diagnostic = Duration::from_secs(1);
   loop {
@@ -401,9 +429,9 @@ fn wait_for_capacity<T>(
     }
     if started.elapsed() >= next_diagnostic {
       let (position, depth) = ticket.position()?;
-      let held = SlotSet::held(directory, "machine-heavy", MACHINE_CAPACITY_SLOTS)?;
+      let held = SlotSet::held(directory, name, count)?;
       eprintln!(
-        "Resource capacity: waiting for machine-heavy ({units} of {MACHINE_CAPACITY_SLOTS} \
+        "Resource capacity: waiting for {name} ({units} of {count} \
          units; {held} held; queue {position}/{depth})"
       );
       next_diagnostic += WAIT_DIAGNOSTIC_INTERVAL;

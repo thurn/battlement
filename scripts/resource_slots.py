@@ -140,7 +140,7 @@ def active_admission_ticket(pid: int, directory: Path = GLOBAL_RESOURCE_ROOT) ->
     """Observe a live child's locked FIFO ticket without changing queue ownership."""
     # Queue-guard contention is unrelated to whether this child is still queued.
     # Unlike queue maintenance, observation never removes an unlocked ticket.
-    for path in directory.glob(f".machine-heavy.queue.*.{pid:010d}.*.lock"):
+    for path in directory.glob(f".*.queue.*.{pid:010d}.*.lock"):
         try:
             candidate = path.open("r+")
         except FileNotFoundError:

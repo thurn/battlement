@@ -65,6 +65,10 @@ selected, _reasons = ci_selection.select_reactant_assets(
     ["crates/battlement-reactant-assets/src/lib.rs"]
 )
 assert selected
+selected, _reasons = ci_selection.select_reactant_assets(
+    ["crates/battlement-tooling/src/unity_lease.rs"]
+)
+assert selected
 selected, reasons = ci_selection.select_reactant_assets(
     ["samples/chess/rules/src/lib.rs"]
 )
