@@ -24,6 +24,9 @@ use crate::macos_fixture::{FixtureBuild, FixtureLauncher, PassMaterializer};
 #[path = "support/macos_fixture.rs"]
 mod macos_fixture;
 
+#[path = "support/macos_cleanup.rs"]
+mod macos_cleanup;
+
 static CAPTURE_TEST_GATE: Mutex<()> = Mutex::new(());
 
 #[test]

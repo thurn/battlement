@@ -13,6 +13,7 @@ pub mod image_comparison;
 pub mod ios_capture;
 pub mod ios_simulator;
 pub mod macos_capture;
+mod macos_cleanup;
 mod macos_job_failure;
 mod macos_lifecycle;
 mod macos_watch_capture;

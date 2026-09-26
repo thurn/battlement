@@ -423,6 +423,9 @@ for cycle in range(2 if mode.startswith('warm-') else 1):
     }
     decision = json.load(send('POST', 'jobs/' + job['job_id'] + '/started', started))
     if decision['action'] != 'continue':
+        if mode == 'reject-ignore-shutdown':
+            while True:
+                time.sleep(0.01)
         sys.exit(0)
     open(os.environ['DITTO_FIXTURE_SETUP'], 'w').write('setup\n')
     if os.environ['DITTO_FIXTURE_MODE'] == 'idle':
@@ -527,7 +530,14 @@ for cycle in range(2 if mode.startswith('warm-') else 1):
         'reason': 'completed',
         'execution_duration_ms': len(job['scenarios']),
     }
+    if mode == 'complete-no-log':
+        os.unlink(log_path)
+    if mode == 'complete-log-conflict':
+        os.mkdir(os.path.join(os.path.dirname(log_path), 'logs', 'player-' + session + '.log'))
     send('POST', 'jobs/' + job['job_id'] + '/complete', complete).close()
+if mode == 'complete-ignore-shutdown':
+    while True:
+        time.sleep(0.01)
 if mode == 'warm-complete':
     try:
         send('GET', 'next-job?after=' + job['job_id']).close()

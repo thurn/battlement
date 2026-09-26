@@ -1,5 +1,4 @@
 use std::{
-  fs,
   path::Path,
   sync::atomic::{AtomicBool, Ordering},
   thread,
@@ -8,6 +7,7 @@ use std::{
 
 use crate::{
   macos_capture::MacosCaptureOutcome,
+  macos_cleanup::{self, LogEvidence},
   player_supervision::{PlayerExitStatus, PlayerSupervisor},
   run_errors::RunErrors,
   scenario_orchestration::ScenarioOrchestrationSnapshot,
@@ -178,52 +178,9 @@ pub(crate) fn finish(
   let startup_index = phases.len();
   phases.push(startup_phase);
   server.expire();
-  let cleanup_started = Instant::now();
-  let stopped = supervisor.stop();
-  let mut cleanup = phase(
-    PhaseName::Cleanup,
-    PhaseStatus::Passed,
-    cleanup_started.elapsed().as_millis() as u64,
-  );
-  let player_exit = match stopped {
-    Ok(status) => Some(status),
-    Err(error) => {
-      cleanup.status = PhaseStatus::Failed;
-      cleanup.error_ids.push(record(
-        errors,
-        server.player_session_id(),
-        ErrorCode::RuntimeDestroyFailed,
-        error.to_string(),
-      ));
-      None
-    }
-  };
-
-  phases.push(cleanup);
-  let relative = format!("logs/player-{}.log", server.player_session_id());
-  let log = match fs::create_dir_all(evidence.directory.join("logs"))
-    .and_then(|()| fs::copy(evidence.player_log, evidence.directory.join(&relative)))
-  {
-    Ok(_) => Some(relative),
-    Err(error) if error.kind() == std::io::ErrorKind::NotFound && !evidence.player_log.exists() => {
-      None
-    }
-    Err(error) => {
-      let mut durability = phase(PhaseName::Durability, PhaseStatus::Failed, 0);
-      durability.error_ids.push(record(
-        errors,
-        server.player_session_id(),
-        ErrorCode::DurabilityFailed,
-        error.to_string(),
-      ));
-      phases.push(durability);
-      None
-    }
-  };
-  phases[startup_index].log_path = log.clone();
-  MacosCaptureOutcome {
+  let mut outcome = MacosCaptureOutcome {
     exit_code: if interrupted { 130 } else { 2 },
-    player_exit,
+    player_exit: None,
     player_session: Some(PlayerSessionResult {
       player_session_id: server.player_session_id().to_owned(),
       accepted: matches!(evidence.session, Session::Accepted(_)),
@@ -239,12 +196,32 @@ pub(crate) fn finish(
             })
         }
       },
-      diagnostic_paths: log.into_iter().collect(),
+      diagnostic_paths: Vec::new(),
     }),
     orchestration,
     phases,
-    errors: errors.snapshot(),
-  }
+    errors: Vec::new(),
+  };
+  macos_cleanup::finish(
+    &mut outcome,
+    supervisor,
+    Duration::ZERO,
+    Duration::ZERO,
+    LogEvidence {
+      source: evidence.player_log,
+      directory: evidence.directory,
+      required: matches!(evidence.session, Session::Accepted(_)),
+      errors,
+    },
+  );
+  outcome.phases[startup_index].log_path = outcome
+    .player_session
+    .as_ref()
+    .unwrap()
+    .diagnostic_paths
+    .first()
+    .cloned();
+  outcome
 }
 
 fn record(errors: &RunErrors, session: &str, code: ErrorCode, message: String) -> String {

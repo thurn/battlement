@@ -1,11 +1,9 @@
 //! Bounded execution of one immutable macOS capture player.
 
 use std::{
-  fs,
   path::{Path, PathBuf},
   process::{Child, Command, Stdio},
   sync::{Arc, atomic::AtomicBool},
-  thread,
   time::{Duration, Instant},
 };
 
@@ -19,6 +17,7 @@ use battlement_tooling::{
 use uuid::Uuid;
 
 use crate::{
+  macos_cleanup::{self, LogEvidence},
   macos_job_failure,
   macos_lifecycle::{self, Evidence, Session, Stage},
   native_execution::NativeExecution,
@@ -247,29 +246,26 @@ pub fn capture_macos(
       None,
     ));
     server.expire();
-    let player_exit = wait_for_exit(
-      &mut supervisor,
-      request.timeouts.shutdown,
-      request.timeouts.poll_interval,
-    )?;
-    let diagnostic = retain_player_log(
-      &request.player_log_source,
-      &request.requirements.storage_directory,
-      &player_session_id,
-    )?;
-    return Ok(MacosCaptureOutcome {
+    let mut outcome = MacosCaptureOutcome {
       errors: Vec::new(),
       exit_code: 2,
-      player_exit,
-      player_session: report.map(|startup_report| PlayerSessionResult {
+      player_exit: None,
+      player_session: Some(PlayerSessionResult {
         player_session_id,
         accepted: false,
-        startup_report: Some(startup_report),
-        diagnostic_paths: vec![diagnostic],
+        startup_report: report,
+        diagnostic_paths: Vec::new(),
       }),
       orchestration: orchestrator.snapshot(),
-      phases: with_cleanup(phases),
-    });
+      phases,
+    };
+    cleanup(
+      &mut outcome,
+      &mut supervisor,
+      &request,
+      request.timeouts.shutdown,
+    );
+    return Ok(outcome);
   }
   let report = report.context("fresh macOS player did not report startup facts")?;
   ensure!(
@@ -324,12 +320,6 @@ pub fn capture_macos(
   } else {
     request.timeouts.interrupt_grace
   };
-  let player_exit = wait_for_exit(&mut supervisor, shutdown, request.timeouts.poll_interval)?;
-  let diagnostic = retain_player_log(
-    &request.player_log_source,
-    &request.requirements.storage_directory,
-    &player_session_id,
-  )?;
   let orchestration = orchestrator.snapshot();
   let exit_code = if terminal {
     execution_exit_code(&orchestration)
@@ -351,20 +341,41 @@ pub fn capture_macos(
     None,
   ));
   phases.extend(boundary_phases(&orchestration));
-  phases.push(phase(PhaseName::Cleanup, PhaseStatus::Passed, 0, None));
-  Ok(MacosCaptureOutcome {
+  let mut outcome = MacosCaptureOutcome {
     errors: Vec::new(),
     exit_code,
-    player_exit,
+    player_exit: None,
     player_session: Some(PlayerSessionResult {
       player_session_id,
       accepted: true,
       startup_report: Some(report),
-      diagnostic_paths: vec![diagnostic],
+      diagnostic_paths: Vec::new(),
     }),
     orchestration,
     phases,
-  })
+  };
+  cleanup(&mut outcome, &mut supervisor, &request, shutdown);
+  Ok(outcome)
+}
+
+fn cleanup(
+  outcome: &mut MacosCaptureOutcome,
+  supervisor: &mut PlayerSupervisor,
+  request: &MacosCaptureRequest<'_>,
+  grace: Duration,
+) {
+  macos_cleanup::finish(
+    outcome,
+    supervisor,
+    grace,
+    request.timeouts.poll_interval,
+    LogEvidence {
+      source: &request.player_log_source,
+      directory: &request.requirements.storage_directory,
+      required: true,
+      errors: &request.errors,
+    },
+  );
 }
 
 fn validate_build(request: &MacosCaptureRequest<'_>) -> Result<MacosStartupIdentity> {
@@ -437,29 +448,6 @@ fn validate_timeouts(timeouts: MacosCaptureTimeouts) -> Result<()> {
   Ok(())
 }
 
-fn wait_for_exit(
-  supervisor: &mut PlayerSupervisor,
-  timeout: Duration,
-  poll_interval: Duration,
-) -> Result<Option<PlayerExitStatus>> {
-  let started = Instant::now();
-  while started.elapsed() < timeout {
-    if let Some(status) = supervisor.poll()? {
-      return Ok(Some(status));
-    }
-    thread::sleep(poll_interval);
-  }
-  Ok(None)
-}
-
-fn retain_player_log(source: &Path, directory: &Path, session_id: &str) -> Result<String> {
-  ensure!(source.is_file(), "macOS player log was not created");
-  let relative = format!("logs/player-{session_id}.log");
-  let destination = directory.join(&relative);
-  fs::copy(source, &destination).context("retain scoped macOS player log")?;
-  Ok(relative)
-}
-
 fn execution_exit_code(snapshot: &ScenarioOrchestrationSnapshot) -> u8 {
   if snapshot.scenarios.iter().any(|scenario| {
     matches!(
@@ -501,11 +489,6 @@ fn boundary_phases(snapshot: &ScenarioOrchestrationSnapshot) -> [PhaseResult; 2]
       None,
     ),
   ]
-}
-
-fn with_cleanup(mut phases: Vec<PhaseResult>) -> Vec<PhaseResult> {
-  phases.push(phase(PhaseName::Cleanup, PhaseStatus::Passed, 0, None));
-  phases
 }
 
 fn phase(
