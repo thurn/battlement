@@ -33,6 +33,10 @@ If unavailable, run `playwright-mcp-service start` and retry. Never directly
 launch a browser/automation CLI or request a shared context. Prefer snapshots,
 DOM state, and locators; take screenshots when appearance is relevant.
 Close this task's browser context after QA, leaving the shared service running.
+Repository and scripted manual checks use `scripts/playwright_mcp.py::PlaywrightMcp`,
+which owns browser admission through session cleanup; do not wrap it in another
+browser lease. Direct MCP walkthroughs must hold `playwright_capacity_lease()`
+from `scripts/resource_slots.py` through their owned context cleanup.
 
 For a requested public demo, include the verified public URL and interaction
 walkthrough in the handoff. Keep its durable services running through review.

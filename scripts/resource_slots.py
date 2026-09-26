@@ -404,12 +404,9 @@ def compiler_maintenance_lease() -> SlotLease:
     )
 
 
-def browser_capacity_lease() -> LeaseGroup:
-    """Reserve one bounded browser session and one machine unit."""
-    return LeaseGroup(
-        SlotLease(GLOBAL_RESOURCE_ROOT, "machine-heavy", MACHINE_CAPACITY),
-        SlotLease(GLOBAL_RESOURCE_ROOT, "browser", 2),
-    )
+def playwright_capacity_lease() -> SlotLease:
+    """Serialize the singleton renderer independently of compiler and asset browsers."""
+    return SlotLease(GLOBAL_RESOURCE_ROOT, "playwright-browser", 1)
 
 
 def native_player_capacity_lease() -> LeaseGroup:

@@ -11,6 +11,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from resource_slots import playwright_capacity_lease
+
 
 ENDPOINT = "http://localhost:8931/mcp"
 
@@ -29,9 +31,12 @@ class PlaywrightMcp:
         self.listener: Thread | None = None
         self.stopping = Event()
         self.stream_error: Exception | None = None
+        self.capacity = None
 
     def __enter__(self) -> PlaywrightMcp:
         try:
+            self.capacity = playwright_capacity_lease()
+            self.capacity.acquire()
             arguments = {
                 "protocolVersion": self.protocol,
                 "capabilities": {},
@@ -162,7 +167,15 @@ class PlaywrightMcp:
     def close(self) -> None:
         """Close only this client's page and MCP session; leave the singleton running."""
         try:
-            if "browser_close" in self.tools:
+            self._close_session()
+        finally:
+            if self.capacity is not None:
+                self.capacity.close()
+                self.capacity = None
+
+    def _close_session(self) -> None:
+        try:
+            if self.session_id and "browser_close" in self.tools:
                 self.call("browser_close", {})
         finally:
             try:
