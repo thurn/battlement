@@ -68,7 +68,12 @@ pub(crate) fn build(
     &maintenance_commands::discovery_request(suite, Target::Webgl)?,
   )?;
   let selected = webgl_build::select_webgl_player(
-    &self::build_request(suite, &discovery, preparation)?,
+    &self::build_request(
+      suite,
+      &discovery,
+      preparation,
+      BuildControl::new(interrupted),
+    )?,
     true,
     BuildControl::new(interrupted),
   )?;
@@ -147,7 +152,12 @@ pub(crate) fn execute(
   if !run_preflight::comparison(&discovery, selection, options.command, result) {
     return Ok(());
   }
-  let request = self::build_request(suite, &discovery, options.preparation.as_ref())?;
+  let request = self::build_request(
+    suite,
+    &discovery,
+    options.preparation.as_ref(),
+    BuildControl::new(interrupted),
+  )?;
   let build_started = Instant::now();
   let selected =
     webgl_build::select_webgl_player(&request, !options.no_build, BuildControl::new(interrupted))?;
@@ -390,8 +400,9 @@ fn build_request(
   suite: &Suite,
   discovery: &HostDiscovery,
   preparation: &dyn PlayerPreparation,
+  control: BuildControl<'_>,
 ) -> Result<WebglBuildRequest> {
-  preparation.prepare(suite)?;
+  preparation.prepare(suite, control)?;
   let unity_editor = macos_run::required_tool(&discovery.unity)?;
   let cargo = SystemHost
     .find_executable("cargo")

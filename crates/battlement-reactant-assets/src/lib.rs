@@ -9,10 +9,12 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use battlement_tooling::build_control::BuildControl;
 use serde::Serialize;
 use tempfile::Builder;
 
 mod browser;
+mod browser_connection;
 mod browser_protocol;
 mod dependency;
 mod diagnostics;
@@ -105,22 +107,31 @@ pub struct WorkReport {
 }
 
 /// Runs one public asset-generator command and writes its requested work report.
-pub fn run(command: AssetCommand, options: &CommandOptions) -> Result<()> {
-  self::run_with_diagnostics(command, options, true)
+pub fn run(
+  command: AssetCommand,
+  options: &CommandOptions,
+  control: BuildControl<'_>,
+) -> Result<()> {
+  self::run_with_diagnostics(command, options, true, control)
 }
 
 /// Runs one asset-generator command without writing diagnostics to standard output.
-pub fn run_quiet(command: AssetCommand, options: &CommandOptions) -> Result<()> {
-  self::run_with_diagnostics(command, options, false)
+pub fn run_quiet(
+  command: AssetCommand,
+  options: &CommandOptions,
+  control: BuildControl<'_>,
+) -> Result<()> {
+  self::run_with_diagnostics(command, options, false, control)
 }
 
 fn run_with_diagnostics(
   command: AssetCommand,
   options: &CommandOptions,
   emit_diagnostics: bool,
+  control: BuildControl<'_>,
 ) -> Result<()> {
   let mut report = WorkReport::default();
-  let result = self::run_inner(command, options, &mut report, emit_diagnostics);
+  let result = self::run_inner(command, options, &mut report, emit_diagnostics, control);
   let report_result = options
     .work_report
     .as_deref()
@@ -138,7 +149,9 @@ fn run_inner(
   options: &CommandOptions,
   report: &mut WorkReport,
   emit_diagnostics: bool,
+  control: BuildControl<'_>,
 ) -> Result<()> {
+  control.check()?;
   let current = env::current_dir().context("failed to read the current directory")?;
   let project = self::select_project(options.project.as_deref(), &current, report)?;
   if command != AssetCommand::Check {
@@ -153,7 +166,9 @@ fn run_inner(
     &options.feature_selection,
     &mut index,
     report,
+    control,
   )?;
+  control.check()?;
   let catalog = identity::resolve(&discovery, &project, index.dependencies(), report)?;
   let semantic_unchanged = index.record_catalog(&catalog)?;
   let outputs_current = index.outputs_current(report);
@@ -216,6 +231,7 @@ fn run_inner(
       dependencies,
       browser_index,
       report,
+      control,
     )?;
     if emit_diagnostics {
       println!(
@@ -248,6 +264,7 @@ fn run_inner(
         }
       }
     }
+    control.check()?;
     if !diagnostics.is_clean() || browser.session_requests != 0 {
       manifest::install(&project, &catalog, &browser, report)?;
     }
@@ -273,6 +290,7 @@ fn run_inner(
     }
     return Ok(());
   }
+  control.check()?;
   match command {
     AssetCommand::Generate => self::remove_generated_output(&project, report)?,
     AssetCommand::Check => self::check_empty_output(&project, report)?,

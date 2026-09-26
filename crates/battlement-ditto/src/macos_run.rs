@@ -74,8 +74,14 @@ pub(crate) fn build(
     .context("macOS build discovery")?;
   let discovery = HostDiscovery::inspect(&SystemHost, &discovery_request)
     .context("macOS build tool discovery")?;
-  let request = build_request(suite, &discovery, !options.debug_rules, preparation)
-    .context("macOS build setup")?;
+  let request = build_request(
+    suite,
+    &discovery,
+    !options.debug_rules,
+    preparation,
+    BuildControl::new(interrupted),
+  )
+  .context("macOS build setup")?;
   let selected = macos_build::select_macos_player(&request, true, BuildControl::new(interrupted))
     .with_context(|| {
     format!(
@@ -262,7 +268,13 @@ fn execute_inner(
     }
   } else {
     macos_build::select_macos_player(
-      &build_request(suite, &discovery, true, options.preparation.as_ref())?,
+      &build_request(
+        suite,
+        &discovery,
+        true,
+        options.preparation.as_ref(),
+        BuildControl::new(interrupted),
+      )?,
       !options.no_build,
       BuildControl::new(interrupted),
     )?
@@ -495,9 +507,10 @@ fn build_request(
   discovery: &HostDiscovery,
   release_rules: bool,
   preparation: &dyn PlayerPreparation,
+  control: BuildControl<'_>,
 ) -> Result<MacosBuildRequest> {
   preparation
-    .prepare(suite)
+    .prepare(suite, control)
     .with_context(|| format!("prepare macOS build inputs for {}", suite.source.display()))?;
   let unity_editor = required_tool(&discovery.unity)?;
   let cargo = SystemHost

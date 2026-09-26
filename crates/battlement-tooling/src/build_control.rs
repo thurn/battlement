@@ -49,7 +49,8 @@ impl BuildControl<'_> {
     Ok(())
   }
 
-  pub(crate) fn lock_exclusive(self, path: &Path) -> Result<File> {
+  /// Acquires an exclusive file lock while observing caller cancellation.
+  pub fn lock_exclusive(self, path: &Path) -> Result<File> {
     loop {
       self.check()?;
       if let Some(file) = build_cache_io::try_lock_exclusive(path)? {
@@ -59,7 +60,8 @@ impl BuildControl<'_> {
     }
   }
 
-  pub(crate) fn output(self, command: &mut Command) -> Result<Output> {
+  /// Captures a command and settles its owned process group when interrupted.
+  pub fn output(self, command: &mut Command) -> Result<Output> {
     self.check()?;
     let mut stdout = tempfile::tempfile()?;
     let mut stderr = tempfile::tempfile()?;

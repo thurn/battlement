@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use battlement_reactant_asset_syntax::AssetRequest;
+use battlement_tooling::build_control::BuildControl;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -110,15 +111,23 @@ pub(crate) fn discover(
   features: &FeatureSelection,
   index: &mut IncrementalIndex,
   report: &mut WorkReport,
+  control: BuildControl<'_>,
 ) -> Result<Discovery> {
   index.sources().begin_run();
   let (host_target, host_packages, wasm_packages) =
     if let Some(graph) = index.reusable_graph(report) {
       (graph.host_target, graph.host_packages, graph.wasm_packages)
     } else {
-      let host_target = self::host_target(report)?;
-      let host = self::resolve_graph("host", &host_target, manifest, features, report)?;
-      let wasm = self::resolve_graph("WebAssembly", WASM_TARGET, manifest, features, report)?;
+      let host_target = self::host_target(report, control)?;
+      let host = self::resolve_graph("host", &host_target, manifest, features, report, control)?;
+      let wasm = self::resolve_graph(
+        "WebAssembly",
+        WASM_TARGET,
+        manifest,
+        features,
+        report,
+        control,
+      )?;
       let manifests = host.manifests.union(&wasm.manifests).cloned().collect();
       index.replace_graph(
         project,
@@ -147,11 +156,10 @@ pub(crate) fn discover(
   })
 }
 
-fn host_target(report: &mut WorkReport) -> Result<String> {
+fn host_target(report: &mut WorkReport, control: BuildControl<'_>) -> Result<String> {
   report.subprocesses_started += 1;
-  let output = Command::new("rustc")
-    .arg("-vV")
-    .output()
+  let output = control
+    .output(Command::new("rustc").arg("-vV"))
     .context("failed to query the host Rust target")?;
   if !output.status.success() {
     bail!(
@@ -171,8 +179,9 @@ fn resolve_graph(
   manifest: &Path,
   features: &FeatureSelection,
   report: &mut WorkReport,
+  control: BuildControl<'_>,
 ) -> Result<GraphResolution> {
-  let metadata = self::metadata(target, manifest, features, report)
+  let metadata = self::metadata(target, manifest, features, report, control)
     .with_context(|| format!("failed to resolve the {origin} Cargo graph ({target})"))?;
   let root = metadata
     .packages
@@ -284,6 +293,7 @@ fn metadata(
   manifest: &Path,
   features: &FeatureSelection,
   report: &mut WorkReport,
+  control: BuildControl<'_>,
 ) -> Result<Metadata> {
   let mut command = Command::new("cargo");
   command.args(["metadata", "--format-version", "1", "--manifest-path"]);
@@ -299,7 +309,9 @@ fn metadata(
   }
   report.cargo_metadata_runs += 1;
   report.subprocesses_started += 1;
-  let output = command.output().context("failed to run Cargo metadata")?;
+  let output = control
+    .output(&mut command)
+    .context("failed to run Cargo metadata")?;
   if !output.status.success() {
     bail!(
       "Cargo metadata failed: {}",

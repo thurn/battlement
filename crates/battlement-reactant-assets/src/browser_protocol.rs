@@ -2,7 +2,6 @@ use std::{
   collections::HashSet,
   ffi::OsString,
   fs,
-  net::TcpStream,
   path::{Path, PathBuf},
   process::{Child, Command, Stdio},
   thread,
@@ -11,8 +10,9 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use base64::Engine;
-use battlement_tooling::{discovery, host::SystemHost, unity_lease::BrowserCapacityLease};
-use fs2::FileExt;
+use battlement_tooling::{
+  build_control::BuildControl, discovery, host::SystemHost, unity_lease::BrowserCapacityLease,
+};
 #[cfg(unix)]
 use nix::{
   sys::signal::{Signal, killpg},
@@ -21,26 +21,21 @@ use nix::{
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
-use tungstenite::{Message, WebSocket, connect, stream::MaybeTlsStream};
 
 use crate::{
-  WorkReport, browser::BrowserIdentity, incremental::FileFingerprint,
+  WorkReport, browser::BrowserIdentity, browser_connection::Protocol, incremental::FileFingerprint,
   renderer_document::RenderDocument,
 };
 
-pub(crate) struct BrowserSession {
-  protocol: Protocol,
+pub(crate) struct BrowserSession<'a> {
+  protocol: Protocol<'a>,
+  control: BuildControl<'a>,
   child: Option<Child>,
   _capacity: BrowserCapacityLease,
   browser_spills: BrowserSpillLease,
   _profile: TempDir,
   context_id: String,
   session_id: String,
-}
-
-struct Protocol {
-  socket: WebSocket<MaybeTlsStream<TcpStream>>,
-  next_id: u64,
 }
 
 struct BrowserSpillLease {
@@ -52,16 +47,18 @@ struct BrowserSpillLease {
   _lock: fs::File,
 }
 
-impl BrowserSession {
+impl<'a> BrowserSession<'a> {
   pub(crate) fn launch(
     executable: &Path,
     executable_fingerprint: FileFingerprint,
     cached_hash: Option<&str>,
     explicit: bool,
     report: &mut WorkReport,
+    control: BuildControl<'a>,
   ) -> Result<(Self, BrowserIdentity)> {
-    let capacity = BrowserCapacityLease::acquire(&discovery::resource_slots(&SystemHost))?;
-    let browser_spills = BrowserSpillLease::acquire()?;
+    let capacity =
+      BrowserCapacityLease::acquire_with_control(&discovery::resource_slots(&SystemHost), control)?;
+    let browser_spills = BrowserSpillLease::acquire(control)?;
     let profile = tempfile::tempdir().context("failed to create isolated browser profile")?;
     let mut command = Command::new(executable);
     command
@@ -95,39 +92,29 @@ impl BrowserSession {
 
       command.process_group(0);
     }
+    control.check()?;
     let mut child = command
       .spawn()
       .with_context(|| format!("failed to launch browser {}", executable.display()))?;
     report.browser_launches += 1;
     report.subprocesses_started += 1;
-    let endpoint = match self::wait_for_endpoint(&mut child, &profile, explicit, report) {
+    let endpoint = match self::wait_for_endpoint(&mut child, &profile, explicit, report, control) {
       Ok(endpoint) => endpoint,
       Err(error) => {
         self::terminate_child(&mut child);
         return Err(error);
       }
     };
-    let connection = connect(endpoint.as_str())
-      .with_context(|| format!("failed to connect to browser protocol at {endpoint}"));
-    let (mut socket, _) = match connection {
-      Ok(connection) => connection,
+    let protocol = match Protocol::connect(&endpoint, control) {
+      Ok(protocol) => protocol,
       Err(error) => {
         self::terminate_child(&mut child);
         return Err(error);
       }
     };
-    if let MaybeTlsStream::Plain(stream) = socket.get_mut() {
-      if let Err(error) = stream.set_read_timeout(Some(Duration::from_secs(10))) {
-        self::terminate_child(&mut child);
-        return Err(error.into());
-      }
-      if let Err(error) = stream.set_write_timeout(Some(Duration::from_secs(10))) {
-        self::terminate_child(&mut child);
-        return Err(error.into());
-      }
-    }
     let mut session = Self {
-      protocol: Protocol { socket, next_id: 1 },
+      protocol,
+      control,
       child: Some(child),
       _capacity: capacity,
       browser_spills,
@@ -223,6 +210,7 @@ impl BrowserSession {
     );
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
+      self.control.check()?;
       if self.evaluate(&expression, false).ok() == Some(Value::Bool(true)) {
         return Ok(());
       }
@@ -342,15 +330,21 @@ impl BrowserSession {
   }
 }
 
-impl Drop for BrowserSession {
+impl Drop for BrowserSession<'_> {
   fn drop(&mut self) {
+    if self.control.check().is_err()
+      && let Some(mut child) = self.child.take()
+    {
+      self::terminate_child(&mut child);
+    }
     self::stop_child(&mut self.child);
     self.browser_spills.cleanup();
   }
 }
 
 impl BrowserSpillLease {
-  fn acquire() -> Result<Self> {
+  fn acquire(control: BuildControl<'_>) -> Result<Self> {
+    control.check()?;
     #[cfg(target_os = "macos")]
     {
       let root = std::env::temp_dir()
@@ -358,11 +352,7 @@ impl BrowserSpillLease {
         .context("temporary directory has no parent")?
         .join("X/com.google.Chrome.code_sign_clone");
       fs::create_dir_all(&root)?;
-      let lock = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(root.join(".battlement.lock"))?;
-      lock.lock_exclusive()?;
+      let lock = control.lock_exclusive(&root.join(".battlement.lock"))?;
       let existing = self::spill_directories(&root)?;
       Ok(Self {
         root,
@@ -408,46 +398,17 @@ fn spill_directories(root: &Path) -> Result<HashSet<OsString>> {
   )
 }
 
-impl Protocol {
-  fn command(&mut self, method: &str, params: Value, session: Option<&str>) -> Result<Value> {
-    let id = self.next_id;
-    self.next_id += 1;
-    let mut request = json!({"id": id, "method": method, "params": params});
-    if let Some(session) = session {
-      request["sessionId"] = Value::String(session.to_owned());
-    }
-    self
-      .socket
-      .send(Message::Text(request.to_string().into()))?;
-    loop {
-      let message = self.socket.read()?;
-      let Message::Text(text) = message else {
-        continue;
-      };
-      let response: Value = serde_json::from_str(&text)?;
-      if response.get("id").and_then(Value::as_u64) != Some(id) {
-        continue;
-      }
-      if let Some(error) = response.get("error") {
-        bail!("browser protocol {method} failed: {error}");
-      }
-      return response
-        .get("result")
-        .cloned()
-        .with_context(|| format!("browser protocol {method} omitted its result"));
-    }
-  }
-}
-
 fn wait_for_endpoint(
   child: &mut Child,
   profile: &TempDir,
   explicit: bool,
   report: &mut WorkReport,
+  control: BuildControl<'_>,
 ) -> Result<String> {
   let active_port = profile.path().join("DevToolsActivePort");
   let deadline = Instant::now() + Duration::from_secs(10);
   loop {
+    control.check()?;
     if let Ok(contents) = fs::read_to_string(&active_port) {
       report.files_opened += 1;
       report.bytes_read += contents.len() as u64;
@@ -513,7 +474,14 @@ fn terminate_process_group(id: u32) {
   let _ = killpg(group, Signal::SIGKILL);
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn terminate_process_group(id: u32) {
+  let _ = Command::new("taskkill")
+    .args(["/PID", &id.to_string(), "/T", "/F"])
+    .output();
+}
+
+#[cfg(not(any(unix, windows)))]
 fn terminate_process_group(_id: u32) {}
 
 fn required_string(value: &Value, field: &str) -> Result<String> {

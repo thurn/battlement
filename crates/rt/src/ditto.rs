@@ -8,10 +8,11 @@ use std::{
 
 use anyhow::{Context, Result, ensure};
 use battlement_ditto::{config::model::Suite, preparation::PlayerPreparation};
+use battlement_tooling::build_control::BuildControl;
 
 use crate::project::Overrides;
 
-type AssetPreparation = dyn Fn(&Path, &Path) -> Result<()> + Send + Sync;
+type AssetPreparation = dyn Fn(&Path, &Path, BuildControl<'_>) -> Result<()> + Send + Sync;
 
 struct ReactantPreparation {
   prepared: Mutex<BTreeSet<PathBuf>>,
@@ -28,7 +29,8 @@ impl ReactantPreparation {
 }
 
 impl PlayerPreparation for ReactantPreparation {
-  fn prepare(&self, suite: &Suite) -> Result<()> {
+  fn prepare(&self, suite: &Suite, control: BuildControl<'_>) -> Result<()> {
+    control.check()?;
     if !suite.player.reactant {
       return Ok(());
     }
@@ -47,7 +49,8 @@ impl PlayerPreparation for ReactantPreparation {
       suite.player.rust_manifest.display(),
       project.manifest.display()
     );
-    (self.prepare_assets)(&project.root, &project.manifest)?;
+    (self.prepare_assets)(&project.root, &project.manifest, control)?;
+    control.check()?;
     prepared.insert(suite.source.clone());
     Ok(())
   }
@@ -77,8 +80,8 @@ pub(crate) fn run(
   ))
 }
 
-fn prepare_assets(project: &Path, manifest: &Path) -> Result<()> {
-  super::command::prepare_assets(project, manifest)
+fn prepare_assets(project: &Path, manifest: &Path, control: BuildControl<'_>) -> Result<()> {
+  crate::command::prepare_assets_with_control(project, manifest, control)
     .with_context(|| format!("failed to prepare Reactant project {}", project.display()))
 }
 
@@ -110,28 +113,31 @@ mod tests {
     assert!(status.success());
     let count = Arc::new(AtomicUsize::new(0));
     let observed = count.clone();
-    let preparation = ReactantPreparation::new(Arc::new(move |_, _| {
+    let preparation = ReactantPreparation::new(Arc::new(move |_, _, _| {
       observed.fetch_add(1, Ordering::SeqCst);
       Ok(())
     }));
 
     fs::write(root.join("ditto.toml"), suite(true))?;
     let reactant = battlement_ditto::config::load(Some(&root.join("ditto.toml")))?;
-    preparation.prepare(&reactant)?;
-    preparation.prepare(&reactant)?;
+    preparation.prepare(&reactant, BuildControl::default())?;
+    preparation.prepare(&reactant, BuildControl::default())?;
     assert_eq!(count.load(Ordering::SeqCst), 1);
 
     fs::write(root.join("ditto.toml"), suite(false))?;
     let direct = battlement_ditto::config::load(Some(&root.join("ditto.toml")))?;
-    preparation.prepare(&direct)?;
+    preparation.prepare(&direct, BuildControl::default())?;
     assert_eq!(count.load(Ordering::SeqCst), 1);
 
     fs::write(
       root.join("reactant.toml"),
       "[project]\napplication = \"Game\"\nscene = \"Assets/Scenes/Game.unity\"\nmanifest-path = \"rules/other.toml\"\n",
     )?;
-    let mismatch = ReactantPreparation::new(Arc::new(|_, _| Ok(())));
-    let error = mismatch.prepare(&reactant).unwrap_err().to_string();
+    let mismatch = ReactantPreparation::new(Arc::new(|_, _, _| Ok(())));
+    let error = mismatch
+      .prepare(&reactant, BuildControl::default())
+      .unwrap_err()
+      .to_string();
     assert!(error.contains("does not match reactant.toml manifest-path"));
     Ok(())
   }

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use battlement_reactant_assets::{AssetCommand, CommandOptions, FeatureSelection};
+use battlement_tooling::build_control::BuildControl;
 use clap::{Args as ClapArgs, Subcommand};
 
 use crate::project::Overrides;
@@ -47,7 +48,7 @@ struct Selection {
   work_report: Option<PathBuf>,
 }
 
-pub(crate) fn run(args: Args) -> Result<()> {
+pub(crate) fn run(args: Args, control: BuildControl<'_>) -> Result<()> {
   let (command, selection) = match args.command {
     Command::Generate(selection) => (AssetCommand::Generate, selection),
     Command::Check(selection) => (AssetCommand::Check, selection),
@@ -74,5 +75,6 @@ pub(crate) fn run(args: Args) -> Result<()> {
       browser: selection.browser,
       work_report: selection.work_report,
     },
+    control,
   )
 }

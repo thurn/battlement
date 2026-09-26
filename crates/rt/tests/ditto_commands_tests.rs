@@ -29,6 +29,21 @@ fn build_interruption_stops_queued_and_active_owned_work() {
   );
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn asset_preparation_interruption_stops_queued_and_active_owned_work() {
+  let output = ProcessCommand::new("python3")
+    .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/asset_interruption.py"))
+    .arg(env!("CARGO_BIN_EXE_rt"))
+    .output()
+    .unwrap();
+  assert!(
+    output.status.success(),
+    "{}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+}
+
 #[test]
 fn core_command_matrix_parses_complete_options() {
   assert!(matches!(

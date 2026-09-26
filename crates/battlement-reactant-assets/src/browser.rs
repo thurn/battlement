@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use battlement_tooling::build_control::BuildControl;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -113,7 +114,9 @@ pub(crate) fn prepare(
   dependencies: &mut DependencyIndex,
   index: &mut BrowserIndex,
   report: &mut WorkReport,
+  control: BuildControl<'_>,
 ) -> Result<BrowserRun> {
+  control.check()?;
   let executable = self::select(options.browser.as_deref(), report)?;
   let current = fingerprint(&executable, report)
     .with_context(|| format!("failed to fingerprint browser {}", executable.display()))?;
@@ -149,6 +152,7 @@ pub(crate) fn prepare(
     cached_hash,
     options.browser.is_some(),
     report,
+    control,
   )?;
   let expected = catalog
     .assets
@@ -160,6 +164,7 @@ pub(crate) fn prepare(
   let mut session_requests = 0;
   let mut rendered = Vec::new();
   for (asset, cache_key) in catalog.assets.iter().zip(expected) {
+    control.check()?;
     let retained_probe = index
       .requests
       .get(&asset.address)
@@ -182,6 +187,7 @@ pub(crate) fn prepare(
     requests.insert(asset.address.clone(), probe);
   }
   session.finish()?;
+  control.check()?;
   for (cache_key, png) in rendered {
     let cache_fingerprint = self::write_cache(project, &cache_key, &png.bytes, report)?;
     if let Some(probe) = requests
@@ -311,6 +317,7 @@ pub(crate) fn renderer_identity() -> String {
   hash.update(include_bytes!("renderer_document.rs"));
   hash.update(include_bytes!("png_output.rs"));
   hash.update(include_bytes!("browser_protocol.rs"));
+  hash.update(include_bytes!("browser_connection.rs"));
   hash.update(include_bytes!("manifest.rs"));
   hash.update(include_bytes!("manifest_schema.rs"));
   hash.update(include_bytes!("manifest_validation.rs"));

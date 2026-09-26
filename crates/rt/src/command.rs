@@ -7,7 +7,10 @@ use std::{
 use anyhow::Result;
 use battlement_ditto::coverage_ledger;
 use battlement_reactant_assets::{AssetCommand, CommandOptions, FeatureSelection};
-use battlement_tooling::application::BuildOptions;
+use battlement_tooling::{
+  application::BuildOptions,
+  build_control::{BuildControl, BuildInterrupted},
+};
 use clap::{Args, Parser, Subcommand};
 
 use crate::project::Overrides;
@@ -118,7 +121,11 @@ pub fn main() {
     Ok(code) => std::process::exit(code.into()),
     Err(error) => {
       eprintln!("error: {error:#}");
-      std::process::exit(1);
+      std::process::exit(if error.is::<BuildInterrupted>() {
+        130
+      } else {
+        1
+      });
     }
   }
 }
@@ -179,7 +186,7 @@ fn run() -> Result<u8> {
         )?;
       }
     }
-    Command::Assets(args) => crate::assets::run(args)?,
+    Command::Assets(args) => crate::assets::run(args, BuildControl::new(&INTERRUPTED))?,
     Command::Addressables(args) => crate::addressables::run(args)?,
     Command::Plugin(args) => crate::plugin::run(args)?,
     Command::CheckNativeCoverage { repository } => {
@@ -225,6 +232,14 @@ fn resolve_project(
 }
 
 pub(crate) fn prepare_assets(project: &std::path::Path, manifest: &std::path::Path) -> Result<()> {
+  self::prepare_assets_with_control(project, manifest, BuildControl::new(&INTERRUPTED))
+}
+
+pub(crate) fn prepare_assets_with_control(
+  project: &std::path::Path,
+  manifest: &std::path::Path,
+  control: BuildControl<'_>,
+) -> Result<()> {
   battlement_reactant_assets::run_quiet(
     AssetCommand::Generate,
     &CommandOptions {
@@ -234,6 +249,7 @@ pub(crate) fn prepare_assets(project: &std::path::Path, manifest: &std::path::Pa
       browser: None,
       work_report: None,
     },
+    control,
   )
 }
 
