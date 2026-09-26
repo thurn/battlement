@@ -396,6 +396,7 @@ impl<G: 'static> Reactant<G> {
           tree.resolve_overlay_refs(self.runtime_id, &attachments);
         }
         overlay::resolve_order(&mut rendered);
+        crate::motion_observation::prepare(&mut rendered, &previous);
         let desired_trees = rendered.iter().collect::<Vec<_>>();
         let desired = portal::layout(self.runtime_id, &desired_trees, &bindings);
         let documents = self
@@ -668,7 +669,7 @@ impl<G: 'static> Reactant<G> {
           changed |= root.committed.invoke_motion_gesture(game, event);
         }
       }
-      changed |= runtime
+      runtime
         .motion_values
         .borrow_mut()
         .apply_samples(&batch.value_samples);
@@ -737,7 +738,7 @@ impl<G: 'static> Reactant<G> {
         }
       }
       let value_samples = batch.value_samples().collect::<Vec<_>>();
-      changed |= runtime
+      runtime
         .motion_values
         .borrow_mut()
         .apply_samples(&value_samples);
@@ -965,6 +966,7 @@ impl<G: 'static> Reactant<G> {
         tree.resolve_overlay_refs(self.runtime_id, &attachments);
       }
       overlay::resolve_order(&mut rendered);
+      crate::motion_observation::prepare(&mut rendered, &previous);
       let desired_trees = rendered.iter().collect::<Vec<_>>();
       let desired = portal::layout(self.runtime_id, &desired_trees, &bindings);
       let documents = self

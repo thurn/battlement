@@ -5,7 +5,7 @@ use battlement::{
   Align, AudioClipAddress, Color, FlexDirection, FlexWrap, Length, LengthUnits, ObjectId,
   ScrollViewMode, ScrollerVisibility, Style, TransformOperation, object_id,
 };
-use reactant::prelude::*;
+use reactant::{control_behavior, prelude::*};
 use std::time::Duration;
 
 pub(crate) const AUDIO_CLIP: AudioClipAddress =
@@ -53,7 +53,7 @@ pub(crate) struct ValuesTimeControls {
 impl Component for ValuesTimeControls {
   fn render(&self) -> impl Render {
     let source = use_motion_value(0.0_f32);
-    let checkpoint = use_state(0.0_f32).1;
+    let (observed, checkpoint) = use_state(0.0_f32);
     use_motion_value_event(source.clone(), MotionValueEvent::Change, move |value| {
       checkpoint.set(value);
     });
@@ -162,6 +162,14 @@ impl Component for ValuesTimeControls {
         )))
         .name("values-transport-status")
         .style(status()),
+      )
+      .child(
+        Label::new(ls(format!("OBSERVED SOURCE {observed:.1}")))
+          .name("values-observation")
+          .semantic(control_behavior::static_text_props(ls(format!(
+            "OBSERVED SOURCE {observed:.1}"
+          ))))
+          .style(status()),
       )
       .child(
         View::new()

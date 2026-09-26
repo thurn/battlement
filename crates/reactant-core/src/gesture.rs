@@ -599,26 +599,6 @@ impl MotionProps {
     values
   }
 
-  pub(crate) fn gesture_value_subscriptions(&self) -> Vec<battlement::MotionValueSubscription> {
-    let mut subscriptions = Vec::new();
-    if let Some(drag) = &self.gestures.drag {
-      for value in [&drag.x_value, &drag.y_value].into_iter().flatten() {
-        value.collect_subscriptions(&mut subscriptions);
-      }
-    }
-    for value in [
-      &self.gestures.scroll_x_value,
-      &self.gestures.scroll_y_value,
-      &self.gestures.in_view_value,
-    ]
-    .into_iter()
-    .flatten()
-    {
-      value.collect_subscriptions(&mut subscriptions);
-    }
-    subscriptions
-  }
-
   fn drag_mut(&mut self) -> &mut DragProps {
     self
       .gestures

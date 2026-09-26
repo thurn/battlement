@@ -170,6 +170,9 @@ pub(crate) fn descriptor(
   }
   let generation = previous.map_or(MotionGeneration(1), |value| value.generation);
   let mut descriptor = motion.descriptor(host, generation, resolved, previous);
+  if let Some(previous) = previous {
+    descriptor.value_subscriptions = previous.value_subscriptions.clone();
+  }
   if let Some(previous) = previous
     && &descriptor != previous
   {
@@ -187,7 +190,10 @@ pub(crate) fn descriptor(
   Prop::Set(descriptor)
 }
 
-fn set_motion_generation(descriptor: &mut MotionDescriptor, generation: MotionGeneration) {
+pub(crate) fn set_motion_generation(
+  descriptor: &mut MotionDescriptor,
+  generation: MotionGeneration,
+) {
   descriptor.generation = generation;
   for slot in &mut descriptor.slots {
     slot.generation = generation;

@@ -304,15 +304,6 @@ impl MotionProps {
         values.push(value);
       }
     }
-    let mut value_subscriptions = target.map_or_else(Vec::new, MotionTarget::value_subscriptions);
-    for subscription in self.gesture_value_subscriptions() {
-      if !value_subscriptions
-        .iter()
-        .any(|existing| existing.subscription_id == subscription.subscription_id)
-      {
-        value_subscriptions.push(subscription);
-      }
-    }
     MotionDescriptor {
       descriptor_id: host_id,
       host_id,
@@ -339,7 +330,7 @@ impl MotionProps {
       }),
       values,
       value_bindings: target.map_or_else(Vec::new, MotionTarget::value_bindings),
-      value_subscriptions,
+      value_subscriptions: Vec::new(),
       control_id: self.control_id,
       scope_id: self.scope_id,
       scope_root: self.scope_root,

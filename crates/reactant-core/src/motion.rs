@@ -813,18 +813,6 @@ impl StyleTarget {
     }
     values
   }
-
-  pub(crate) fn value_subscriptions(&self) -> Vec<battlement::MotionValueSubscription> {
-    let mut subscriptions = Vec::new();
-    for binding in self
-      .entries
-      .iter()
-      .filter_map(|entry| entry.binding.as_ref())
-    {
-      binding.collect_subscriptions(&mut subscriptions);
-    }
-    subscriptions
-  }
 }
 
 impl MotionTarget {
@@ -884,10 +872,6 @@ impl MotionTarget {
 
   pub(crate) fn graph_values(&self) -> Vec<battlement::MotionValueDescriptor> {
     self.style.graph_values()
-  }
-
-  pub(crate) fn value_subscriptions(&self) -> Vec<battlement::MotionValueSubscription> {
-    self.style.value_subscriptions()
   }
 
   pub(crate) fn merge(mut self, value: Self) -> Self {

@@ -113,6 +113,7 @@ pub mod motion_config;
 mod motion_css;
 mod motion_filter;
 mod motion_lifecycle;
+mod motion_observation;
 mod motion_transition;
 pub mod motion_value;
 mod motion_value_runtime;

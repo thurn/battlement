@@ -5,6 +5,8 @@ use std::{
   rc::{Rc, Weak},
 };
 
+use battlement::MotionValueSubscription;
+
 use crate::{
   context,
   effect::{CommitEffectOperation, EffectOperation},
@@ -110,6 +112,10 @@ pub(crate) trait HookSlot {
   fn context_changed(&self) -> bool;
   fn kind(&self) -> HookKind;
   fn value_type(&self) -> TypeId;
+
+  fn motion_subscription(&self) -> Option<MotionValueSubscription> {
+    None
+  }
 
   fn pending_len(&self) -> usize {
     0

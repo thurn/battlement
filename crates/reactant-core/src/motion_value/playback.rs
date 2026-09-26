@@ -431,23 +431,6 @@ impl ErasedMotionValue {
     }
     values.push(self.inner.descriptor.clone());
   }
-
-  pub(crate) fn collect_subscriptions(
-    &self,
-    subscriptions: &mut Vec<battlement::MotionValueSubscription>,
-  ) {
-    for subscription in self.inner.subscriptions.borrow().iter().copied() {
-      if !subscriptions
-        .iter()
-        .any(|value| value.subscription_id == subscription.subscription_id)
-      {
-        subscriptions.push(subscription);
-      }
-    }
-    for dependency in &self.inner.dependencies {
-      dependency.collect_subscriptions(subscriptions);
-    }
-  }
 }
 
 impl fmt::Debug for ErasedMotionValue {

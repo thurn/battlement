@@ -15,7 +15,8 @@ use std::{
 use battlement::{
   CommandBody, MotionClockSource, MotionExpressionOperation,
   MotionPlaybackOutcome as ProtocolPlaybackOutcome, MotionValueCommand, MotionValueDescriptor,
-  MotionValueOperation, MotionValueSource, ObjectId, SpringConfiguration, TransitionGenerator,
+  MotionValueOperation, MotionValueSource, MotionValueSubscription, ObjectId, SpringConfiguration,
+  TransitionGenerator,
 };
 
 use crate::{
@@ -178,7 +179,6 @@ struct MotionValueInner {
   descriptor: MotionValueDescriptor,
   dependencies: Vec<ErasedMotionValue>,
   latest: RefCell<battlement::MotionValue>,
-  subscriptions: RefCell<Vec<battlement::MotionValueSubscription>>,
 }
 
 struct MotionValueSlot<T: MotionValueType> {
@@ -192,6 +192,7 @@ struct MotionValueEventSlot<T: MotionValueType> {
   value_id: ObjectId,
   event: MotionValueEvent,
   callback: MotionValueCallback<T>,
+  runtime: Weak<RefCell<MotionValueRuntime>>,
 }
 
 struct PlaybackInner {
@@ -344,6 +345,10 @@ pub fn use_motion_expression<T: MotionValueType>(
 }
 
 /// Subscribes Rust to one explicitly requested coalesced native value sample.
+///
+/// The value or a dependent value must belong to a mounted native Motion graph
+/// through a visual binding or gesture. An observation does not create a graph;
+/// rendering an observation without a graph owner panics with an ownership diagnostic.
 pub fn use_motion_value_event<T: MotionValueType>(
   value: MotionValue<T>,
   event: MotionValueEvent,
@@ -356,15 +361,6 @@ pub fn use_motion_value_event<T: MotionValueType>(
     TypeId::of::<T>(),
     |_| {
       let subscription_id = ObjectId::new_v4();
-      value
-        .inner
-        .subscriptions
-        .borrow_mut()
-        .push(battlement::MotionValueSubscription {
-          subscription_id,
-          value_id: value.id(),
-          event: event.into_protocol(),
-        });
       let weak_value = Rc::downgrade(&value.inner);
       let weak_callback = Rc::downgrade(&initial_callback);
       let runtime = value
@@ -401,6 +397,7 @@ pub fn use_motion_value_event<T: MotionValueType>(
         value_id: value.id(),
         event,
         callback: initial_callback,
+        runtime: value.inner.runtime.clone(),
       }
     },
     |slot| {
@@ -853,6 +850,14 @@ impl<T: MotionValueType> HookSlot for MotionValueEventSlot<T> {
       value_id: self.value_id,
       event: self.event,
       callback: Rc::clone(&self.callback),
+      runtime: self.runtime.clone(),
+    })
+  }
+  fn motion_subscription(&self) -> Option<MotionValueSubscription> {
+    Some(MotionValueSubscription {
+      subscription_id: self.subscription_id,
+      value_id: self.value_id,
+      event: self.event.into_protocol(),
     })
   }
   fn commit(&mut self) {}
@@ -871,6 +876,18 @@ impl<T: MotionValueType> HookSlot for MotionValueEventSlot<T> {
   }
   fn value_type(&self) -> TypeId {
     TypeId::of::<T>()
+  }
+}
+
+impl<T: MotionValueType> Drop for MotionValueEventSlot<T> {
+  fn drop(&mut self) {
+    if Rc::strong_count(&self.callback) == 1
+      && let Some(runtime) = self.runtime.upgrade()
+    {
+      runtime
+        .borrow_mut()
+        .unregister_subscription(self.subscription_id);
+    }
   }
 }
 
@@ -898,7 +915,6 @@ fn use_value<T: MotionValueType>(
             },
             dependencies,
             latest: RefCell::new(initial),
-            subscriptions: RefCell::new(Vec::new()),
           }),
           marker: PhantomData,
         },

@@ -256,21 +256,19 @@ impl MotionValueRuntime {
     });
   }
 
-  pub(crate) fn apply_samples(&mut self, samples: &[MotionValueSample]) -> bool {
-    let mut invoked = false;
+  pub(crate) fn unregister_subscription(&mut self, id: ObjectId) {
+    self
+      .subscriptions
+      .retain(|subscription| subscription.id != id);
+  }
+
+  pub(crate) fn apply_samples(&mut self, samples: &[MotionValueSample]) {
     self.subscriptions.retain(|subscription| {
-      let matching = samples
+      samples
         .iter()
-        .find(|sample| sample.subscription_id == subscription.id);
-      match matching {
-        Some(sample) => {
-          invoked |= (subscription.invoke)(sample);
-          true
-        }
-        None => true,
-      }
+        .find(|sample| sample.subscription_id == subscription.id)
+        .is_none_or(|sample| (subscription.invoke)(sample))
     });
-    invoked
   }
 
   pub(crate) fn register_playback(
