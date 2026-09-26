@@ -16,6 +16,15 @@ namespace Battlement.Tests
             Payload payload = command.Body switch
             {
                 CommandBody.ApplicationOpenUrl value => ExternalUrl(builder, value),
+                CommandBody.ApplicationSetFramePacing value => new Payload(
+                    Wire.CoreCommandKind.ApplicationSetFramePacing,
+                    Wire.CoreCommandPayload.FramePacingPayload,
+                    Wire.FramePacingPayload.CreateFramePacingPayload(
+                        builder,
+                        value.Value.MaximumFrameRate,
+                        value.Value.Vsync
+                    ).Value
+                ),
                 CommandBody.DebugUi value => DebugUi(builder, value),
                 CommandBody.Assets.ReplaceSet value => ReplaceAssets(builder, value),
                 CommandBody.Scene.Load value => LoadScene(builder, value),

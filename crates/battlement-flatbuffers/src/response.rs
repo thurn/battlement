@@ -278,6 +278,20 @@ pub(crate) fn write_command<'a>(
         payload.as_union_value(),
       )
     }
+    CommandBody::ApplicationSetFramePacing(value) => {
+      let payload = command_wire::FramePacingPayload::create(
+        builder,
+        &command_wire::FramePacingPayloadArgs {
+          maximum_frame_rate: value.maximum_frame_rate,
+          vsync: value.vsync,
+        },
+      );
+      (
+        wire::CoreCommandKind::ApplicationSetFramePacing,
+        wire::CoreCommandPayload::FramePacingPayload,
+        payload.as_union_value(),
+      )
+    }
     CommandBody::Diagnostics(value) => {
       let args = match value {
         DiagnosticsCommand::SetMetadata(value) => command_wire::DiagnosticsPayloadArgs {
@@ -3314,6 +3328,9 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
     wire::CoreCommandKind::ParticleSpawn => wire::CoreCommandPayload::ParticleSpawnPayload,
     wire::CoreCommandKind::AudioPlay => wire::CoreCommandPayload::AudioPlayPayload,
     wire::CoreCommandKind::AudioSetMix => wire::CoreCommandPayload::AudioMixPayload,
+    wire::CoreCommandKind::ApplicationSetFramePacing => {
+      wire::CoreCommandPayload::FramePacingPayload
+    }
     wire::CoreCommandKind::AudioStop => wire::CoreCommandPayload::AudioStopPayload,
     wire::CoreCommandKind::AudioPause | wire::CoreCommandKind::AudioResume => {
       wire::CoreCommandPayload::AudioPlaybackPayload
@@ -3388,6 +3405,16 @@ fn validate_command(value: wire::CoreCommand<'_>) -> Result<(), ProtocolError> {
           .expect("kind/payload checked")
           .bus(),
       )?;
+    }
+    wire::CoreCommandKind::ApplicationSetFramePacing => {
+      let payload = value
+        .payload_as_frame_pacing_payload()
+        .expect("kind/payload checked");
+      if !(1..=1000).contains(&payload.maximum_frame_rate()) {
+        return Err(ProtocolError::new(
+          "frame-rate ceiling must be between 1 and 1000",
+        ));
+      }
     }
     wire::CoreCommandKind::AudioSetMix => {
       let body = value

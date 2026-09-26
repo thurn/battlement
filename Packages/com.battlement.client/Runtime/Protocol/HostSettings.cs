@@ -39,6 +39,9 @@ namespace Battlement
 
     public sealed record DisplayConfiguration(DisplayMode Mode, DisplayResolution Resolution);
 
+    /// <summary>Requested FPS ceiling and desktop refresh synchronization.</summary>
+    public sealed record FramePacing(uint MaximumFrameRate, bool Vsync);
+
     public sealed record HostSettingsResult(CommandId RequestId, string? Error = null);
 
     /// <summary>Host observations independent of saved player preferences.</summary>

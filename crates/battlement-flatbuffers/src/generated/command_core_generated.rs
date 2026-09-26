@@ -10836,6 +10836,144 @@ pub mod battlement {
           ds.finish()
         }
       }
+      pub enum FramePacingPayloadOffset {}
+      #[derive(Copy, Clone, PartialEq)]
+
+      pub struct FramePacingPayload<'a> {
+        pub _tab: ::flatbuffers::Table<'a>,
+      }
+
+      impl<'a> ::flatbuffers::Follow<'a> for FramePacingPayload<'a> {
+        type Inner = FramePacingPayload<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+          Self {
+            _tab: unsafe { ::flatbuffers::Table::new(buf, loc) },
+          }
+        }
+      }
+
+      impl<'a> FramePacingPayload<'a> {
+        pub const VT_MAXIMUM_FRAME_RATE: ::flatbuffers::VOffsetT = 4;
+        pub const VT_VSYNC: ::flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+          FramePacingPayload { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+          'bldr: 'args,
+          'args: 'mut_bldr,
+          'mut_bldr,
+          A: ::flatbuffers::Allocator + 'bldr,
+        >(
+          _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+          args: &'args FramePacingPayloadArgs,
+        ) -> ::flatbuffers::WIPOffset<FramePacingPayload<'bldr>> {
+          let mut builder = FramePacingPayloadBuilder::new(_fbb);
+          builder.add_maximum_frame_rate(args.maximum_frame_rate);
+          builder.add_vsync(args.vsync);
+          builder.finish()
+        }
+
+        #[inline]
+        pub fn maximum_frame_rate(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(FramePacingPayload::VT_MAXIMUM_FRAME_RATE, Some(0))
+              .unwrap()
+          }
+        }
+        #[inline]
+        pub fn vsync(&self) -> bool {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<bool>(FramePacingPayload::VT_VSYNC, Some(false))
+              .unwrap()
+          }
+        }
+      }
+
+      impl ::flatbuffers::Verifiable for FramePacingPayload<'_> {
+        #[inline]
+        fn run_verifier(
+          v: &mut ::flatbuffers::Verifier,
+          pos: usize,
+        ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+          v.visit_table(pos)?
+            .visit_field::<u32>("maximum_frame_rate", Self::VT_MAXIMUM_FRAME_RATE, false)?
+            .visit_field::<bool>("vsync", Self::VT_VSYNC, false)?
+            .finish();
+          Ok(())
+        }
+      }
+      pub struct FramePacingPayloadArgs {
+        pub maximum_frame_rate: u32,
+        pub vsync: bool,
+      }
+      impl<'a> Default for FramePacingPayloadArgs {
+        #[inline]
+        fn default() -> Self {
+          FramePacingPayloadArgs {
+            maximum_frame_rate: 0,
+            vsync: false,
+          }
+        }
+      }
+
+      pub struct FramePacingPayloadBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+      }
+      impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FramePacingPayloadBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_maximum_frame_rate(&mut self, maximum_frame_rate: u32) {
+          self.fbb_.push_slot::<u32>(
+            FramePacingPayload::VT_MAXIMUM_FRAME_RATE,
+            maximum_frame_rate,
+            0,
+          );
+        }
+        #[inline]
+        pub fn add_vsync(&mut self, vsync: bool) {
+          self
+            .fbb_
+            .push_slot::<bool>(FramePacingPayload::VT_VSYNC, vsync, false);
+        }
+        #[inline]
+        pub fn new(
+          _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> FramePacingPayloadBuilder<'a, 'b, A> {
+          let start = _fbb.start_table();
+          FramePacingPayloadBuilder {
+            fbb_: _fbb,
+            start_: start,
+          }
+        }
+        #[inline]
+        pub fn finish(self) -> ::flatbuffers::WIPOffset<FramePacingPayload<'a>> {
+          let o = self.fbb_.end_table(self.start_);
+          ::flatbuffers::WIPOffset::new(o.value())
+        }
+      }
+
+      impl ::core::fmt::Debug for FramePacingPayload<'_> {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          let mut ds = f.debug_struct("FramePacingPayload");
+          ds.field("maximum_frame_rate", &self.maximum_frame_rate());
+          ds.field("vsync", &self.vsync());
+          ds.finish()
+        }
+      }
       pub enum AudioMixPayloadOffset {}
       #[derive(Copy, Clone, PartialEq)]
 

@@ -237,6 +237,8 @@ table AudioPlayPayload {
   fade_in_ms:ulong;
 }
 
+table FramePacingPayload { maximum_frame_rate:uint; vsync:bool; }
+
 table AudioMixPayload {
   master:double = 1.0;
   music:double = 1.0;

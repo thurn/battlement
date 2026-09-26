@@ -65,6 +65,7 @@ namespace Battlement
             DirectInputConfiguration = null;
             DirectParticleStop = null;
             DirectOpenUrl = null;
+            DirectFramePacing = null;
             DirectComponent = null;
             DirectAnimator = null;
             DirectGeometry = null;
@@ -540,6 +541,11 @@ namespace Battlement
         internal BattlementDirectObjectReparent? DirectObjectReparent { get; }
         internal BattlementDirectParticleSpawn? DirectParticleSpawn { get; }
         internal BattlementDirectAudioPlay? DirectAudioPlay { get; }
+        internal FramePacing? DirectFramePacing { get; }
+
+        internal BattlementCommandExecution(CommandId id, bool isBlocking, FramePacing pacing)
+            : this(id, isBlocking) => DirectFramePacing = pacing;
+
         internal AudioMix? DirectAudioMix { get; }
         internal BattlementDirectParticlePlay? DirectParticlePlay { get; }
         internal BattlementDirectAudioStop? DirectAudioStop { get; }
@@ -2905,6 +2911,16 @@ namespace Battlement
                 return true;
             if (TryReadComponent(command, commandId, out execution))
                 return true;
+            if (command.Kind == Wire.CoreCommandKind.ApplicationSetFramePacing)
+            {
+                var payload = command.PayloadAsFramePacingPayload();
+                execution = new BattlementCommandExecution(
+                    commandId,
+                    command.Blocking,
+                    new FramePacing(payload.MaximumFrameRate, payload.Vsync)
+                );
+                return true;
+            }
             if (command.Kind == Wire.CoreCommandKind.ApplicationOpenUrl)
             {
                 execution = new BattlementCommandExecution(
@@ -4286,6 +4302,7 @@ namespace Battlement
                     return true;
                 }
 
+                case Wire.CoreCommandKind.ApplicationSetFramePacing:
                 case Wire.CoreCommandKind.ApplicationOpenUrl:
                     break;
                 case Wire.CoreCommandKind.Diagnostics:

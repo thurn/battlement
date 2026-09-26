@@ -15,6 +15,8 @@ pub enum ValidationError {
   NonFiniteNumber,
   /// Shared audio gains were outside the inclusive range zero through one.
   InvalidAudioMix,
+  /// The requested frame-rate ceiling was outside protocol bounds.
+  InvalidFramePacing,
   /// A prepared asset address appeared more than once.
   DuplicatePreparedAddress,
   /// A scene identifier or address appeared more than once.
@@ -47,6 +49,7 @@ impl fmt::Display for ValidationError {
   fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
     formatter.write_str(match self {
       Self::NonFiniteNumber => "all numeric values must be finite",
+      Self::InvalidFramePacing => "frame-rate ceiling must be between 1 and 1000",
       Self::InvalidAudioMix => "audio mixer gains must be between zero and one",
       Self::DuplicatePreparedAddress => "prepared asset addresses must be unique",
       Self::DuplicateScene => "scene identifiers and addresses must be unique",
@@ -274,6 +277,11 @@ impl Validate for Command {
           || !(0.0..=1.0).contains(&value.high_frequency) =>
       {
         return Err(ValidationError::InvalidControllerInput);
+      }
+      CommandBody::ApplicationSetFramePacing(value)
+        if !(1..=1000).contains(&value.maximum_frame_rate) =>
+      {
+        return Err(ValidationError::InvalidFramePacing);
       }
       CommandBody::Diagnostics(command) if !self.blocking || command.validate().is_err() => {
         return Err(ValidationError::InvalidBlocking);

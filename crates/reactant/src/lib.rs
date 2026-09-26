@@ -20,7 +20,7 @@ mod input;
 mod input_capture;
 mod input_dispatch;
 mod input_subscriptions;
-pub use host_settings::use_host_settings;
+pub use host_settings::{set_frame_pacing, use_host_settings};
 mod persistence;
 mod persistence_file;
 mod persistence_operation;

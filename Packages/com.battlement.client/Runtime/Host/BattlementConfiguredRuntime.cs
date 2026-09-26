@@ -94,6 +94,8 @@ namespace Battlement
         internal BattlementGeometrySampler GeometrySampler =>
             Require(geometrySampler, nameof(GeometrySampler));
 
+        internal BattlementFramePacing FramePacing { get; } = new();
+
         private BattlementModules? modules;
 
         internal BattlementModules Modules => Require(modules, nameof(Modules));

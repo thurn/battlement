@@ -7,7 +7,9 @@ description: Build or run Battlement samples, author Unity projects, replace nat
 
 Run from the task worktree root. Use the checkout CLI so commands match source:
 `cargo run --quiet -p rt -- <command>`. Consult its `--help` for
-options; the parser is `crates/rt/src/command.rs`.
+options; the parser is `crates/rt/src/command.rs`. Direct samples need
+`--skip-assets` and explicit `--application` / `--scene` values from `sample.toml`;
+the CLI does not read that file automatically.
 
 Before building, run `python3 scripts/prepare_validation.py check`. When it
 identifies stale generated inputs, run `python3 scripts/prepare_validation.py

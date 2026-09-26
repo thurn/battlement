@@ -385,6 +385,7 @@ namespace Battlement
             Reset(() => configuredRuntime?.ControllerInput.Reset(), ref failure);
             Reset(() => configuredRuntime?.ControllerInput.StopHaptics(), ref failure);
             Reset(() => configuredRuntime?.InputCapture.Reset(), ref failure);
+            Reset(() => configuredRuntime?.FramePacing.Reset(), ref failure);
             Reset(() => configuredRuntime?.BatchScheduler.BeginSession(), ref failure);
             Reset(() => configuredRuntime?.GeometrySampler.Reset(), ref failure);
             Reset(geometryFrames.Reset, ref failure);
@@ -697,7 +698,9 @@ namespace Battlement
                     ApplyGeometryObservations,
                     ApplyGeometryObservations,
                     modules,
-                    checkedOptions.OpenExternalUrl
+                    checkedOptions.OpenExternalUrl,
+                    (id, value) =>
+                        runtime.FramePacing.Apply(id, value, ReadHostSettings(checkedOptions))
                 );
                 BattlementBatchScheduler batchScheduler = new BattlementBatchScheduler(
                     dittoMotionClock,
@@ -1407,13 +1410,16 @@ namespace Battlement
             SubmitCoreAction(new ActionBody.ApplicationStateChanged(state));
         }
 
-        private HostSettings ReadHostSettings(BattlementRunnerOptions configured) =>
-            configured.ReadHostSettings is null
+        private HostSettings ReadHostSettings(BattlementRunnerOptions configured)
+        {
+            HostSettings observed = configured.ReadHostSettings is null
                 ? BattlementHostSettings.Read(
                     configuredRuntime!.Modules.ModuleIds,
                     configuredRuntime.Modules.ReadReporting
                 )
                 : configured.ReadHostSettings();
+            return configuredRuntime!.FramePacing.Reconcile(observed);
+        }
 
         private void PublishHostSettings(bool force = false)
         {

@@ -16,6 +16,8 @@ use super::*;
 pub enum CommandBody {
   /// Request the platform's external handler for an absolute URL.
   ApplicationOpenUrl(ExternalUrlRequest),
+  /// Apply platform-aware frame pacing without changing display configuration.
+  ApplicationSetFramePacing(crate::frame_pacing::FramePacing),
   /// Control local reporting APIs and metadata through the selected module.
   ///
   /// Execution is local and synchronous. Success does not acknowledge report

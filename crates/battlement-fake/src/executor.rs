@@ -61,6 +61,28 @@ where
     command
       .validate()
       .unwrap_or_else(|error| panic!("command {} validation failed: {error}", command.command_id));
+    if let CommandBody::ApplicationSetFramePacing(value) = &command.body {
+      self.frame_pacing = Some((command.command_id, *value));
+      self.set_host_settings(self.connect.host_settings.clone());
+      let failed = self
+        .connect
+        .host_settings
+        .last_result
+        .as_ref()
+        .expect("pacing result")
+        .error
+        .is_some();
+      let command_id = command.command_id;
+      self.record_executed(command, batch_id, group_index, command_index);
+      if failed {
+        self.submit_batch_failure(
+          batch_id,
+          command_id,
+          battlement::CoreErrorCode::InvalidProperty,
+        );
+      }
+      return !failed;
+    }
     if let CommandBody::OperationCancel(value) = &command.body {
       self.cancel_operation(value.command_id);
     } else {
@@ -737,6 +759,9 @@ where
         if let Some(snapshot) = &value.snapshot {
           self.accessibility = snapshot.clone();
         }
+      }
+      CommandBody::ApplicationSetFramePacing(_) => {
+        unreachable!("pacing reports its outcome before execution")
       }
       CommandBody::ApplicationOpenUrl(_) => {}
     }

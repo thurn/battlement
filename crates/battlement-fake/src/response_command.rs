@@ -27,6 +27,15 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
           .to_owned(),
       })
     }
+    Kind::ApplicationSetFramePacing => {
+      let body = value
+        .payload_as_frame_pacing_payload()
+        .expect("validated pacing payload");
+      CommandBody::ApplicationSetFramePacing(battlement::frame_pacing::FramePacing {
+        maximum_frame_rate: body.maximum_frame_rate(),
+        vsync: body.vsync(),
+      })
+    }
     Kind::Diagnostics => {
       let body = value.payload_as_diagnostics_payload().ok_or_else(missing)?;
       CommandBody::Diagnostics(match body.operation() {

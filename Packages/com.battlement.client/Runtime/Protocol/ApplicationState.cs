@@ -17,5 +17,8 @@ namespace Battlement
     {
         /// <summary>Requests the platform's external handler for an absolute URL.</summary>
         public sealed record ApplicationOpenUrl(string Url) : CommandBody;
+
+        /// <summary>Apply pacing without changing the window or display preview.</summary>
+        public sealed record ApplicationSetFramePacing(FramePacing Value) : CommandBody;
     }
 }

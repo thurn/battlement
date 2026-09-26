@@ -84,6 +84,7 @@ where
   pub(crate) engine: E,
   pub(crate) assets: Arc<FakeAssetCatalog>,
   pub(crate) connect: Connect,
+  pub(crate) frame_pacing: Option<(battlement::CommandId, battlement::frame_pacing::FramePacing)>,
   pub(crate) diagnostics: DiagnosticsFake,
   pub(crate) session_id: battlement::SessionId,
   pub(crate) world: FakeWorld,
@@ -144,7 +145,14 @@ where
   }
 
   /// Publishes an explicit host observation and retains it for reconnects.
-  pub fn set_host_settings(&mut self, settings: HostSettings) {
+  pub fn set_host_settings(&mut self, mut settings: HostSettings) {
+    if let Some((request_id, preference)) = self.frame_pacing {
+      let applied = preference.apply_to(&mut settings);
+      settings.last_result = Some(battlement::host_settings::HostSettingsResult {
+        request_id,
+        error: (!applied).then(|| "Frame pacing is unavailable.".to_owned()),
+      });
+    }
     let keyboard_removed =
       self.connect.host_settings.keyboard_connected && !settings.keyboard_connected;
     let controllers_removed =
@@ -279,6 +287,7 @@ where
       world: FakeWorld::default(),
       ui_world: UiWorld::default(),
       motion: crate::motion::MotionWorld::default(),
+      frame_pacing: None,
       accessibility: battlement::AccessibilitySnapshot::default(),
       geometry_registry: GeometryRegistry::default(),
       admitted_batches: HashSet::new(),
@@ -325,6 +334,8 @@ where
 
   /// Reconnects the engine using the original connection metadata.
   pub fn reconnect(&mut self) {
+    self.frame_pacing = None;
+    self.connect.host_settings.last_result = None;
     let request = connect_message(&self.connect);
     let message = battlement_flatbuffers::ConnectView::read(request.as_bytes())
       .unwrap_or_else(|error| panic!("reconnect verification failed: {error}"));

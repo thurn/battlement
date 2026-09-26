@@ -99,6 +99,7 @@ namespace Battlement
                         )
                         .ToArray()
                     : Array.Empty<DisplayResolution>();
+                uint[] rates = BattlementFramePacing.Rates(platform, refresh);
                 return result with
                 {
                     Display = desktop
@@ -107,8 +108,11 @@ namespace Battlement
                     DisplayModes = Modes(platform),
                     Resolutions = resolutions,
                     AppliedDisplay = new DisplayConfiguration(Mode(Screen.fullScreenMode), applied),
-                    FramePacing = SettingAvailability.Available,
-                    FrameRates = Rates(platform, refresh),
+                    FramePacing =
+                        rates.Length > 0
+                            ? SettingAvailability.Available
+                            : SettingAvailability.Unavailable,
+                    FrameRates = rates,
                     AppliedFrameRate = Application.targetFrameRate,
                     VsyncAvailable = desktop,
                     AppliedVsync = desktop && QualitySettings.vSyncCount > 0,
@@ -158,21 +162,5 @@ namespace Battlement
                 HostPlatform.MacOs => new[] { DisplayMode.Borderless, DisplayMode.Windowed },
                 _ => Array.Empty<DisplayMode>(),
             };
-
-        private static uint[] Rates(HostPlatform platform, RefreshRate refresh)
-        {
-            if (platform == HostPlatform.Web)
-                return new uint[] { 30, 60, 120, 144, 240 };
-            if (platform != HostPlatform.Ios)
-                return new uint[] { 60, 120, 144, 240 };
-            if (refresh.denominator == 0 || refresh.numerator == 0)
-                return Array.Empty<uint>();
-            double maximum = (double)refresh.numerator / refresh.denominator;
-            return new uint[] { 30, 60, 120 }
-                .Where(rate =>
-                    maximum >= rate && Math.Abs(maximum / rate - Math.Round(maximum / rate)) < 0.01
-                )
-                .ToArray();
-        }
     }
 }

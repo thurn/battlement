@@ -2405,6 +2405,48 @@ static public class AudioPlayPayloadVerify
       && verifier.VerifyTableEnd(tablePos);
   }
 }
+public struct FramePacingPayload : IFlatbufferObject
+{
+  private Table __p;
+  public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_12_19(); }
+  public static FramePacingPayload GetRootAsFramePacingPayload(ByteBuffer _bb) { return GetRootAsFramePacingPayload(_bb, new FramePacingPayload()); }
+  public static FramePacingPayload GetRootAsFramePacingPayload(ByteBuffer _bb, FramePacingPayload obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
+  public FramePacingPayload __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+
+  public uint MaximumFrameRate { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+  public bool Vsync { get { int o = __p.__offset(6); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+
+  public static Offset<Battlement.FlatBuffers.Generated.FramePacingPayload> CreateFramePacingPayload(FlatBufferBuilder builder,
+      uint maximum_frame_rate = 0,
+      bool vsync = false) {
+    builder.StartTable(2);
+    FramePacingPayload.AddMaximumFrameRate(builder, maximum_frame_rate);
+    FramePacingPayload.AddVsync(builder, vsync);
+    return FramePacingPayload.EndFramePacingPayload(builder);
+  }
+
+  public static void StartFramePacingPayload(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void AddMaximumFrameRate(FlatBufferBuilder builder, uint maximumFrameRate) { builder.AddUint(0, maximumFrameRate, 0); }
+  public static void AddVsync(FlatBufferBuilder builder, bool vsync) { builder.AddBool(1, vsync, false); }
+  public static Offset<Battlement.FlatBuffers.Generated.FramePacingPayload> EndFramePacingPayload(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<Battlement.FlatBuffers.Generated.FramePacingPayload>(o);
+  }
+}
+
+
+static public class FramePacingPayloadVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*MaximumFrameRate*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyField(tablePos, 6 /*Vsync*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 public struct AudioMixPayload : IFlatbufferObject
 {
   private Table __p;

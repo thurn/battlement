@@ -2256,6 +2256,34 @@ impl MessageWriter {
     )
   }
 
+  /// Applies a frame-rate ceiling independently of display configuration.
+  pub fn set_frame_pacing(
+    &mut self,
+    command_id: [u8; 16],
+    blocking: bool,
+    preference: battlement::frame_pacing::FramePacing,
+  ) -> Result<CoreCommandOffset, ProtocolError> {
+    if !(1..=1000).contains(&preference.maximum_frame_rate) {
+      return Err(ProtocolError::new(
+        "frame-rate ceiling must be between 1 and 1000",
+      ));
+    }
+    let payload = command_wire::FramePacingPayload::create(
+      &mut self.builder,
+      &command_wire::FramePacingPayloadArgs {
+        maximum_frame_rate: preference.maximum_frame_rate,
+        vsync: preference.vsync,
+      },
+    );
+    self.core_command(
+      command_id,
+      blocking,
+      wire::CoreCommandKind::ApplicationSetFramePacing,
+      wire::CoreCommandPayload::FramePacingPayload,
+      payload.as_union_value(),
+    )
+  }
+
   /// Updates shared gains without changing any playback timeline.
   pub fn set_audio_mix(
     &mut self,

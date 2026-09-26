@@ -109,7 +109,8 @@ enum CoreCommandKind:ubyte {
   BoxHitRegionSetGeometry,
   InputSetWorldPointer,
   MotionSetWorldDescriptor,
-  AudioSetMix
+  AudioSetMix,
+  ApplicationSetFramePacing
 }
 
 union CoreCommandPayload {
@@ -202,7 +203,8 @@ union CoreCommandPayload {
   BoxHitRegionPayload,
   WorldPointerPayload,
   WorldMotionPayload,
-  AudioMixPayload
+  AudioMixPayload,
+  FramePacingPayload
 }
 
 table CoreCommand {
