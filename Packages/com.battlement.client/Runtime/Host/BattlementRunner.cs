@@ -636,6 +636,7 @@ namespace Battlement
                     uiDocuments.HasPointerModal,
                     EmitUiEvent
                 );
+                uiDocuments.SetWorldNavigation(worldFocus.NavigateFromUi);
                 pointerInput.ConfigureLogical(
                     EmitUiEvent,
                     (id, position) =>

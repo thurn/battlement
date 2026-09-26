@@ -10,11 +10,20 @@ namespace Battlement.UI
     {
         private readonly Func<IEnumerable<UIDocument>> documents;
         private readonly System.Action showFocus;
+        private readonly Func<IEnumerable<(VisualElement Element, UIDocument Document)>> targets;
 
         internal BattlementUiNavigation(
             Func<IEnumerable<UIDocument>> documents,
-            System.Action showFocus
-        ) => (this.documents, this.showFocus) = (documents, showFocus);
+            System.Action showFocus,
+            Func<IEnumerable<(VisualElement Element, UIDocument Document)>>? targets = null
+        ) =>
+            (this.documents, this.showFocus, this.targets) = (
+                documents,
+                showFocus,
+                targets ?? (() => Array.Empty<(VisualElement, UIDocument)>())
+            );
+
+        internal IEnumerable<(VisualElement Element, UIDocument Document)> Targets => targets();
 
         internal VisualElement? Focused =>
             documents()

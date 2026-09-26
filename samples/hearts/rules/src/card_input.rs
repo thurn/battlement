@@ -209,6 +209,14 @@ impl CardInput {
     }
   }
 
+  pub(crate) fn cancel(&self) {
+    if self.0.selection.inspection.is_some() {
+      self.dismiss();
+    } else {
+      self.clear();
+    }
+  }
+
   pub(crate) fn dismiss(&self) {
     let mut next = self.0.selection.clone();
     next.inspection = None;

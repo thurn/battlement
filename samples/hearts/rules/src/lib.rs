@@ -12,6 +12,7 @@ mod card_table;
 mod card_table_tests;
 pub mod controller;
 pub mod domain;
+mod inspection;
 mod layout_fixture;
 pub mod projection;
 pub mod reducer;

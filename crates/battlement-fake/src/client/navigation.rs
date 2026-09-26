@@ -184,7 +184,7 @@ impl<E: Engine> FakeClient<E> {
         );
       }
     }
-    if self.ui_world.has_modal() || self.ui_world.focused().is_some() {
+    if self.ui_world.has_modal() {
       return ui;
     }
     let mut objects = self
@@ -195,11 +195,12 @@ impl<E: Engine> FakeClient<E> {
       .filter(|o| o.world_pointer.is_some_and(|s| s.focusable))
       .collect::<Vec<_>>();
     objects.sort_by_key(|o| (o.world_pointer.unwrap().order, o.id()));
-    let world = objects
+    let mut world = objects
       .into_iter()
       .filter_map(|o| self.focus_position(o.id()).map(|p| (o.id(), p)))
       .collect::<Vec<_>>();
-    if world.is_empty() { ui } else { world }
+    world.extend(ui);
+    world
   }
 
   fn owns_semantic_navigation(&self) -> bool {

@@ -1,5 +1,8 @@
-use battlement::{ObjectId, ParentScene, PickingMode, Prop, UiFontAddress, Vector3, object_id};
-use reactant::{Application, app_context, hooks, prelude::*, world};
+use battlement::{
+  ControllerButton, ControllerInputSettings, ObjectId, ParentScene, PhysicalKey, PickingMode, Prop,
+  UiFontAddress, Vector3, object_id,
+};
+use reactant::{Application, app_context, hooks, overlay::OverlayHost, prelude::*, world};
 use trox::{SourceLocale, ls};
 
 use crate::{
@@ -44,6 +47,18 @@ pub(crate) fn exported_application() -> Application {
 
 fn configured(initial: HeartsState, gallery: bool, interactive: bool) -> Application {
   Application::new(assets::hearts::CONTENT)
+    .global_keys([
+      PhysicalKey::ArrowLeft,
+      PhysicalKey::ArrowRight,
+      PhysicalKey::ArrowUp,
+      PhysicalKey::ArrowDown,
+      PhysicalKey::Enter,
+      PhysicalKey::Escape,
+      PhysicalKey::Tab,
+    ])
+    .controller_input(
+      ControllerInputSettings::new().buttons([ControllerButton::South, ControllerButton::East]),
+    )
     .source_locale(SourceLocale::new("en-US").expect("source locale"))
     .child(HeartsRoot {
       initial,
@@ -72,6 +87,7 @@ fn configured(initial: HeartsState, gallery: bool, interactive: bool) -> Applica
 
 impl Component for HeartsRoot {
   fn render(&self) -> impl Render {
+    let overlay = reactant::use_portal_target();
     let (generation, reset) = hooks::use_state(0_u64);
     let initial = if generation == 0 {
       self.initial.clone()
@@ -101,72 +117,82 @@ impl Component for HeartsRoot {
           ))
       })
       .collect();
-    (
-      View::new()
-        .picking_mode(PickingMode::Ignore)
-        .style(
-          Style::new()
-            .padding(18.px())
-            .color(if self.gallery {
-              Color::rgb(0.97, 0.94, 0.83)
-            } else {
-              Color::rgb(0.06, 0.12, 0.03)
-            })
-            .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
-        )
-        .child((
-          Heading::new(ls("Hearts"), 1).style(Style::new().font_size(32.px())),
-          Label::new(ls(format!("Hand {}", game.view.table.hand_index + 1)))
-            .style(Style::new().font_size(24.px())),
-          Button::new(ls("New game"))
-            .host_name("new-game")
-            .style(
-              Style::new()
-                .position(Position::Absolute)
-                .right(18.px())
-                .top(18.px())
-                .width(120.px())
-                .height(44.px())
-                .font_size(20.px())
-                .color(Color::rgb(0.08, 0.14, 0.06))
-                .background_color(Color::rgb(0.96, 0.92, 0.77))
-                .border_radius(6.px()),
-            )
-            .on_press(
-              reset.update_callback(|value| value.checked_add(1).expect("session generation")),
-            ),
-        )),
-      world::SceneRoot::new(ParentScene::PrimaryScene).child((
-        surfaces,
-        (!self.gallery).then(|| {
-          let table = CardTable::new(&game.view, aspect).inspect(input.inspection());
-          let table = if self.interactive {
-            Node::new(ContextProvider::new().context(input.clone()).child(table))
-          } else {
-            Node::new(table)
-          };
-          (scene::environment(aspect), table)
-        }),
-      )),
-      self.interactive.then(|| {
-        ContextProvider::new()
-          .context(input.clone())
-          .child(CardControls)
-      }),
-      (!self.gallery).then(|| {
+    Stack::new()
+      .picking_mode(PickingMode::Ignore)
+      .style(Style::new().width(100.pct()).height(100.pct()))
+      .child((
         View::new()
           .picking_mode(PickingMode::Ignore)
-          .style(
-            Style::new()
-              .position(Position::Absolute)
-              .left(0)
-              .top(0)
-              .width(100.pct())
-              .height(100.pct())
-              .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
-          )
-          .child(scene::seats(&game.view, aspect < 1.0))
-      }),
-    )
+          .style(Style::new().width(100.pct()).height(100.pct()))
+          .child((
+            View::new()
+              .picking_mode(PickingMode::Ignore)
+              .style(
+                Style::new()
+                  .padding(18.px())
+                  .color(if self.gallery {
+                    Color::rgb(0.97, 0.94, 0.83)
+                  } else {
+                    Color::rgb(0.06, 0.12, 0.03)
+                  })
+                  .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
+              )
+              .child((
+                Heading::new(ls("Hearts"), 1).style(Style::new().font_size(32.px())),
+                Label::new(ls(format!("Hand {}", game.view.table.hand_index + 1)))
+                  .style(Style::new().font_size(24.px())),
+                Button::new(ls("New game"))
+                  .host_name("new-game")
+                  .style(
+                    Style::new()
+                      .position(Position::Absolute)
+                      .right(18.px())
+                      .top(18.px())
+                      .width(120.px())
+                      .height(44.px())
+                      .font_size(20.px())
+                      .color(Color::rgb(0.08, 0.14, 0.06))
+                      .background_color(Color::rgb(0.96, 0.92, 0.77))
+                      .border_radius(6.px()),
+                  )
+                  .on_press(
+                    reset
+                      .update_callback(|value| value.checked_add(1).expect("session generation")),
+                  ),
+              )),
+            world::SceneRoot::new(ParentScene::PrimaryScene).child((
+              surfaces,
+              (!self.gallery).then(|| {
+                let table = CardTable::new(&game.view, aspect).inspect(input.inspection());
+                let table = if self.interactive {
+                  Node::new(ContextProvider::new().context(input.clone()).child(table))
+                } else {
+                  Node::new(table)
+                };
+                (scene::environment(aspect), table)
+              }),
+            )),
+            self.interactive.then(|| {
+              ContextProvider::new()
+                .context(input.clone())
+                .child(CardControls(overlay.clone()))
+            }),
+            (!self.gallery).then(|| {
+              View::new()
+                .picking_mode(PickingMode::Ignore)
+                .style(
+                  Style::new()
+                    .position(Position::Absolute)
+                    .left(0)
+                    .top(0)
+                    .width(100.pct())
+                    .height(100.pct())
+                    .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
+                )
+                .child(scene::seats(&game.view, aspect < 1.0))
+            }),
+          )),
+        OverlayHost::new(overlay),
+      ))
   }
 }

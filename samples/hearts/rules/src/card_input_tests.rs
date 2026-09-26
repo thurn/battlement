@@ -1,8 +1,11 @@
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
-use battlement::{Connect, ParentScene, PickingMode, PreparedAsset, Prop, ScreenSize, Vector3};
+use battlement::{
+  Connect, ControllerButton, ControllerDirection, ControllerInputSettings, PanelPoint, ParentScene,
+  PhysicalKey, PickingMode, PreparedAsset, Prop, ScreenSize, Vector3,
+};
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
-use reactant::{GameStatus, app_context, prelude::*, world};
+use reactant::{GameStatus, app_context, hooks, overlay::OverlayHost, prelude::*, world};
 use reactant_testing::Display;
 
 use crate::{
@@ -23,25 +26,28 @@ type Current = Rc<RefCell<Option<HeartsController>>>;
 struct Probe {
   initial: HeartsState,
   current: Current,
+  aspect: DisplayStore<f64>,
 }
 
 impl Component for Probe {
   fn render(&self) -> impl Render {
+    let overlay = reactant::use_portal_target();
     let initial = self.initial.clone();
     let game = controller::use_hearts((), move || initial, Seat::South, false);
     let viewport = app_context::use_viewport_size();
+    let aspect = hooks::use_external_store(self.aspect.clone());
     let input = card_input::use_card_input(game.clone(), viewport);
     *self.current.borrow_mut() = Some(game.clone());
-    ContextProvider::new().context(input.clone()).child((
-      CardControls,
-      world::SceneRoot::new(ParentScene::PrimaryScene).child(
-        CardTable::new(
-          &game.view,
-          f64::from(viewport.width) / f64::from(viewport.height),
-        )
-        .inspect(input.inspection()),
-      ),
-    ))
+    ContextProvider::new().context(input.clone()).child(
+      Stack::new().picking_mode(PickingMode::Ignore).child((
+        View::new().picking_mode(PickingMode::Ignore).child((
+          CardControls(overlay.clone()),
+          world::SceneRoot::new(ParentScene::PrimaryScene)
+            .child(CardTable::new(&game.view, aspect).inspect(input.inspection())),
+        )),
+        OverlayHost::new(overlay),
+      )),
+    )
   }
 }
 
@@ -128,17 +134,22 @@ fn illegal_cards_are_inspectable_and_selection_then_confirm_admits_one_play() {
 fn invalid_drop_and_capture_loss_restore_the_card_and_valid_drop_plays_once() {
   let (mut display, current) = self::mount(layout_fixture::playing_state());
   self::ready(&mut display, &current);
+  self::key(&mut display, PhysicalKey::ArrowRight);
   let card = display.semantic_node("Two of Clubs").object_id;
   let original = display.world_point(card, Vector3::ZERO);
   let start = display.world_point(card, Vector3::new(-0.42, 0.55, 0.0));
   display.drag_world(start, Vector3::new(-4.0, 0.0, -1.0));
   display.flush();
   assert_eq!(self::current(&current).game.accepted().version.revision, 0);
+  display.pointer_move(0, PanelPoint::new(0.0, 0.0), false);
+  display.flush();
   self::same_point(display.world_point(card, Vector3::ZERO), original);
   display.begin_drag_world(start, Vector3::new(0.0, 0.0, 0.0));
   display.flush();
   assert!(display.pointer_capture(0).is_some());
   display.cancel_drag();
+  display.flush();
+  display.pointer_move(0, PanelPoint::new(0.0, 0.0), false);
   display.flush();
   self::same_point(display.world_point(card, Vector3::ZERO), original);
   assert_eq!(self::current(&current).game.accepted().version.revision, 0);
@@ -156,6 +167,136 @@ fn invalid_drop_and_capture_loss_restore_the_card_and_valid_drop_plays_once() {
       .filter(|played| played.seat == Seat::South)
       .count(),
     1
+  );
+}
+
+#[test]
+fn keyboard_and_controller_complete_pass_and_trick_without_pointer() {
+  let (mut display, current) = self::mount(HeartsState::new(43));
+  self::ready(&mut display, &current);
+  self::key(&mut display, PhysicalKey::ArrowRight);
+  assert_eq!(
+    display.focused(),
+    Some(display.semantic_node("Seven of Clubs").object_id)
+  );
+  self::key(&mut display, PhysicalKey::Enter);
+  display.controller_navigate(0, ControllerDirection::Right);
+  self::primary(&mut display);
+  display.controller_navigate(0, ControllerDirection::Right);
+  self::primary(&mut display);
+  self::tab_to(&mut display, "Pass three cards");
+  self::primary(&mut display);
+  self::ready(&mut display, &current);
+  assert_eq!(self::current(&current).game.accepted().version.revision, 4);
+  self::tab_to(&mut display, "Two of Clubs");
+  self::key(&mut display, PhysicalKey::Enter);
+  assert!(!display.semantic_node("Play selected card").state.disabled);
+  self::key(&mut display, PhysicalKey::Enter);
+  self::ready(&mut display, &current);
+  assert_eq!(self::current(&current).view.hands[0].len(), 12);
+  assert!(
+    self::current(&current)
+      .game
+      .accepted()
+      .state
+      .public_table()
+      .history
+      .len()
+      >= 4
+  );
+  assert!(display.focused().is_some());
+}
+
+#[test]
+fn inspection_traps_navigation_and_restores_invoker_without_clearing_selection() {
+  let (mut display, current) = self::mount(layout_fixture::playing_state());
+  self::ready(&mut display, &current);
+  self::tab_to(&mut display, "Two of Spades");
+  self::primary(&mut display);
+  self::tab_to(&mut display, "Inspect selected card");
+  let invoker = display.focused();
+  self::primary(&mut display);
+  let close = display.semantic_node("Close inspection").object_id;
+  assert_eq!(display.focused(), Some(close));
+  display.controller_navigate(0, ControllerDirection::Right);
+  assert_eq!(display.focused(), Some(close));
+  display.controller_button_down(0, ControllerButton::East);
+  display.controller_button_up(0, ControllerButton::East);
+  display.flush();
+  assert_eq!(display.focused(), invoker);
+  assert_eq!(self::current(&current).game.accepted().version.revision, 0);
+  self::primary(&mut display);
+  assert_eq!(
+    display.semantic_node("Card inspection").role,
+    battlement::SemanticRole::Dialog
+  );
+  self::key(&mut display, PhysicalKey::Escape);
+  self::key(&mut display, PhysicalKey::Escape);
+  assert!(
+    display
+      .semantic_node("Inspect selected card")
+      .state
+      .disabled
+  );
+}
+
+#[test]
+fn focused_owned_card_survives_reflow_without_exposing_opponent_controls() {
+  let aspect = DisplayStore::new(16.0 / 9.0);
+  let (mut display, current) =
+    self::mount_with_aspect(layout_fixture::playing_state(), aspect.clone());
+  self::ready(&mut display, &current);
+  self::key(&mut display, PhysicalKey::ArrowRight);
+  let focused = display.focused().unwrap();
+  self::key(&mut display, PhysicalKey::Enter);
+  aspect.set(9.0 / 16.0);
+  display.flush();
+  display.settle();
+  assert_eq!(display.focused(), Some(focused));
+  let owned: Vec<_> = self::current(&current).view.hands[0]
+    .iter()
+    .map(|card| {
+      display
+        .semantic_node(&card_input::name(card.face.unwrap()))
+        .object_id
+    })
+    .collect();
+  for _ in 0..20 {
+    self::key(&mut display, PhysicalKey::Tab);
+    let id = display.focused().expect("focus survives reflow");
+    if display.object(id).is_some() {
+      assert!(owned.contains(&id));
+    }
+  }
+  self::tab_to(&mut display, "Two of Clubs");
+  self::key(&mut display, PhysicalKey::Enter);
+  self::ready(&mut display, &current);
+  assert_eq!(self::current(&current).view.hands[0].len(), 12);
+}
+
+fn key(display: &mut Display, key: PhysicalKey) {
+  display.key_down(key);
+  display.key_up(key);
+  display.flush();
+}
+
+fn primary(display: &mut Display) {
+  display.controller_button_down(0, ControllerButton::South);
+  display.controller_button_up(0, ControllerButton::South);
+  display.flush();
+}
+
+fn tab_to(display: &mut Display, name: &str) {
+  let target = display.semantic_node(name).object_id;
+  for _ in 0..24 {
+    if display.focused() == Some(target) {
+      return;
+    }
+    self::key(display, PhysicalKey::Tab);
+  }
+  panic!(
+    "could not navigate to {name}; focus {:?}",
+    display.focused()
   );
 }
 
@@ -191,10 +332,15 @@ fn ready(display: &mut Display, current: &Current) {
 }
 
 fn mount(initial: HeartsState) -> (Display, Current) {
+  self::mount_with_aspect(initial, DisplayStore::new(16.0 / 9.0))
+}
+
+fn mount_with_aspect(initial: HeartsState, aspect: DisplayStore<f64>) -> (Display, Current) {
   let current: Current = Rc::default();
   let probe = Probe {
     initial,
     current: current.clone(),
+    aspect,
   };
   let mut assets = FakeAssetCatalog::new();
   for asset in assets::ASSET_CATALOG {
@@ -210,6 +356,18 @@ fn mount(initial: HeartsState) -> (Display, Current) {
   let display = Display::mount_with(
     move || {
       reactant::Application::new(crate::assets::hearts::CONTENT)
+        .global_keys([
+          PhysicalKey::ArrowRight,
+          PhysicalKey::ArrowLeft,
+          PhysicalKey::ArrowUp,
+          PhysicalKey::ArrowDown,
+          PhysicalKey::Enter,
+          PhysicalKey::Escape,
+          PhysicalKey::Tab,
+        ])
+        .controller_input(
+          ControllerInputSettings::new().buttons([ControllerButton::South, ControllerButton::East]),
+        )
         .child(probe.clone())
         .document(|mut doc| {
           doc.element.picking_mode = Prop::Set(PickingMode::Ignore);

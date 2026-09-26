@@ -152,6 +152,21 @@ impl Component for CardSurface {
       .cloned();
     let (offset, handlers) =
       card_gesture::use_gesture(self.0.token, self.1.clone(), interactive.clone());
+    let (focused, set_focused) = hooks::use_state(false);
+    let (hovered, set_hovered) = hooks::use_state(false);
+    let focused = focused && interactive.is_some();
+    let hovered = hovered && interactive.is_some();
+    let focus = set_focused.clone();
+    let hover = set_hovered.clone();
+    let handlers = handlers
+      .on_pointer_enter(
+        move |_: reactant::event::ReactantEvent<battlement::PointerBoundaryEvent>| hover.set(true),
+      )
+      .on_pointer_leave(
+        move |_: reactant::event::ReactantEvent<battlement::PointerBoundaryEvent>| {
+          set_hovered.set(false)
+        },
+      );
     let selected = interactive
       .as_ref()
       .is_some_and(|input| input.selected(self.0.token));
@@ -159,8 +174,16 @@ impl Component for CardSurface {
     if let Some(input) = interactive {
       let token = self.0.token;
       let enabled = input.inspection().is_none();
+      let cancel = input.clone();
       let activate = EventCallback::new(move |_| input.activate(token));
       hit = hit
+        .focusable(true)
+        .navigation(
+          world::NavigationHandlers::new()
+            .on_focus(EventCallback::new(move |_| focus.set(true)))
+            .on_blur(EventCallback::new(move |_| set_focused.set(false)))
+            .on_cancel(EventCallback::new(move |_| cancel.cancel())),
+        )
         .capture_on_press(enabled)
         .events(handlers)
         .accessible_button(
@@ -169,12 +192,28 @@ impl Component for CardSurface {
         )
         .on_click(activate);
     }
+    let lift = if focused {
+      0.12
+    } else if hovered {
+      0.07
+    } else {
+      0.0
+    };
+    let scale = if focused { 1.08 } else { 1.0 };
     world::Group::new()
       .reference(reference)
+      .scale(Vector3::new(scale, scale, scale))
       .position(Vector3::new(
         offset.x,
-        offset.y + if selected { 0.18 } else { 0.0 },
-        offset.z - if selected { 0.05 } else { 0.0 },
+        offset.y + lift + if selected { 0.18 } else { 0.0 },
+        offset.z
+          - if focused {
+            0.07
+          } else if selected {
+            0.05
+          } else {
+            0.0
+          },
       ))
       .child((
         self.0.face.map(|card| {

@@ -31,6 +31,7 @@ namespace Battlement.UI
     {
         private readonly BattlementUiEventForwarder events;
         internal Func<int, bool> WorldCaptured { get; set; } = _ => false;
+        internal Func<UiNavigationDirection, bool> WorldNavigation { get; set; } = _ => false;
         internal Func<bool> PhysicalInputCaptured { get; set; } = () => false;
         private readonly Func<VisualElement?, Guid?> nearestId;
         private readonly Func<Guid, IReadOnlyList<Guid>> route;
@@ -109,7 +110,22 @@ namespace Battlement.UI
                 eventValue =>
                     ForwardRoot(
                         eventValue,
-                        (target, path) => events.ForwardNavigationMove(target, path, eventValue)
+                        (target, path) =>
+                        {
+                            events.ForwardNavigationMove(target, path, eventValue);
+#pragma warning disable CS0618
+                            if (
+                                !eventValue.isDefaultPrevented
+                                && WorldNavigation(
+                                    BattlementUiKeyboardMapper.Navigation(eventValue.direction)
+                                )
+                            )
+                            {
+                                eventValue.PreventDefault();
+                                eventValue.StopPropagation();
+                            }
+#pragma warning restore CS0618
+                        }
                     ),
                 TrickleDown.TrickleDown
             );

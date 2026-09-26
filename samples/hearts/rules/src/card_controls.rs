@@ -1,14 +1,15 @@
 use battlement::{UiFontAddress, object_id};
-use reactant::{app_context, hooks, prelude::*};
+use reactant::{app_context, hooks, portal::PortalTarget, prelude::*};
 use trox::ls;
 
 use crate::{
   assets,
   card_input::{self, CardInput},
   domain::{Phase, Seat},
+  inspection::Inspection,
 };
 
-pub(crate) struct CardControls;
+pub(crate) struct CardControls(pub PortalTarget);
 
 impl Component for CardControls {
   fn render(&self) -> impl Render {
@@ -36,70 +37,87 @@ impl Component for CardControls {
     let pass = input.clone();
     let play = input.clone();
     let inspect = input.clone();
-    let close = input.clone();
-    View::new()
-      .id(object_id!("6644ed66-12dc-4590-9af8-19d174a47014").into())
-      .enabled(input.enabled())
+    let cancel = input.clone();
+    Stack::new()
+      .on_navigation_cancel(move |_| cancel.cancel())
       .picking_mode(PickingMode::Ignore)
       .style(
         Style::new()
           .position(Position::Absolute)
-          .left(18.px())
-          .top((viewport.height as f32 - height - 10.0).px())
-          .height(height.px())
-          .width((viewport.width as f32 - 36.0).px())
-          .flex_direction(if portrait {
-            FlexDirection::Column
-          } else {
-            FlexDirection::Row
-          })
-          .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL))
-          .color(Color::rgb(0.06, 0.12, 0.03)),
+          .left(0)
+          .top(0)
+          .width(100.pct())
+          .height(100.pct()),
       )
       .child((
-        Heading::new(ls(prompt), 2).style(
-          Style::new()
-            .font_size(16.px())
-            .width(if portrait { 100.pct() } else { 350.px() })
-            .height(if portrait { 24.px() } else { 44.px() }),
-        ),
-        Label::new(ls(description.unwrap_or_else(|| "No card selected".into())))
-          .picking_mode(PickingMode::Ignore)
-          .style(
-            Style::new()
-              .width(135.px())
-              .height(if portrait { 24.px() } else { 44.px() }),
-          ),
         View::new()
           .picking_mode(PickingMode::Ignore)
-          .style(
-            Style::new()
-              .flex_direction(FlexDirection::Row)
-              .height(44.px()),
-          )
-          .child((
-            Button::new(ls("Pass three cards"))
-              .style(Style::new().height(40.px()).width(140.px()))
-              .disabled(!input.can_pass())
-              .on_press(move || pass.pass()),
-            Button::new(ls("Play selected card"))
-              .style(Style::new().height(40.px()).width(140.px()))
-              .disabled(!selected.is_some_and(|token| input.can_play(token)))
-              .on_press(move || {
-                if let Some(token) = selected {
-                  play.play(token);
-                }
-              }),
-            Button::new(ls("Inspect selected card"))
-              .style(Style::new().height(40.px()).width(140.px()))
-              .disabled(selected.is_none())
-              .on_press(move || inspect.inspect()),
-            input.inspection().map(|_| {
-              Button::new(ls("Close inspection"))
-                .style(Style::new().height(40.px()).width(140.px()))
-                .on_press(move || close.dismiss())
-            }),
-          )),
+          .style(Style::new().width(100.pct()).height(100.pct()))
+          .child(
+            View::new()
+              .picking_mode(PickingMode::Ignore)
+              .style(
+                Style::new()
+                  .position(Position::Absolute)
+                  .left(18.px())
+                  .top((viewport.height as f32 - height - 10.0).px())
+                  .height(height.px())
+                  .width((viewport.width as f32 - 36.0).px())
+                  .flex_direction(if portrait {
+                    FlexDirection::Column
+                  } else {
+                    FlexDirection::Row
+                  })
+                  .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL))
+                  .color(Color::rgb(0.06, 0.12, 0.03)),
+              )
+              .child((
+                View::new()
+                  .id(object_id!("6644ed66-12dc-4590-9af8-19d174a47014").into())
+                  .enabled(input.enabled())
+                  .child(
+                    Heading::new(ls(prompt), 2).style(
+                      Style::new()
+                        .font_size(16.px())
+                        .width(if portrait { 100.pct() } else { 350.px() })
+                        .height(if portrait { 24.px() } else { 44.px() }),
+                    ),
+                  ),
+                Label::new(ls(description.unwrap_or_else(|| "No card selected".into())))
+                  .picking_mode(PickingMode::Ignore)
+                  .style(Style::new().width(135.px()).height(if portrait {
+                    24.px()
+                  } else {
+                    44.px()
+                  })),
+                View::new()
+                  .picking_mode(PickingMode::Ignore)
+                  .style(
+                    Style::new()
+                      .flex_direction(FlexDirection::Row)
+                      .height(44.px()),
+                  )
+                  .child((
+                    Button::new(ls("Pass three cards"))
+                      .style(Style::new().height(40.px()).width(140.px()))
+                      .disabled(!input.can_pass())
+                      .on_press(move || pass.pass()),
+                    Button::new(ls("Play selected card"))
+                      .style(Style::new().height(40.px()).width(140.px()))
+                      .disabled(!selected.is_some_and(|token| input.can_play(token)))
+                      .on_press(move || {
+                        if let Some(token) = selected {
+                          play.play(token);
+                        }
+                      }),
+                    Button::new(ls("Inspect selected card"))
+                      .style(Style::new().height(40.px()).width(140.px()))
+                      .disabled(selected.is_none())
+                      .on_press(move || inspect.inspect()),
+                  )),
+              )),
+          ),
+        input.inspection().map(|_| Inspection(self.0.clone())),
       ))
   }
 }

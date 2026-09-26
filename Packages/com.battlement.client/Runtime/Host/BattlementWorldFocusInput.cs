@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Battlement.UI;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Battlement
 {
@@ -54,7 +55,7 @@ namespace Battlement
             {
                 invoker = null;
                 inModal = false;
-                SetFocus(null);
+                SetFocus((BattlementIdentity?)null);
                 return;
             }
             bool nextModal = modal();
@@ -62,7 +63,7 @@ namespace Battlement
             {
                 invoker = focused;
                 inModal = true;
-                SetFocus(null);
+                SetFocus((BattlementIdentity?)null);
                 ui.ShowFocus();
             }
             else if (!nextModal && inModal)
@@ -78,7 +79,7 @@ namespace Battlement
             if (!ReferenceEquals(focused, null) && !Eligible(focused))
                 SetFocus(Candidates().FirstOrDefault());
             if (!inModal && focused != null && ui.Focused != null)
-                SetFocus(null);
+                SetFocus((BattlementIdentity?)null);
         }
 
         internal bool TryHandle(ActionBody body, bool includeUi = false)
@@ -162,6 +163,16 @@ namespace Battlement
             return true;
         }
 
+        internal bool NavigateFromUi(UiNavigationDirection direction)
+        {
+            Refresh(inputAvailable);
+            if (!inputAvailable || inModal || !HasTargets)
+                return false;
+            MoveFocus(direction);
+            ui.ShowFocus();
+            return true;
+        }
+
         internal void Navigate(UiNavigationDirection direction)
         {
             Refresh(inputAvailable);
@@ -190,8 +201,28 @@ namespace Battlement
                 ) != UiEventDisposition.Continue
             )
                 return;
-            BattlementIdentity[] candidates = Candidates().ToArray();
-            int index = Array.IndexOf(candidates, focused);
+            MoveFocus(direction);
+        }
+
+        private sealed record FocusTarget(
+            BattlementIdentity? World,
+            VisualElement? Ui,
+            UnityEngine.Vector2 Position
+        );
+
+        private void MoveFocus(UiNavigationDirection direction)
+        {
+            FocusTarget[] candidates = Candidates()
+                .Select(value => new FocusTarget(value, null, Position(value)))
+                .Concat(UiTargets())
+                .ToArray();
+            int index = Array.FindIndex(
+                candidates,
+                value =>
+                    value.World != null
+                        ? ReferenceEquals(value.World, focused)
+                        : ReferenceEquals(value.Ui, ui.Focused)
+            );
             if (index < 0)
             {
                 SetFocus(candidates.FirstOrDefault());
@@ -211,12 +242,12 @@ namespace Battlement
                 UiNavigationDirection.Down => UnityEngine.Vector2.down,
                 _ => UnityEngine.Vector2.zero,
             };
-            UnityEngine.Vector3 origin = Position(focused!);
-            BattlementIdentity? next = null;
+            UnityEngine.Vector2 origin = candidates[index].Position;
+            FocusTarget? next = null;
             float score = float.PositiveInfinity;
-            foreach (BattlementIdentity candidate in candidates)
+            foreach (FocusTarget candidate in candidates)
             {
-                UnityEngine.Vector3 delta = Position(candidate) - origin;
+                UnityEngine.Vector2 delta = candidate.Position - origin;
                 float forward = delta.x * axis.x + delta.y * axis.y;
                 if (forward <= 0.001f)
                     continue;
@@ -229,6 +260,65 @@ namespace Battlement
             }
             if (next != null)
                 SetFocus(next);
+        }
+
+        private IEnumerable<FocusTarget> UiTargets()
+        {
+            foreach (var target in ui.Targets)
+            {
+                var element = target.Element;
+                var document = target.Document;
+                UnityEngine.Vector2 center;
+                if (
+                    document.panelSettings.renderMode
+                    == UnityEngine.UIElements.PanelRenderMode.WorldSpace
+                )
+                {
+                    var result = BattlementWorldPanelGeometry.Sample(
+                        element,
+                        default,
+                        document,
+                        world.InputCamera,
+                        new UnityBattlementGeometryDisplaySource()
+                    );
+                    if (
+                        result
+                        is not GeometryObservationResult.Current
+                        {
+                            Value: GeometryValue.Element geometry
+                        }
+                    )
+                        continue;
+                    var bound = geometry.Value.ViewportBound;
+                    center = new UnityEngine.Vector2(
+                        (float)(bound.X + bound.Width / 2),
+                        (float)(bound.Y + bound.Height / 2)
+                    );
+                }
+                else
+                {
+                    if (document.panelSettings.targetTexture != null)
+                        continue;
+                    center = element.worldBound.center * element.panel.scaledPixelsPerPoint;
+                }
+                if (!float.IsFinite(center.x) || !float.IsFinite(center.y))
+                    continue;
+                yield return new FocusTarget(
+                    null,
+                    element,
+                    new UnityEngine.Vector2(center.x, Screen.height - center.y)
+                );
+            }
+        }
+
+        private void SetFocus(FocusTarget? next)
+        {
+            SetFocus(next?.World);
+            if (next?.Ui is VisualElement element)
+            {
+                element.Focus();
+                ui.ShowFocus();
+            }
         }
 
         internal void Activate()

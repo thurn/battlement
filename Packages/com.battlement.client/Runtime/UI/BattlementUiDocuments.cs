@@ -502,7 +502,14 @@ namespace Battlement.UI
 
         internal IEnumerable<UIDocument> InputDocuments => hierarchy.InputDocuments;
         internal BattlementUiNavigation Navigation =>
-            new(() => InputDocuments, focusCoordinator.ShowSemanticFocus);
+            new(
+                () => InputDocuments,
+                focusCoordinator.ShowSemanticFocus,
+                () => BattlementUiFocusTargets.Collect(hierarchy, focusCoordinator)
+            );
+
+        internal void SetWorldNavigation(Func<UiNavigationDirection, bool> navigate) =>
+            eventObserver.WorldNavigation = navigate;
 
         internal void SetPhysicalInputCapture(Func<bool> captured) =>
             eventObserver.PhysicalInputCaptured = captured;

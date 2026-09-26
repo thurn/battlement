@@ -226,6 +226,9 @@ fn semantic_vertical_navigation_preserves_native_callback_coordinates() {
   let mut display = fixture();
   display.navigate(NavigationDirection::Right);
   display.navigate(NavigationDirection::Up);
+  assert_eq!(display.focused(), Some(display.find_ui(ROOT, "remove")));
+  display.navigate(NavigationDirection::Down);
+  assert_eq!(display.focused(), Some(FIRST));
   display.navigate(NavigationDirection::Down);
   display.with_engine(|app| {
     assert_eq!(
@@ -239,4 +242,23 @@ fn semantic_vertical_navigation_preserves_native_callback_coordinates() {
       ]
     )
   });
+}
+
+#[test]
+fn sequential_navigation_crosses_world_and_ui_in_both_directions() {
+  let mut display = fixture();
+  let remove = display.find_ui(ROOT, "remove");
+  display.navigate(NavigationDirection::Next);
+  assert_eq!(display.focused(), Some(FIRST));
+  display.navigate(NavigationDirection::Next);
+  assert_eq!(display.focused(), Some(SECOND));
+  display.navigate(NavigationDirection::Next);
+  assert_eq!(display.focused(), Some(remove));
+  display.navigate(NavigationDirection::Previous);
+  assert_eq!(display.focused(), Some(SECOND));
+  display.navigate(NavigationDirection::Next);
+  display.activate_focused();
+  assert!(display.object(SECOND).is_none());
+  display.navigate(NavigationDirection::Next);
+  assert_eq!(display.focused(), Some(FIRST));
 }

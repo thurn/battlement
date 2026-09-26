@@ -67,3 +67,35 @@ screen = "hearts"
 [[states]]
 key = "input.card-inspection.inspection"
 screen = "hearts"
+
+[[states]]
+key = "navigation.keyboard-and-controller-pass-and-trick.focused"
+screen = "hearts"
+
+[[states]]
+key = "navigation.keyboard-and-controller-pass-and-trick.selected"
+screen = "hearts"
+
+[[states]]
+key = "navigation.keyboard-and-controller-pass-and-trick.three-selected"
+screen = "hearts"
+
+[[states]]
+key = "navigation.keyboard-and-controller-pass-and-trick.passed"
+screen = "hearts"
+
+[[states]]
+key = "navigation.keyboard-and-controller-pass-and-trick.trick-and-removal"
+screen = "hearts"
+
+[[states]]
+key = "navigation.inspection-focus-and-mixed-input.modal-focus"
+screen = "hearts"
+
+[[states]]
+key = "navigation.inspection-focus-and-mixed-input.restored-focus-and-selection"
+screen = "hearts"
+
+[[states]]
+key = "navigation.inspection-focus-and-mixed-input.mixed-input-played"
+screen = "hearts"

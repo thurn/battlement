@@ -103,3 +103,51 @@ state = "input.card-inspection.inspection"
 scenario = "card inspection"
 checkpoint = "inspection"
 owner = "card_input_tests::illegal_cards_are_inspectable_and_selection_then_confirm_admits_one_play"
+
+[[mappings]]
+state = "navigation.keyboard-and-controller-pass-and-trick.focused"
+scenario = "keyboard and controller pass and trick"
+checkpoint = "focused"
+owner = "card_input_tests::keyboard_and_controller_complete_pass_and_trick_without_pointer"
+
+[[mappings]]
+state = "navigation.keyboard-and-controller-pass-and-trick.selected"
+scenario = "keyboard and controller pass and trick"
+checkpoint = "selected"
+owner = "card_input_tests::keyboard_and_controller_complete_pass_and_trick_without_pointer"
+
+[[mappings]]
+state = "navigation.keyboard-and-controller-pass-and-trick.three-selected"
+scenario = "keyboard and controller pass and trick"
+checkpoint = "three selected"
+owner = "card_input_tests::keyboard_and_controller_complete_pass_and_trick_without_pointer"
+
+[[mappings]]
+state = "navigation.keyboard-and-controller-pass-and-trick.passed"
+scenario = "keyboard and controller pass and trick"
+checkpoint = "passed"
+owner = "card_input_tests::keyboard_and_controller_complete_pass_and_trick_without_pointer"
+
+[[mappings]]
+state = "navigation.keyboard-and-controller-pass-and-trick.trick-and-removal"
+scenario = "keyboard and controller pass and trick"
+checkpoint = "trick and removal"
+owner = "card_input_tests::keyboard_and_controller_complete_pass_and_trick_without_pointer"
+
+[[mappings]]
+state = "navigation.inspection-focus-and-mixed-input.modal-focus"
+scenario = "inspection focus and mixed input"
+checkpoint = "modal focus"
+owner = "card_input_tests::inspection_traps_navigation_and_restores_invoker_without_clearing_selection"
+
+[[mappings]]
+state = "navigation.inspection-focus-and-mixed-input.restored-focus-and-selection"
+scenario = "inspection focus and mixed input"
+checkpoint = "restored focus and selection"
+owner = "card_input_tests::inspection_traps_navigation_and_restores_invoker_without_clearing_selection"
+
+[[mappings]]
+state = "navigation.inspection-focus-and-mixed-input.mixed-input-played"
+scenario = "inspection focus and mixed input"
+checkpoint = "mixed input played"
+owner = "card_input_tests::inspection_traps_navigation_and_restores_invoker_without_clearing_selection"
