@@ -162,27 +162,124 @@ namespace Battlement.Tests
         private static Payload VisualAction(
             FlatBufferBuilder builder,
             CommandBody.VisualElement.PerformAction value
-        ) => throw Unsupported(value);
+        )
+        {
+            Wire.VisualElementActionKind kind = value.Action switch
+            {
+                VisualElementAction.Blur => Wire.VisualElementActionKind.Blur,
+                VisualElementAction.Focus => Wire.VisualElementActionKind.Focus,
+                _ => throw Unsupported(value),
+            };
+            Wire.VisualElementActionPayload.StartVisualElementActionPayload(builder);
+            Wire.VisualElementActionPayload.AddKind(builder, kind);
+            Wire.VisualElementActionPayload.AddObjectId(
+                builder,
+                Uuid(builder, value.ObjectId.Value)
+            );
+            return new(
+                Wire.CoreCommandKind.VisualElementPerformAction,
+                Wire.CoreCommandPayload.VisualElementActionPayload,
+                Wire.VisualElementActionPayload.EndVisualElementActionPayload(builder).Value
+            );
+        }
 
         private static Payload MotionValue(
             FlatBufferBuilder builder,
             CommandBody.Motion.ValueCommand value
-        ) => throw Unsupported(value);
+        )
+        {
+            if (value.Payload.Command is not MotionValueCommand.Stop)
+                throw Unsupported(value);
+            Wire.MotionValueOperation.StartMotionValueOperation(builder);
+            Wire.MotionValueOperation.AddCommand(builder, Wire.MotionValueCommandKind.Stop);
+            Wire.MotionValueOperation.AddValueId(
+                builder,
+                Uuid(builder, value.Payload.ValueId.Value)
+            );
+            return new(
+                Wire.CoreCommandKind.MotionValue,
+                Wire.CoreCommandPayload.MotionValueOperation,
+                Wire.MotionValueOperation.EndMotionValueOperation(builder).Value
+            );
+        }
 
         private static Payload MotionValuePlayback(
             FlatBufferBuilder builder,
             CommandBody.Motion.ValuePlayback value
-        ) => throw Unsupported(value);
+        )
+        {
+            var command = PlaybackCommand(builder, value.Payload.Command);
+            Wire.MotionValuePlaybackOperation.StartMotionValuePlaybackOperation(builder);
+            Wire.MotionValuePlaybackOperation.AddCommand(builder, command);
+            Wire.MotionValuePlaybackOperation.AddGeneration(builder, value.Payload.Generation);
+            Wire.MotionValuePlaybackOperation.AddPlaybackId(
+                builder,
+                Uuid(builder, value.Payload.PlaybackId.Value)
+            );
+            return new(
+                Wire.CoreCommandKind.MotionValuePlayback,
+                Wire.CoreCommandPayload.MotionValuePlaybackOperation,
+                Wire.MotionValuePlaybackOperation.EndMotionValuePlaybackOperation(builder).Value
+            );
+        }
 
         private static Payload MotionPlayback(
             FlatBufferBuilder builder,
             CommandBody.Motion.Playback value
-        ) => throw Unsupported(value);
+        )
+        {
+            var command = PlaybackCommand(builder, value.Payload.Command);
+            Wire.MotionPlaybackOperation.StartMotionPlaybackOperation(builder);
+            Wire.MotionPlaybackOperation.AddCommand(builder, command);
+            Wire.MotionPlaybackOperation.AddSlot(builder, value.Payload.Slot);
+            Wire.MotionPlaybackOperation.AddGeneration(builder, value.Payload.Generation);
+            Wire.MotionPlaybackOperation.AddDescriptorId(
+                builder,
+                Uuid(builder, value.Payload.DescriptorId.Value)
+            );
+            return new(
+                Wire.CoreCommandKind.MotionPlayback,
+                Wire.CoreCommandPayload.MotionPlaybackOperation,
+                Wire.MotionPlaybackOperation.EndMotionPlaybackOperation(builder).Value
+            );
+        }
+
+        private static Offset<Wire.MotionPlaybackCommand> PlaybackCommand(
+            FlatBufferBuilder builder,
+            MotionPlaybackCommand value
+        )
+        {
+            if (value is not MotionPlaybackCommand.Cancel)
+                throw Unsupported(value);
+            return Wire.MotionPlaybackCommand.CreateMotionPlaybackCommand(
+                builder,
+                Wire.MotionPlaybackCommandKind.Cancel
+            );
+        }
 
         private static Payload MotionControlledClock(
             FlatBufferBuilder builder,
             CommandBody.Motion.ControlledClock value
-        ) => throw Unsupported(value);
+        )
+        {
+            if (value.Payload.Command is not MotionControlledClockCommand.Advance advance)
+                throw Unsupported(value);
+            Wire.MotionControlledClockOperation.StartMotionControlledClockOperation(builder);
+            Wire.MotionControlledClockOperation.AddCommand(
+                builder,
+                Wire.MotionControlledClockCommandKind.Advance
+            );
+            Wire.MotionControlledClockOperation.AddMicros(builder, advance.DeltaMicros);
+            Wire.MotionControlledClockOperation.AddClockId(
+                builder,
+                Uuid(builder, value.Payload.ClockId.Value)
+            );
+            return new(
+                Wire.CoreCommandKind.MotionControlledClock,
+                Wire.CoreCommandPayload.MotionControlledClockOperation,
+                Wire.MotionControlledClockOperation.EndMotionControlledClockOperation(builder).Value
+            );
+        }
 
         private static Payload MotionControl(
             FlatBufferBuilder builder,
@@ -300,7 +397,34 @@ namespace Battlement.Tests
         private static Payload MotionDragControl(
             FlatBufferBuilder builder,
             CommandBody.Motion.DragControl value
-        ) => throw Unsupported(value);
+        )
+        {
+            MotionDragControlOperation payload = value.Payload;
+            Wire.MotionDragControlOperation.StartMotionDragControlOperation(builder);
+            Wire.MotionDragControlOperation.AddControlId(
+                builder,
+                Uuid(builder, payload.ControlId.Value)
+            );
+            Wire.MotionDragControlOperation.AddPointerId(builder, payload.PointerId);
+            Wire.MotionDragControlOperation.AddDevice(
+                builder,
+                (Wire.MotionPointerDevice)payload.Device
+            );
+            Wire.MotionDragControlOperation.AddPoint(
+                builder,
+                Wire.MotionVector2.CreateMotionVector2(
+                    builder,
+                    (float)payload.Point.X,
+                    (float)payload.Point.Y
+                )
+            );
+            Wire.MotionDragControlOperation.AddSnapToCursor(builder, payload.SnapToCursor);
+            return new(
+                Wire.CoreCommandKind.MotionDragControl,
+                Wire.CoreCommandPayload.MotionDragControlOperation,
+                Wire.MotionDragControlOperation.EndMotionDragControlOperation(builder).Value
+            );
+        }
 
         private static NotSupportedException Unsupported(object value) =>
             new($"The host fixture writer cannot encode {value.GetType().FullName}.");

@@ -60,6 +60,8 @@ namespace Battlement.Tests
         {
             Payload payload = command.Body switch
             {
+                CommandBody.Diagnostics value => Diagnostics(builder, value),
+                CommandBody.Motion.SetWorldDescriptor value => WorldMotion(builder, value),
                 CommandBody.ApplicationDisplay value => DisplayOperation(builder, value.Value),
                 CommandBody.ApplicationOpenUrl value => ExternalUrl(builder, value),
                 CommandBody.ApplicationSetFramePacing value => new Payload(
@@ -367,6 +369,37 @@ namespace Battlement.Tests
             Wire.CoreCommand.AddBlocking(builder, command.IsBlocking);
             Wire.CoreCommand.AddCommandId(builder, Uuid(builder, command.Id.Value));
             return Wire.CoreCommand.EndCoreCommand(builder);
+        }
+
+        private static Payload Diagnostics(FlatBufferBuilder builder, CommandBody.Diagnostics value)
+        {
+            if (value.Command is not DiagnosticsCommand.SetReporting reporting)
+                throw Unsupported(value);
+            return new(
+                Wire.CoreCommandKind.Diagnostics,
+                Wire.CoreCommandPayload.DiagnosticsPayload,
+                Wire.DiagnosticsPayload.CreateDiagnosticsPayload(
+                    builder,
+                    Wire.DiagnosticsOperation.SetReporting,
+                    enabled: reporting.Enabled
+                ).Value
+            );
+        }
+
+        private static Payload WorldMotion(
+            FlatBufferBuilder builder,
+            CommandBody.Motion.SetWorldDescriptor value
+        )
+        {
+            if (value.Descriptor is not null)
+                throw Unsupported(value);
+            Wire.WorldMotionPayload.StartWorldMotionPayload(builder);
+            Wire.WorldMotionPayload.AddObjectId(builder, Uuid(builder, value.ObjectId.Value));
+            return new(
+                Wire.CoreCommandKind.MotionSetWorldDescriptor,
+                Wire.CoreCommandPayload.WorldMotionPayload,
+                Wire.WorldMotionPayload.EndWorldMotionPayload(builder).Value
+            );
         }
 
         private readonly struct Payload
