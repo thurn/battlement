@@ -304,7 +304,9 @@ impl<G: 'static> App<G> {
     let runtime = self.orchestration.borrow().runtime();
     let active = runtime.as_ref().and_then(|runtime| runtime.work_scope());
     if let Some(scope) = self.output.ending_scope(active)
-      && let Some(batch) = self.runtime.recover_scope(scope, response.session_id)
+      && let Some(batch) = self
+        .runtime
+        .recover_scope(scope, response.session_id, active.is_none())
     {
       response.messages.push(DeliveryMessage::Batch(batch));
     }

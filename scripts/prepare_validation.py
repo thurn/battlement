@@ -153,7 +153,7 @@ def relevant_inputs(repository: Path, producers: list[tuple[str, str]]) -> list[
                           "scripts/project_assets.py",
                           "Packages/com.battlement.client/Editor/BattlementProjectAssets.cs"})
             declaration = json.loads((repository / "samples" / sample / "project-assets.json").read_text())
-            sources = {item["texture"] for item in declaration["materials"]}
+            sources = {item["texture"] for item in declaration["materials"] if "texture" in item}
             sources.update(item["path"] for item in declaration["models"])
             sources.update(item["path"] for item in declaration["addresses"])
             for source in sources:
@@ -171,6 +171,9 @@ def relevant_inputs(repository: Path, producers: list[tuple[str, str]]) -> list[
             paths.add("crates/battlement-reactant-assets/src")
             paths.add("crates/rt/src/assets.rs")
             paths.add("crates/reactant-core/src/asset_generator")
+    for sample, producer in producers:
+        if producer == "project-assets":
+            paths.add(f":(exclude)samples/{sample}/Assets/AddressableAssetsData")
     return sorted(paths)
 
 
@@ -280,16 +283,33 @@ def prepare(
             staged_tree_oid=before_index, changed_paths=paths, producers=producers,
         )
         if mode == "generate":
-            for producer in producers:
-                run_producer(repository, producer, False, runner)
-            stable = tree_snapshot(repository, outputs)
-            for producer in producers:
-                run_producer(repository, producer, False, runner)
-                current = tree_snapshot(repository, outputs)
-                if current != stable:
-                    raise RuntimeError(
-                        f"Generated inputs did not converge after {producer[1]} for {producer[0]}"
-                    )
+            with tempfile.TemporaryDirectory(prefix="battlement-preparation-index-") as temporary:
+                environment = os.environ | {"GIT_INDEX_FILE": str(Path(temporary) / "index")}
+                subprocess.run(["git", "read-tree", before_index], cwd=repository,
+                               env=environment, check=True)
+
+                def generate(producer: tuple[str, str]) -> None:
+                    def isolated_runner(command: list[str], *, cwd: Path) -> None:
+                        runner(command, cwd=cwd, environment=environment)
+                    run_producer(repository, producer, False, isolated_runner)
+                    # Downstream Unity transactions must see upstream generated assets
+                    # in their frozen input index without staging anything for the user.
+                    existing = [path for path in generated_paths([producer])
+                                if git(repository, "ls-files", "--", path)]
+                    if existing:
+                        subprocess.run(["git", "add", "-u", "--", *existing],
+                                       cwd=repository, env=environment, check=True)
+
+                for producer in producers:
+                    generate(producer)
+                stable = tree_snapshot(repository, outputs)
+                for producer in producers:
+                    generate(producer)
+                    current = tree_snapshot(repository, outputs)
+                    if current != stable:
+                        raise RuntimeError(
+                            f"Generated inputs did not converge after {producer[1]} for {producer[0]}"
+                        )
         else:
             for producer in producers:
                 if producer[1] == "reactant-assets":

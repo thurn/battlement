@@ -33,11 +33,18 @@ def main() -> None:
         generated = root / "samples/fixture/rules/src/assets.rs"
         calls = []
 
-        def stable_runner(command: list[str], *, cwd: Path) -> None:
+        def stable_runner(command: list[str], *, cwd: Path, environment: dict[str, str] | None = None) -> None:
+            assert environment and environment["GIT_INDEX_FILE"]
+            assert environment["HOME"] == os.environ["HOME"]
+            subprocess.run(["git", "diff", "--exit-code", "--", "samples/fixture/Assets"],
+                           cwd=cwd, env=environment, check=True)
             calls.append(command)
-            if "--check" not in command and "// updated" not in generated.read_text():
+            if "scripts/project_assets.py" in command:
+                (root / "samples/fixture/Assets/AddressableAssetsData/settings").write_text("generated\n")
+            else:
                 generated.write_text(GENERATED_MARKER + "// updated\n")
 
+        staged_before = module.git(root, "write-tree")
         old_log_root = os.environ.get("BATTLEMENT_LOG_ROOT")
         os.environ["BATTLEMENT_LOG_ROOT"] = str(root / "logs")
         try:
@@ -49,8 +56,10 @@ def main() -> None:
                 os.environ.pop("BATTLEMENT_LOG_ROOT", None)
             else:
                 os.environ["BATTLEMENT_LOG_ROOT"] = old_log_root
-        assert len(calls) == 2, calls
+        assert module.git(root, "write-tree") == staged_before
+        assert len(calls) == 4, calls
         assert manifest["selected_producers"] == [
+            {"sample": "fixture", "producer": "project-assets"},
             {"sample": "fixture", "producer": "addressables"},
         ]
         assert json.loads(output.read_text())["source_manifest_sha256"]
@@ -59,7 +68,7 @@ def main() -> None:
 
         generated.write_text(GENERATED_MARKER + "// original\n")
 
-        def unstable_runner(_command: list[str], *, cwd: Path) -> None:
+        def unstable_runner(_command: list[str], *, cwd: Path, environment: dict[str, str] | None = None) -> None:
             current = generated.read_text()
             suffix = "// alternating-a\n" if "alternating-b" in current else "// alternating-b\n"
             generated.write_text(GENERATED_MARKER + suffix)
@@ -90,8 +99,10 @@ def main() -> None:
         visual_output = root / "samples/visual/Assets/Generated/texture.png"
         visual_calls = []
 
-        def visual_runner(command: list[str], *, cwd: Path) -> None:
+        def visual_runner(command: list[str], *, cwd: Path, environment: dict[str, str] | None = None) -> None:
             visual_calls.append(command)
+            if "assets" not in command:
+                return
             if "generate" in command:
                 visual_output.parent.mkdir(parents=True, exist_ok=True)
                 visual_output.write_bytes(b"generated texture")
@@ -102,7 +113,7 @@ def main() -> None:
             root, "check", ["visual"], root / "visual.json",
             root / "visual.patch", runner=visual_runner,
         )
-        assert [command[7] for command in visual_calls if command[6] == "assets"] == [
+        assert [command[7] for command in visual_calls if "assets" in command] == [
             "generate", "check",
         ]
     print("Validation preparation tests passed.")
@@ -117,6 +128,7 @@ def create_repository(root: Path) -> None:
         "crates/rt/src/addressables.rs": "// generator\n",
         "crates/rt/src/assets.rs": "// generator\n",
         "crates/reactant-core/src/asset_generator/mod.rs": "// generator\n",
+        "samples/fixture/project-assets.json": '{"materials": [{"path":"Assets/Generated/Ground.mat","color":"#FFFFFF"}],"models":[],"addresses":[]}',
         "samples/fixture/sample.toml": "application = 'Fixture.app'\nscene = 'Assets/Main.unity'\n",
         "samples/fixture/ditto.toml": "[[scenarios]]\nname = 'smoke'\nsteps = []\n",
         "samples/fixture/rules/src/lib.rs": "pub fn fixture() {}\n",

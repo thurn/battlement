@@ -312,6 +312,12 @@ namespace Battlement
             RequireOptions().Transport as BattlementNativeTransport
             ?? throw new InvalidOperationException("Ditto requires the native transport.");
 
+        internal void BeginDittoDisplay()
+        {
+            EnsureMainThread();
+            configuredRuntime!.BeginDittoDisplay();
+        }
+
         internal void BeginDittoMotion(DittoMotion motion)
         {
             EnsureMainThread();

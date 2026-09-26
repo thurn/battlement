@@ -10,6 +10,58 @@ namespace Battlement.Tests
     public sealed class BattlementDisplayPreviewTests
     {
         [Test]
+        public void DittoDisplaySessionsIgnoreSavedDesktopPreferencesAndPriorScenarios()
+        {
+            var backend = new Backend();
+            var saved = new Store { Record = new DisplayRecoveryRecord(Prior, false) };
+            using var runtime = new BattlementConfiguredRuntime(
+                new BattlementRunnerOptions(
+                    new FakeBattlementTransport(),
+                    new FakeBattlementAssetStorage()
+                ),
+                backend,
+                saved
+            );
+            var portrait = new HostSettings
+            {
+                Platform = HostPlatform.MacOs,
+                Display = SettingAvailability.Available,
+                DisplayModes = new[] { DisplayMode.Windowed },
+                AppliedDisplay = new DisplayConfiguration(
+                    DisplayMode.Windowed,
+                    Resolution(720, 1280)
+                ),
+            };
+            runtime.BeginDittoDisplay();
+            runtime.Display.Observe(portrait, true);
+            Assert.That(
+                backend.Requested,
+                Is.Null,
+                "The declared profile owns the initial framebuffer."
+            );
+            Assert.That(saved.Record, Is.EqualTo(new DisplayRecoveryRecord(Prior, false)));
+
+            CommandId preview = Id();
+            runtime.Display.Begin(preview, Prior, portrait);
+            var applied = portrait with { AppliedDisplay = Prior };
+            runtime.Display.Observe(applied, true);
+            runtime.Display.Confirm(Id(), preview, applied);
+            Assert.That(runtime.LastSettingResult, Is.Not.Null);
+            Assert.That(saved.Record, Is.EqualTo(new DisplayRecoveryRecord(Prior, false)));
+
+            backend.Requested = null;
+            runtime.BeginDittoDisplay();
+            runtime.Display.Observe(portrait, true);
+            Assert.That(
+                backend.Requested,
+                Is.Null,
+                "A scenario cannot restore another scenario's choice."
+            );
+            Assert.That(runtime.LastSettingResult, Is.Null);
+            Assert.That(saved.Record, Is.EqualTo(new DisplayRecoveryRecord(Prior, false)));
+        }
+
+        [Test]
         public void SerializedDisplayOperationsPassNativeAdmissionAndRejectInvalidDimensions()
         {
             var session = new SessionId(Guid.NewGuid());

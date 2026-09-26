@@ -32,10 +32,20 @@ namespace Battlement.Editor
                     material = new Material(Shader.Find("Standard"));
                     AssetDatabase.CreateAsset(material, path);
                 }
-                var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(AssetPath(item, "texture"));
-                if (!texture)
-                    throw new InvalidOperationException($"Missing texture for {path}");
+                Texture2D? texture = null;
+                if (item["texture"] != null)
+                {
+                    texture = AssetDatabase.LoadAssetAtPath<Texture2D>(AssetPath(item, "texture"));
+                    if (!texture)
+                        throw new InvalidOperationException($"Missing texture for {path}");
+                }
                 material.mainTexture = texture;
+                string color = item["color"]?.Value<string>() ?? "#FFFFFF";
+                if (!ColorUtility.TryParseHtmlString(color, out UnityEngine.Color tint))
+                    throw new InvalidOperationException(
+                        $"Invalid material color for {path}: {color}"
+                    );
+                material.color = tint;
                 material.SetFloat("_Metallic", 0);
                 material.SetFloat("_Glossiness", 0);
                 EditorUtility.SetDirty(material);

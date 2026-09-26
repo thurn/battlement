@@ -5,38 +5,38 @@ namespace = "battlement/hearts"
 profile = "macos"
 scenario = "new match"
 checkpoint = "initial"
-sha256 = "b0f12fbfabe8ce3f20ae9194fdd99f703e2b9d73152899796d9459128cef8754"
+sha256 = "ef979a5ab10f668528420744a1e295e759ac9287d17d9b7f14ec1a333e747dca"
 width = 1280
 height = 720
-size_bytes = 113422
-source = "cb04c10138a0e6183dfd4f105349e093770d4f07cefa9bb0d0399c368a3f0fff"
+size_bytes = 600421
+source = "b4d592b72cf6641df5174f20e59880dd7565c49793452fac8a437a74d4ad6d98"
 
 [[baselines]]
 profile = "macos"
 scenario = "owned card faces"
 checkpoint = "deck"
-sha256 = "ccf19d048e1f825ff8cbc88916b1b0bf63ea6bf75286fc056082360b04d1d377"
+sha256 = "fa3274758295a5a87624b7b132a38b21c7464dfa642639c03a807fc21e176330"
 width = 1280
 height = 720
-size_bytes = 282055
-source = "cb04c10138a0e6183dfd4f105349e093770d4f07cefa9bb0d0399c368a3f0fff"
+size_bytes = 282114
+source = "b4d592b72cf6641df5174f20e59880dd7565c49793452fac8a437a74d4ad6d98"
 
 [[baselines]]
 profile = "macos"
 scenario = "restore and reset"
 checkpoint = "reset"
-sha256 = "b0f12fbfabe8ce3f20ae9194fdd99f703e2b9d73152899796d9459128cef8754"
+sha256 = "ef979a5ab10f668528420744a1e295e759ac9287d17d9b7f14ec1a333e747dca"
 width = 1280
 height = 720
-size_bytes = 113422
-source = "cb04c10138a0e6183dfd4f105349e093770d4f07cefa9bb0d0399c368a3f0fff"
+size_bytes = 600421
+source = "b4d592b72cf6641df5174f20e59880dd7565c49793452fac8a437a74d4ad6d98"
 
 [[baselines]]
 profile = "macos"
 scenario = "restore and reset"
 checkpoint = "restored"
-sha256 = "ecc3b8fd9f87b4a0f9b3be35a176fea17bff8c31cdf9b761fe910de8a4173276"
+sha256 = "e5a3f3e2336adb3ca31568dba872ca419b8ad56f253968ccfc71eac8faf3fef0"
 width = 1280
 height = 720
-size_bytes = 94609
-source = "cb04c10138a0e6183dfd4f105349e093770d4f07cefa9bb0d0399c368a3f0fff"
+size_bytes = 574433
+source = "b4d592b72cf6641df5174f20e59880dd7565c49793452fac8a437a74d4ad6d98"

@@ -20,6 +20,16 @@ namespace Battlement
         void Save(DisplayRecoveryRecord record);
     }
 
+    /// <summary>Keeps recovery choices local to one Ditto scenario.</summary>
+    internal sealed class InMemoryDisplayRecoveryStore : IDisplayRecoveryStore
+    {
+        private DisplayRecoveryRecord? record;
+
+        public DisplayRecoveryRecord? Load() => record;
+
+        public void Save(DisplayRecoveryRecord value) => record = value;
+    }
+
     /// <summary>Commits display recovery before any preview can affect the native window.</summary>
     internal sealed class BattlementDisplayRecoveryStore : IDisplayRecoveryStore
     {

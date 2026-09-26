@@ -11,19 +11,38 @@ namespace Battlement
     /// <summary>Owns the services created for one configured runner.</summary>
     internal sealed class BattlementConfiguredRuntime : IDisposable
     {
-        internal BattlementConfiguredRuntime(BattlementRunnerOptions options)
+        private readonly IDisplayBackend displayBackend;
+
+        internal BattlementConfiguredRuntime(
+            BattlementRunnerOptions options,
+            IDisplayBackend? displayBackend = null,
+            IDisplayRecoveryStore? displayRecovery = null
+        )
         {
             Options = options ?? throw new ArgumentNullException(nameof(options));
             FramePacing = new BattlementFramePacing(report: result => LastSettingResult = result);
-            Display = new BattlementDisplayPreview(
-                new BattlementDisplayBackend(),
-                new BattlementDisplayRecoveryStore(
-                    Path.Combine(Application.persistentDataPath, "Battlement", "display.json")
-                ),
+            this.displayBackend = displayBackend ?? new BattlementDisplayBackend();
+            Display = CreateDisplay(
+                displayRecovery
+                    ?? new BattlementDisplayRecoveryStore(
+                        Path.Combine(Application.persistentDataPath, "Battlement", "display.json")
+                    )
+            );
+        }
+
+        internal void BeginDittoDisplay()
+        {
+            Display = CreateDisplay(new InMemoryDisplayRecoveryStore());
+            LastSettingResult = null;
+        }
+
+        private BattlementDisplayPreview CreateDisplay(IDisplayRecoveryStore recovery) =>
+            new(
+                displayBackend,
+                recovery,
                 () => Time.realtimeSinceStartupAsDouble,
                 result => LastSettingResult = result
             );
-        }
 
         internal BattlementRunnerOptions Options { get; }
 
@@ -106,7 +125,7 @@ namespace Battlement
             Require(geometrySampler, nameof(GeometrySampler));
 
         internal BattlementFramePacing FramePacing { get; }
-        internal BattlementDisplayPreview Display { get; }
+        internal BattlementDisplayPreview Display { get; private set; }
         internal HostSettingsResult? LastSettingResult { get; set; }
 
         private BattlementModules? modules;

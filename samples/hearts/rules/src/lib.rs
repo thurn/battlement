@@ -6,6 +6,7 @@ pub mod controller;
 pub mod domain;
 pub mod projection;
 pub mod reducer;
+mod scene;
 
 pub use projection::HumanView;
 

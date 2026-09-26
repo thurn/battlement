@@ -39,6 +39,10 @@ secret_access_key_env = "BATTLEMENT_R2_SECRET_ACCESS_KEY"
 target = "macos"
 display = { width = 1280, height = 720, scale = 1.0 }
 
+[profiles.portrait]
+target = "macos"
+display = { width = 720, height = 1280, scale = 1.0 }
+
 [[scenarios]]
 name = "new match"
 fixture = "shell"

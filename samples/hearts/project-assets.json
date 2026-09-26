@@ -3,6 +3,7 @@
   "bootstrap": "Assets/Scenes/Main.unity",
   "content": "Assets/Scenes/Content.unity",
   "materials": [
+    {"path": "Assets/Generated/Imported/Clearing.mat", "color": "#476C21"},
     {"path": "Assets/Generated/Imported/Card Back.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/cardback_A.png"},
     {"path": "Assets/Generated/Imported/clubs_two.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/clubs_two.png"},
     {"path": "Assets/Generated/Imported/clubs_three.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/clubs_three.png"},
@@ -119,6 +120,7 @@
     {"path": "Assets/ThirdParty/KayKit/ForestNaturePack/Hill_4x2x2_Color1.fbx","materials": {"forest": "Assets/Generated/Imported/Forest.mat"}}
   ],
   "addresses": [
+    {"address": "hearts/materials/clearing", "path": "Assets/Generated/Imported/Clearing.mat"},
     {"address": "hearts/content","path": "Assets/Scenes/Content.unity"},
     {"address": "hearts/fonts/control","path": "Assets/ThirdParty/Fonts/Barlow Condensed 700 UI.asset"},
     {"address": "hearts/cards/back","path": "Assets/ThirdParty/KayKit/PlayingCards/cardback_A.png"},

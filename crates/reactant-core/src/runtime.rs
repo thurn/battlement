@@ -1526,7 +1526,12 @@ impl<G: 'static> Reactant<G> {
     crate::work_scope::extract_snapshot(snapshot, &self.current_work_owners)
   }
 
-  pub(crate) fn recover_scope(&self, scope: u64, session: SessionId) -> Option<Batch> {
+  pub(crate) fn recover_scope(
+    &mut self,
+    scope: u64,
+    session: SessionId,
+    restore_observations: bool,
+  ) -> Option<Batch> {
     let trees = self
       .roots
       .iter()
@@ -1565,6 +1570,18 @@ impl<G: 'static> Reactant<G> {
     let mut groups = crate::work_scope::object_groups(objects);
     if !commands.is_empty() {
       groups.insert(0, commands);
+    }
+    if restore_observations && let Some(snapshot) = &mut self.last_accessibility {
+      // The cancelled scope may have held the latest semantic update. Publish it
+      // after rebuilding its hosts, with a fresh sequence even if it was delivered.
+      self.semantic_commit_sequence += 1;
+      snapshot.commit_sequence = self.semantic_commit_sequence;
+      groups.push(vec![Command::new_v4(CommandBody::AccessibilityUpdate(
+        AccessibilityUpdate {
+          snapshot: Some(snapshot.clone()),
+          announcements: Vec::new(),
+        },
+      ))]);
     }
     (!groups.is_empty()).then(|| {
       Batch::new(

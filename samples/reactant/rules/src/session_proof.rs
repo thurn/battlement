@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use reactant::{
-  GameHandle,
+  GameHandle, control_behavior,
   prelude::*,
   rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game as RulesGame, PromptData},
 };
@@ -111,7 +111,8 @@ impl Component for Screen {
         }
       }),
       (status == reactant::GameStatus::Failed).then(|| {
-        Label::new(ls("Recovery available: accepted state retained")).name("session-recovery")
+        control_behavior::static_label(ls("Recovery available: accepted state retained"))
+          .name("session-recovery")
       }),
     ))
   }
@@ -155,6 +156,57 @@ impl RulesGame for Counter {
     match action {
       Action::Choose => *state += cx.choose(state, Number),
       Action::Fail => panic!("Native fixture host failure"),
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use std::{
+    thread,
+    time::{Duration, Instant},
+  };
+
+  use battlement::{ClickEvent, ObjectId, UiEvent};
+  use battlement_fake::assets::FakeAssetCatalog;
+  use reactant_testing::Display;
+
+  use crate::session_proof::Counter;
+
+  #[test]
+  fn failed_game_recovery_publishes_accessible_state() {
+    let mut assets = FakeAssetCatalog::new();
+    assets.add_scene(crate::CONTENT_SCENE);
+    assets.add_textures(crate::generated_asset_addresses());
+    let mut display = Display::mount(crate::session_proof::app, assets);
+    let target = self::wait_for_label(&mut display, "Fail gameplay host");
+    let before = display.accessibility().commit_sequence;
+    display
+      .ui()
+      .deliver_event(UiEvent::click(target, ClickEvent::NavigationSubmit));
+    display.flush();
+    assert!(display.wait_for_game_worker::<Counter>(Duration::from_secs(2)));
+    self::wait_for_label(&mut display, "Recovery available: accepted state retained");
+    assert!(display.accessibility().commit_sequence > before);
+  }
+
+  fn wait_for_label(display: &mut Display, label: &str) -> ObjectId {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+      display.poll();
+      if let Some(node) = display
+        .accessibility()
+        .nodes
+        .iter()
+        .find(|node| node.label.as_deref() == Some(label))
+      {
+        return node.object_id;
+      }
+      assert!(
+        Instant::now() < deadline,
+        "missing accessible label {label}"
+      );
+      thread::yield_now();
     }
   }
 }

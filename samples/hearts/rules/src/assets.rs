@@ -292,6 +292,13 @@ pub mod hearts {
     pub const TREE_2_A_COLOR1: PrefabAddress =
       PrefabAddress::from_static("hearts/forest/tree-2-a-color1");
   }
+
+  pub mod materials {
+    use battlement::MaterialAddress;
+
+    /// Addressable key `hearts/materials/clearing` (UnityEngine.Material) from `Assets/Generated/Imported/Clearing.mat` in group `Battlement Hearts`.
+    pub const CLEARING: MaterialAddress = MaterialAddress::from_static("hearts/materials/clearing");
+  }
 }
 
 use battlement::PreparedAsset;
@@ -411,4 +418,5 @@ pub const ASSET_CATALOG: &[PreparedAsset] = &[
   PreparedAsset::Prefab(hearts::forest::ROCK_1_A_COLOR1),
   PreparedAsset::Prefab(hearts::forest::TREE_1_A_COLOR1),
   PreparedAsset::Prefab(hearts::forest::TREE_2_A_COLOR1),
+  PreparedAsset::Material(hearts::materials::CLEARING),
 ];

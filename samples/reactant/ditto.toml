@@ -67,7 +67,7 @@ screenshot = { name = "accepted-ready" }
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Fail gameplay host" }, action = "activate" }
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "Settings" }, action = "activate" }
+pointer_action = { target = { role = "button", name = "Settings" }, action = "click", completion = { target = { role = "static-text", name = "Recovery available: accepted state retained" }, role = "static-text", name = "Recovery available: accepted state retained" } }
 [[scenarios.steps]]
 screenshot = { name = "failed-recovery-menu" }
 

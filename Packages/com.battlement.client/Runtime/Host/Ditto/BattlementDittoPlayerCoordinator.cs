@@ -60,6 +60,11 @@ namespace Battlement
 
         private void Awake()
         {
+            if (Application.platform == RuntimePlatform.OSXPlayer)
+            {
+                // Capture must progress without the desktop compositor presenting frames.
+                QualitySettings.vSyncCount = 0;
+            }
             originalVSyncCount = QualitySettings.vSyncCount;
             originalTargetFrameRate = Application.targetFrameRate;
             Debug.Log(
@@ -385,7 +390,8 @@ namespace Battlement
                 AllocateError
             );
             scenarioContext.Begin();
-            runner!.BeginDittoMotion(scenario.Motion);
+            runner!.BeginDittoDisplay();
+            runner.BeginDittoMotion(scenario.Motion);
             runner.SetDittoFrameRate(scenario.Performance?.TargetFps ?? 30);
             engine = DittoNativeEngineSession.Create(
                 runner.DittoNativeTransport,

@@ -435,6 +435,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c4cd717c169704c2098818fcf6a5fabd
+    m_Address: hearts/materials/clearing
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c4db437964c0649e7ababf18c07e8a81
     m_Address: hearts/faces/diamonds/ace
     m_ReadOnly: 0
