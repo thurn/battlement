@@ -16,6 +16,7 @@ use battlement_tooling::{
   discovery::HostDiscovery,
   host::{Host, SystemHost},
   ios_build::{self, IosBuildOutcome, IosBuildRequest, IosBuildResult, IosBuildTools},
+  ios_target::IosTarget,
 };
 
 use crate::{
@@ -448,6 +449,7 @@ fn build_request(
     .find(|tool| tool.name == "xcodebuild")
     .context("xcodebuild discovery is missing")?;
   Ok(IosBuildRequest {
+    target: IosTarget::Simulator,
     repository: suite.repository.clone(),
     unity_project: suite.player.unity_project.clone(),
     rust_manifest: suite.player.rust_manifest.clone(),

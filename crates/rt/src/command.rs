@@ -28,6 +28,8 @@ struct Cli {
 enum Command {
   /// Build a Reactant application and Unity player.
   Build(BuildArgs),
+  /// Build an arm64 physical iOS player with explicit signing policy.
+  IosBuild(IosBuildArgs),
   /// Build and run a Reactant application.
   Run(RunArgs),
   /// Prepare a Reactant application and open it in Unity Play mode.
@@ -94,6 +96,27 @@ struct BuildArgs {
 }
 
 #[derive(Debug, Args)]
+struct IosBuildArgs {
+  #[command(flatten)]
+  project: ProjectArgs,
+  /// Build an unsigned artifact for SDK/link validation; it cannot be installed.
+  #[arg(long, conflicts_with_all = ["signing_team", "signing_identity", "provisioning_profile"])]
+  unsigned: bool,
+  /// Apple development team supplied for manual signing.
+  #[arg(long, required_unless_present = "unsigned", requires_all = ["signing_identity", "provisioning_profile"])]
+  signing_team: Option<String>,
+  /// Installed signing identity supplied for this application.
+  #[arg(long)]
+  signing_identity: Option<String>,
+  /// Supplied, already installed provisioning profile; no automatic provisioning.
+  #[arg(long)]
+  provisioning_profile: Option<PathBuf>,
+  /// Immutable build cache directory.
+  #[arg(long)]
+  cache: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
 struct RunArgs {
   #[command(flatten)]
   build: BuildArgs,
@@ -142,6 +165,21 @@ fn run() -> Result<u8> {
       } else {
         battlement_tooling::application::build(&project, &options, &INTERRUPTED, |_, _| Ok(()))?;
       }
+    }
+    Command::IosBuild(args) => {
+      let project = resolve_project(args.project, false)?;
+      self::prepare_assets(&project.root, &project.manifest)?;
+      crate::ios::build(
+        &project,
+        crate::ios::BuildOptions {
+          unsigned: args.unsigned,
+          team: args.signing_team,
+          identity: args.signing_identity,
+          profile: args.provisioning_profile,
+          cache: args.cache,
+        },
+        &INTERRUPTED,
+      )?;
     }
     Command::Run(args) => {
       let port = args.port;
@@ -269,6 +307,7 @@ mod tests {
       names,
       [
         "build",
+        "ios-build",
         "run",
         "author",
         "assets",
@@ -280,6 +319,16 @@ mod tests {
     );
     assert!(!names.contains(&"sample"));
     assert!(!names.contains(&"reactant"));
+  }
+
+  #[test]
+  fn device_build_requires_explicit_signing_policy() {
+    assert!(Cli::try_parse_from(["rt", "ios-build"]).is_err());
+    assert!(Cli::try_parse_from(["rt", "ios-build", "--unsigned"]).is_ok());
+    assert!(
+      Cli::try_parse_from(["rt", "ios-build", "--unsigned", "--signing-team", "team"]).is_err()
+    );
+    assert!(Cli::try_parse_from(["rt", "ios-build", "--signing-team", "team"]).is_err());
   }
 
   #[test]

@@ -10,6 +10,7 @@ use battlement_tooling::{
     IosBuildOutcome, IosBuildRequest, IosBuildResult, IosBuildTools, STARTUP_IDENTITY_FILE,
     ios_startup_identity, player_app, select_ios_player,
   },
+  ios_target::{IosSigning, IosTarget},
 };
 use tempfile::TempDir;
 
@@ -84,6 +85,60 @@ fn no_build_reports_required_and_rust_failure_is_terminal() {
       .unwrap()
       .contains("error[E0308]")
   );
+}
+
+#[test]
+fn device_builds_use_device_sdk_and_do_not_reuse_simulator_or_unsigned_signatures() {
+  let fixture = Fixture::new();
+  let simulator =
+    match select_ios_player(&fixture.request(), true, BuildControl::default()).unwrap() {
+      IosBuildResult::Ready { build, .. } => build,
+      other => panic!("unexpected result: {other:?}"),
+    };
+  let mut request = fixture.request();
+  request.target = IosTarget::Device { signing: None };
+  let unsigned = match select_ios_player(&request, true, BuildControl::default()).unwrap() {
+    IosBuildResult::Ready {
+      build,
+      outcome: IosBuildOutcome::Created,
+    } => build,
+    other => panic!("unexpected result: {other:?}"),
+  };
+  assert_ne!(
+    simulator.metadata().identity.fingerprint,
+    unsigned.metadata().identity.fingerprint
+  );
+  assert_eq!(
+    ios_startup_identity(&unsigned).unwrap().platform,
+    "ios-device"
+  );
+  let transcript = fs::read_to_string(&fixture.transcript).unwrap();
+  assert!(transcript.contains("aarch64-apple-ios\n"));
+  assert!(transcript.contains("iphoneos\n"));
+  assert!(transcript.contains("CODE_SIGNING_ALLOWED=NO"));
+  request.target = IosTarget::Device {
+    signing: Some(IosSigning {
+      team: "SUPPLIED_TEAM".to_owned(),
+      identity: "Supplied Development Identity".to_owned(),
+      profile_uuid: "SUPPLIED_PROFILE".to_owned(),
+      profile_fingerprint: "a".repeat(64),
+    }),
+  };
+  let signed = match select_ios_player(&request, true, BuildControl::default()).unwrap() {
+    IosBuildResult::Ready {
+      build,
+      outcome: IosBuildOutcome::Created,
+    } => build,
+    other => panic!("unexpected result: {other:?}"),
+  };
+  assert_ne!(
+    unsigned.metadata().identity.fingerprint,
+    signed.metadata().identity.fingerprint
+  );
+  let transcript = fs::read_to_string(&fixture.transcript).unwrap();
+  assert!(transcript.contains("CODE_SIGN_STYLE=Manual"));
+  assert!(transcript.contains("profile=SUPPLIED_PROFILE"));
+  assert!(!transcript.contains("allowProvisioningUpdates"));
 }
 
 struct Fixture {
@@ -178,6 +233,7 @@ impl Fixture {
 
   fn request(&self) -> IosBuildRequest {
     IosBuildRequest {
+      target: IosTarget::Simulator,
       repository: self.path("repo"),
       unity_project: self.path("repo/game"),
       rust_manifest: self.path("repo/rules/Cargo.toml"),
@@ -221,9 +277,11 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 if grep -q COMPILATION_FAILURE "$(dirname "$manifest")/src/lib.rs"; then printf 'error[E0308]: failed\n' >&2; exit 1; fi
+printf '%s\n' "$target" >> '{}'
 mkdir -p "$target_dir/$target/release"
 printf 'archive' > "$target_dir/$target/release/libbattlement_rules.a"
 "#,
+      self.transcript.display(),
       self.transcript.display()
     )
   }
@@ -242,13 +300,18 @@ while [ "$#" -gt 0 ]; do
     *) shift ;;
   esac
 done
-[ "$method" = 'Battlement.Editor.BattlementDittoBuild.BuildIosSimulator' ]
+case "$method" in
+  Battlement.Editor.BattlementDittoBuild.BuildIosSimulator|Battlement.Editor.BattlementDittoBuild.BuildIosDevice) ;;
+  *) exit 1 ;;
+esac
 [ "$BATTLEMENT_DITTO_IOS_SIMULATOR_ARCHITECTURE" = 'arm64' ]
+printf 'profile=%s\n' "$BATTLEMENT_IOS_PROVISIONING_PROFILE" >> '{}'
 [ -f "$project/Assets/Plugins/iOS/libbattlement_rules.a" ]
 [ -f "$project/Assets/Resources/BattlementDittoBuildIdentity.json" ]
 mkdir -p "$BATTLEMENT_DITTO_BUILD_PATH/Unity-iPhone.xcodeproj"
 printf 'unity log\n' > "$log"
 "#,
+      self.transcript.display(),
       self.transcript.display()
     )
   }
@@ -259,15 +322,16 @@ printf 'unity log\n' > "$log"
 set -eu
 printf 'xcodebuild\n' >> '{}'
 printf '%s\n' "$@" >> '{}'
-products=''
+products=''; sdk=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    -sdk) sdk="$2"; shift 2 ;;
     SYMROOT=*) products="${{1#SYMROOT=}}"; shift ;;
     *) shift ;;
   esac
 done
-mkdir -p "$products/Release-iphonesimulator/Fixture.app"
-printf 'plist' > "$products/Release-iphonesimulator/Fixture.app/Info.plist"
+mkdir -p "$products/Release-$sdk/Fixture.app"
+printf 'plist' > "$products/Release-$sdk/Fixture.app/Info.plist"
 "#,
       self.transcript.display(),
       self.transcript.display()

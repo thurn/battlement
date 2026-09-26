@@ -13,6 +13,7 @@ pub enum BuildTarget {
   Macos,
   Webgl,
   IosSimulator,
+  IosDevice,
 }
 
 /// Rust compiler, Cargo, and compilation-target identity.
@@ -332,6 +333,7 @@ fn target_name(target: BuildTarget) -> &'static str {
     BuildTarget::Macos => "macos",
     BuildTarget::Webgl => "webgl",
     BuildTarget::IosSimulator => "ios-simulator",
+    BuildTarget::IosDevice => "ios-device",
   }
 }
 

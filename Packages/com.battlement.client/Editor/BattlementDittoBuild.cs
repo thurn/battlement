@@ -514,7 +514,12 @@ namespace Battlement.Editor
         private static string Quote(string value) => $"\"{value.Replace("\"", "\\\"")}\"";
 
         /// <summary>Builds one release iOS Simulator Xcode project.</summary>
-        public static void BuildIosSimulator()
+        public static void BuildIosSimulator() => BuildIos(true);
+
+        /// <summary>Builds one release arm64 physical-device Xcode project.</summary>
+        public static void BuildIosDevice() => BuildIos(false);
+
+        private static void BuildIos(bool simulator)
         {
             string output = Required("BATTLEMENT_DITTO_BUILD_PATH");
             string scene = Required("BATTLEMENT_DITTO_SCENE_PATH");
@@ -538,8 +543,13 @@ namespace Battlement.Editor
             bool previousPortraitUpsideDown = PlayerSettings.allowedAutorotateToPortraitUpsideDown;
             bool previousLandscapeLeft = PlayerSettings.allowedAutorotateToLandscapeLeft;
             bool previousLandscapeRight = PlayerSettings.allowedAutorotateToLandscapeRight;
-            PlayerSettings.iOS.sdkVersion = iOSSdkVersion.SimulatorSDK;
-            PlayerSettings.iOS.simulatorSdkArchitecture = SimulatorArchitecture();
+            PlayerSettings.iOS.sdkVersion = simulator
+                ? iOSSdkVersion.SimulatorSDK
+                : iOSSdkVersion.DeviceSDK;
+            if (simulator)
+            {
+                PlayerSettings.iOS.simulatorSdkArchitecture = SimulatorArchitecture();
+            }
             EditorUserBuildSettings.iOSXcodeBuildConfig = XcodeBuildConfig.Release;
             PlayerSettings.allowedAutorotateToPortrait = true;
             PlayerSettings.allowedAutorotateToPortraitUpsideDown = true;
@@ -569,8 +579,9 @@ namespace Battlement.Editor
                             $"Ditto iOS build failed with {report.summary.totalErrors} errors."
                         );
                     }
-                    RemoveSimulatorLaunchScreens(output);
+                    ConfigureIosLaunchScreen(output, simulator);
                     AllowLocalNetworking(output);
+                    ConfigureIosSigning(output);
                 }
             }
             finally
@@ -610,25 +621,79 @@ namespace Battlement.Editor
             document.WriteToFile(path);
         }
 
-        private static void RemoveSimulatorLaunchScreens(string output)
+        private static void ConfigureIosSigning(string output)
+        {
+            string profile = Environment.GetEnvironmentVariable(
+                "BATTLEMENT_IOS_PROVISIONING_PROFILE"
+            );
+            if (string.IsNullOrEmpty(profile))
+            {
+                return;
+            }
+            string path = PBXProject.GetPBXProjectPath(output);
+            var project = new PBXProject();
+            project.ReadFromFile(path);
+            project.SetBuildProperty(
+                project.GetUnityMainTargetGuid(),
+                "PROVISIONING_PROFILE",
+                profile
+            );
+            project.SetBuildProperty(
+                project.GetUnityFrameworkTargetGuid(),
+                "PROVISIONING_PROFILE",
+                string.Empty
+            );
+            project.WriteToFile(path);
+        }
+
+        private static bool HasIosIcons()
+        {
+            if (
+                PlayerSettings
+                    .GetIcons(NamedBuildTarget.Unknown, IconKind.Any)
+                    .Any(texture => texture != null)
+            )
+            {
+                return true;
+            }
+            if (
+                PlayerSettings
+                    .GetIcons(NamedBuildTarget.iOS, IconKind.Any)
+                    .Any(texture => texture != null)
+            )
+            {
+                return true;
+            }
+            return PlayerSettings
+                .GetSupportedIconKinds(NamedBuildTarget.iOS)
+                .SelectMany(kind => PlayerSettings.GetPlatformIcons(NamedBuildTarget.iOS, kind))
+                .SelectMany(icon => icon.GetTextures())
+                .Any(texture => texture != null);
+        }
+
+        private static void ConfigureIosLaunchScreen(string output, bool simulator)
         {
             string projectPath = PBXProject.GetPBXProjectPath(output);
             var project = new PBXProject();
             project.ReadFromFile(projectPath);
-            project.SetBuildProperty(
-                project.GetUnityMainTargetGuid(),
-                "ASSETCATALOG_COMPILER_APPICON_NAME",
-                string.Empty
-            );
             string assetCatalog = "Unity-iPhone/Images.xcassets";
-            string assetCatalogGuid = project.FindFileGuidByProjectPath(assetCatalog);
-            if (!string.IsNullOrEmpty(assetCatalogGuid))
+            string assetCatalogPath = Path.Combine(output, assetCatalog);
+            if (simulator || !HasIosIcons())
             {
-                project.RemoveFile(assetCatalogGuid);
-            }
-            if (Directory.Exists(Path.Combine(output, assetCatalog)))
-            {
-                Directory.Delete(Path.Combine(output, assetCatalog), true);
+                project.SetBuildProperty(
+                    project.GetUnityMainTargetGuid(),
+                    "ASSETCATALOG_COMPILER_APPICON_NAME",
+                    string.Empty
+                );
+                string assetCatalogGuid = project.FindFileGuidByRealPath(assetCatalog);
+                if (!string.IsNullOrEmpty(assetCatalogGuid))
+                {
+                    project.RemoveFile(assetCatalogGuid);
+                }
+                if (Directory.Exists(assetCatalogPath))
+                {
+                    Directory.Delete(assetCatalogPath, true);
+                }
             }
             foreach (
                 string launchScreen in new[]

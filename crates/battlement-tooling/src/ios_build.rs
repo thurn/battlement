@@ -1,4 +1,4 @@
-//! Fixed, immutable iOS Simulator player builds for Ditto.
+//! Fixed, immutable iOS player builds for Ditto.
 
 use std::{
   collections::BTreeMap,
@@ -19,15 +19,14 @@ use crate::{
   },
   build_control::BuildControl,
   build_identity::{
-    AppleToolchain, BuildIdentity, BuildIdentityRequest, BuildTarget, CaptureAdapter, NativeInput,
-    RustToolchain,
+    AppleToolchain, BuildIdentity, BuildIdentityRequest, CaptureAdapter, NativeInput, RustToolchain,
   },
   fingerprint::{CaseSensitivity, FingerprintRequest, GeneratedInput, SourceManifest},
+  ios_target::IosTarget,
   macos_build_staging::ProjectStaging,
   unity_lease::{CompilerCapacityLease, UnityEditorLease},
 };
 
-const EDITOR_METHOD: &str = "Battlement.Editor.BattlementDittoBuild.BuildIosSimulator";
 const PLAYER: &str = "BattlementDitto.app";
 const RELEASE_DEBUG_CONFIG: &str = "profile.release.debug=\"line-tables-only\"";
 const RELEASE_SPLIT_DEBUG_CONFIG: &str = "profile.release.split-debuginfo=\"off\"";
@@ -35,7 +34,7 @@ const IOS_BUILD_RECIPE: &[u8] = include_bytes!("ios_build.rs");
 
 pub const STARTUP_IDENTITY_FILE: &str = "startup-identity.json";
 
-/// Executables and versions that affect an iOS Simulator player build.
+/// Executables and versions that affect an iOS player build.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IosBuildTools {
   pub unity_editor: PathBuf,
@@ -49,9 +48,10 @@ pub struct IosBuildTools {
   pub sdk_version: String,
 }
 
-/// Validated inputs for the iOS Simulator player build pipeline.
+/// Validated inputs for the iOS player build pipeline.
 #[derive(Clone, Debug)]
 pub struct IosBuildRequest {
+  pub target: IosTarget,
   pub repository: PathBuf,
   pub unity_project: PathBuf,
   pub rust_manifest: PathBuf,
@@ -66,7 +66,7 @@ pub struct IosBuildRequest {
   pub cache: BuildCache,
 }
 
-/// Startup facts retained beside an immutable iOS Simulator player.
+/// Startup facts retained beside an immutable iOS player.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct IosStartupIdentity {
@@ -78,14 +78,14 @@ pub struct IosStartupIdentity {
   pub diagnostics: bool,
 }
 
-/// Whether a ready iOS Simulator player was newly created or exactly reused.
+/// Whether a ready iOS player was newly created or exactly reused.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IosBuildOutcome {
   Created,
   Reused,
 }
 
-/// A retained terminal iOS Simulator build failure.
+/// A retained terminal iOS build failure.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IosBuildFailure {
   pub identity: BuildIdentity,
@@ -95,7 +95,7 @@ pub struct IosBuildFailure {
   pub log_path: PathBuf,
 }
 
-/// Terminal result of selecting or building an immutable iOS Simulator player.
+/// Terminal result of selecting or building an immutable iOS player.
 #[derive(Debug)]
 pub enum IosBuildResult {
   Ready {
@@ -109,7 +109,7 @@ pub enum IosBuildResult {
   Failed(IosBuildFailure),
 }
 
-/// Selects an exact iOS Simulator player and optionally permits a cache-miss build.
+/// Selects an exact iOS player and optionally permits a cache-miss build.
 pub fn select_ios_player(
   request: &IosBuildRequest,
   allow_build: bool,
@@ -122,7 +122,7 @@ pub fn select_ios_player(
     generator: "battlement-tooling".to_owned(),
     version: "1".to_owned(),
     name: "ios-build-recipe".to_owned(),
-    bytes: IOS_BUILD_RECIPE.to_vec(),
+    bytes: [IOS_BUILD_RECIPE, include_bytes!("ios_target.rs")].concat(),
   });
   let source = SourceManifest::build(&FingerprintRequest {
     repository: request.repository.clone(),
@@ -172,14 +172,14 @@ pub fn player_app(build: &BuildHandle) -> Result<PathBuf> {
   Ok(player)
 }
 
-/// Reads and validates startup facts retained beside an iOS Simulator build.
+/// Reads and validates startup facts retained beside an iOS build.
 pub fn ios_startup_identity(build: &BuildHandle) -> Result<IosStartupIdentity> {
   let actual: IosStartupIdentity =
     serde_json::from_slice(&fs::read(build.path().join(STARTUP_IDENTITY_FILE))?)?;
   let identity = &build.metadata().identity;
   ensure!(
-    actual.platform == "ios-simulator",
-    "startup identity is not iOS Simulator"
+    actual.platform == self::identity_input(identity, "target")?,
+    "startup platform does not match build metadata"
   );
   ensure!(
     actual.capture_adapter == self::identity_input(identity, "capture-adapter.name")?,
@@ -233,19 +233,33 @@ fn validate_request(request: &IosBuildRequest) -> Result<()> {
   ] {
     ensure!(!value.is_empty(), "{name} is empty");
   }
-  self::rust_target(&request.tools.architecture)?;
+  self::xcode_architecture(&request.tools.architecture)?;
   Ok(())
 }
 
 fn build_identity(request: &IosBuildRequest, source: &SourceManifest) -> Result<BuildIdentity> {
+  let mut options = BTreeMap::from([
+    (
+      "editor-method".to_owned(),
+      request.target.editor_method().to_owned(),
+    ),
+    ("profile".to_owned(), "release".to_owned()),
+    ("rust-panic".to_owned(), "unwind".to_owned()),
+    (
+      "rust-std".to_owned(),
+      "build-std=std,panic_unwind".to_owned(),
+    ),
+    ("xcode-sdk".to_owned(), request.target.sdk().to_owned()),
+  ]);
+  request.target.retain_signing(&mut options)?;
   BuildIdentity::derive(&BuildIdentityRequest {
     source_fingerprint: source.fingerprint.clone(),
-    target: BuildTarget::IosSimulator,
+    target: request.target.build_target(),
     unity_version: request.tools.unity_version.clone(),
     rust: RustToolchain {
       rustc_version: request.tools.rustc_version.clone(),
       cargo_version: request.tools.cargo_version.clone(),
-      target: self::rust_target(&request.tools.architecture)?.to_owned(),
+      target: request.target.rust_target().to_owned(),
     },
     apple: Some(AppleToolchain {
       xcode_version: request.tools.xcode_version.clone(),
@@ -254,16 +268,7 @@ fn build_identity(request: &IosBuildRequest, source: &SourceManifest) -> Result<
     diagnostics: request.diagnostics,
     capture_adapter: request.capture_adapter.clone(),
     native_inputs: request.native_inputs.clone(),
-    options: BTreeMap::from([
-      ("editor-method".to_owned(), EDITOR_METHOD.to_owned()),
-      ("profile".to_owned(), "release".to_owned()),
-      ("rust-panic".to_owned(), "unwind".to_owned()),
-      (
-        "rust-std".to_owned(),
-        "build-std=std,panic_unwind".to_owned(),
-      ),
-      ("xcode-sdk".to_owned(), "iphonesimulator".to_owned()),
-    ]),
+    options,
   })
 }
 
@@ -276,7 +281,7 @@ fn build_pending(
 ) -> Result<IosBuildResult> {
   source.write(&pending.path().join(SOURCE_MANIFEST_FILE))?;
   fs::write(pending.path().join(BUILD_LOG_FILE), [])?;
-  let target = self::rust_target(&request.tools.architecture)?;
+  let target = request.target.rust_target();
   let target_directory = pending.path().join(".native");
   let mut cargo = crate::process_priority::command(&request.tools.cargo);
   cargo
@@ -292,10 +297,7 @@ fn build_pending(
     .args(["--config", RELEASE_SPLIT_DEBUG_CONFIG])
     .args(["-Z", "build-std=std,panic_unwind"])
     .env("RUSTC_BOOTSTRAP", "1")
-    .env(
-      "CARGO_TARGET_AARCH64_APPLE_IOS_SIM_RUSTFLAGS",
-      "-C panic=unwind",
-    );
+    .env(request.target.rust_flags_variable(), "-C panic=unwind");
   let compiler_capacity =
     CompilerCapacityLease::acquire_with_control(&request.resource_slots, control)?;
   let cargo_output = self::run_logged(cargo, pending.path(), "rust", control)?;
@@ -330,9 +332,18 @@ fn build_pending(
   unity
     .args(["-batchmode", "-nographics", "-quit", "-projectPath"])
     .arg(&request.unity_project)
-    .args(["-buildTarget", "iOS", "-executeMethod", EDITOR_METHOD])
+    .args([
+      "-buildTarget",
+      "iOS",
+      "-executeMethod",
+      request.target.editor_method(),
+    ])
     .args(["-logFile"])
     .arg(&unity_log)
+    .env(
+      "BATTLEMENT_IOS_PROVISIONING_PROFILE",
+      request.target.profile_uuid(),
+    )
     .env("BATTLEMENT_DITTO_BUILD_PATH", &xcode_project)
     .env("BATTLEMENT_DITTO_SCENE_PATH", self::unity_scene(request)?)
     .env(
@@ -368,7 +379,7 @@ fn build_pending(
       "-target",
       "Unity-iPhone",
     ])
-    .args(["-configuration", "Release", "-sdk", "iphonesimulator"])
+    .args(["-configuration", "Release", "-sdk", request.target.sdk()])
     .arg(format!(
       "SYMROOT={}",
       derived.join("Build/Products").display()
@@ -382,13 +393,14 @@ fn build_pending(
       self::xcode_architecture(&request.tools.architecture)?
     ))
     .arg("ONLY_ACTIVE_ARCH=YES")
-    .args(["CODE_SIGNING_ALLOWED=NO", "build"])
+    .args(request.target.signing_arguments())
+    .arg("build")
     .current_dir(&xcode_project);
   let xcode_output = self::run_logged(xcodebuild, pending.path(), "xcode", control)?;
   if !xcode_output.status.success() {
     return self::failed(pending, "xcode", &xcode_output, now);
   }
-  let app = self::built_app(&derived)?;
+  let app = self::built_app(&derived, request.target.sdk())?;
   fs::rename(app, pending.path().join(PLAYER))?;
   self::validate_player(&pending.path().join(PLAYER))?;
   for path in [target_directory, xcode_project, derived] {
@@ -403,8 +415,8 @@ fn build_pending(
   })
 }
 
-fn built_app(derived: &Path) -> Result<PathBuf> {
-  let products = derived.join("Build/Products/Release-iphonesimulator");
+fn built_app(derived: &Path, sdk: &str) -> Result<PathBuf> {
+  let products = derived.join(format!("Build/Products/Release-{sdk}"));
   let mut apps = fs::read_dir(&products)
     .with_context(|| format!("inspect Xcode products in {}", products.display()))?
     .filter_map(|entry| entry.ok())
@@ -421,7 +433,7 @@ fn built_app(derived: &Path) -> Result<PathBuf> {
 }
 
 fn validate_player(player: &Path) -> Result<()> {
-  ensure!(player.is_dir(), "iOS Simulator player bundle is missing");
+  ensure!(player.is_dir(), "iOS player bundle is missing");
   ensure!(
     player.join("Info.plist").is_file(),
     "iOS player omitted Info.plist"
@@ -499,7 +511,7 @@ fn append_log(staging: &Path, bytes: &[u8]) -> Result<()> {
 
 fn startup_identity(request: &IosBuildRequest, identity: &BuildIdentity) -> IosStartupIdentity {
   IosStartupIdentity {
-    platform: "ios-simulator".to_owned(),
+    platform: request.target.platform().to_owned(),
     capture_adapter: request.capture_adapter.name.clone(),
     build_fingerprint: identity.fingerprint.clone(),
     source_fingerprint: identity.source_fingerprint.clone(),
@@ -535,13 +547,6 @@ fn unity_scene(request: &IosBuildRequest) -> Result<String> {
   let scene = request.scene.strip_prefix(&request.unity_project)?;
   ensure!(!scene.as_os_str().is_empty(), "Unity scene path is empty");
   Ok(scene.to_string_lossy().replace('\\', "/"))
-}
-
-fn rust_target(architecture: &str) -> Result<&'static str> {
-  match architecture {
-    "aarch64" | "arm64" => Ok("aarch64-apple-ios-sim"),
-    _ => anyhow::bail!("unsupported iOS Simulator architecture: {architecture}"),
-  }
 }
 
 fn xcode_architecture(architecture: &str) -> Result<&'static str> {
