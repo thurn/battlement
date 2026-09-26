@@ -382,6 +382,7 @@ fn execute_inner(
   ));
   writeln!(progress, "DITTO_PHASE=scenarios")?;
   let capture_request = MacosCaptureRequest {
+    errors: materializer.error_store(),
     build: &build,
     job,
     requirements: PlayerSessionRequirements {
@@ -422,7 +423,7 @@ fn execute_inner(
     )?,
   };
   apply_capture(result, capture);
-  result.errors.extend(materializer.errors());
+  result.errors = materializer.errors();
   result.phases.insert(
     0,
     PhaseResult {

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
 
 use crate::{
   crash_reconstruction::{self, LatestScenario},
@@ -20,7 +20,6 @@ pub(crate) fn incomplete(
   error_id: &str,
   last_sequence: Option<u64>,
 ) -> Result<ScenarioResult> {
-  let mut reached_active = false;
   let steps = latest
     .scenario
     .steps
@@ -34,7 +33,6 @@ pub(crate) fn incomplete(
         return completed_step(context, &expected.action, player, error_id);
       }
       if latest.active_step == Some(expected.index) {
-        reached_active = true;
         return Ok(crashed_step(
           expected.index,
           expected.name.clone(),
@@ -49,10 +47,6 @@ pub(crate) fn incomplete(
       ))
     })
     .collect::<Result<Vec<_>>>()?;
-  ensure!(
-    reached_active || steps.iter().all(|step| step.status == StepStatus::NotRun),
-    "durable step context has an invalid open range"
-  );
   Ok(ScenarioResult {
     id: latest.scenario.id.clone(),
     name: latest.scenario.name.clone(),

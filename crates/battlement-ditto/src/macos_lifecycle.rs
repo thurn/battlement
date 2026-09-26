@@ -9,6 +9,7 @@ use std::{
 use crate::{
   macos_capture::MacosCaptureOutcome,
   player_supervision::{PlayerExitStatus, PlayerSupervisor},
+  run_errors::RunErrors,
   scenario_orchestration::ScenarioOrchestrationSnapshot,
   session_server::{PlayerSessionServer, StartupFact},
   wire::{
@@ -30,11 +31,19 @@ pub(crate) enum Session<'a> {
   Accepted(&'a StartupReport),
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum Stage {
+  Startup,
+  Execution,
+}
+
 pub(crate) struct Evidence<'a> {
   pub player_log: &'a Path,
   pub directory: &'a Path,
   pub session: Session<'a>,
-  pub startup_ms: u64,
+  pub duration_ms: u64,
+  pub stage: Stage,
+  pub errors: &'a RunErrors,
 }
 
 pub(crate) fn wait(
@@ -96,41 +105,48 @@ pub(crate) fn finish(
   evidence: Evidence<'_>,
 ) -> MacosCaptureOutcome {
   let interrupted = matches!(startup, Failure::Interrupted);
-  let deadline = matches!(startup, Failure::Expired).then_some(DeadlineKind::Startup);
-  let mut errors = Vec::new();
+  let (name, deadline_kind, label) = match evidence.stage {
+    Stage::Startup => (PhaseName::Startup, DeadlineKind::Startup, "startup"),
+    Stage::Execution => (PhaseName::Scenarios, DeadlineKind::Run, "run"),
+  };
+  let deadline = matches!(startup, Failure::Expired).then_some(deadline_kind);
+  let errors = evidence.errors;
   let mut phases = Vec::new();
   if let Session::Launched { duration_ms } = evidence.session {
     phases.push(phase(PhaseName::Launch, PhaseStatus::Passed, duration_ms));
   }
   let mut startup_phase = phase(
-    PhaseName::Startup,
+    name,
     if interrupted {
       PhaseStatus::Interrupted
     } else {
       PhaseStatus::Failed
     },
-    evidence.startup_ms,
+    evidence.duration_ms,
   );
   startup_phase.expired_deadline = deadline;
   let failure = match startup {
     Failure::Interrupted => None,
     Failure::Expired => Some((
       ErrorCode::DeadlineExpired,
-      "macOS startup deadline expired".to_owned(),
+      format!("macOS {label} deadline expired"),
     )),
     Failure::Exited(status) => Some((
       ErrorCode::RuntimeProcessExit,
-      format!("macOS player exited before startup: {status:?}"),
+      format!("macOS player exited during {label}: {status:?}"),
     )),
-    Failure::ObservationFailed(message) => Some((ErrorCode::StartupProbeFailed, message)),
+    Failure::ObservationFailed(message) => Some((
+      match evidence.stage {
+        Stage::Startup => ErrorCode::StartupProbeFailed,
+        Stage::Execution => ErrorCode::RuntimeFatal,
+      },
+      message,
+    )),
   };
   if let Some((code, message)) = failure {
-    startup_phase.error_ids.push(record(
-      &mut errors,
-      server.player_session_id(),
-      code,
-      message,
-    ));
+    startup_phase
+      .error_ids
+      .push(record(errors, server.player_session_id(), code, message));
   }
   let startup_index = phases.len();
   phases.push(startup_phase);
@@ -147,7 +163,7 @@ pub(crate) fn finish(
     Err(error) => {
       cleanup.status = PhaseStatus::Failed;
       cleanup.error_ids.push(record(
-        &mut errors,
+        errors,
         server.player_session_id(),
         ErrorCode::RuntimeDestroyFailed,
         error.to_string(),
@@ -168,7 +184,7 @@ pub(crate) fn finish(
     Err(error) => {
       let mut durability = phase(PhaseName::Durability, PhaseStatus::Failed, 0);
       durability.error_ids.push(record(
-        &mut errors,
+        errors,
         server.player_session_id(),
         ErrorCode::DurabilityFailed,
         error.to_string(),
@@ -200,19 +216,13 @@ pub(crate) fn finish(
     }),
     orchestration,
     phases,
-    errors,
+    errors: errors.snapshot(),
   }
 }
 
-fn record(
-  errors: &mut Vec<ErrorOccurrence>,
-  session: &str,
-  code: ErrorCode,
-  message: String,
-) -> String {
-  let id = format!("E{:04}", errors.len() + 1);
-  errors.push(ErrorOccurrence {
-    id: id.clone(),
+fn record(errors: &RunErrors, session: &str, code: ErrorCode, message: String) -> String {
+  errors.record(ErrorOccurrence {
+    id: String::new(),
     code,
     message,
     source: ErrorSource::Ditto,
@@ -221,8 +231,7 @@ fn record(
     scenario_id: None,
     step_index: None,
     log_sequence: None,
-  });
-  id
+  })
 }
 
 fn phase(name: PhaseName, status: PhaseStatus, duration_ms: u64) -> PhaseResult {

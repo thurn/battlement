@@ -22,9 +22,10 @@ use battlement_tooling::{
 use uuid::Uuid;
 
 use crate::{
-  macos_startup::{self, Evidence, Session},
+  macos_lifecycle::{self, Evidence, Session, Stage},
   native_execution::NativeExecution,
   player_supervision::{PlayerExitStatus, PlayerSupervisor},
+  run_errors::RunErrors,
   scenario_orchestration::{
     ScenarioMaterializer, ScenarioOrchestrationSnapshot, ScenarioOrchestrator,
   },
@@ -53,6 +54,7 @@ pub struct MacosCaptureTimeouts {
 /// Immutable inputs for one macOS player job.
 pub struct MacosCaptureRequest<'a> {
   pub build: &'a BuildHandle,
+  pub errors: Arc<RunErrors>,
   pub job: Job,
   pub requirements: PlayerSessionRequirements,
   pub orchestration_path: PathBuf,
@@ -202,7 +204,7 @@ pub fn capture_macos(
   let mut supervisor = PlayerSupervisor::macos(child);
   let launch_duration = elapsed_ms(launch_started);
   let startup_started = Instant::now();
-  let startup = match macos_startup::wait(
+  let startup = match macos_lifecycle::wait(
     &server,
     &mut supervisor,
     interrupted,
@@ -211,7 +213,7 @@ pub fn capture_macos(
   ) {
     Ok(startup) => startup,
     Err(stopped) => {
-      return Ok(macos_startup::finish(
+      return Ok(macos_lifecycle::finish(
         stopped,
         &server,
         &mut supervisor,
@@ -222,7 +224,9 @@ pub fn capture_macos(
           session: Session::Launched {
             duration_ms: launch_duration,
           },
-          startup_ms: elapsed_ms(startup_started),
+          duration_ms: elapsed_ms(startup_started),
+          stage: Stage::Startup,
+          errors: &request.errors,
         },
       ));
     }

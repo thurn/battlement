@@ -17,7 +17,8 @@ use battlement_tooling::{
 
 use crate::{
   macos_capture::{MacosCaptureOutcome, MacosCaptureRequest, MacosPlayerLauncher},
-  macos_startup::{self, Evidence, Failure, Session},
+  macos_job_failure,
+  macos_lifecycle::{self, Evidence, Failure, Session, Stage},
   native_execution::NativeExecutionClaim,
   player_supervision::PlayerSupervisor,
   scenario_orchestration::{ScenarioMaterializer, ScenarioOrchestrator},
@@ -69,7 +70,7 @@ impl WarmMacosPlayer {
       request.orchestration_path.clone(),
       request.bail_after,
       now,
-      materializer,
+      materializer.clone(),
     )?);
     let server = PlayerSessionServer::bind_with_identity(
       request.job.clone(),
@@ -91,7 +92,7 @@ impl WarmMacosPlayer {
     let mut supervisor = PlayerSupervisor::macos(child);
     let launch_duration = elapsed_ms(launch_started);
     let startup_started = Instant::now();
-    let startup = match macos_startup::wait(
+    let startup = match macos_lifecycle::wait(
       &server,
       &mut supervisor,
       interrupted,
@@ -102,7 +103,7 @@ impl WarmMacosPlayer {
       Err(stopped) => {
         return Ok(WarmLaunch {
           player: None,
-          outcome: macos_startup::finish(
+          outcome: macos_lifecycle::finish(
             stopped,
             &server,
             &mut supervisor,
@@ -113,7 +114,9 @@ impl WarmMacosPlayer {
               session: Session::Launched {
                 duration_ms: launch_duration,
               },
-              startup_ms: elapsed_ms(startup_started),
+              duration_ms: elapsed_ms(startup_started),
+              stage: Stage::Startup,
+              errors: &request.errors,
             },
           ),
         });
@@ -164,20 +167,14 @@ impl WarmMacosPlayer {
       server,
       supervisor,
       startup_report: report,
-      player_log_source: request.player_log_source,
+      player_log_source: request.player_log_source.clone(),
       timeouts: request.timeouts,
       _capacity: capacity,
       _native_claim: native_claim,
     };
-    let outcome = player.finish_job(
-      orchestrator,
-      &request.requirements.storage_directory,
-      request.job.remaining_run_timeout_ms,
-      interrupted,
-      phases,
-    )?;
+    let outcome = player.finish_job(orchestrator, &request, materializer, interrupted, phases)?;
     Ok(WarmLaunch {
-      player: (outcome.exit_code != 130).then_some(player),
+      player: (outcome.exit_code != 130 && !player.server_expired()).then_some(player),
       outcome,
     })
   }
@@ -215,12 +212,11 @@ impl WarmMacosPlayer {
       request.orchestration_path.clone(),
       request.bail_after,
       now,
-      materializer,
+      materializer.clone(),
     )?);
-    let run_timeout_ms = request.job.remaining_run_timeout_ms;
     let startup_started = Instant::now();
     if let Err(failure) = self.attach_job(&request, orchestrator.clone(), interrupted) {
-      return Ok(macos_startup::finish(
+      return Ok(macos_lifecycle::finish(
         failure,
         &self.server,
         &mut self.supervisor,
@@ -229,14 +225,16 @@ impl WarmMacosPlayer {
           player_log: &self.player_log_source,
           directory: &request.requirements.storage_directory,
           session: Session::Accepted(&self.startup_report),
-          startup_ms: elapsed_ms(startup_started),
+          duration_ms: elapsed_ms(startup_started),
+          stage: Stage::Startup,
+          errors: &request.errors,
         },
       ));
     }
     self.finish_job(
       orchestrator,
-      &request.requirements.storage_directory,
-      run_timeout_ms,
+      &request,
+      materializer,
       interrupted,
       vec![phase(
         PhaseName::Startup,
@@ -253,7 +251,7 @@ impl WarmMacosPlayer {
     interrupted: &AtomicBool,
   ) -> Result<(), Failure> {
     let started = Instant::now();
-    macos_startup::wait_for_next_job(
+    macos_lifecycle::wait_for_next_job(
       &self.server,
       &mut self.supervisor,
       interrupted,
@@ -268,7 +266,7 @@ impl WarmMacosPlayer {
         orchestrator,
       )
       .map_err(|error| Failure::ObservationFailed(error.to_string()))?;
-    let startup = macos_startup::wait(
+    let startup = macos_lifecycle::wait(
       &self.server,
       &mut self.supervisor,
       interrupted,
@@ -303,8 +301,8 @@ impl WarmMacosPlayer {
   fn finish_job(
     &mut self,
     orchestrator: Arc<ScenarioOrchestrator>,
-    directory: &std::path::Path,
-    run_timeout_ms: u64,
+    request: &MacosCaptureRequest<'_>,
+    materializer: Arc<dyn ScenarioMaterializer>,
     interrupted: &AtomicBool,
     mut phases: Vec<PhaseResult>,
   ) -> Result<MacosCaptureOutcome> {
@@ -316,14 +314,47 @@ impl WarmMacosPlayer {
       if self.server.durable_state().terminal.is_some() {
         break true;
       }
-      if let Some(status) = self.supervisor.poll()? {
+      let failure = match self.supervisor.poll() {
+        Ok(Some(status)) => Some(Failure::Exited(status)),
+        Err(error) => Some(Failure::ObservationFailed(error.to_string())),
+        Ok(None)
+          if run_started.elapsed()
+            >= Duration::from_millis(request.job.remaining_run_timeout_ms) =>
+        {
+          Some(Failure::Expired)
+        }
+        Ok(None) => None,
+      };
+      if let Some(failure) = failure {
         self.server.expire();
-        anyhow::bail!("warm macOS player exited during a dispatched job: {status:?}");
+        if self.server.durable_state().terminal.is_some() {
+          break true;
+        }
+        let mut outcome = macos_lifecycle::finish(
+          failure,
+          &self.server,
+          &mut self.supervisor,
+          orchestrator.snapshot(),
+          Evidence {
+            player_log: &self.player_log_source,
+            directory: &request.requirements.storage_directory,
+            session: Session::Accepted(&self.startup_report),
+            duration_ms: elapsed_ms(run_started),
+            stage: Stage::Execution,
+            errors: &request.errors,
+          },
+        );
+        phases.append(&mut outcome.phases);
+        outcome.phases = phases;
+        macos_job_failure::reconstruct(
+          &mut outcome,
+          request,
+          &self.server,
+          &orchestrator,
+          materializer.as_ref(),
+        );
+        return Ok(outcome);
       }
-      ensure!(
-        run_started.elapsed() < Duration::from_millis(run_timeout_ms),
-        "warm macOS job exceeded the run deadline"
-      );
       thread::sleep(self.timeouts.poll_interval);
     };
     let snapshot = orchestrator.snapshot();
@@ -348,7 +379,7 @@ impl WarmMacosPlayer {
     phases.extend(boundary_phases(&snapshot));
     let diagnostic = retain_log(
       &self.player_log_source,
-      directory,
+      &request.requirements.storage_directory,
       self.server.player_session_id(),
     )?;
     Ok(MacosCaptureOutcome {

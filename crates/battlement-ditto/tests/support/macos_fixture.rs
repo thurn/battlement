@@ -259,6 +259,7 @@ pub(crate) fn request<'a>(
   let native_execution_id = native_execution.id().to_owned();
   MacosCaptureRequest {
     build,
+    errors: Arc::default(),
     job: job(build, count, &native_execution_id),
     requirements: PlayerSessionRequirements {
       origin: None,
@@ -406,9 +407,9 @@ for cycle in range(2 if mode.startswith('warm-') else 1):
         if boundary == 'after':
             job = json.load(send('GET', 'next-job?after=' + job['job_id']))
         open(os.environ['DITTO_FIXTURE_SETUP'] + '-warm', 'w').write('waiting')
-        if mode.endswith('-exit'):
+        if mode.endswith('-exit') and not mode.startswith('warm-job-'):
             sys.exit(7)
-        if mode != 'warm-complete':
+        if mode != 'warm-complete' and not mode.startswith('warm-job-'):
             while True:
                 time.sleep(0.01)
     started = {
@@ -434,6 +435,36 @@ for cycle in range(2 if mode.startswith('warm-') else 1):
 
     executed = []
     for sequence, scenario in enumerate(job['scenarios']):
+        if cycle == 1 and sequence == 1 and mode.startswith('warm-job-'):
+            first = scenario['steps'][0]
+            bodies = [
+                {'context': 'scenario-started', 'scenario_id': scenario['id']},
+                {'context': 'step-started', 'scenario_id': scenario['id'], 'step_index': 0},
+                {'context': 'step-ended', 'scenario_id': scenario['id'], 'result': {
+                    'index': 0, 'name': first['name'], 'kind': 'click', 'status': 'passed',
+                    'duration_ms': 3, 'expired_deadline': None, 'error_refs': [],
+                    'assertion': None, 'screenshot_artifact_id': None, 'video_input_id': None,
+                }},
+            ]
+            if mode != 'warm-job-between':
+                bodies.append({'context': 'step-started', 'scenario_id': scenario['id'], 'step_index': 1})
+            records = []
+            for index, body in enumerate(bodies, start=sequence):
+                records.append({
+                    'schema': 1, 'job_id': job['job_id'], 'player_session_id': session,
+                    'sequence': index, 'timestamp_unix_us': 1787953800000000 + index,
+                    'source': 'ditto-player', 'severity': 'information',
+                    'event_name': 'fixture.context', 'message': 'fixture context',
+                    'body': body,
+                })
+            payload = ''.join(json.dumps(record, separators=(',', ':')) + '\n' for record in records).encode()
+            send('PUT', 'jobs/' + job['job_id'] + '/logs/' + session + '?first_sequence=' + str(sequence),
+                payload, 'application/x-ndjson', {'X-Ditto-SHA256': hashlib.sha256(payload).hexdigest()}).close()
+            open(os.environ['DITTO_FIXTURE_SETUP'] + '-dispatched', 'w').write('waiting')
+            if mode in ('warm-job-exit', 'warm-job-between'):
+                sys.exit(7)
+            while True:
+                time.sleep(0.01)
         event = {
             'schema': 1,
             'job_id': job['job_id'],

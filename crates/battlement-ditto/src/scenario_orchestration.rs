@@ -136,6 +136,42 @@ impl ScenarioOrchestrator {
     self.state.lock().unwrap().snapshot()
   }
 
+  pub(crate) fn player_lost(
+    &self,
+    job: JobResult,
+    scenario: Option<ScenarioResult>,
+  ) -> Result<ScenarioOrchestrationSnapshot> {
+    let mut state = self.state.lock().unwrap();
+    let active = state
+      .active
+      .take()
+      .context("lost player has no active job")?;
+    assert_eq!(
+      active.job.job_id, job.job_id,
+      "lost player belongs to another job"
+    );
+    if let Some(scenario) = scenario {
+      let index = active
+        .job
+        .scenarios
+        .iter()
+        .find(|expected| expected.id == scenario.id)
+        .expect("recovered scenario belongs to the job")
+        .run_index;
+      state.scenarios.push((index, scenario));
+    }
+    state.jobs.push(job);
+    state.pending_recovery = None;
+    mark_suffix(
+      &mut state,
+      &active.job.scenarios,
+      "run-infrastructure-error",
+    );
+    let snapshot = state.snapshot();
+    persist(&self.state_path, &snapshot)?;
+    Ok(snapshot)
+  }
+
   /// Installs the pending recovery suffix for a newly launched player.
   pub fn begin_recovery(&self, player_session_id: String) -> Result<Option<Job>> {
     let mut state = self.state.lock().unwrap();

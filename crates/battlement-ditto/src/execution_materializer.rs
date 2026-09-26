@@ -16,6 +16,7 @@ use crate::{
   execution_artifacts,
   image_comparison::{ImageComparisonRequest, OdiffPool},
   native_video::{NativeVideoFailure, NativeVideoProcessor},
+  run_errors::RunErrors,
   scenario_orchestration::{DecisionFailure, MaterializedScenario, ScenarioMaterializer},
   wire::{
     common::{ErrorCode, ErrorSource, StepName, StepStatus},
@@ -69,7 +70,7 @@ pub(crate) struct Options {
 
 #[derive(Default)]
 struct State {
-  errors: Vec<ErrorOccurrence>,
+  errors: Arc<RunErrors>,
   proposals: Vec<BaselineProposal>,
 }
 
@@ -121,6 +122,10 @@ impl ExecutionMaterializer {
   }
 
   pub(crate) fn errors(&self) -> Vec<ErrorOccurrence> {
+    self.error_store().snapshot()
+  }
+
+  pub(crate) fn error_store(&self) -> Arc<RunErrors> {
     self.state.lock().unwrap().errors.clone()
   }
 
@@ -145,7 +150,7 @@ impl ExecutionMaterializer {
       let observed = observations
         .get(error_ref)
         .with_context(|| format!("player error reference {error_ref} has no log context"))?;
-      let error_id = allocate_error(state, observed);
+      let error_id = allocate_error(&state.errors, observed);
       failure.get_or_insert_with(|| DecisionFailure {
         error_id: error_id.clone(),
         code: observed.code,
@@ -192,7 +197,7 @@ impl ExecutionMaterializer {
               scenario_id,
               player.index,
             );
-            let error_id = allocate_error(state, &observed);
+            let error_id = allocate_error(&state.errors, &observed);
             error_ids.push(error_id.clone());
             failure.get_or_insert(DecisionFailure {
               error_id,
@@ -211,7 +216,7 @@ impl ExecutionMaterializer {
             scenario_id,
             player.index,
           );
-          let error_id = allocate_error(state, &observed);
+          let error_id = allocate_error(&state.errors, &observed);
           error_ids.push(error_id.clone());
           failure.get_or_insert(DecisionFailure {
             error_id: error_id.clone(),
@@ -250,7 +255,7 @@ impl ExecutionMaterializer {
             player.index,
           );
           observed.source = media.source;
-          let error_id = allocate_error(state, &observed);
+          let error_id = allocate_error(&state.errors, &observed);
           error_ids.push(error_id.clone());
           failure.get_or_insert(DecisionFailure {
             error_id: error_id.clone(),
@@ -487,7 +492,7 @@ impl ScenarioMaterializer for ExecutionMaterializer {
       && let Some(observed) = observations.get(error_ref)
     {
       primary_failure = Some(DecisionFailure {
-        error_id: allocate_error(&mut state, observed),
+        error_id: allocate_error(&state.errors, observed),
         code: observed.code,
         message: observed.message.clone(),
       });
@@ -592,19 +597,19 @@ fn observed_errors(records: &[DittoEventRecord]) -> BTreeMap<String, ObservedErr
     .collect()
 }
 
-fn allocate_error(state: &mut State, observed: &ObservedError) -> String {
-  let log_sequence = (!observed.player_session_id.is_empty()).then_some(observed.sequence);
-  if let Some(existing) = state.errors.iter().find(|error| {
-    error.job_id.as_ref() == Some(&observed.job_id)
-      && error.scenario_id.as_ref() == Some(&observed.scenario_id)
-      && error.step_index == observed.step_index
-      && error.log_sequence == log_sequence
-  }) {
-    return existing.id.clone();
-  }
-  let id = format!("E{:04}", state.errors.len() + 1);
-  state.errors.push(ErrorOccurrence {
-    id: id.clone(),
+pub(crate) fn retain_observed_errors(
+  errors: &RunErrors,
+  records: &[DittoEventRecord],
+) -> BTreeMap<String, String> {
+  observed_errors(records)
+    .into_iter()
+    .map(|(reference, error)| (reference, allocate_error(errors, &error)))
+    .collect()
+}
+
+fn allocate_error(errors: &RunErrors, observed: &ObservedError) -> String {
+  errors.observe(ErrorOccurrence {
+    id: String::new(),
     code: observed.code,
     source: observed.source,
     message: observed.message.clone(),
@@ -613,9 +618,8 @@ fn allocate_error(state: &mut State, observed: &ObservedError) -> String {
       .then(|| observed.player_session_id.clone()),
     scenario_id: Some(observed.scenario_id.clone()),
     step_index: observed.step_index,
-    log_sequence,
-  });
-  id
+    log_sequence: (!observed.player_session_id.is_empty()).then_some(observed.sequence),
+  })
 }
 
 fn host_error(
