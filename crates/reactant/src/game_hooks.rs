@@ -44,6 +44,12 @@ pub(crate) struct GameRenderContext {
   pub(crate) publications: PublicationObservation,
 }
 
+/// Control of the current snapshot sequence, scoped to its consuming component.
+#[derive(Clone)]
+pub struct SnapshotPlayback {
+  current: hooks::Ref<Option<AnimationPlayback>>,
+}
+
 /// One native operation authored from a queued semantic game event.
 pub struct SnapshotAnimation {
   operation: SnapshotAnimationOperation,
@@ -216,7 +222,13 @@ impl GamePresentation {
 ///
 /// The operation is submitted with the consuming render and starts only once,
 /// even when display-local state rerenders while that output remains pending.
-pub fn use_animate<G: Game>(author: impl FnOnce(&G::StateAnimation) -> Option<SnapshotAnimation>) {
+pub fn use_animate<G: Game>(
+  author: impl FnOnce(&G::StateAnimation) -> Option<SnapshotAnimation>,
+) -> SnapshotPlayback {
+  let playback = SnapshotPlayback {
+    current: hooks::use_ref(None),
+  };
+  let current = playback.current.clone();
   let context = self::context::<G>();
   let app = use_app();
   let services = hooks::use_required_context::<ApplicationContext>()
@@ -234,13 +246,27 @@ pub fn use_animate<G: Game>(author: impl FnOnce(&G::StateAnimation) -> Option<Sn
   hooks::use_commit_effect(
     move || {
       if let Some(plan) = plan
-        && let Some(playback) = plan.submit(&app)
+        && let Some((playback, blocking)) = plan.submit(&app)
       {
-        game.track_blocking_motion(identity, playback);
+        current.with_mut(|current| *current = Some(playback.clone()));
+        if blocking {
+          game.track_blocking_motion(identity, playback);
+        }
       }
     },
     (context.id, context.animation_sequence),
   );
+  playback
+}
+
+impl SnapshotPlayback {
+  /// Settles active motion successfully without replaying pending sequence effects.
+  /// A fixed wait has no controllable sequence and is left unchanged.
+  pub fn complete(&self) {
+    if let Some(playback) = self.current.get() {
+      playback.complete();
+    }
+  }
 }
 
 impl SnapshotAnimation {
@@ -278,7 +304,7 @@ impl SnapshotAnimation {
     }
   }
 
-  fn submit(self, app: &AppHandle) -> Option<AnimationPlayback> {
+  fn submit(self, app: &AppHandle) -> Option<(AnimationPlayback, bool)> {
     match self.operation {
       SnapshotAnimationOperation::Sequence {
         scope,
@@ -286,10 +312,9 @@ impl SnapshotAnimation {
         blocking,
       } => {
         if blocking {
-          Some(scope.start_blocking(sequence))
+          Some((scope.start_blocking(sequence), true))
         } else {
-          scope.start(sequence);
-          None
+          Some((scope.start(sequence), false))
         }
       }
       SnapshotAnimationOperation::Wait(duration) => {

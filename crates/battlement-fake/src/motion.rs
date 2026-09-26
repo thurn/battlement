@@ -577,9 +577,11 @@ impl MotionWorld {
   pub(crate) fn value_playback(
     &mut self,
     operation: battlement::MotionValuePlaybackOperation,
+    world: &mut FakeWorld,
+    ui: &mut UiWorld,
     now: u64,
   ) {
-    if !self.imperative_playback(operation, now) {
+    if !self.imperative_playback(operation, world, ui, now) {
       self.graph.playback(operation, now);
     }
   }

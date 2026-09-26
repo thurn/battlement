@@ -61,6 +61,7 @@ pub fn semantic_fixture(name: &str) -> Option<SemanticFixture> {
     "promotion capture" => ("1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1", VisualState::Initial),
     "promotion" => ("4k3/P7/8/8/8/8/8/4K3 w - - 0 1", VisualState::Initial),
     "check" => ("4k3/8/8/8/8/8/R7/4K3 w - - 0 1", VisualState::Initial),
+    "checkmating capture" => ("7k/5Kp1/6Q1/8/8/8/8/8 w - - 0 1", VisualState::Initial),
     "player win" => ("7k/5K2/6Q1/8/8/8/8/8 w - - 0 1", VisualState::Initial),
     "computer win" => ("8/8/8/8/8/5kq1/8/7K b - - 0 1", VisualState::Initial),
     "draw" => ("k7/2Q5/2K5/8/8/8/8/8 w - - 0 1", VisualState::Initial),

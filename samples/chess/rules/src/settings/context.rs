@@ -41,6 +41,10 @@ struct SessionSettings {
   children: Children,
 }
 
+struct SettingsMotion {
+  children: Children,
+}
+
 impl SettingsContext {
   pub fn change(&self, change: SettingsChange) {
     (self.dispatch)(change);
@@ -96,7 +100,9 @@ impl Component for PersistentSettings {
           dispatch,
           retry,
         })
-        .child(self.children.render()),
+        .child(SettingsMotion {
+          children: self.children.clone(),
+        }),
     )
   }
 }
@@ -116,6 +122,19 @@ impl Component for SessionSettings {
         dispatch: hooks::use_callback(dispatch, ()),
         retry: hooks::use_callback(retry, ()),
       })
-      .child(self.children.render())
+      .child(SettingsMotion {
+        children: self.children.clone(),
+      })
+  }
+}
+
+impl Component for SettingsMotion {
+  fn render(&self) -> impl Render {
+    let settings = self::use_settings();
+    MotionConfig::new(self.children.render()).reduced_motion(if settings.desired.reduce_motion {
+      ReducedMotion::Always
+    } else {
+      ReducedMotion::User
+    })
   }
 }

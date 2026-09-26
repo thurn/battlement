@@ -1,6 +1,6 @@
 //! Synchronous fake client lifecycle, responses, input, and assertions.
 
-use battlement::application::ApplicationState;
+use battlement::application::{ApplicationState, ReducedMotionPreference};
 use battlement::host_settings::HostSettings;
 use std::{
   collections::{HashMap, HashSet},
@@ -147,6 +147,12 @@ where
       ));
     }
     self.submit_action(ActionBody::ApplicationStateChanged(state));
+  }
+
+  /// Publishes the current system motion preference and retains it for reconnects.
+  pub fn set_reduced_motion_preference(&mut self, preference: ReducedMotionPreference) {
+    self.connect.reduced_motion_preference = preference;
+    self.submit_action(ActionBody::ReducedMotionPreferenceChanged(preference));
   }
 
   /// Publishes an explicit host observation and retains it for reconnects.

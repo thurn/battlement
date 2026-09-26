@@ -145,9 +145,12 @@ where
           ));
         }
       } else if let CommandBody::MotionValuePlayback(value) = &command.body {
-        self
-          .motion
-          .value_playback(*value, self.presentation_ms * 1000);
+        self.motion.value_playback(
+          *value,
+          &mut self.world,
+          &mut self.ui_world,
+          self.presentation_ms * 1000,
+        );
       } else {
         let descriptor_host = match &command.body {
           CommandBody::MotionSetWorldDescriptor(value) => Some(value.object_id),

@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use battlement::{ObjectId, ParentScene, Prop, StyleValue, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
@@ -17,10 +17,13 @@ use trox::ls;
 const TIMEOUT: Duration = Duration::from_secs(10);
 const LAYOUT_OBJECT: ObjectId = object_id!("92500000-0000-4000-8000-000000000001");
 
+type CompletionSignal = Rc<RefCell<Option<reactant::hooks::StateSetter<bool>>>>;
+
 struct AnimationGame;
 struct Policy;
 struct Board {
   layout_destination: world::LayoutDestination,
+  playback: CompletionSignal,
 }
 
 #[derive(Clone, Copy)]
@@ -92,7 +95,7 @@ impl Component for Board {
     let stage = *reactant::use_game_state::<AnimationGame>();
     let ui_scope = animation_controls::use_animation_scope();
     let event_ui_scope = ui_scope.clone();
-    reactant::use_animate::<AnimationGame>(move |event| {
+    let playback = reactant::use_animate::<AnimationGame>(move |event| {
       Some(match event {
         StateAnimation::Placement => SnapshotAnimation::sequence(
           event_ui_scope.clone(),
@@ -129,6 +132,16 @@ impl Component for Board {
         StateAnimation::Layout => return None,
       })
     });
+    let (settle, set_settle) = reactant::hooks::use_state(false);
+    *self.playback.borrow_mut() = Some(set_settle);
+    reactant::hooks::use_commit_effect(
+      move || {
+        if settle {
+          playback.complete();
+        }
+      },
+      settle,
+    );
     let (local, set_local) = reactant::hooks::use_state(0_u32);
     let interface = View::new()
       .motion(MotionProps::new().animation_scope(ui_scope))
@@ -175,9 +188,12 @@ fn fixture() -> (
   GameHandle<AnimationGame>,
   GameConsumer<AnimationGame>,
   ObjectId,
+  CompletionSignal,
 ) {
+  let playback = Rc::new(RefCell::new(None));
   let mut app = App::new("snapshot-animation/content").ui(GameRoot::new(Board {
     layout_destination: world::LayoutDestination::new(*LAYOUT_OBJECT.as_uuid()),
+    playback: playback.clone(),
   }));
   let game = app.start_game::<AnimationGame>(0, |connection| ExecutionMode::Interactive {
     connection,
@@ -190,7 +206,7 @@ fn fixture() -> (
   assets.add_scene("snapshot-animation/content");
   let mut display = Display::connect(app, assets);
   display.poll();
-  (display, game, consumer, root)
+  (display, game, consumer, root, playback)
 }
 
 fn submit_all(
@@ -232,7 +248,7 @@ fn x(display: &Display<App>, root: ObjectId, name: &str) -> f64 {
 
 #[test]
 fn snapshot_events_submit_once_with_blocking_parallel_motion_waits_and_nonblocking_work() {
-  let (mut display, game, consumer, root) = fixture();
+  let (mut display, game, consumer, root, _) = fixture();
   game.dispatch(Action::Gameplay);
   assert!(consumer.wait_for_worker_stopped(TIMEOUT));
   submit_all(&mut display, &game, &consumer);
@@ -284,7 +300,7 @@ fn snapshot_events_submit_once_with_blocking_parallel_motion_waits_and_nonblocki
 
 #[test]
 fn reconnect_does_not_replay_a_consumed_snapshot_event() {
-  let (mut display, game, consumer, root) = fixture();
+  let (mut display, game, consumer, root, _) = fixture();
   game.dispatch(Action::Gameplay);
   assert!(consumer.wait_for_worker_stopped(TIMEOUT));
   submit_all(&mut display, &game, &consumer);
@@ -293,6 +309,31 @@ fn reconnect_does_not_replay_a_consumed_snapshot_event() {
 
   display.reconnect();
   assert_eq!(text(&display, root, "stage"), "2");
+  game.dispatch(Action::Cosmetic);
+  assert!(consumer.wait_for_worker_stopped(TIMEOUT));
+  submit_all(&mut display, &game, &consumer);
+  assert_eq!(text(&display, root, "stage"), "4");
+}
+
+#[test]
+fn completing_a_snapshot_preserves_turn_progress_and_does_not_skip_fixed_waits() {
+  let (mut display, game, consumer, root, playback) = fixture();
+  game.dispatch(Action::Gameplay);
+  assert!(consumer.wait_for_worker_stopped(TIMEOUT));
+  submit_all(&mut display, &game, &consumer);
+  Clock::advance(&mut display, Duration::from_millis(50));
+  assert_eq!(x(&display, root, "short"), 5.0);
+  playback.borrow().as_ref().unwrap().set(true);
+  display.flush();
+  assert_ne!(game.status(), GameStatus::Failed);
+  playback.borrow().as_ref().unwrap().set(true);
+  display.flush();
+  Clock::advance(&mut display, Duration::from_millis(99));
+  assert_eq!(text(&display, root, "stage"), "1");
+  Clock::advance(&mut display, Duration::from_millis(1));
+  assert_eq!(text(&display, root, "stage"), "2");
+  assert_eq!(x(&display, root, "short"), -20.0);
+  assert_eq!(x(&display, root, "long"), 20.0);
   game.dispatch(Action::Cosmetic);
   assert!(consumer.wait_for_worker_stopped(TIMEOUT));
   submit_all(&mut display, &game, &consumer);

@@ -12,6 +12,7 @@ use reactant::{
 use crate::chess_board;
 use crate::position::{Movement, PieceIdentity};
 
+const REDUCED_DURATION: Duration = Duration::from_millis(120);
 const MOVE_DURATION: Duration = Duration::from_millis(300);
 const KNIGHT_FIRST_LEG: Duration = Duration::from_millis(200);
 const KNIGHT_SECOND_LEG: Duration = Duration::from_millis(120);
@@ -21,7 +22,10 @@ const CAPTURE_EFFECT_LIFETIME: Duration = Duration::from_millis(2_000);
 ///
 /// The board component uses the same timing as the sequence builder rather
 /// than duplicating animation constants, keeping sound and motion aligned.
-pub const fn arrival_duration(movement: &Movement) -> Duration {
+pub const fn arrival_duration(movement: &Movement, reduced: bool) -> Duration {
+  if reduced {
+    return REDUCED_DURATION;
+  }
   match movement {
     Movement::Knight { .. }
     | Movement::Capture {
@@ -41,10 +45,25 @@ pub const fn arrival_duration(movement: &Movement) -> Duration {
 /// module decides *how* that event is animated. That separation is idiomatic in
 /// Reactant because the rules worker remains deterministic while the component
 /// tree owns effects and host object references.
-pub fn sequence(movement: &Movement, references: &[ObjectRef; 64]) -> AnimationSequence {
+pub fn sequence(
+  movement: &Movement,
+  references: &[ObjectRef; 64],
+  reduced: bool,
+) -> AnimationSequence {
+  let duration = if reduced {
+    REDUCED_DURATION
+  } else {
+    MOVE_DURATION
+  };
   match *movement {
-    Movement::Move { piece, to } => move_step(references, piece, to, MOVE_DURATION),
-    Movement::Knight { piece, corner, to } => knight_steps(references, piece, corner, to),
+    Movement::Move { piece, to } => move_step(references, piece, to, duration),
+    Movement::Knight { piece, corner, to } => {
+      if reduced {
+        move_step(references, piece, to, duration)
+      } else {
+        knight_steps(references, piece, corner, to)
+      }
+    }
     Movement::Capture {
       piece,
       captured,
@@ -52,10 +71,13 @@ pub fn sequence(movement: &Movement, references: &[ObjectRef; 64]) -> AnimationS
       to,
       knight_corner,
     } => {
-      let sequence = knight_corner.map_or_else(
-        || move_step(references, piece, to, MOVE_DURATION),
+      let sequence = knight_corner.filter(|_| !reduced).map_or_else(
+        || move_step(references, piece, to, duration),
         |corner| knight_steps(references, piece, corner, to),
       );
+      if reduced {
+        return sequence;
+      }
       sequence.particle_for(
         crate::assets::effects::CAPTURE,
         piece_reference(references, captured)
@@ -69,11 +91,11 @@ pub fn sequence(movement: &Movement, references: &[ObjectRef; 64]) -> AnimationS
       king_to,
       rook,
       rook_to,
-    } => move_step(references, king, king_to, MOVE_DURATION)
+    } => move_step(references, king, king_to, duration)
       .then(
         MotionSelector::object(piece_reference(references, rook)),
         position_target(rook_to),
-        movement_transition(MOVE_DURATION),
+        movement_transition(duration),
       )
       .at(SequencePosition::WithPrevious(0.0)),
     Movement::Promotion {
@@ -81,8 +103,8 @@ pub fn sequence(movement: &Movement, references: &[ObjectRef; 64]) -> AnimationS
       captured,
       to,
     } => {
-      let mut sequence = move_step(references, piece, to, MOVE_DURATION);
-      if let Some(captured) = captured {
+      let mut sequence = move_step(references, piece, to, duration);
+      if let Some(captured) = captured.filter(|_| !reduced) {
         sequence = sequence.particle_for(
           crate::assets::effects::CAPTURE,
           piece_reference(references, captured)

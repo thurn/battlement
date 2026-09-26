@@ -50,9 +50,10 @@ pub use battlement::{InputCaptureCancellation, InputCaptureDevice, InputCaptureR
 pub use battlement_native::Engine;
 pub use game_app::use_game;
 pub use game_hooks::{
-  GamePresentation, GameRoot, SnapshotAnimation, use_animate, use_game_motion_ready,
-  use_game_observation, use_game_presentation, use_game_presentation_receipt, use_game_prompt,
-  use_game_publication, use_game_selector, use_game_selector_with, use_game_state, use_game_status,
+  GamePresentation, GameRoot, SnapshotAnimation, SnapshotPlayback, use_animate,
+  use_game_motion_ready, use_game_observation, use_game_presentation,
+  use_game_presentation_receipt, use_game_prompt, use_game_publication, use_game_selector,
+  use_game_selector_with, use_game_state, use_game_status,
 };
 pub use game_output::{GameConsumer, GameOutput};
 pub use game_reducer::{

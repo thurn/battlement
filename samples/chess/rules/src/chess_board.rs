@@ -1,7 +1,5 @@
 //! Declarative board, square, and piece components.
 
-use std::time::Duration;
-
 use battlement::{
   DragMode, GridLayout, ImageFit, MaterialAssignment, ParentScene, PrefabAddress, Quaternion,
   Vector3,
@@ -10,10 +8,11 @@ use cozy_chess::{Color, File, GameStatus, Piece, Rank, Square};
 use reactant::{
   GameStatus as RulesStatus, SnapshotAnimation,
   animation_controls::{self, AnimationSequence, MotionSelector, SequencePosition},
-  app_context, hooks,
+  app_context, hooks, motion_config,
   prelude::{
-    AnimationPlayback, Component, Easing, EventCallback, IdentityRenderExt, KeyRenderExt,
-    MotionComponentExt, MotionProps, ObjectRef, Render, StyleTarget, Transition, use_object_ref,
+    AnimationPlayback, Component, ContextProvider, EventCallback, IdentityRenderExt, KeyRenderExt,
+    MotionComponentExt, MotionConfig, MotionProps, ObjectRef, ReducedMotion, Render,
+    use_object_ref,
   },
   world::{BoxHitRegion, Group, Plane, Prefab, SceneRoot, Sprite},
 };
@@ -23,23 +22,19 @@ use trox::{opaque, tx, tx_args, txa};
 
 use crate::{
   assets::{black, white},
-  chess_ui_state::{ChessUiController, ChessUiState, SessionStart, UiAction},
-  position::{ChessPiece, Movement, PieceIdentity},
+  board_shake, chess_opening,
+  chess_ui_state::{ChessUiController, ChessUiState, UiAction},
+  position::{ChessPiece, PieceIdentity},
   reactant_game::{ChessAnimation, ChessGame},
 };
 use crate::{chess_ui_state::AppScreen, motion};
 use battlement::ObjectId;
 
 const REFRESH_BUTTON_ID: ObjectId = battlement::object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
-const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = 5_070;
 const CAMERA_BUTTON_DEPTH: f64 = 1.5;
 const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
-const CRITICAL_BEAT_INTERVAL_MS: u64 = 570;
-const CRITICAL_FIRST_BEAT_OFFSET_MS: u64 = 80;
 const HIGHLIGHT_HEIGHT: f64 = 0.02;
 const HIGHLIGHT_SCALE: f64 = 0.09;
-const PIECE_SPAWN_BEAT_COUNT: usize = 8;
-const PIECE_SPAWN_EFFECT_LIFETIME_MS: u64 = 1_000;
 const REFRESH_BUTTON_MARGIN: f64 = 0.12;
 const REFRESH_BUTTON_SIZE: f64 = 0.16;
 
@@ -94,6 +89,7 @@ impl Component for ChessBoard {
   /// the top level of `render`, while event closures capture cloned handles rather
   /// than borrowing the transient render frame.
   fn render(&self) -> impl Render {
+    let reduced = motion_config::use_reduced_motion();
     let state = reactant::use_game_state::<ChessGame>();
     let status = reactant::use_game_status::<ChessGame>();
     let screen = app_context::use_viewport_size();
@@ -104,12 +100,26 @@ impl Component for ChessBoard {
     // retain that slot across moves, so animations never depend on tree position.
     let references: [ObjectRef; 64] = std::array::from_fn(|_| use_object_ref());
     let event_references = references.clone();
-    reactant::use_animate::<ChessGame>(move |animation| {
+    // Start shared feedback before the blocking piece sequence advances its batch.
+    let shake = board_shake::use_shake();
+    let movement_playback = reactant::use_animate::<ChessGame>(move |animation| {
       Some(SnapshotAnimation::sequence(
         event_scope.clone(),
-        sequence(animation, &event_references),
+        sequence(animation, &event_references, reduced),
       ))
     });
+
+    let opening_playback = hooks::use_ref(None::<AnimationPlayback>);
+    let policy_opening = opening_playback.clone();
+    hooks::use_commit_effect(
+      move || {
+        movement_playback.complete();
+        if let Some(playback) = policy_opening.get() {
+          playback.complete();
+        }
+      },
+      reduced,
+    );
 
     let opening_scope = scope.clone();
     let opening_references = references.clone();
@@ -125,11 +135,13 @@ impl Component for ChessBoard {
     hooks::use_commit_effect(
       move || {
         if let Some(mode) = opening {
-          let playback = opening_scope.start_blocking(opening_sequence(
+          let playback = opening_scope.start_blocking(chess_opening::sequence(
             mode,
             &opening_pieces,
             &opening_references,
+            reduced,
           ));
+          opening_playback.with_mut(|current| *current = Some(playback.clone()));
           on_opening_finished(playback, opening_generation);
         } else {
           opening_scope.stop(MotionSelector::Descendants);
@@ -197,7 +209,15 @@ impl Component for ChessBoard {
       .position(square_position(local.cursor))
       .scale(Vector3::new(cursor_scale, cursor_scale, cursor_scale))
       .active(cursor_active)
-      .child(Prefab::at(crate::assets::effects::PIECE_SELECTED));
+      .child((
+        (!reduced).then(|| Prefab::at(crate::assets::effects::PIECE_SELECTED)),
+        reduced.then(|| {
+          Plane::new()
+            .position(Vector3::new(0.0, HIGHLIGHT_HEIGHT, 0.0))
+            .scale(Vector3::new(HIGHLIGHT_SCALE, 1.0, HIGHLIGHT_SCALE))
+            .materials([MaterialAssignment::new(0, crate::assets::LEGAL_SQUARE)])
+        }),
+      ));
     let refresh = local.pause_open().then(|| {
       let aspect = if screen.height == 0 {
         1.0
@@ -233,10 +253,19 @@ impl Component for ChessBoard {
         )
     });
 
-    (SceneRoot::new(ParentScene::PrimaryScene).child(
-      Group::new()
-        .child((squares, cursor, refresh))
-        .motion(MotionProps::new().animation_scope(scope)),
+    (ContextProvider::new().context(shake).child(
+      SceneRoot::new(ParentScene::PrimaryScene).child(
+        Group::new()
+          .child((
+            board_shake::presentation((
+              Prefab::at(crate::assets::BOARD).position(Vector3::new(0.0, -0.316, 0.0)),
+              cursor,
+            )),
+            squares,
+            refresh,
+          ))
+          .motion(MotionProps::new().animation_scope(scope)),
+      ),
     ),)
   }
 }
@@ -281,19 +310,15 @@ impl Component for ChessSquare {
 impl Component for ChessPieceView {
   /// Renders one stable hit region and chooses interaction by piece ownership.
   fn render(&self) -> impl Render {
+    let reduced = motion_config::use_reduced_motion();
     let square = self.square;
     let hit = BoxHitRegion::new()
       .size(Vector3::new(0.9, 1.5, 0.9))
       .position(square_position(self.square))
-      .scale(if self.spawning {
+      .scale(if self.spawning && !reduced {
         Vector3::ZERO
       } else {
         Vector3::ONE
-      })
-      .rotation(if self.piece.color == Color::Black {
-        Quaternion::new(0.0, 1.0, 0.0, 0.0)
-      } else {
-        Quaternion::IDENTITY
       })
       .reference(self.reference.clone());
     let hit = if self.piece.color == Color::White && !self.spawning {
@@ -318,14 +343,26 @@ impl Component for ChessPieceView {
     } else {
       hit
     };
-    hit
+    let visual = Prefab::at(address(self.piece.color, self.piece.kind)).rotation(
+      if self.piece.color == Color::Black {
+        Quaternion::new(0.0, 1.0, 0.0, 0.0)
+      } else {
+        Quaternion::IDENTITY
+      },
+    );
+    let piece = hit
       .accessible_button(
         txa("{piece} at {square}", tx_args![piece => opaque(chess_labels::piece(self.piece.color, self.piece.kind)), square => square.to_string()], "Chess piece on a square."),
         self.on_activate.clone().map_input(move |()| square),
       )
-      .child(Prefab::at(address(self.piece.color, self.piece.kind)))
+      .child(board_shake::presentation(visual))
       .motion(MotionProps::new().motion_name("chess-piece"))
-      .key(self.spawning)
+      .key(self.spawning);
+    MotionConfig::new(piece).reduced_motion(if reduced {
+      ReducedMotion::Never
+    } else {
+      ReducedMotion::User
+    })
   }
 }
 
@@ -333,7 +370,11 @@ impl Component for ChessPieceView {
 ///
 /// Motion owns spatial composition; this board-level adapter owns sounds because
 /// it can schedule them against the same sequence clock delivered to the host.
-fn sequence(animation: &ChessAnimation, references: &[ObjectRef; 64]) -> AnimationSequence {
+fn sequence(
+  animation: &ChessAnimation,
+  references: &[ObjectRef; 64],
+  reduced: bool,
+) -> AnimationSequence {
   match animation {
     ChessAnimation::Movement {
       movement,
@@ -341,19 +382,11 @@ fn sequence(animation: &ChessAnimation, references: &[ObjectRef; 64]) -> Animati
       final_sound,
       ..
     } => {
-      let capture_or_promotion = matches!(
-        movement,
-        Movement::Capture { .. } | Movement::Promotion { .. }
-      );
-      let arrival = motion::arrival_duration(movement);
-      let mut sequence = motion::sequence(movement, references);
+      let arrival = motion::arrival_duration(movement, reduced);
+      let mut sequence = motion::sequence(movement, references, reduced);
       sequence = sequence
         .play_sound(sound.clone())
-        .at(SequencePosition::Absolute(if capture_or_promotion {
-          arrival
-        } else {
-          Duration::ZERO
-        }));
+        .at(SequencePosition::Absolute(arrival));
       if let Some(sound) = final_sound {
         sequence = sequence
           .play_sound(sound.clone())
@@ -362,79 +395,6 @@ fn sequence(animation: &ChessAnimation, references: &[ObjectRef; 64]) -> Animati
       sequence
     }
   }
-}
-
-/// Builds the staged piece reveal used when mounting a fresh or restarted session.
-///
-/// White and black pieces enter in parallel groups aligned to the music beats.
-/// A refresh skips the reveal because its existing board is already visible.
-fn opening_sequence(
-  mode: SessionStart,
-  pieces: &[ChessPiece],
-  references: &[ObjectRef; 64],
-) -> AnimationSequence {
-  let sound = if mode == SessionStart::Fresh {
-    crate::audio::START_SOUND
-  } else {
-    crate::audio::RESET_SOUND
-  };
-  let mut sequence = AnimationSequence::new().play_sound(sound);
-  if mode == SessionStart::Refresh {
-    return sequence;
-  }
-  let white = pieces
-    .iter()
-    .filter(|piece| piece.color == Color::White)
-    .map(|piece| piece.identity)
-    .collect::<Vec<_>>();
-  let black = pieces
-    .iter()
-    .filter(|piece| piece.color == Color::Black)
-    .map(|piece| piece.identity)
-    .collect::<Vec<_>>();
-  let maximum = white.len().max(black.len());
-  let per_beat = maximum.div_ceil(PIECE_SPAWN_BEAT_COUNT).max(1);
-  let stages = maximum.div_ceil(per_beat);
-  for beat in 0..stages {
-    let start = beat * per_beat;
-    let end = start + per_beat;
-    let at = Duration::from_millis(
-      CRITICAL_FIRST_BEAT_OFFSET_MS + beat as u64 * CRITICAL_BEAT_INTERVAL_MS,
-    );
-    for piece in white
-      .get(start..end.min(white.len()))
-      .into_iter()
-      .flatten()
-      .chain(black.get(start..end.min(black.len())).into_iter().flatten())
-    {
-      let reference = piece_reference(references, *piece);
-      sequence = sequence
-        .animate(
-          MotionSelector::object(reference.clone()),
-          StyleTarget::new()
-            .local_scale_x(1.0)
-            .local_scale_y(1.0)
-            .local_scale_z(1.0),
-          Transition::tween().duration_secs(0.2).ease(Easing::EaseOut),
-        )
-        .at(SequencePosition::Absolute(at))
-        .particle_for(
-          crate::assets::effects::PIECE_SPAWN,
-          reference.local_point(Vector3::ZERO).capture_at_start(),
-          Duration::from_millis(PIECE_SPAWN_EFFECT_LIFETIME_MS),
-        )
-        .at(SequencePosition::Absolute(at));
-    }
-  }
-  sequence
-    .animate(
-      MotionSelector::ScopeRoot,
-      StyleTarget::new().local_scale_factor_x(1.0),
-      Transition::tween()
-        .duration_secs(PIECE_SPAWN_SEQUENCE_DURATION_MS as f64 / 1_000.0)
-        .ease(Easing::Linear),
-    )
-    .at(SequencePosition::Absolute(Duration::ZERO))
 }
 
 /// Resolves a piece's explicit reference slot into the board's hook-backed reference.

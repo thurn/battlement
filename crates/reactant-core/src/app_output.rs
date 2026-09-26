@@ -126,6 +126,14 @@ impl OutputDelivery {
     }
     for message in mem::take(&mut response.messages) {
       match message {
+        DeliveryMessage::Batch(mut batch)
+          if batch.work_scope == active && batch.start == battlement::BatchStart::Now =>
+        {
+          // Ownership was checked above; playback controls must also reach paused games.
+          // The controlled playback retains its original scope in the host.
+          batch.work_scope = None;
+          controls.push(DeliveryMessage::Batch(batch));
+        }
         DeliveryMessage::Batch(mut batch) if batch.work_scope.is_some() => {
           if batch.work_scope == active {
             self.replace_pending_observation(&batch);

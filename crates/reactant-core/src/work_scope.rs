@@ -46,7 +46,7 @@ pub(crate) fn batches(
 ) -> Vec<Batch> {
   let mut batches: Vec<Batch> = Vec::new();
   for group in groups {
-    let mut split: Vec<(Option<u64>, Vec<Command>)> = Vec::new();
+    let mut split: Vec<(Option<u64>, bool, Vec<Command>)> = Vec::new();
     for command in group {
       let scope = self::target(&command.body)
         .and_then(|id| owners.get(&id).copied())
@@ -58,24 +58,31 @@ pub(crate) fn batches(
           .then_some(observation_scope)
           .flatten()
         });
-      if let Some((_, commands)) = split.iter_mut().find(|(owner, _)| *owner == scope) {
+      let control = matches!(command.body, CommandBody::MotionValuePlayback(_));
+      if let Some((_, _, commands)) = split
+        .iter_mut()
+        .find(|(owner, immediate, _)| *owner == scope && *immediate == control)
+      {
         commands.push(command);
       } else {
-        split.push((scope, vec![command]));
+        split.push((scope, control, vec![command]));
       }
     }
-    for (scope, commands) in split {
+    for (scope, control, commands) in split {
+      let start = if control {
+        BatchStart::Now
+      } else if independent && scope.is_none() {
+        BatchStart::AfterEarlierAssetPreparation
+      } else {
+        BatchStart::AfterEarlierBlockingWork
+      };
       let index = batches
         .iter()
-        .position(|batch| batch.work_scope == scope)
+        .position(|batch| batch.work_scope == scope && batch.start == start)
         .unwrap_or_else(|| {
           let mut batch = Batch::new(BatchId::new_v4(), session, Vec::new());
           batch.work_scope = scope;
-          batch.start = if independent && scope.is_none() {
-            BatchStart::AfterEarlierAssetPreparation
-          } else {
-            BatchStart::AfterEarlierBlockingWork
-          };
+          batch.start = start;
           batches.push(batch);
           batches.len() - 1
         });

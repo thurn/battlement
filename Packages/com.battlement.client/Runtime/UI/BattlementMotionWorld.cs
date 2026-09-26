@@ -342,6 +342,8 @@ namespace Battlement.UI
         public void Apply(MotionValuePlaybackOperation operation)
         {
             graph.Apply(operation);
+            if (operation.Command is MotionPlaybackCommand.Complete)
+                CompleteEffects(operation.PlaybackId, operation.Generation);
             if (
                 !imperativePlaybacks.TryGet(
                     operation.PlaybackId.Value,
@@ -381,6 +383,8 @@ namespace Battlement.UI
         )
         {
             graph.ApplyValuePlayback(playbackId, generation, kind, micros, number);
+            if (kind == MotionPlaybackOperationKind.Complete)
+                CompleteEffects(playbackId, generation);
             if (!imperativePlaybacks.TryGet(playbackId.Value, out ImperativePlayback playback))
                 return;
             if (playback.Generation != generation)
@@ -405,6 +409,16 @@ namespace Battlement.UI
             };
             if (outcome is MotionPlaybackOutcome terminal)
                 FinishImperative(playbackId.Value, terminal);
+        }
+
+        private void CompleteEffects(ObjectId playbackId, uint generation)
+        {
+            if (
+                imperativePlaybacks.TryGet(playbackId.Value, out var playback)
+                && playback.Generation != generation
+            )
+                throw Invalid("The imperative playback generation is stale.");
+            effects?.Cancel(playbackId);
         }
 
         private void ApplySequencePlayback(
@@ -437,6 +451,16 @@ namespace Battlement.UI
                     activeSequences.Remove(playbackId.Value);
                     break;
                 case MotionPlaybackCommand.Complete:
+                    for (int index = 0; index < sequence.Entries.Count; index++)
+                    {
+                        MotionSequenceEntryState entry = sequence.Entries[index];
+                        if (entry.Definition is not MotionSequenceEntry.Animate)
+                            continue;
+                        if (entry.StartedAt is null)
+                            StartSequenceEntry(sequence, index, entry);
+                        foreach (MotionPlaybackAddress address in entry.Addresses.ToArray())
+                            Apply(address, command);
+                    }
                     sequence.Finish(now);
                     DisposePreparedEffects(sequence.Entries);
                     activeSequences.Remove(playbackId.Value);

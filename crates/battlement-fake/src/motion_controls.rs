@@ -158,6 +158,8 @@ impl MotionWorld {
   pub(crate) fn imperative_playback(
     &mut self,
     operation: MotionValuePlaybackOperation,
+    world: &mut FakeWorld,
+    ui: &mut UiWorld,
     now: u64,
   ) -> bool {
     let Some(playback) = self.playbacks.get(operation.playback_id) else {
@@ -167,7 +169,17 @@ impl MotionWorld {
       playback.generation, operation.generation,
       "Motion playback generation is stale"
     );
-    let addresses = playback.addresses.clone();
+    if operation.command == MotionPlaybackCommand::Complete
+      && self.complete_sequence(operation.playback_id, world, ui, now)
+    {
+      return true;
+    }
+    let addresses = self
+      .playbacks
+      .get(operation.playback_id)
+      .unwrap()
+      .addresses
+      .clone();
     self.sequence_playback(
       operation.playback_id,
       operation.generation,

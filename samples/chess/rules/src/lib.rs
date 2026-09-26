@@ -5,8 +5,10 @@ mod app;
 #[allow(dead_code)]
 pub mod assets;
 pub mod audio;
+mod board_shake;
 mod chess_board;
 mod chess_labels;
+mod chess_opening;
 mod chess_prompt;
 mod chess_ui_state;
 mod computer_turn;

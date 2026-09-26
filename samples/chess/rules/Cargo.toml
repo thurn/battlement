@@ -77,3 +77,7 @@ path = "tests/bindings_tests.rs"
 [[test]]
 name = "audio"
 path = "tests/audio_tests.rs"
+
+[[test]]
+name = "motion"
+path = "tests/motion_tests.rs"

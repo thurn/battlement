@@ -1,4 +1,4 @@
-use battlement::application::ApplicationState;
+use battlement::application::{ApplicationState, ReducedMotionPreference};
 use battlement::host_settings::HostSettings;
 use std::{sync::Arc, time::Duration};
 
@@ -91,6 +91,11 @@ where
   /// Publishes application focus and suspension without advancing time.
   pub fn set_application_state(&mut self, state: ApplicationState) {
     self.client.set_application_state(state);
+  }
+
+  /// Changes the observed system motion preference without advancing time.
+  pub fn set_reduced_motion_preference(&mut self, preference: ReducedMotionPreference) {
+    self.client.set_reduced_motion_preference(preference);
   }
 
   /// Publishes deterministic display, platform, and attached-device observations.

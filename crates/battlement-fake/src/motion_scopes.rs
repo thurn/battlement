@@ -532,6 +532,61 @@ impl MotionWorld {
       .find(|outcome| *outcome != MotionPlaybackOutcome::Completed)
   }
 
+  pub(crate) fn complete_sequence(
+    &mut self,
+    id: ObjectId,
+    world: &mut FakeWorld,
+    ui: &mut UiWorld,
+    now: u64,
+  ) -> bool {
+    let Some(sequence) = self.sequences.remove(&id) else {
+      return false;
+    };
+    for (index, entry) in sequence.entries.iter().enumerate() {
+      let MotionSequenceEntry::Animate {
+        target,
+        position,
+        position_transition,
+        ..
+      } = &entry.definition
+      else {
+        continue;
+      };
+      for target_id in &entry.targets {
+        let position_values = entry.captured.get(target_id).cloned().or_else(|| {
+          position
+            .as_ref()
+            .map(|reference| self.resolve_position(*target_id, reference, world, ui))
+        });
+        let resolved =
+          target_with_position(target, position_transition, position_values.as_deref());
+        let addresses = self
+          .install_imperatives_with_remaps(
+            *target_id,
+            vec![(resolved, index as u64)],
+            sequence.generation,
+            world,
+            ui,
+            now,
+          )
+          .0;
+        for address in addresses {
+          self.playback(
+            battlement::MotionPlaybackOperation {
+              descriptor_id: address.descriptor,
+              slot: address.slot,
+              generation: address.generation,
+              command: MotionPlaybackCommand::Complete,
+            },
+            now,
+          );
+        }
+      }
+    }
+    self.playbacks.finish(id, MotionPlaybackOutcome::Completed);
+    true
+  }
+
   pub(crate) fn sequence_playback(
     &mut self,
     id: ObjectId,

@@ -354,7 +354,10 @@ impl AnimationPlayback {
   }
 
   fn terminal(&self, outcome: PlaybackOutcome, command: MotionPlaybackCommand) {
-    if self.inner.terminal.borrow().is_some() {
+    if let Some(previous) = *self.inner.terminal.borrow() {
+      if previous == PlaybackOutcome::Completed && outcome == PlaybackOutcome::Completed {
+        self.queue(command);
+      }
       return;
     }
     *self.inner.terminal.borrow_mut() = Some(outcome);

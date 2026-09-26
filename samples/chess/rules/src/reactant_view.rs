@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::{rc::Rc, time::Duration};
 
-use battlement::{Color as UiColor, Position, Prop, Quaternion, Style, Vector3};
+use battlement::{Color as UiColor, ParentScene, Position, Prop, Quaternion, Style, Vector3};
 use cozy_chess::{Board, GameStatus};
 use reactant::{
   Application, GameHandle, GameRoot, PersistentState, hooks,
@@ -12,7 +12,7 @@ use reactant::{
     Render,
   },
   rules::{DisplayConnection, ExecutionMode},
-  world::Camera,
+  world::{Camera, Prefab, SceneRoot},
 };
 use trox::tx;
 
@@ -371,9 +371,13 @@ impl Component for TitleScreen {
   /// The menu owns both pointer and assistive activation.
   fn render(&self) -> impl Render {
     reactant_input::use_chess_input(self.control.clone(), None);
-    (self
-      .diagnostics
-      .then(|| reactant_effects::diagnostics_view("ongoing", "new")),)
+    (
+      self
+        .diagnostics
+        .then(|| reactant_effects::diagnostics_view("ongoing", "new")),
+      SceneRoot::new(ParentScene::PrimaryScene)
+        .child(Prefab::at(crate::assets::BOARD).position(Vector3::new(0.0, -0.316, 0.0))),
+    )
   }
 }
 

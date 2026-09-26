@@ -838,6 +838,65 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void CompletingSequenceSettlesFutureSegmentsWithoutEmittingFutureLabels()
+        {
+            ObjectId clock = Id("51b86de9-0408-4f43-9be7-e58f56cb7061");
+            ObjectId scope = Id("51b86de9-0408-4f43-9be7-e58f56cb7062");
+            ObjectId child = Id("51b86de9-0408-4f43-9be7-e58f56cb7063");
+            ObjectId playback = Id("51b86de9-0408-4f43-9be7-e58f56cb7064");
+            var root = new VisualElement();
+            var target = new VisualElement();
+            root.Add(target);
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                root,
+                scope,
+                EmptyDescriptor(scope, clock) with
+                {
+                    ScopeId = scope,
+                    ScopeRoot = true,
+                }
+            );
+            world.Install(target, child, EmptyDescriptor(child, clock));
+            world.Apply(
+                new MotionScopeOperation(
+                    scope,
+                    new MotionScopeCommand.Start(
+                        playback,
+                        1,
+                        new MotionSequenceEntry[]
+                        {
+                            Animate(Target(1, 400_000), new MotionSequenceSchedule.Absolute(0)),
+                            Animate(
+                                XTarget(20, 100_000),
+                                new MotionSequenceSchedule.AfterCompletion(0, 0)
+                            ),
+                            new MotionSequenceEntry.Label(
+                                "future",
+                                new MotionSequenceSchedule.AfterCompletion(1, 0)
+                            ),
+                        }
+                    )
+                )
+            );
+            world.SetControlledClock(clock, 50_000);
+            world.PostLayout();
+            world.DrainEventBatch();
+            world.Apply(
+                new MotionValuePlaybackOperation(playback, 1, new MotionPlaybackCommand.Complete())
+            );
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(1).Within(0.00001));
+            Assert.That(target.style.translate.value.x.value, Is.EqualTo(20).Within(0.00001));
+            MotionEventBatch completed = world.DrainEventBatch()!;
+            Assert.That(completed.LabelEvents, Is.Null.Or.Empty);
+            Assert.That(
+                completed.PlaybackEvents!.Single().Outcome,
+                Is.EqualTo(MotionPlaybackOutcome.Completed)
+            );
+        }
+
+        [Test]
         public void SequenceLabelsUseActualCompletionAndPauseFutureScheduling()
         {
             ObjectId clock = Id("61b86de9-0408-4f43-9be7-e58f56cb7061");
@@ -962,6 +1021,11 @@ namespace Battlement.Tests
             world.PostLayout();
             CollectionAssert.AreEqual(new[] { "audio/one", "audio/two" }, effects.Started);
             Assert.That(world.EffectOccurrences.Count, Is.EqualTo(2));
+            world.Apply(
+                new MotionValuePlaybackOperation(playback, 1, new MotionPlaybackCommand.Complete())
+            );
+            Assert.That(effects.Cancelled, Does.Contain(playback));
+            Assert.That(effects.Started.Count, Is.EqualTo(2));
 
             effects.FailAddress = "audio/missing";
             Assert.Throws<BattlementUiException>(() =>
@@ -1559,6 +1623,7 @@ namespace Battlement.Tests
         private sealed class RecordingEffects : IBattlementMotionEffects
         {
             public List<string> Started { get; } = new();
+            public HashSet<ObjectId> Cancelled { get; } = new();
             public List<UnityEngine.Vector3> ParticlePositions { get; } = new();
             public string? FailAddress { get; set; }
             public UnityEngine.Vector3 Position { get; set; }
@@ -1612,7 +1677,7 @@ namespace Battlement.Tests
 
             public void Resume(ObjectId playbackId) { }
 
-            public void Cancel(ObjectId playbackId) { }
+            public void Cancel(ObjectId playbackId) => Cancelled.Add(playbackId);
 
             public void Reset() { }
 

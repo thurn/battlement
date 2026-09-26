@@ -10,7 +10,7 @@ use battlement::{
 };
 use reactant::{
   announcement::{self, Announce},
-  hooks,
+  hooks, motion_config,
   portal::PortalTarget,
   prelude::*,
   semantics::{SemanticName, SemanticProps},
@@ -55,6 +55,7 @@ impl Component for CaptureListener {
 impl Component for InputCaptureDialog {
   fn render(&self) -> impl Render {
     let settings = settings::use_settings();
+    let reduced = motion_config::use_reduced_motion();
     let (status, set_status) = hooks::use_state(None::<LocalizedString>);
     let (attempt, set_attempt) = hooks::use_state(0_u64);
     let focus = use_element_ref();
@@ -128,7 +129,7 @@ impl Component for InputCaptureDialog {
                   )),
                 )
                 .style(input_styles::waiting_marker_style(scale))
-                .animation(
+                .animations((!reduced).then(|| {
                   Animation::new(Keyframes::new([
                     StyleTarget::new().opacity(1.0),
                     StyleTarget::new().opacity(0.22),
@@ -136,8 +137,8 @@ impl Component for InputCaptureDialog {
                   .duration_secs(0.72)
                   .iterations(AnimationIterations::Forever)
                   .direction(AnimationDirection::Alternate)
-                  .animation_key("shortcut-waiting-blink"),
-                ),
+                  .animation_key("shortcut-waiting-blink")
+                })),
               status.map(|message| {
                 Text::new(message)
                   .host_name("shortcut-status")
@@ -148,7 +149,7 @@ impl Component for InputCaptureDialog {
         .confirm_label(tx("Reset", "Reset keyboard shortcut action."))
         .cancel_label(tx("Cancel", "Cancel the current dialog."))
         .close_on_escape(false)
-        .reduce_motion(settings.desired.reduce_motion)
+        .reduce_motion(reduced)
         .initial_focus(focus)
         .restore_focus(self.restore_focus.clone())
         .on_confirm(EventCallback::new(move |()| {

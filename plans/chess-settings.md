@@ -173,8 +173,8 @@ snap policy. Do not bypass reduction for normal cinematic movement. Calculate
 sound timing from the selected sequence; on a mid-sequence policy change settle
 to the accepted position and never replay effects or block turn completion.
 
-Screenshake offsets a board-world presentation parent, not the HUD or logical
-squares. Use deterministic decaying motion, approximately 0.03 square widths for
+Screenshake applies one shared host-sampled board-world offset to visual-only
+parents beneath the interaction hosts, leaving the HUD and logical squares fixed. Use deterministic decaying motion, approximately 0.03 square widths for
 180 ms on captures and 0.06 for 280 ms on checkmate. A checkmating capture produces
 one checkmate shake. A newer event replaces the current shake from its baseline;
 offsets do not accumulate. Disabling shake/reducing motion immediately restores
