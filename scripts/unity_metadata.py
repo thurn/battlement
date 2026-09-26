@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect retained generated-metadata.json; adopt only explicitly named .cs.meta files."""
+"""Inspect retained generated-metadata.json; adopt explicitly named C# or JSON metadata."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def digest(contents: bytes) -> str:
 def staged_sources(
     repository: Path, pathspecs: tuple[str, ...], index_file: Path | None = None,
 ) -> dict[str, str]:
-    """Snapshot regular staged C# additions for a transaction or adoption check."""
+    """Snapshot regular staged C# and JSON additions for a transaction or adoption check."""
     paths = git(
         repository, 'diff', '--cached', '--name-only', '--diff-filter=A',
         '--no-renames', '-z', '--', *pathspecs, index_file=index_file,
@@ -47,7 +47,7 @@ def staged_sources(
     sources = {}
     for raw in paths:
         relative = raw.decode('utf-8', 'surrogateescape')
-        if not relative.endswith('.cs'):
+        if not relative.endswith(('.cs', '.json')):
             continue
         try:
             path = regular_path(repository, relative)
@@ -86,7 +86,7 @@ def retain(directory: Path, journal: dict, created: list[str]) -> None:
         retained[relative] = {'source_sha256': sources[source], 'sha256': digest(contents)}
     (directory / 'generated-metadata.json').write_text(json.dumps(retained, indent=2) + '\n')
     if retained:
-        print(f'Generated C# metadata retained for explicit adoption: {directory}')
+        print(f'Generated source metadata retained for explicit adoption: {directory}')
 
 
 def adopt(repository: Path, directory: Path, requested: list[str]) -> list[str]:
@@ -105,7 +105,7 @@ def adopt(repository: Path, directory: Path, requested: list[str]) -> list[str]:
     for relative in dict.fromkeys(requested):
         target = regular_path(repository, relative)
         record = retained.get(relative)
-        if record is None or not relative.endswith('.cs.meta'):
+        if record is None or not relative.endswith(('.cs.meta', '.json.meta')):
             raise ValueError(f'No eligible retained metadata: {relative}')
         source = relative.removesuffix('.meta')
         if sources.get(source) != record['source_sha256']:
@@ -129,7 +129,7 @@ def adopt(repository: Path, directory: Path, requested: list[str]) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('transaction', type=Path, help='Retained Unity transaction directory')
-    parser.add_argument('metadata', nargs='+', help='Exact repository-relative .cs.meta paths to adopt')
+    parser.add_argument('metadata', nargs='+', help='Exact repository-relative .cs.meta or .json.meta paths to adopt')
     arguments = parser.parse_args()
     repository = Path(git(Path.cwd(), 'rev-parse', '--show-toplevel').decode().strip())
     try:

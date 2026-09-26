@@ -14,8 +14,8 @@ the CLI does not read that file automatically.
 Before building, run `python3 scripts/prepare_validation.py check`. When it
 identifies stale generated inputs, run `python3 scripts/prepare_validation.py
 generate --sample <sample>`, inspect the returned manifest and patch, then
-stage only the intended files. For staged C# additions, Unity transactions retain
-generated metadata; inspect `generated-metadata.json`, then use
+stage only the intended files. For staged C# and JSON additions, Unity transactions
+retain generated metadata; inspect `generated-metadata.json`, then use
 `scripts/unity_metadata.py --help` for explicit adoption before staging it.
 Command help owns selection and output details.
 
