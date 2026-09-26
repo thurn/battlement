@@ -480,8 +480,11 @@ def _verify_selected_native_execution() -> None:
         assert isinstance(samples, list)
         native_runs.append(tuple(samples))
 
+    select_unity = ci.unity_test_selection.select
+    build_samples = ci.build_standalone_samples
     tooling = Mock()
     patches = (
+        patch.object(ci, "REPOSITORY_ROOT", REPOSITORY_ROOT),
         patch.object(ci, "CiCache", Cache),
         patch.object(ci, "sample_names", return_value=["ui"]),
         patch.object(ci, "sample_rust_workspaces", return_value=[]),
@@ -535,9 +538,30 @@ def _verify_selected_native_execution() -> None:
                 else:
                     raise AssertionError("failed validation must stop the native gate")
 
-    assert closed == [True, True, True]
+        assert closed == [True, True, True]
+        editor_test = (
+            "Packages/com.battlement.client/Tests/Editor/Host/"
+            "BattlementCommandAdmissionTests.cs"
+        )
+        with (
+            patch.object(web_selection, "changed_paths", return_value=("HEAD", [editor_test])),
+            patch.object(ci.unity_test_selection, "select", side_effect=select_unity),
+            patch.object(ci, "run_csharp_preflight") as csharp,
+            patch.object(ci, "run_selected_unity_tests", return_value=0.0) as unity,
+            patch.object(ci, "build_standalone_samples", wraps=build_samples) as builds,
+            patch.object(ci, "prepare_standalone_builder", side_effect=AssertionError("unexpected builder")),
+        ):
+            ci.run_ci(full=True, use_ci_cache=False, ditto=True)
+            selection = csharp.call_args.args[1]
+            assert selection.scope == ci.unity_test_selection.Scope.ALL
+            assert selection.dotnet_diagnostics
+            assert ci.unity_test_selection.HOST_ASSEMBLY in selection.assemblies
+            assert unity.call_args.args[0] == selection
+            assert builds.call_args.args[0] == []
+
+    assert closed == [True, True, True, True]
     assert native_runs == [("ui",)]
-    tooling.assert_called_once_with(ci.REPOSITORY_ROOT, performance=True)
+    assert tooling.call_count == 2
 
 
 def _verify_rust_configuration() -> None:

@@ -2,8 +2,10 @@
 
 """Exercise native sample selection without invoking build tools."""
 
+import json
 from pathlib import Path
 import sys
+import tempfile
 from unittest.mock import patch
 
 
@@ -39,6 +41,71 @@ for source in (
             ROOT, [path, "Packages/com.battlement.client/Runtime/Host/BattlementRunner.cs"],
             audio_samples,
         ) == audio_samples
+
+editor_test = "Packages/com.battlement.client/Tests/Editor/Host/BattlementCommandAdmissionTests.cs"
+for path in (editor_test, editor_test + ".meta", editor_test.replace("/", "\\")):
+    assert selection.select(ROOT, [path], SAMPLES) == []
+    assert selection.select(ROOT, [path, "samples/basic/rules/src/lib.rs"], SAMPLES) == ["basic"]
+    assert selection.select(
+        ROOT, [path, "Packages/com.battlement.client/Runtime/Host.cs"], SAMPLES,
+    ) == SAMPLES
+
+for path in (
+    "Packages/com.battlement.client/Tests/Editor/BattlementUiActionTests.cs",
+    "Packages/com.battlement.client/Tests/Editor/Reactant/NewTests.cs",
+    "Packages/com.battlement.client/Tests/Editor/Host/Removed/Subdirectory/Test.cs",
+):
+    assert selection.select(ROOT, [path], SAMPLES) == []
+
+for path in (
+    "Packages/com.battlement.client/Tests/Editor/Host/Battlement.HostEditorTests.asmdef",
+    "Packages/com.battlement.client/Tests/Editor/Host/Battlement.HostEditorTests.asmdef.meta",
+    "Packages/com.battlement.client/Tests/Editor/Host/Test.prefab",
+    "Packages/com.battlement.client/Tests/Editor/Host/NewExtension.unknown",
+    "Packages/com.battlement.client/Tests/Editor/CustomFixtures/FixtureFlatBufferResponseSchema.cs",
+    "Packages/com.battlement.client/Tests/Runtime/NewTests.cs",
+    "Packages/com.battlement.client/Editor/BattlementDittoBuild.cs",
+    "Packages/com.battlement.client/Tests/Editor/../../Runtime/Host.cs",
+    "scripts/native_validation_selection.py",
+):
+    assert selection.select(ROOT, [editor_test, path], SAMPLES) == SAMPLES, path
+
+with tempfile.TemporaryDirectory() as temporary:
+    repository = Path(temporary)
+    directory = repository / "Packages/com.battlement.client/Tests/Editor"
+    directory.mkdir(parents=True)
+    assembly = directory / "Tests.asmdef"
+    # The nearest declaration owns the source, regardless of its test-like name.
+    for definition in (
+        {}, [], {"includePlatforms": ["Editor"]},
+        {"includePlatforms": [], "optionalUnityReferences": ["TestAssemblies"]},
+        {"includePlatforms": ["Editor", "Android"], "optionalUnityReferences": ["TestAssemblies"]},
+        {"includePlatforms": ["Editor"], "optionalUnityReferences": None},
+    ):
+        assembly.write_text(json.dumps(definition))
+        assert selection.select(repository, [editor_test], SAMPLES) == SAMPLES
+    assembly.write_text("broken JSON")
+    assert selection.select(repository, [editor_test], SAMPLES) == SAMPLES
+    assembly.write_text(json.dumps({
+        "includePlatforms": ["Editor"], "optionalUnityReferences": ["TestAssemblies"],
+    }))
+    assert selection.select(repository, [editor_test], SAMPLES) == []
+    nested = directory / "Host"
+    nested.mkdir()
+    reference = nested / "Shared.asmref"
+    reference.write_text('{"reference":"Runtime"}')
+    assert selection.select(repository, [editor_test], SAMPLES) == SAMPLES
+    reference.unlink()
+    boundary = nested / "Runtime.asmdef"
+    boundary.write_text('{"name":"Runtime"}')
+    assert selection.select(repository, [editor_test], SAMPLES) == SAMPLES
+    boundary.unlink()
+    (directory / "Ambiguous.asmdef").write_text(assembly.read_text())
+    assert selection.select(repository, [editor_test], SAMPLES) == SAMPLES
+    assembly.unlink()
+    (directory / "Ambiguous.asmdef").unlink()
+    assert selection.select(repository, [editor_test], SAMPLES) == SAMPLES
+
 
 dependencies = {
     "basic": {"battlement"},

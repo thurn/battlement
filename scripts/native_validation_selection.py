@@ -14,6 +14,7 @@ GLOBAL_NATIVE_INPUTS = (
     "Cargo.toml",
     "rust-toolchain.toml",
     "contracts/",
+    "scripts/native_validation_selection.py",
     "Packages/com.battlement.client/",
     "crates/battlement-ditto/",
     "crates/battlement-tooling/",
@@ -59,6 +60,7 @@ SAMPLES_WITHOUT_AUDIO = frozenset({"basic", "tictactoe", "ui"})
 def select(repository: Path, paths: list[str], samples: list[str]) -> list[str]:
     """Return samples whose assembled native behavior can change."""
     normalized = {path.replace("\\", "/") for path in paths}
+    normalized = {path for path in normalized if not editor_test_source(repository, path)}
     audio_paths = {
         path for path in normalized if path.removesuffix(".meta") in AUDIO_RUNTIME_INPUTS
     }
@@ -82,6 +84,39 @@ def select(repository: Path, paths: list[str], samples: list[str]) -> list[str]:
             if changed_crates & sample_crates(repository, sample):
                 selected.add(sample)
     return [sample for sample in samples if sample in selected]
+
+
+def editor_test_source(repository: Path, path: str) -> bool:
+    """Recognize C# inputs owned by an editor-only test assembly; uncertainty stays native."""
+    relative = Path(path.removesuffix(".meta"))
+    test_root = Path("Packages/com.battlement.client/Tests/Editor")
+    if relative.suffix != ".cs" or not relative.is_relative_to(test_root):
+        return False
+    if ".." in relative.parts:
+        return False
+    directory = repository / relative.parent
+    root = repository / test_root
+    while directory.is_relative_to(root):
+        if directory.is_symlink():
+            return False
+        if list(directory.glob("*.asmref")):
+            return False
+        definitions = list(directory.glob("*.asmdef"))
+        if definitions:
+            if len(definitions) != 1:
+                return False
+            try:
+                definition = json.loads(definitions[0].read_text())
+            except (OSError, ValueError):
+                return False
+            if not isinstance(definition, dict):
+                return False
+            references = definition.get("optionalUnityReferences")
+            if not isinstance(references, list):
+                return False
+            return definition.get("includePlatforms") == ["Editor"] and "TestAssemblies" in references
+        directory = directory.parent
+    return False
 
 
 def sample_crates(repository: Path, sample: str) -> set[str]:
