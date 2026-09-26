@@ -30,6 +30,27 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 TERMINAL_STATES = {"passed", "failed", "canceled", "interrupted", "inputs-invalidated"}
 
 
+class UnstagedInputs(RuntimeError):
+    """Tracked source changes are missing from the intended CI snapshot."""
+
+
+def require_staged_inputs(repository: Path) -> None:
+    """Reject unstaged tracked edits without changing source or index contents."""
+    arguments = ["git", "diff", "--name-only", "--no-ext-diff", "-z"]
+    if os.name == "nt":
+        arguments.append("--ignore-cr-at-eol")
+    output = subprocess.run(
+        [*arguments, "--"], cwd=repository, check=True, capture_output=True,
+    ).stdout
+    paths = [os.fsdecode(path) for path in output.split(b"\0") if path]
+    if paths:
+        listed = "\n".join(f"  {json.dumps(path, ensure_ascii=False)}" for path in paths)
+        raise UnstagedInputs(
+            "CI requires staged tracked inputs. Unstaged paths:\n"
+            f"{listed}\nStage the intended changes, or restore unintended edits, and retry."
+        )
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -201,6 +222,7 @@ def start_job(repository: Path, arguments: list[str], purpose: str = "local-vali
                         os.killpg(process["pid"], signal.SIGTERM)
                     else:
                         os.kill(process["pid"], signal.SIGTERM)
+        require_staged_inputs(repository)
         identifier = str(uuid.uuid4())
         directory = root / identifier
         directory.mkdir(mode=0o700)
@@ -399,7 +421,11 @@ def main() -> int:
             (arguments.full, "--full"), (arguments.ditto, "--ditto"),
             (arguments.no_ci_cache, "--no-ci-cache"),
         ) if selected]
-        job = start_job(REPOSITORY_ROOT, ci_arguments, arguments.purpose)
+        try:
+            job = start_job(REPOSITORY_ROOT, ci_arguments, arguments.purpose)
+        except UnstagedInputs as error:
+            print(error, file=sys.stderr)
+            return 1
     else:
         path = resolve_job(root, arguments.job)
         if arguments.command == "status":

@@ -140,12 +140,72 @@ print('<== Parent validation (0.1s)', flush=True)
           f"last_wait_diagnostic={status['last_wait_diagnostic']}")
 
 
+def verify_staged_inputs(temporary: Path) -> None:
+    """Reject a partial source snapshot before launching, preserving stat refresh."""
+    repository = scratch_repository(temporary / "staged-input-repository")
+    schema = repository / "schema.json"
+    generated = repository / "Generated Fixture.cs"
+    for path in (schema, generated):
+        path.write_text("before\n")
+    subprocess.run(["git", "add", "."], cwd=repository, check=True)
+    subprocess.run([
+        "git", "-c", "user.name=ci-job-test", "-c", "user.email=ci-job-test@invalid",
+        "-c", "commit.gpgsign=false", "commit", "-qm", "tracked inputs",
+    ], cwd=repository, check=True)
+    schema.write_text("after\n")
+    subprocess.run(["git", "add", "schema.json"], cwd=repository, check=True)
+    generated.write_text("after\n")
+    before = subprocess.check_output(["git", "diff", "--cached", "--binary"], cwd=repository)
+    marker = temporary / "staged-input-child-started"
+    jobs = temporary / "staged-input-jobs"
+    child = [
+        sys.executable, "-c",
+        "from pathlib import Path; import os, subprocess, sys; "
+        "Path(sys.argv[1]).touch(); os.utime(sys.argv[2], None); "
+        "subprocess.run(['git', 'update-index', '--refresh'], check=True)",
+        str(marker), str(schema),
+    ]
+    environment = os.environ | {
+        "BATTLEMENT_CI_JOB_ROOT": str(jobs),
+        "BATTLEMENT_CI_JOB_TEST_COMMAND": json.dumps(child),
+    }
+    command = [
+        sys.executable, "-c",
+        "import sys; from pathlib import Path; sys.path.insert(0, sys.argv.pop(1)); "
+        "import ci_job; ci_job.REPOSITORY_ROOT = Path(sys.argv.pop(1)); "
+        "raise SystemExit(ci_job.main())",
+        str(REPOSITORY_ROOT / "scripts"), str(repository), "--json", "start",
+    ]
+    started = time.monotonic()
+    rejected = subprocess.run(command, env=environment, capture_output=True, text=True)
+    if rejected.returncode == 0:
+        accidental = json.loads(rejected.stdout)
+        ci_job.wait_for(Path(accidental["handle_path"]), None, 5)
+    assert rejected.returncode != 0, "unstaged tracked input launched CI"
+    assert generated.name in rejected.stderr, rejected.stderr
+    assert "stage" in rejected.stderr.casefold(), rejected.stderr
+    assert not marker.exists(), "preflight launched a child"
+    assert not list(jobs.glob("*/job.json")), "preflight created a job"
+    assert generated.read_text() == "after\n"
+    assert subprocess.check_output(["git", "diff", "--cached", "--binary"], cwd=repository) == before
+    print(f"CI staged-input rejection: {time.monotonic() - started:.3f}s; {rejected.stderr.strip()}")
+
+    subprocess.run(["git", "add", generated.name], cwd=repository, check=True)
+    accepted = subprocess.run(command, env=environment, capture_output=True, text=True, check=True)
+    job = json.loads(accepted.stdout)
+    terminal = ci_job.wait_for(Path(job["handle_path"]), None, 5)
+    assert terminal["state"] == "passed", terminal
+    assert marker.exists()
+    assert subprocess.check_output(["git", "diff", "--name-only"], cwd=repository) == b""
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-ci-job-test.") as temporary:
         repository = scratch_repository(Path(temporary) / "repository")
         os.environ["BATTLEMENT_CI_JOB_ROOT"] = temporary
         os.environ["BATTLEMENT_LOG_ROOT"] = str(Path(temporary) / "performance")
         os.environ["CODEX_THREAD_ID"] = "11111111-2222-4333-8444-555555555555"
+        verify_staged_inputs(Path(temporary))
         release_path = Path(temporary) / "fixture.release"
         release_source = """
 import pathlib
