@@ -22,7 +22,8 @@ use crate::{
     common::{ErrorCode, ErrorSource, StepName, StepStatus},
     job::{Job, ResolvedScenario, StepKind},
     lifecycle::{
-      DittoContext, DittoEventRecord, NativeVideoInput, PlayerStepResult, ScenarioComplete,
+      ArtifactKind, DittoContext, DittoEventRecord, NativeVideoInput, PlayerStepResult,
+      RenderCommit, ScenarioComplete,
     },
     result::{
       BaselineOutcome, ComparisonOutcome, ErrorOccurrence, LogSpan, Recovery, ResultCommand,
@@ -174,6 +175,19 @@ impl ExecutionMaterializer {
         StepKind::Screenshot(value) => value.name.clone(),
         _ => anyhow::bail!("non-screenshot step referenced a screenshot artifact"),
       };
+      let render_commit = complete
+        .artifacts
+        .iter()
+        .find_map(|artifact| {
+          if artifact.artifact_id != *artifact_id {
+            return None;
+          }
+          match &artifact.kind {
+            ArtifactKind::Screenshot { render_commit, .. } => render_commit.clone(),
+            ArtifactKind::FailureFrame => None,
+          }
+        })
+        .context("captured screenshot is missing its render commit")?;
       match self.screenshot(
         state,
         ScreenshotLocation {
@@ -184,6 +198,7 @@ impl ExecutionMaterializer {
         },
         artifact_id,
         job,
+        render_commit,
       ) {
         Ok((value, functional_failure, measured)) => {
           timings.baseline_read_ms += measured.baseline_read_ms;
@@ -332,6 +347,7 @@ impl ExecutionMaterializer {
     location: ScreenshotLocation<'_>,
     artifact_id: &str,
     job: &Job,
+    render_commit: RenderCommit,
   ) -> Result<(ScreenshotResult, bool, MaterializationTimings)> {
     let relative_actual = format!("artifacts/{artifact_id}.png");
     let actual_path = self.run_directory.join(&relative_actual);
@@ -346,6 +362,7 @@ impl ExecutionMaterializer {
       return Ok((
         ScreenshotResult::Captured {
           checkpoint: location.checkpoint.to_owned(),
+          render_commit,
           actual,
           baseline: BaselineOutcome::NotLoaded,
           comparison: None,
@@ -358,7 +375,7 @@ impl ExecutionMaterializer {
     }
     let Some(store) = self.store.as_deref() else {
       return Ok((
-        execution_artifacts::missing_screenshot(location.checkpoint, actual),
+        execution_artifacts::missing_screenshot(location.checkpoint, actual, render_commit),
         true,
         MaterializationTimings::default(),
       ));
@@ -374,7 +391,7 @@ impl ExecutionMaterializer {
     )?;
     let ReachedBaseline::Hydrated { entry, path } = reached else {
       return Ok((
-        execution_artifacts::missing_screenshot(location.checkpoint, actual),
+        execution_artifacts::missing_screenshot(location.checkpoint, actual, render_commit),
         true,
         MaterializationTimings {
           baseline_read_ms: elapsed_ms(baseline_started),
@@ -441,6 +458,7 @@ impl ExecutionMaterializer {
     Ok((
       ScreenshotResult::Captured {
         checkpoint: location.checkpoint.to_owned(),
+        render_commit,
         actual,
         baseline: BaselineOutcome::Loaded { image: baseline },
         comparison: Some(outcome),

@@ -1142,7 +1142,8 @@ namespace Battlement
         {
             phase = Phase.ScreenshotCapture;
             phaseStarted = now();
-            capture(step, renderCommit!, outcome => screenshotOutcome = outcome);
+            renderCommit = renderCommit! with { Motion = motion.ObservePresentation() };
+            capture(step, renderCommit, outcome => screenshotOutcome = outcome);
             if (screenshotOutcome is not null)
             {
                 AdvanceScreenshotCapture();

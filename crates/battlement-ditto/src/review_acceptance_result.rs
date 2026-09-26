@@ -151,6 +151,7 @@ pub(super) fn derived_result(
         comparison,
         matched_before_update,
         updated,
+        ..
       }) = &mut step.screenshot
       else {
         continue;

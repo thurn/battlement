@@ -716,7 +716,7 @@ fn context_bodies() -> Vec<Value> {
       serde_json::from_str::<Value>(SCENARIO_COMPLETE).unwrap()["steps"][0]}),
     json!({"context":"artifact-accepted","scenario_id":SCENARIO_ID,"step_index":1,
       "artifact_id":SCREENSHOT_ID,"artifact_kind":{"kind":"screenshot","checkpoint":"snap",
-      "render_commit":{"frame":4,"render_generation":7,"pixel_fingerprint":11}}}),
+      "render_commit":{"frame":4,"render_generation":7,"pixel_fingerprint":11,"motion":{"mode":"controlled","elapsed_ticks":1000000,"scenario_elapsed_ticks":1000000,"finite_timeline_count":0,"infinite_timeline_count":0,"held_timeline_count":0,"has_pending_work":false,"has_deferred_ui_work":false,"timelines":{"sample_count":0,"samples":[]}}}}}),
     json!({"context":"error-observed","scenario_id":SCENARIO_ID,"step_index":4,
       "error_ref":"P0001","code":"assertion.failed","source":"ditto-player",
       "record_sequence":80,"battlement_error_id":null}),
@@ -789,7 +789,7 @@ const SCENARIO_COMPLETE: &str = r#"{
       "screenshot_artifact_id":null,"video_input_id":null}
   ],
   "artifacts":[
-    {"artifact_id":"0197b35f-6ef0-78df-8b96-b31bc9959181","step_index":1,"kind":{"kind":"screenshot","checkpoint":"snap","render_commit":{"frame":4,"render_generation":7,"pixel_fingerprint":11}}},
+    {"artifact_id":"0197b35f-6ef0-78df-8b96-b31bc9959181","step_index":1,"kind":{"kind":"screenshot","checkpoint":"snap","render_commit":{"frame":4,"render_generation":7,"pixel_fingerprint":11,"motion":{"mode":"controlled","elapsed_ticks":1000000,"scenario_elapsed_ticks":1000000,"finite_timeline_count":0,"infinite_timeline_count":0,"held_timeline_count":0,"has_pending_work":false,"has_deferred_ui_work":false,"timelines":{"sample_count":0,"samples":[]}}}}},
     {"artifact_id":"0197b35f-6ef0-78df-8b96-b31bc9959182","step_index":4,"kind":{"kind":"failure-frame"}}
   ],
   "failure_frame":{"status":"captured","artifact_id":"0197b35f-6ef0-78df-8b96-b31bc9959182"},

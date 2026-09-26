@@ -9,6 +9,7 @@ use crate::wire::{
   completion_validation,
   job::{Capability, Display, Job, Platform},
   lifecycle_validation, log_validation,
+  motion_evidence::MotionEvidence,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -291,6 +292,7 @@ pub struct RenderCommit {
   pub frame: u64,
   pub render_generation: u64,
   pub pixel_fingerprint: u64,
+  pub motion: MotionEvidence,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

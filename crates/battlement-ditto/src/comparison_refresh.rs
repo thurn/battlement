@@ -134,6 +134,7 @@ fn compare_screenshots(
         comparison,
         matched_before_update,
         updated,
+        ..
       }) = &mut step.screenshot
       else {
         continue;

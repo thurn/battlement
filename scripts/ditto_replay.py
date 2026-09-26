@@ -68,8 +68,15 @@ def semantic_hash(result: dict) -> str:
 def event_transcript_hash(path: Path) -> str:
     """Hash ordered event meaning while excluding generated identity and timing fields."""
     input_sessions = {}
+    motion_identities = {}
 
     def normalized(value, path=()):
+        if (path[:4] == ("body", "artifact_kind", "render_commit", "motion")
+                and path[-1] in {"owner_id", "clock_id"} and isinstance(value, str)):
+            identity = uuid.UUID(value)
+            # Keep cross-sample ownership/reuse while allowing generated IDs between launches.
+            ordinal = motion_identities.setdefault(identity, len(motion_identities))
+            return ["motion-identity", ordinal]
         if path == ("body", "result", "input_trace", "session") and isinstance(value, str):
             identity, separator, suffix = value.partition(":")
             try:

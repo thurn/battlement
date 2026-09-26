@@ -9,7 +9,7 @@ use crate::wire::{
     ArtifactKind, DittoContext, DittoContextRecord, DittoEventRecord, DittoLogRecord,
     ScenarioBoundaryOutcome,
   },
-  lifecycle_validation, validation,
+  lifecycle_validation, motion_evidence, validation,
 };
 
 const MAX_REQUEST_BYTES: usize = 1024 * 1024;
@@ -287,10 +287,7 @@ fn artifact_step(
       let commit = render_commit
         .as_ref()
         .context("screenshot artifact context requires render-commit evidence")?;
-      ensure!(
-        commit.frame > 0 && commit.render_generation > 0,
-        "render-commit identity must be positive"
-      );
+      motion_evidence::validate_render_commit(commit)?;
     }
     ArtifactKind::FailureFrame => {
       if let Some(index) = step_index {

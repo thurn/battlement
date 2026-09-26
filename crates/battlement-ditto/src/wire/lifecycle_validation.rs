@@ -11,7 +11,7 @@ use crate::wire::{
     PlayerInfrastructureFailure, ScenarioDecision, Started, StartupIdentity, StartupReport,
     TerminalReason, UnstartedScenario,
   },
-  validation,
+  motion_evidence, validation,
 };
 
 pub(super) fn started(
@@ -293,10 +293,7 @@ pub(super) fn artifact_kind(kind: &ArtifactKind) -> Result<()> {
   {
     validation::name("artifact checkpoint", checkpoint)?;
     if let Some(commit) = render_commit {
-      ensure!(
-        commit.frame > 0 && commit.render_generation > 0,
-        "render-commit identity must be positive"
-      );
+      motion_evidence::validate_render_commit(commit)?;
     }
   }
   Ok(())

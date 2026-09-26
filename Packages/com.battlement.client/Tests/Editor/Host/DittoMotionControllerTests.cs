@@ -13,6 +13,23 @@ namespace Battlement.Tests
     public sealed class DittoMotionControllerTests
     {
         [Test]
+        public void ScreenshotEvidenceKeepsScenarioTimeAcrossVideoModeChanges()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+            Advance(harness, motion, 0, forceAdvance: true);
+            ulong firstElapsed = motion.ObservePresentation().ElapsedTicks;
+            motion.Begin(DittoMotion.Instant);
+            Advance(harness, motion, 0, forceAdvance: true);
+            DittoMotionEvidence after = motion.ObservePresentation();
+            Assert.That(after.Mode, Is.EqualTo(DittoMotion.Instant));
+            Assert.That(after.ElapsedTicks, Is.GreaterThan(firstElapsed));
+            Assert.That(after.ScenarioElapsedTicks, Is.EqualTo(after.ElapsedTicks));
+            after.Validate();
+        }
+
+        [Test]
         public void ControlledFramesPreserveIntermediateStateAndSettleAfterTwoQuietFrames()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create(
@@ -289,6 +306,22 @@ namespace Battlement.Tests
 
             Assert.That(frame.Frame.IsSettled, Is.True);
             Assert.That(frame.Frame.HasPendingWork, Is.False);
+            DittoMotionEvidence evidence = controller.ObservePresentation();
+            evidence.Validate();
+            Assert.That(
+                evidence.Mode,
+                Is.EqualTo(instant ? DittoMotion.Instant : DittoMotion.Controlled)
+            );
+            Assert.That(evidence.ElapsedTicks, Is.EqualTo((ulong)frame.Frame.Elapsed.Ticks));
+            Assert.That(evidence.InfiniteTimelineCount, Is.GreaterThan(0));
+            MotionTimelineObservation timeSample = evidence.Timelines.Samples.Single(sample =>
+                sample.Kind == MotionObservationKind.GraphTime
+            );
+            Assert.That(timeSample.SampledClockMicros, Is.EqualTo(1_000_000));
+            Assert.That(
+                timeSample.Clock,
+                Is.EqualTo(scaled ? MotionObservationClock.Scaled : MotionObservationClock.Unscaled)
+            );
             Assert.That(target.localPosition.y, Is.EqualTo(1).Within(0.00001));
             Assert.That(frame.Position, Is.EqualTo(1).Within(0.00001));
             harness.Clock.Advance(TimeSpan.FromDays(1));

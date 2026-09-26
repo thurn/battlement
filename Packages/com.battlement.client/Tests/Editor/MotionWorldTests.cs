@@ -95,12 +95,23 @@ namespace Battlement.Tests
             world.SetControlledClock(clock, 500_000);
             world.PostLayout();
             Assert.That(target.style.opacity.value, Is.EqualTo(0.6f).Within(0.00001));
+            MotionTimelineObservation first = world.ObservePresentation().Samples.Single();
+            Assert.That(first.ClockId, Is.EqualTo(clock.Value));
+            Assert.That(first.SampledClockMicros, Is.EqualTo(500_000));
+            Assert.That(first.ElapsedMicros, Is.EqualTo(500_000));
+            Assert.That(first.AnchorMicros, Is.Zero);
+            Assert.That(first.Held, Is.True);
 
             world.Install(target, host, Descriptor(descriptor, host, clock, 2, 2, 0));
             Assert.That(target.style.opacity.value, Is.EqualTo(0.6f).Within(0.00001));
             world.AdvanceControlledClock(clock, 500_000);
             world.PostLayout();
             Assert.That(target.style.opacity.value, Is.EqualTo(0.3f).Within(0.00001));
+            MotionTimelineObservation replacement = world.ObservePresentation().Samples.Single();
+            Assert.That(replacement.SampledClockMicros, Is.EqualTo(1_000_000));
+            Assert.That(replacement.ElapsedMicros, Is.EqualTo(500_000));
+            Assert.That(replacement.AnchorMicros, Is.EqualTo(500_000));
+            Assert.That(first.SampledClockMicros, Is.EqualTo(500_000));
         }
 
         [Test]
@@ -650,6 +661,21 @@ namespace Battlement.Tests
             MotionValueSample jumped = world.DrainEventBatch()!.ValueSamples.Single();
             Assert.That(jumped.Discontinuity, Is.True);
             Assert.That(((MotionValue.Scalar)jumped.Velocity).Value, Is.Zero);
+            MotionPresentationObservation snapshot = world.ObservePresentation();
+            elapsed = 9_000_000;
+            MotionTimelineObservation observed = world.ObservePresentation().Samples.Single();
+            Assert.That(observed.Clock, Is.EqualTo(MotionObservationClock.Audio));
+            Assert.That(observed.ClockId, Is.EqualTo(playback.Value));
+            Assert.That(observed.OwnerId, Is.EqualTo(time.Value));
+            Assert.That(observed.SampledClockMicros, Is.EqualTo(800_000));
+            Assert.That(observed.ElapsedMicros, Is.EqualTo(800_000));
+            CollectionAssert.AreEqual(snapshot.Samples, world.ObservePresentation().Samples);
+            world.PreLayout();
+            Assert.That(
+                world.ObservePresentation().Samples.Single().SampledClockMicros,
+                Is.EqualTo(9_000_000)
+            );
+            Assert.That(snapshot.Samples.Single().SampledClockMicros, Is.EqualTo(800_000));
         }
 
         [Test]

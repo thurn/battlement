@@ -210,6 +210,10 @@ fn capture_result() -> RunResult {
         assertion: None,
         screenshot: Some(ScreenshotResult::Captured {
           checkpoint: "menu".to_owned(),
+          render_commit: serde_json::from_str(include_str!(
+            "../../../Packages/com.battlement.client/Tests/Fixtures/Ditto/motion-render-commit.json"
+          ))
+          .unwrap(),
           actual: ImageFile {
             path: "images/actual.png".to_owned(),
             sha256: "a".repeat(64),

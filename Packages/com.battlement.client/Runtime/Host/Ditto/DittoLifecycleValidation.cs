@@ -302,6 +302,11 @@ namespace Battlement
             if (kind is DittoArtifactKind.Screenshot screenshot)
             {
                 Name("artifact checkpoint", screenshot.Checkpoint);
+                if (screenshot.RenderCommit is not null)
+                {
+                    Require(screenshot.RenderCommit.Motion is not null, "Missing Motion evidence.");
+                    screenshot.RenderCommit.Motion!.Validate();
+                }
             }
         }
 

@@ -38,7 +38,17 @@ namespace Battlement.Tests
                 );
                 string artifactId = Guid.NewGuid().ToString("D");
                 DittoWebCaptureResult? capture = null;
-                DittoRenderCommit commit = adapter.CommitPresentedFrame(42);
+                DittoRenderCommit commit = adapter.CommitPresentedFrame(42) with
+                {
+                    Motion = DittoLifecycleCodec
+                        .Decode<DittoRenderCommit>(
+                            System.IO.File.ReadAllBytes(
+                                "Packages/com.battlement.client/Tests/Fixtures/Ditto/"
+                                    + "motion-render-commit.json"
+                            )
+                        )
+                        .Motion,
+                };
                 adapter.UploadCommittedFrame(
                     $"http://127.0.0.1:8123/ditto/route/jobs/job/artifacts/{artifactId}",
                     artifactId,

@@ -4,6 +4,7 @@ pub mod baseline_state;
 pub mod common;
 pub mod job;
 pub mod lifecycle;
+pub mod motion_evidence;
 pub mod outcome;
 pub mod player_errors;
 pub mod result;

@@ -204,6 +204,10 @@ fn every_result_and_review_variant_round_trips() {
   round_trip(&[
     ScreenshotResult::Captured {
       checkpoint: "checkpoint".to_owned(),
+      render_commit: serde_json::from_str(include_str!(
+        "../../../Packages/com.battlement.client/Tests/Fixtures/Ditto/motion-render-commit.json"
+      ))
+      .unwrap(),
       actual: image.clone(),
       baseline: BaselineOutcome::Missing,
       comparison: None,
@@ -987,6 +991,10 @@ fn screenshot_step() -> StepResult {
     assertion: None,
     screenshot: Some(ScreenshotResult::Captured {
       checkpoint: "checkpoint".to_owned(),
+      render_commit: serde_json::from_str(include_str!(
+        "../../../Packages/com.battlement.client/Tests/Fixtures/Ditto/motion-render-commit.json"
+      ))
+      .unwrap(),
       actual: image("actual/checkpoint.png", HASH_A),
       baseline: BaselineOutcome::Loaded {
         image: image("baseline/checkpoint.png", HASH_B),

@@ -348,6 +348,9 @@ namespace Battlement
             ActiveDittoFiniteTimelineCount > 0
             || configuredRuntime?.UiDocuments.DittoHasTimedSettlement == true;
 
+        internal MotionPresentationObservation ObserveDittoMotionPresentation() =>
+            configuredRuntime!.UiDocuments.ObserveMotionPresentation();
+
         internal DittoWorkObservation ObserveDittoWork()
         {
             EnsureMainThread();

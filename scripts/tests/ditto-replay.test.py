@@ -23,7 +23,14 @@ def check_render_receipts(root: Path) -> None:
         "body": {"context": "artifact-accepted", "artifact_kind": {
             "kind": "screenshot", "checkpoint": "board",
             "render_commit": {"frame": 28, "render_generation": 417,
-                              "pixel_fingerprint": 1234},
+                              "pixel_fingerprint": 1234, "motion": {
+                                  "elapsed_ticks": 1_000_000,
+                                  "timelines": {"samples": [{
+                                      "owner_id": "17ac3c3f-100c-4d1d-8c15-d0a45bb91d2c",
+                                      "clock_id": "115dc154-b3bd-4b66-bf06-3236cad8db9f",
+                                      "elapsed_micros": 100_000,
+                                  }]},
+                              }},
         }},
     }
     advance = {"event_name": "ditto.context", "body": {
@@ -44,6 +51,19 @@ def check_render_receipts(root: Path) -> None:
     commit["pixel_fingerprint"] += 1
     assert observe([receipt, advance]) != expected
     commit["pixel_fingerprint"] -= 1
+    commit["motion"]["elapsed_ticks"] += 1
+    assert observe([receipt, advance]) != expected
+    commit["motion"]["elapsed_ticks"] -= 1
+    sample = commit["motion"]["timelines"]["samples"][0]
+    sample["owner_id"] = "ced67c7d-6788-4ae5-a8a3-c62e5585ce50"
+    sample["clock_id"] = "bce2847e-981e-4647-b8bd-7442cc000030"
+    assert observe([receipt, advance]) == expected
+    sample["owner_id"] = sample["clock_id"]
+    assert observe([receipt, advance]) != expected
+    sample["owner_id"] = "ced67c7d-6788-4ae5-a8a3-c62e5585ce50"
+    sample["elapsed_micros"] += 1
+    assert observe([receipt, advance]) != expected
+    sample["elapsed_micros"] -= 1
     for key in ("frame", "render_generation"):
         advance["body"][key] += 1
         assert observe([receipt, advance]) != expected

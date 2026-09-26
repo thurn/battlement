@@ -41,6 +41,7 @@ namespace Battlement
         private ulong frameIndex;
         private int quietFrames;
         private TimeSpan motionEpoch;
+        private TimeSpan scenarioEpoch;
         private ulong? previousPaintFingerprint;
         private bool controlledAdvanceRequested;
         private bool preservingExactState;
@@ -70,6 +71,8 @@ namespace Battlement
             runner.BeginDittoMotion(motion);
             Motion = motion;
             motionEpoch = runner.DittoElapsed;
+            if (!started)
+                scenarioEpoch = motionEpoch;
             previous = runner.ObserveDittoWork();
             frameIndex = 0;
             quietFrames = 0;
@@ -131,6 +134,24 @@ namespace Battlement
                 layoutChanged,
                 paintChanged,
                 quietFrames
+            );
+        }
+
+        public DittoMotionEvidence ObservePresentation()
+        {
+            RequireStarted();
+            if (lastFrame is null || lastFrame.Elapsed != runner.DittoElapsed)
+                throw new InvalidOperationException("Motion evidence requires a committed frame.");
+            return new DittoMotionEvidence(
+                Motion,
+                checked((ulong)lastFrame.Elapsed.Ticks),
+                checked((ulong)(lastFrame.Elapsed - scenarioEpoch).Ticks),
+                previous!.ActiveFiniteTimelineCount,
+                previous.ActiveInfiniteTimelineCount,
+                previous.ActiveHeldTimelineCount,
+                previous.HasPendingWork,
+                previous.HasDeferredUiWork,
+                runner.ObserveDittoMotionPresentation()
             );
         }
 

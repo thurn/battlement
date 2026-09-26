@@ -187,6 +187,7 @@ namespace Battlement
                 );
                 return;
             }
+            latestCommit = commit;
             expectedArtifactId = artifactId;
             captureCompletion = completion ?? throw new ArgumentNullException(nameof(completion));
             deadline = Time.realtimeSinceStartupAsDouble + OperationTimeoutSeconds;

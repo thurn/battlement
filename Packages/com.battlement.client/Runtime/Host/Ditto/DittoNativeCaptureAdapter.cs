@@ -96,6 +96,8 @@ namespace Battlement
         [property: JsonIgnore] long EndOfFrameTick = 0
     )
     {
+        public DittoMotionEvidence? Motion { get; init; }
+
         public bool IdentifiesSamePresentation(DittoRenderCommit other) =>
             Frame == other.Frame
             && RenderGeneration == other.RenderGeneration

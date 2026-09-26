@@ -8,16 +8,22 @@ use sha2::{Digest, Sha256};
 use crate::wire::{
   common::{DeadlineKind, StepStatus},
   lifecycle::{
-    DittoContext, DittoEventRecord, ExecutionStatus, PlayerFailureFrame, ScenarioBoundaryOutcome,
+    DittoContext, DittoEventRecord, ExecutionStatus, PlayerFailureFrame, RenderCommit,
+    ScenarioBoundaryOutcome,
   },
   result::{
     BaselineOutcome, ImageFile, MediaCapture, ScenarioStatus, ScreenshotResult, StepResult,
   },
 };
 
-pub(crate) fn missing_screenshot(checkpoint: &str, actual: ImageFile) -> ScreenshotResult {
+pub(crate) fn missing_screenshot(
+  checkpoint: &str,
+  actual: ImageFile,
+  render_commit: RenderCommit,
+) -> ScreenshotResult {
   ScreenshotResult::Captured {
     checkpoint: checkpoint.to_owned(),
+    render_commit,
     actual,
     baseline: BaselineOutcome::Missing,
     comparison: None,

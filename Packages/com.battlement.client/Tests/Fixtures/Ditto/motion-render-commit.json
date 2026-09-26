@@ -1,0 +1,19 @@
+{
+  "frame": 4,
+  "render_generation": 7,
+  "pixel_fingerprint": 11,
+  "motion": {
+    "mode": "controlled",
+    "elapsed_ticks": 1000000,
+    "scenario_elapsed_ticks": 1000000,
+    "finite_timeline_count": 0,
+    "infinite_timeline_count": 0,
+    "held_timeline_count": 0,
+    "has_pending_work": false,
+    "has_deferred_ui_work": false,
+    "timelines": {
+      "sample_count": 0,
+      "samples": []
+    }
+  }
+}

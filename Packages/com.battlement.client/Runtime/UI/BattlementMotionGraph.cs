@@ -44,6 +44,26 @@ namespace Battlement.UI
                 .Values.Where(playback => playback.IsFiniteActive)
                 .Select(playback => playback.ReadinessDiagnostic());
 
+        internal IEnumerable<MotionTimelineObservation> ObservePresentation()
+        {
+            foreach (ValuePlayback playback in playbacks.Values)
+                if (!playback.Terminal)
+                    yield return playback.ObservePresentation();
+            foreach (NodeState node in order)
+                if (node.Descriptor.Source is MotionValueSource.Time time)
+                    yield return MotionTimelineObservation.Create(
+                        MotionObservationKind.GraphTime,
+                        node.Descriptor.ValueId.Value,
+                        null,
+                        time.Value,
+                        node.LastSampledClockMicros,
+                        node.LastSampledClockMicros ?? 0,
+                        null,
+                        false,
+                        true
+                    );
+        }
+
         public static void ValidateDescriptor(
             MotionDescriptor descriptor,
             Func<MotionProperty, bool>? supports = null
@@ -804,6 +824,8 @@ namespace Battlement.UI
 
             public MotionValue Value { get; private set; }
 
+            public ulong? LastSampledClockMicros { get; private set; }
+
             public MotionValue Velocity { get; private set; }
 
             public bool Discontinuity { get; set; }
@@ -851,6 +873,7 @@ namespace Battlement.UI
 
             public void Evaluate(IReadOnlyDictionary<Guid, NodeState> graph, MotionClockSample now)
             {
+                LastSampledClockMicros = now.ElapsedMicros;
                 if (scalar)
                 {
                     EvaluateScalar(graph, now);
@@ -1218,6 +1241,22 @@ namespace Battlement.UI
 
             public bool IsInfiniteActive => !IsPaused && transition.Repeat is MotionRepeat.Forever;
 
+            private ulong? lastSampledClockMicros;
+            private ulong lastElapsedMicros;
+
+            public MotionTimelineObservation ObservePresentation() =>
+                MotionTimelineObservation.Create(
+                    MotionObservationKind.ValuePlayback,
+                    Node.Descriptor.ValueId.Value,
+                    null,
+                    new MotionClockSource.Unscaled(),
+                    lastSampledClockMicros,
+                    lastElapsedMicros,
+                    anchor,
+                    IsHeld,
+                    transition.Repeat is MotionRepeat.Forever
+                );
+
             public string ReadinessDiagnostic() =>
                 $"motion-value={Node.Descriptor.ValueId.Value},elapsed-ms={held / 1000}";
 
@@ -1236,6 +1275,8 @@ namespace Battlement.UI
                 if (Terminal)
                     return;
                 ulong elapsed = IsPaused ? held : held + checked((ulong)((now - anchor) * speed));
+                lastSampledClockMicros = now;
+                lastElapsedMicros = elapsed;
                 if (origin is MotionValue.Scalar left && target is MotionValue.Scalar right)
                 {
                     MotionScalarSample sample = BattlementMotionScalarSampler.Sample(

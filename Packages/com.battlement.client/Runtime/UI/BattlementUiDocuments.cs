@@ -580,6 +580,9 @@ namespace Battlement.UI
 
         internal int DittoActiveHeldTimelineCount => motionWorld.ActiveHeldTimelineCount;
 
+        internal MotionPresentationObservation ObserveMotionPresentation() =>
+            motionWorld.ObservePresentation();
+
         internal string DittoActiveTimelineDiagnostic => motionWorld.ActiveTimelineDiagnostic;
 
         internal int CompleteDittoPresentedFrame() =>

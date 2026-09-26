@@ -93,7 +93,15 @@ namespace Battlement.Tests
                     ScenarioId(),
                     3,
                     artifactId,
-                    new DittoArtifactKind.Screenshot("board", new DittoRenderCommit(4, 7, 11)),
+                    new DittoArtifactKind.Screenshot(
+                        "board",
+                        DittoLifecycleCodec.Decode<DittoRenderCommit>(
+                            System.IO.File.ReadAllBytes(
+                                "Packages/com.battlement.client/Tests/Fixtures/Ditto/"
+                                    + "motion-render-commit.json"
+                            )
+                        )
+                    ),
                     1,
                     1,
                     png

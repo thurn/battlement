@@ -4,6 +4,7 @@ use anyhow::{Result, ensure};
 
 use crate::wire::{
   common::{DeadlineKind, StepName, StepStatus},
+  motion_evidence,
   result::{
     BaselineOutcome, ComparisonOutcome, ErrorOccurrence, ImageFile, MediaCapture, ResultCommand,
     RunResult, ScenarioResult, ScenarioStatus, ScreenshotResult, StepResult, VideoResult,
@@ -334,6 +335,7 @@ fn screenshot_result(
   match screenshot {
     ScreenshotResult::Captured {
       checkpoint,
+      render_commit,
       actual,
       baseline,
       comparison,
@@ -341,6 +343,7 @@ fn screenshot_result(
       updated,
     } => {
       validation::name("screenshot checkpoint", checkpoint)?;
+      motion_evidence::validate_render_commit(render_commit)?;
       image("screenshot actual", actual, artifacts)?;
       ensure!(
         matched_before_update.is_some() == updated.is_some(),

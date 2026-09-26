@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::wire::{
   common::{AssertionResult, DeadlineKind, ErrorCode, ErrorSource, StepName, StepStatus},
   job::{Comparison, Motion, PerformancePass},
-  lifecycle::{PacingConfiguration, StartupReport, StepPerformance},
+  lifecycle::{PacingConfiguration, RenderCommit, StartupReport, StepPerformance},
   result_format, result_validation,
 };
 
@@ -357,6 +357,7 @@ pub enum BaselineWriteStatus {
 pub enum ScreenshotResult {
   Captured {
     checkpoint: String,
+    render_commit: RenderCommit,
     actual: ImageFile,
     baseline: BaselineOutcome,
     comparison: Option<ComparisonOutcome>,

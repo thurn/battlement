@@ -104,10 +104,16 @@ namespace Battlement.Tests
             Assert.That(requested, Is.EqualTo(executor.LastRenderCommit));
             Assert.That(requestedStateTime, Is.GreaterThan(TimeSpan.Zero));
             Assert.That(harness.Runner.DittoElapsed, Is.EqualTo(requestedStateTime));
+            Assert.That(requested!.Motion!.Mode, Is.EqualTo(DittoMotion.Controlled));
+            Assert.That(requested.Motion.ElapsedTicks, Is.EqualTo((ulong)requestedStateTime.Ticks));
+            Assert.That(requested.Motion.ScenarioElapsedTicks, Is.EqualTo(1_000_000UL));
+            requested.Motion.Validate();
+            byte[] retainedEvidence = DittoLifecycleCodec.Encode(requested);
             ulong capturedFrame = executor.LastCommittedFrame;
             Assert.That(executor.Advance(), Is.False);
             Assert.That(executor.LastCommittedFrame, Is.EqualTo(capturedFrame));
             Assert.That(executor.AwaitingPresentation, Is.False);
+            CollectionAssert.AreEqual(retainedEvidence, DittoLifecycleCodec.Encode(requested));
             finish!(new DittoScreenshotStepOutcome(Guid.NewGuid().ToString("D"), null, true));
             Assert.That(executor.Advance(), Is.True);
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));

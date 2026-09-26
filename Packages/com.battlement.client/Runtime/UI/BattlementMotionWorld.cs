@@ -90,6 +90,13 @@ namespace Battlement.UI
         internal int ActiveHeldTimelineCount =>
             descriptors.Values.Sum(value => value.ActiveHeldTimelineCount);
 
+        internal MotionPresentationObservation ObservePresentation() =>
+            MotionPresentationObservation.Capture(
+                descriptors
+                    .Values.SelectMany(value => value.ObservePresentation())
+                    .Concat(graph.ObservePresentation())
+            );
+
         internal string ActiveTimelineDiagnostic =>
             string.Join(
                 ";",

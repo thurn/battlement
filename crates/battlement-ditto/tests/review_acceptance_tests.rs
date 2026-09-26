@@ -268,6 +268,10 @@ fn reviewed_result(images: &[Vec<u8>; 2]) -> RunResult {
       assertion: None,
       screenshot: Some(ScreenshotResult::Captured {
         checkpoint: format!("checkpoint-{index}"),
+        render_commit: serde_json::from_str(include_str!(
+          "../../../Packages/com.battlement.client/Tests/Fixtures/Ditto/motion-render-commit.json"
+        ))
+        .unwrap(),
         actual: ImageFile {
           path: format!("actuals/{index}.png"),
           sha256: format!("{:x}", Sha256::digest(image)),

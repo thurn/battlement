@@ -301,6 +301,11 @@ namespace Battlement.UI
             + (pseudoStyles?.ActiveHeldTimelineCount ?? 0)
             + (decorations?.ActiveHeldTimelineCount ?? 0);
 
+        internal IEnumerable<MotionTimelineObservation> ObservePresentation() =>
+            slots
+                .Where(slot => slot.HasPendingFiniteTracks || slot.HasPendingInfiniteTracks)
+                .Select(slot => slot.ObservePresentation(Descriptor.DescriptorId.Value));
+
         internal IEnumerable<string> ActiveTimelineDiagnostics() =>
             slots
                 .Where(slot => slot.IsFiniteActive)

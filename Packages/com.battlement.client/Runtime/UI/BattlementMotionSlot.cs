@@ -119,6 +119,21 @@ namespace Battlement.UI
 
         public ulong LastElapsedMicros { get; private set; }
 
+        private ulong? lastSampledClockMicros;
+
+        internal MotionTimelineObservation ObservePresentation(Guid owner) =>
+            MotionTimelineObservation.Create(
+                MotionObservationKind.Slot,
+                owner,
+                Definition.Slot,
+                Clock,
+                lastSampledClockMicros,
+                LastElapsedMicros,
+                AnchorMicros,
+                IsHeldActive,
+                HasPendingInfiniteTracks
+            );
+
         public bool AllTracksDone
         {
             get
@@ -205,6 +220,7 @@ namespace Battlement.UI
             Direction = previous.Direction;
             Active = previous.Active;
             LastElapsedMicros = previous.LastElapsedMicros;
+            lastSampledClockMicros = previous.lastSampledClockMicros;
             Paused = paused;
             scopePaused = false;
             SeekPending = previous.SeekPending;
@@ -344,6 +360,7 @@ namespace Battlement.UI
                         target.Write(value.Property, value.Value);
                 return;
             }
+            lastSampledClockMicros = clockMicros;
             LastElapsedMicros = Elapsed(clockMicros);
             foreach (TrackState track in completionTracks)
                 if (target.IsLayout(track.Definition.Property) == layout)
