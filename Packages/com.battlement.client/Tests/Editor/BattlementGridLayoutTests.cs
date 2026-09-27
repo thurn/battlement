@@ -313,7 +313,14 @@ namespace Battlement.Tests
             Assert.That(Pixels(slot.style.left), Is.EqualTo(left));
             Assert.That(Pixels(slot.style.top), Is.EqualTo(top));
             Assert.That(Pixels(slot.style.width), Is.EqualTo(width));
-            Assert.That(Pixels(slot.style.height), Is.EqualTo(height));
+            Assert.That(
+                Pixels(
+                    slot.style.height.keyword == StyleKeyword.Auto
+                        ? slot.style.minHeight
+                        : slot.style.height
+                ),
+                Is.EqualTo(height)
+            );
         }
 
         private static float Pixels(StyleLength value) => value.value.value;

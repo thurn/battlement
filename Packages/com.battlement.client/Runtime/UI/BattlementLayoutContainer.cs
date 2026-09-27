@@ -352,6 +352,16 @@ namespace Battlement.UI
             pickingMode = PickingMode.Ignore;
             tabIndex = -1;
             hierarchy.Add(host);
+            if (
+                containingBlock is BattlementLayoutContainer
+                {
+                    Kind: BattlementLayoutContainerKind.Grid
+                }
+            )
+            {
+                RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+                host.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            }
         }
 
         public VisualElement ContainingBlock { get; }
@@ -361,11 +371,27 @@ namespace Battlement.UI
         public void AttachHost()
         {
             if (Host.parent != this)
+            {
                 hierarchy.Add(Host);
+                if (
+                    ContainingBlock is BattlementLayoutContainer
+                    {
+                        Kind: BattlementLayoutContainerKind.Grid
+                    }
+                )
+                    Host.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            }
+        }
+
+        private void OnGeometryChanged(GeometryChangedEvent change)
+        {
+            if (ContainingBlock is BattlementLayoutContainer container)
+                container.GridLayout?.ScheduleRefresh();
         }
 
         public void DetachHost()
         {
+            Host.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
             if (Host.parent == this)
                 Host.RemoveFromHierarchy();
         }

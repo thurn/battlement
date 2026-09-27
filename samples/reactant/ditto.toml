@@ -757,3 +757,125 @@ pointer_action = { target = { role = "button", name = "Close outer modal" }, act
 navigation = { action = "activate" }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "Outer modal owns input" }, role = "heading", name = "Outer modal owns input" }
+
+[[scenarios]]
+name = "wrapped grid intrinsic rows"
+fixture = "grid-intrinsic"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "English" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "100%" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Narrow" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "English · 100% · 200" }, role = "static-text", name = "English · 100% · 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 200, row 200" }, role = "static-text", name = "Measured grid 200, row 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Wide" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "English · 100% · 420" }, role = "static-text", name = "English · 100% · 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 420, row 420" }, role = "static-text", name = "Measured grid 420, row 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "150%" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Narrow" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "English · 150% · 200" }, role = "static-text", name = "English · 150% · 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 200, row 200" }, role = "static-text", name = "Measured grid 200, row 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Wide" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "English · 150% · 420" }, role = "static-text", name = "English · 150% · 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 420, row 420" }, role = "static-text", name = "Measured grid 420, row 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "200%" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Narrow" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "English · 200% · 200" }, role = "static-text", name = "English · 200% · 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 200, row 200" }, role = "static-text", name = "Measured grid 200, row 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Wide" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "English · 200% · 420" }, role = "static-text", name = "English · 200% · 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 420, row 420" }, role = "static-text", name = "Measured grid 420, row 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "French" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "100%" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Narrow" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "French · 100% · 200" }, role = "static-text", name = "French · 100% · 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 200, row 200" }, role = "static-text", name = "Measured grid 200, row 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Wide" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "French · 100% · 420" }, role = "static-text", name = "French · 100% · 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 420, row 420" }, role = "static-text", name = "Measured grid 420, row 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "150%" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Narrow" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "French · 150% · 200" }, role = "static-text", name = "French · 150% · 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 200, row 200" }, role = "static-text", name = "Measured grid 200, row 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Wide" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "French · 150% · 420" }, role = "static-text", name = "French · 150% · 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 420, row 420" }, role = "static-text", name = "Measured grid 420, row 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "200%" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Narrow" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "French · 200% · 200" }, role = "static-text", name = "French · 200% · 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 200, row 200" }, role = "static-text", name = "Measured grid 200, row 200" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Wide" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "French · 200% · 420" }, role = "static-text", name = "French · 200% · 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Measured grid 420, row 420" }, role = "static-text", name = "Measured grid 420, row 420" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Rows separated" }, role = "static-text", name = "Rows separated" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Setting 2 · 0" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Setting 2 · 1" }, role = "button", name = "Setting 2 · 1" }

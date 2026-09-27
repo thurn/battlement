@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Battlement.UI
@@ -26,6 +25,7 @@ namespace Battlement.UI
         private GridSignature? signature;
         private int unstablePasses;
         private bool diagnosticIssued;
+        private bool refreshScheduled;
 
         public BattlementGridLayout(
             BattlementLayoutContainer owner,
@@ -64,6 +64,18 @@ namespace Battlement.UI
             Refresh();
         }
 
+        public void ScheduleRefresh()
+        {
+            if (refreshScheduled)
+                return;
+            refreshScheduled = true;
+            owner.schedule.Execute(() =>
+            {
+                refreshScheduled = false;
+                Refresh();
+            });
+        }
+
         public void Refresh()
         {
             VisualElement[] children = adapter
@@ -91,7 +103,7 @@ namespace Battlement.UI
                                 new BattlementGridContribution(
                                     placement.Items[index].Column,
                                     placement.Items[index].ColumnSpan,
-                                    PreferredOuterWidth(child)
+                                    ContributionWidth(child, placement.Items[index])
                                 )
                         )
                         .ToArray()
@@ -108,15 +120,7 @@ namespace Battlement.UI
                                 new BattlementGridContribution(
                                     placement.Items[index].Row,
                                     placement.Items[index].RowSpan,
-                                    PreferredOuterHeight(
-                                        child,
-                                        AreaSize(
-                                            columnAxis,
-                                            placement.Items[index].Column,
-                                            placement.Items[index].ColumnSpan,
-                                            columnGap
-                                        )
-                                    )
+                                    PreferredOuterHeight(child)
                                 )
                         )
                         .ToArray()
@@ -202,7 +206,7 @@ namespace Battlement.UI
             float preferredWidth =
                 AuthoredExtent(child.style.width, width) ?? PreferredWidth(child);
             float preferredHeight =
-                AuthoredExtent(child.style.height, height) ?? PreferredHeight(child, width);
+                AuthoredExtent(child.style.height, height) ?? PreferredHeight(child);
             UiAlign horizontal = item.JustifySelf == UiAlign.Auto ? justifyItems : item.JustifySelf;
             UiAlign vertical = item.AlignSelf == UiAlign.Auto ? alignItems : item.AlignSelf;
             (left, width) = Align(
@@ -223,7 +227,14 @@ namespace Battlement.UI
             slot.style.left = left - marginLeft;
             slot.style.top = top - marginTop;
             slot.style.width = width + marginLeft + marginRight;
-            slot.style.height = height + marginTop + marginBottom;
+            // An auto-height item must remain unconstrained while Yoga measures its
+            // contents. The allocated row is a minimum, so fixed tracks can still
+            // stretch short items without clipping the intrinsic measurement.
+            bool intrinsicHeight = !AuthoredExtent(child.style.height, height).HasValue;
+            slot.style.height = intrinsicHeight
+                ? new StyleLength(StyleKeyword.Auto)
+                : new StyleLength(height + marginTop + marginBottom);
+            slot.style.minHeight = intrinsicHeight ? height + marginTop + marginBottom : 0;
         }
 
         private static (float Position, float Size) Align(
@@ -250,42 +261,85 @@ namespace Battlement.UI
             ?? FinitePositive(child.resolvedStyle.width)
             ?? 0;
 
-        private static float PreferredOuterWidth(VisualElement child) =>
-            PreferredWidth(child)
+        private float ContributionWidth(VisualElement child, BattlementGridPlacement placement)
+        {
+            bool minimum = !Enumerable
+                .Range(placement.Column, placement.ColumnSpan)
+                .Any(index =>
+                    (index < columns.Count ? columns[index] : autoColumns) is GridTrack.Auto
+                );
+            return ContentOuterWidth(child, minimum);
+        }
+
+        private static float ContentOuterWidth(VisualElement child, bool minimum) =>
+            ContentWidth(child, minimum)
             + Margin(child.style.marginLeft)
             + Margin(child.style.marginRight);
 
-        private static float PreferredOuterHeight(VisualElement child, float width) =>
-            PreferredHeight(
-                child,
-                Math.Max(
-                    0,
-                    width - Margin(child.style.marginLeft) - Margin(child.style.marginRight)
-                )
-            )
+        private static float ContentWidth(VisualElement child, bool minimum)
+        {
+            if (minimum && !AuthoredPixels(child.style.width).HasValue)
+            {
+                if (AuthoredPixels(child.style.minWidth) is float authoredMinimum)
+                    return Math.Max(0, authoredMinimum);
+            }
+            float lower =
+                AuthoredPixels(child.style.minWidth)
+                ?? FinitePositive(child.resolvedStyle.minWidth.value)
+                ?? 0;
+            float preferred = AuthoredPixels(child.style.width) ?? IntrinsicWidth(child, minimum);
+            float maximum = AuthoredPixels(child.style.maxWidth) ?? float.PositiveInfinity;
+            return Math.Max(lower, Math.Min(preferred, maximum));
+        }
+
+        private static float IntrinsicWidth(VisualElement child, bool minimum)
+        {
+            // A stretched layout width is the previous track allocation, not an
+            // intrinsic minimum. Wrapping text contributes its widest word.
+            if (child is TextElement text && child.panel is not null)
+            {
+                string[] words =
+                    minimum && child.resolvedStyle.whiteSpace == WhiteSpace.Normal
+                        ? text.text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                        : new[] { text.text };
+                float width = words
+                    .Select(word =>
+                        text.MeasureTextSize(
+                            word,
+                            0,
+                            VisualElement.MeasureMode.Undefined,
+                            0,
+                            VisualElement.MeasureMode.Undefined
+                        ).x
+                    )
+                    .DefaultIfEmpty()
+                    .Max();
+                return width + Insets(child, horizontal: true);
+            }
+            if (child is Image image && image.image != null)
+                return image.image.width + Insets(child, horizontal: true);
+            float[] widths = child
+                .Children()
+                .Where(item => item.resolvedStyle.position != Position.Absolute)
+                .Where(item => item.resolvedStyle.display != DisplayStyle.None)
+                .Select(item => ContentOuterWidth(item, minimum))
+                .ToArray();
+            bool row =
+                child.resolvedStyle.flexDirection is FlexDirection.Row or FlexDirection.RowReverse;
+            bool singleRow = row && child.resolvedStyle.flexWrap == Wrap.NoWrap;
+            return (singleRow ? widths.Sum() : widths.DefaultIfEmpty().Max())
+                + Insets(child, horizontal: true);
+        }
+
+        private static float PreferredOuterHeight(VisualElement child) =>
+            PreferredHeight(child)
             + Margin(child.style.marginTop)
             + Margin(child.style.marginBottom);
 
-        private static float PreferredHeight(VisualElement child, float width)
+        private static float PreferredHeight(VisualElement child)
         {
             if (AuthoredPixels(child.style.height) is float authored)
                 return authored;
-            if (
-                child is TextElement text
-                && !string.IsNullOrEmpty(text.text)
-                && child.panel is not null
-            )
-            {
-                Vector2 measured = text.MeasureTextSize(
-                    text.text,
-                    Math.Max(0, width),
-                    VisualElement.MeasureMode.Exactly,
-                    0,
-                    VisualElement.MeasureMode.Undefined
-                );
-                if (FinitePositive(measured.y) is float textHeight)
-                    return textHeight;
-            }
             if (child.style.height.value.unit == LengthUnit.Percent)
                 return IntrinsicContentHeight(child);
             return FinitePositive(child.layout.height)
@@ -298,7 +352,7 @@ namespace Battlement.UI
             float[] heights = child
                 .Children()
                 .Where(item => item.resolvedStyle.position != Position.Absolute)
-                .Select(item => PreferredOuterHeight(item, child.contentRect.width))
+                .Select(item => PreferredOuterHeight(item))
                 .ToArray();
             bool row =
                 child.resolvedStyle.flexDirection is FlexDirection.Row or FlexDirection.RowReverse;

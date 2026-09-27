@@ -37,6 +37,7 @@ macro_rules! unavailable {
 
 pub(crate) const FIXTURES: &[Fixture] = &[
   available!("delivery-diagnostics", crate::delivery_proof::app),
+  available!("grid-intrinsic", crate::grid_intrinsic_proof::app),
   available!("motion-ui", motion_ui),
   available!("motion-reduced", motion_reduced),
   available!("motion-sequence", motion_sequence),

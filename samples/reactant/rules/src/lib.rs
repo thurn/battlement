@@ -20,6 +20,7 @@ mod events_portals;
 mod fixture_catalog;
 mod gameplay_pause_proof;
 mod gestures_drag;
+mod grid_intrinsic_proof;
 mod identity_proof;
 mod layout_gallery;
 mod layout_gallery_styles;
