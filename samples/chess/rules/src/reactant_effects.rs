@@ -7,7 +7,9 @@ use battlement::{
 };
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use reactant::{
-  app_context, hooks,
+  app_context,
+  audio::{self, AudioSettings, AudioTrack},
+  hooks,
   prelude::{AudioPlayback, AudioPlaybackOptions, Component, Render},
 };
 
@@ -77,42 +79,19 @@ impl Component for GameEffects {
   fn render(&self) -> impl Render {
     let local = self.control.snapshot();
     let app = app_context::use_app();
-    let previous_music = hooks::use_ref(None::<(u64, usize, AudioPlayback)>);
-    // Retain the playback handle outside render so track changes can crossfade
-    // the previous host-owned audio instance instead of starting duplicates.
-    hooks::use_effect(
-      {
-        let app = app.clone();
-        let previous_music = previous_music.clone();
-        move || {
-          let prior = previous_music.get();
-          let prior_state = prior.map(|(generation, track, _)| (generation, track));
-          if local.music_generation == 0 || local.screen == AppScreen::Menu {
-            if let Some((_, _, active)) = prior {
-              app.send(active.stop(Duration::ZERO));
-              previous_music.replace(None);
-            }
-          } else if prior_state != Some((local.music_generation, local.music_track)) {
-            let (next, command) = AudioPlayback::play(
-              MUSIC_TRACKS[local.music_track].clone(),
-              AudioPlaybackOptions::new()
-                .bus(AudioBus::Music)
-                .looping(true)
-                .fade_in(if prior.is_some() {
-                  MUSIC_CROSSFADE
-                } else {
-                  Duration::ZERO
-                }),
-            );
-            app.send(command);
-            if let Some((_, _, old)) = prior {
-              app.send(old.stop(MUSIC_CROSSFADE));
-            }
-            previous_music.replace(Some((local.music_generation, local.music_track, next)));
-          }
-        }
+    audio::use_audio(
+      local.music_generation,
+      Some(AudioTrack {
+        address: MUSIC_TRACKS[local.music_track].clone(),
+        bus: AudioBus::Music,
+        looping: true,
+      }),
+      AudioSettings {
+        enabled: local.music_generation != 0 && local.screen != AppScreen::Menu,
+        crossfade: MUSIC_CROSSFADE,
+        pause_in_background: false,
+        ..AudioSettings::default()
       },
-      (local.music_generation, local.music_track, local.screen),
     );
     hooks::use_effect(
       {

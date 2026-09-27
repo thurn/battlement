@@ -1,11 +1,16 @@
 //! Shared audio preferences exercised through application input and host observations.
 mod support;
 
+use std::time::Duration;
+
 use battlement::{
-  AudioBus, PhysicalKey, UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
-  application::ApplicationState,
+  AudioBus, CommandBody, PhysicalKey, UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent,
+  UiEventBody, application::ApplicationState,
 };
-use chess_rules::settings::{ChessSettings, Language};
+use chess_rules::{
+  assets,
+  settings::{ChessSettings, Language},
+};
 use reactant_testing::MemoryPersistence;
 use support::game::ChessTest;
 
@@ -162,6 +167,7 @@ fn background_policy_covers_focus_and_pause_without_replaying_or_changing_prefer
   assert!(!game.display.world().audio_mix().muted);
   game.display.activate_accessible("RETURN");
   game.start();
+  let command_count = game.display.commands().len();
   let count = game.display.audio_occurrences().len();
   let mix = game.display.world().audio_mix();
   for state in [
@@ -193,7 +199,86 @@ fn background_policy_covers_focus_and_pause_without_replaying_or_changing_prefer
     game.display.settle();
     assert_eq!(game.display.world().audio_mix(), mix);
     assert_eq!(game.display.audio_occurrences().len(), count);
+    assert!(
+      !game.display.commands()[command_count..]
+        .iter()
+        .any(|entry| matches!(
+          entry.command.body,
+          CommandBody::AudioPause(_) | CommandBody::AudioResume(_)
+        )),
+      "chess background mute must keep its playhead moving"
+    );
   }
+}
+
+#[test]
+fn playlist_restart_and_menu_transitions_keep_one_owned_music_lifecycle() {
+  let mut game = ChessTest::title();
+  game.start();
+  let first = game
+    .display
+    .audio_occurrences()
+    .iter()
+    .rev()
+    .find(|a| a.looping)
+    .unwrap()
+    .command_id;
+  assert!(game.display.commands().iter().any(|entry| matches!(
+    &entry.command.body, CommandBody::AudioPlay(play)
+      if play.address == assets::music::CRITICAL && play.fade_in_ms == 0
+  )));
+  game.advance(Duration::from_secs(121));
+  game
+    .display
+    .expect_crossfade(assets::music::SWITCH_WITH_ME, Duration::from_secs(5));
+  let second = game
+    .display
+    .audio_occurrences()
+    .iter()
+    .rev()
+    .find(|a| a.looping)
+    .unwrap()
+    .command_id;
+  assert_ne!(first, second);
+  game.restart();
+  game.display.settle();
+  game
+    .display
+    .expect_crossfade(assets::music::CRITICAL, Duration::from_secs(5));
+  game.show_menu();
+  for id in [first, second] {
+    assert!(
+      game.display.audio(id).is_none(),
+      "retiring gameplay track survived menu"
+    );
+  }
+  for _ in 0..2 {
+    game.start();
+    let before = game
+      .display
+      .audio_occurrences()
+      .iter()
+      .filter(|a| a.looping)
+      .count();
+    game.display.send_key(PhysicalKey::Minus);
+    assert_eq!(
+      before,
+      game
+        .display
+        .audio_occurrences()
+        .iter()
+        .filter(|a| a.looping)
+        .count()
+    );
+    game.show_menu();
+  }
+  let active = game
+    .display
+    .audio_occurrences()
+    .iter()
+    .filter(|a| a.looping && game.display.audio(a.command_id).is_some())
+    .count();
+  assert_eq!(active, 1, "only the menu track remains active");
 }
 
 fn increment(game: &mut ChessTest, label: &str) {

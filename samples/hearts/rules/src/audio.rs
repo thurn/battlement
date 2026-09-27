@@ -39,6 +39,7 @@ impl Component for GameAudio {
         looping: true,
       }),
       AudioSettings {
+        fade_in: Duration::from_millis(900),
         crossfade: Duration::from_millis(900),
         ..AudioSettings::default()
       },

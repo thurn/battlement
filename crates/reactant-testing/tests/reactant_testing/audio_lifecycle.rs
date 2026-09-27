@@ -38,6 +38,7 @@ impl Component for Fixture {
     let (alternate, set_alternate) = hooks::use_state(false);
     let (mounted, set_mounted) = hooks::use_state(true);
     let (settings, set_settings) = hooks::use_state(AudioSettings {
+      fade_in: Duration::from_millis(100),
       crossfade: Duration::from_millis(400),
       ..AudioSettings::default()
     });
@@ -73,6 +74,9 @@ fn volume_pause_and_background_preserve_playback_while_replacement_crossfades() 
   display.flush();
   assert_eq!(display.audio_occurrences().len(), 1);
   let id = display.audio_occurrences()[0].command_id;
+  assert!(display.commands().iter().any(
+    |entry| matches!(&entry.command.body, CommandBody::AudioPlay(play) if play.fade_in_ms == 100)
+  ));
   display.activate_accessible("Gain");
   display.flush();
   assert_eq!(display.audio_occurrences().len(), 1);

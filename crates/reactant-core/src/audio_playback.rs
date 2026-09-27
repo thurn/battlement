@@ -28,6 +28,10 @@ pub struct AudioSettings {
   pub enabled: bool,
   /// Hold the playhead while retaining the clip.
   pub paused: bool,
+  /// Automatically hold the playhead while the application is inactive.
+  pub pause_in_background: bool,
+  /// Fade when starting without an existing clip.
+  pub fade_in: Duration,
   /// Linear gain before shared mixer controls.
   pub gain: f64,
   /// Fade between clip identities; disabling and unmounting stop immediately.
@@ -46,13 +50,15 @@ impl Default for AudioSettings {
     Self {
       enabled: true,
       paused: false,
+      pause_in_background: true,
+      fade_in: Duration::ZERO,
       gain: 1.0,
       crossfade: Duration::ZERO,
     }
   }
 }
 
-/// Owns one clip until replacement, disablement or unmount, pausing in background.
+/// Owns one clip until replacement, disablement or unmount.
 /// Change `occurrence` to play the same clip again; ordinary rerenders and gain
 /// changes retain its playhead. Keep occurrence identity stable across settings
 /// changes. A disabled occurrence starts anew when re-enabled.
@@ -66,7 +72,8 @@ pub fn use_audio<K: hooks::Dependencies>(
     "audio gain is out of range"
   );
   let app = app_context::use_app();
-  settings.paused |= !application::use_application_state().is_active();
+  let application = application::use_application_state();
+  settings.paused |= settings.pause_in_background && !application.is_active();
   let playback = hooks::use_memo(
     || (settings.enabled && track.is_some()).then(|| AudioPlayback::new(ObjectId::new_v4())),
     (occurrence, track.clone(), settings.enabled),
@@ -95,6 +102,11 @@ impl OwnedPlayback {
     settings: AudioSettings,
   ) {
     if self.current != playback {
+      let fade_in = if self.current.is_some() {
+        settings.crossfade
+      } else {
+        settings.fade_in
+      };
       if let Some(retiring) = self.retiring.take() {
         app.send(retiring.stop(Duration::ZERO).nonblocking());
       }
@@ -118,7 +130,7 @@ impl OwnedPlayback {
               .bus(track.bus)
               .looping(track.looping)
               .volume(settings.gain)
-              .fade_in(settings.crossfade),
+              .fade_in(fade_in),
           ),
         );
         if settings.paused {
