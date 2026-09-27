@@ -76,7 +76,7 @@ async (page, context) => {
     return snapshot(index);
   };
   const update = (index, value) => page.evaluate(([index, value]) => window.fixture.update(index, value), [index, value]);
-  const durable = () => page.evaluate(() => window.fixture.readDurable());
+  const durable = () => page.evaluate(async () => (await window.fixture.readDurable())?.revision ?? null);
   await load();
   let owner = await reset();
   equal(await page.evaluate(() => window.fixture.initial.status), 'Loading', 'hydration must be asynchronous');
@@ -91,6 +91,7 @@ async (page, context) => {
   await load();
   owner = await reset();
   const restored = await status(owner, 'Loaded');
+  equal(restored.durable_record, first.durable_record, 'reload preserves every Hearts card, partial pass, history entry, score and random stream');
   equal(restored.durable, 1, 'reload restores a complete record');
   equal(restored.committed, null, 'a read is not a new commit');
   equal(restored.owner === first.owner, false, 'reload starts a new owner');
@@ -153,7 +154,7 @@ async (page, context) => {
   equal(await durable(), 31, 'retained old setter cannot overwrite new owner');
   equal(await page.evaluate(() => window.fixture.events
     .filter(e => e.event === 'request-success')
-    .map(e => JSON.parse(new TextDecoder().decode(Uint8Array.from(e.bytes))))
+    .map(e => JSON.parse(new TextDecoder().decode(Uint8Array.from(e.bytes))).revision)
   ), [21, 31], 'superseded queued values never reach IndexedDB');
   cases.push('immutable/coalesced writes and replacement-owner ordering');
 
@@ -192,5 +193,24 @@ async (page, context) => {
   owner = await reset();
   equal((await status(owner, 'Absent')).durable, null, 'deleted record remains absent after reload');
   cases.push('deletion abort and retry survive reload');
-  return { interaction: 'Exercise typed Rust persistence against real IDBFS transactions and reloads', assertions, cases };
+  await update(owner, 61);
+  await status(owner, 'Committed');
+  await page.evaluate(async () => {
+    const f = window.fixture;
+    const corrupt = await f.readDurable();
+    corrupt.state.hands[0] = [];
+    f.corruptBytes = new TextEncoder().encode(JSON.stringify(corrupt));
+    await new Promise((resolve, reject) => f.bridge.start('/idbfs/match.json', 1, f.corruptBytes,
+      error => error ? reject(error) : resolve()));
+  });
+  owner = await reset();
+  equal((await status(owner, 'Error')).durable, null, 'structurally readable but illegal Hearts state is rejected');
+  await page.evaluate(() => window.fixture.retry(window.fixture.current));
+  await status(owner, 'Error');
+  equal(await page.evaluate(async () => (await window.fixture.readDurable()).state.hands[0].length), 0,
+    'retry rereads invalid bytes without overwriting them');
+  await update(owner, 62);
+  equal((await status(owner, 'Committed')).durable, 62, 'explicit replacement recovers corrupt storage');
+  cases.push('Hearts invariant validation, read retry and explicit replacement');
+  return { interaction: 'Exercise validated Hearts saves against real IDBFS transactions and reloads', assertions, cases };
 }

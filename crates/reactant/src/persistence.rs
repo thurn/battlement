@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// A rendered persistence snapshot and a stable ordered setter boundary.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct PersistentState<T: Clone + PartialEq + 'static> {
   snapshot: PersistenceSnapshot<T>,
   store: PersistenceStore<T>,
@@ -109,6 +109,7 @@ impl<T: Clone + PartialEq + Serialize + DeserializeOwned + Send + Sync + 'static
     self.snapshot.error.as_deref()
   }
   /// Applies and queues a replacement, coalescing intermediate queued intent.
+  /// After a failed read, a new update explicitly authorizes replacing unread data.
   pub fn update(&self, value: T) {
     self.store.update(value);
   }
@@ -120,7 +121,7 @@ impl<T: Clone + PartialEq + Serialize + DeserializeOwned + Send + Sync + 'static
   pub fn clear(&self) {
     self.store.clear();
   }
-  /// Retries the latest intent, or the initial read when hydration failed.
+  /// Retries the latest intent, or rereads storage after a load or decoding failure.
   pub fn retry(&self) {
     self.store.retry();
   }

@@ -208,7 +208,8 @@ impl Component for Results {
 impl Component for PresentationPause {
   fn render(&self) -> impl Render {
     let presentation = reactant::use_game_presentation();
-    let paused = self.0;
+    let inactive = !reactant::application::use_application_state().is_active();
+    let paused = self.0 || inactive;
     hooks::use_effect(
       move || {
         if paused {

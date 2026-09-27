@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the production typed persistence store against real browser IndexedDB."""
+"""Verify typed Hearts saves against the production browser IndexedDB bridge."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from web_compatibility import check_site
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "fixtures/browser-persistence"
+MANIFEST = ROOT / "samples/hearts/rules/Cargo.toml"
 TARGET = "wasm32-unknown-emscripten"
 
 
@@ -30,7 +31,7 @@ def build(destination: Path) -> None:
         tools = editor.parent / "Data/PlaybackEngines/WebGLSupport/BuildTools/Emscripten"
     else:
         tools = editor.parents[3] / "PlaybackEngines/WebGLSupport/BuildTools/Emscripten"
-    target = Path(ci.cargo_environment(None)["CARGO_TARGET_DIR"]) / "browser-persistence"
+    target = Path(ci.cargo_environment(MANIFEST)["CARGO_TARGET_DIR"]) / "browser-persistence"
     target.mkdir(parents=True, exist_ok=True)
     config = target / ".emscripten"
     config.write_text("\n".join([
@@ -64,7 +65,7 @@ def build(destination: Path) -> None:
     }
     with compiler_capacity_lease():
         subprocess.run([
-            "cargo", "rustc", "--locked", "-j", "3", "-p", "reactant",
+            "cargo", "rustc", "--locked", "-j", "3", "--manifest-path", str(MANIFEST),
             "--example", "browser_persistence", "--target", TARGET, "--release",
             "-Z", "build-std=std,panic_unwind", "--", *link_flags,
         ], cwd=ROOT, env=environment, check=True)
@@ -80,7 +81,7 @@ def build(destination: Path) -> None:
         "target": TARGET, "unity_editor": str(editor), "link_arguments": linker,
         "link_identity": link_identity,
         "rustc": subprocess.check_output(["rustc", "--version"], text=True).strip(),
-        "cargo_lock_sha256": hashlib.sha256((ROOT / "Cargo.lock").read_bytes()).hexdigest(),
+        "cargo_lock_sha256": hashlib.sha256((MANIFEST.parent / "Cargo.lock").read_bytes()).hexdigest(),
         "bridge_sha256": hashlib.sha256(bridge.read_bytes()).hexdigest(),
     }, indent=2) + "\n")
 

@@ -3,8 +3,9 @@ use reactant::{hooks, overlay::Overlay, portal::PortalTarget, prelude::*};
 use trox::ls;
 
 use crate::{
-  match_ui,
+  match_ui, session_save,
   settings::{Preferences, Settings},
+  startup::Saves,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -26,11 +27,13 @@ pub(crate) struct Menus {
   pub mix: AudioMix,
   pub set_mix: hooks::StateSetter<AudioMix>,
   pub reset: EventCallback<()>,
+  pub exit: Option<EventCallback<()>>,
 }
 
 impl Component for Menus {
   fn render(&self) -> impl Render {
     let font = self.preferences.font();
+    let saves = hooks::use_optional_context::<Saves>();
     let title = match self.page {
       Menu::Pause => "Game paused",
       Menu::Settings => "Settings",
@@ -54,6 +57,8 @@ impl Component for Menus {
         Text::new(ls("Your game is paused. Resume when you are ready." )).style(match_ui::text_style(font)),
         Button::new(ls("Settings")).style(match_ui::button_style(font)).on_press(move || settings.set(Some(Menu::Settings))),
         Button::new(ls("Rules")).style(match_ui::button_style(font)).on_press(move || rules.set(Some(Menu::Rules))),
+        saves.filter(session_save::failed).map(|saves| (Text::new(ls("Saving failed. Your match is still playable. Retry to store the latest moves and settings.")).style(match_ui::text_style(font)), Button::new(ls("Retry save")).style(match_ui::button_style(font)).on_press(move || session_save::retry(&saves)))),
+        self.exit.clone().map(|exit| Button::new(ls("Save and exit to menu")).style(match_ui::button_style(font)).on_press(exit)),
         Button::new(ls("New game")).style(match_ui::button_style(font)).on_press(move || new_game.set(Some(Menu::ConfirmNew))),
       )),
       Menu::Settings => Node::new(Settings { preferences: self.preferences, set_preferences: self.set_preferences.clone(), mix: self.mix, set_mix: self.set_mix.clone() }),

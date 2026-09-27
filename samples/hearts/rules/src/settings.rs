@@ -1,10 +1,11 @@
 use battlement::AudioMix;
 use reactant::{hooks, prelude::*};
+use serde::{Deserialize, Serialize};
 use trox::ls;
 
 use crate::match_ui;
 
-#[derive(Clone, Copy, Default, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Preferences {
   pub larger_text: bool,
   pub reduced_motion: bool,

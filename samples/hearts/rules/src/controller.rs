@@ -30,6 +30,10 @@ struct SearchKey {
 }
 
 impl HeartsController {
+  pub fn is_paused(&self) -> bool {
+    self.paused
+  }
+
   pub fn play(&self, token: CardToken) -> ReducerDispatch<Rejection> {
     let Some(card) = self
       .projection

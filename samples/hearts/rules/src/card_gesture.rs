@@ -23,7 +23,7 @@ pub(crate) fn use_gesture(
   let (offset, set_offset) = hooks::use_state(Vector3::ZERO);
   let enabled = input
     .as_ref()
-    .is_some_and(|input| input.inspection().is_none() && input.owns(token));
+    .is_some_and(|input| input.table_enabled() && input.owns(token));
   let reset = gesture.clone();
   let reset_offset = set_offset.clone();
   hooks::use_effect(

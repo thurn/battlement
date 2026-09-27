@@ -26,12 +26,15 @@ fn milestones_pause_and_hold_a_complete_trick_before_collection() {
   self::action(&mut display);
   display.advance(Duration::from_millis(125));
 
-  self::activate(&mut display, "Toggle motion pause");
+  display.set_application_state(battlement::application::ApplicationState {
+    focused: false,
+    paused: true,
+  });
   display.flush();
   display.advance(Duration::from_secs(2));
   assert_eq!(self::sounds(&display, assets::hearts::audio::LAND), 3);
   assert_eq!(self::phase(&display), "Playing: 4 cards in trick");
-  self::activate(&mut display, "Toggle motion pause");
+  display.set_application_state(battlement::application::ApplicationState::default());
   display.flush();
   display.advance(Duration::from_millis(125));
   assert_eq!(self::sounds(&display, assets::hearts::audio::LAND), 4);

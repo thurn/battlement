@@ -27,6 +27,10 @@ rust_manifest = "rules/Cargo.toml"
 root = "6644ed66-12dc-4590-9af8-19d174a47000"
 controls = "6644ed66-12dc-4590-9af8-19d174a47014"
 
+write_held = "6644ed66-12dc-4590-9af8-19d174a47080"
+save_ready = "6644ed66-12dc-4590-9af8-19d174a47081"
+storage_ready = "6644ed66-12dc-4590-9af8-19d174a47082"
+
 [baseline]
 kind = "r2"
 namespace = "battlement/hearts"
@@ -771,3 +775,93 @@ wait = { object = "controls", state = "enabled" }
 accessibility_assert = { target = { role = "static-text", name = "Hold hand · Your turn · Hearts are broken" }, role = "static-text", name = "Hold hand · Your turn · Hearts are broken" }
 [[scenarios.steps]]
 screenshot = { name = "broken hearts" }
+
+[[scenarios]]
+name = "durable recovery"
+fixture = "persistence"
+[[scenarios.steps]]
+wait = { object = "storage_ready", state = "enabled" }
+[[scenarios.steps]]
+screenshot = { name = "unreadable save" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Retry saved game" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "storage_ready", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "New game" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Start new game" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Got it" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+wait = { object = "save_ready", state = "enabled" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Reload saved app" }, action = "click", completion = { target = { role = "button", name = "Continue" }, role = "button", name = "Continue", disabled = false } }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Continue" }, action = "click", completion = { target = { role = "static-text", name = "Saved revision 0" }, role = "static-text", name = "Saved revision 0", disabled = false } }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Fail next save" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Menu" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Settings" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Text size: standard" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Back to game" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "save failed" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Menu" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Retry save" }, action = "activate" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Resume game" }, action = "click", completion = { target = { role = "static-text", name = "Saved revision 0" }, role = "static-text", name = "Saved revision 0", disabled = false } }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Hold writes" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Menu" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Settings" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Text size: larger" }, action = "activate" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Back to game" }, action = "click", completion = { target = { role = "static-text", name = "Write held" }, role = "static-text", name = "Write held", disabled = false } }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Background app" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Foreground app" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Menu" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Save and exit to menu" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "waiting for save" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Leave without waiting" }, action = "activate" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Release writes" }, action = "click", completion = { target = { role = "button", name = "Continue" }, role = "button", name = "Continue", disabled = false } }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Continue" }, action = "click", completion = { target = { role = "static-text", name = "Saved revision 0" }, role = "static-text", name = "Saved revision 0", disabled = false } }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Seven of Clubs" }, role = "button", name = "Seven of Clubs", disabled = false }
+
+[[scenarios]]
+name = "background cancels opponent search"
+fixture = "ai-lifecycle"
+[[scenarios.steps]]
+wait = { object = "6644ed66-12dc-4590-9af8-19d174a47070", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Background search" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "6644ed66-12dc-4590-9af8-19d174a47071", state = "visible" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Paused with unchanged random streams" }, role = "static-text", name = "Paused with unchanged random streams" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Foreground search" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "6644ed66-12dc-4590-9af8-19d174a47072", state = "visible" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "AI passes accepted" }, role = "static-text", name = "AI passes accepted" }

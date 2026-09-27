@@ -25,15 +25,20 @@ mod menus;
 mod motion_fixture;
 mod particle_fixture;
 mod particles;
+mod persistence_fixture;
 pub mod projection;
 pub mod reducer;
+mod saved_game;
 mod scene;
 mod screens_fixture;
+mod session_save;
 mod settings;
+mod startup;
 
 pub use projection::HumanView;
+pub use saved_game::SavedMatch;
 
-pub use app::{application, application_from_state};
+pub use app::{application, application_from_state, application_with_storage};
 pub use controller::{HeartsController, use_hearts, use_hearts_with_policy};
 pub use reducer::HeartsReducer;
 

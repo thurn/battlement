@@ -13,13 +13,13 @@ use crate::{
   controller,
   domain::{HeartsState, IgnorePresentation, Intention, Phase, Seat, transition},
   layout_fixture,
+  match_ui::PresentationPause,
   projection::PresentationSeed,
   reducer::HeartsAction,
   scene,
 };
 
 struct MotionFixture;
-struct PauseControl(bool);
 
 pub(crate) fn application() -> Application {
   Application::new(assets::hearts::CONTENT)
@@ -71,7 +71,7 @@ impl Component for MotionFixture {
       Phase::MatchOver { .. } => "Match over",
     };
     (
-      GameRoot::new(PauseControl(paused)),
+      GameRoot::new(PresentationPause(paused)),
       View::new()
         .style(
           Style::new()
@@ -161,21 +161,4 @@ fn initial(ending: bool) -> HeartsState {
     .expect("fixture pass");
   }
   state
-}
-
-impl Component for PauseControl {
-  fn render(&self) -> impl Render {
-    let presentation = reactant::use_game_presentation();
-    let paused = self.0;
-    hooks::use_effect(
-      move || {
-        if paused {
-          presentation.pause();
-        } else {
-          presentation.resume();
-        }
-      },
-      paused,
-    );
-  }
 }

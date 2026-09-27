@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use battlement::{
-  AudioMix, ControllerButton, ControllerInputSettings, ObjectId, ParentScene, PhysicalKey,
-  PickingMode, Prop, UiFontAddress, Vector3, object_id,
+  ControllerButton, ControllerInputSettings, ObjectId, ParentScene, PhysicalKey, PickingMode, Prop,
+  UiFontAddress, Vector3, object_id,
 };
 use reactant::{
-  Application, app_context, hooks,
+  Application, FilePersistenceBackend, PersistenceBackend, app_context, hooks,
   motion_config::{MotionConfig, ReducedMotion},
   overlay::OverlayHost,
   prelude::*,
@@ -20,30 +22,46 @@ use crate::{
   domain::{HeartsState, Phase, Seat, cards},
   match_ui,
   menus::{Menu, Menus},
-  particles, scene,
-  settings::Preferences,
+  particles,
+  saved_game::SavedSettings,
+  scene,
+  session_save::{self, SaveStatus},
+  startup::{Saves, Startup},
 };
 
 pub(crate) const ROOT: ObjectId = object_id!("6644ed66-12dc-4590-9af8-19d174a47000");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-enum Opponents {
+pub(crate) enum Opponents {
   Disabled,
   Scripted,
   Rollout,
 }
 
-struct HeartsRoot {
+pub(crate) struct HeartsRoot {
   initial: HeartsState,
   gallery: bool,
   opponents: Opponents,
   fresh: bool,
   teaching: bool,
+  new_match: fn() -> HeartsState,
 }
 
-/// Opens a new match through the same root used for restored state.
+/// Loads saved progress and settings before offering Continue or a new match.
 pub fn application() -> Application {
-  self::configured(HeartsState::new(43), false, Opponents::Rollout, true)
+  self::application_with_storage(Arc::new(FilePersistenceBackend))
+}
+
+/// Uses the same persistent application with an injected storage boundary.
+pub fn application_with_storage(backend: Arc<dyn PersistenceBackend>) -> Application {
+  self::configured_content(
+    Startup {
+      backend,
+      opponents: Opponents::Rollout,
+      new_match: self::new_match,
+    },
+    false,
+  )
 }
 
 /// Mounts an already validated logical match without replaying its history.
@@ -53,6 +71,7 @@ pub fn application_from_state(initial: HeartsState) -> Application {
 
 pub(crate) fn exported_application() -> Application {
   match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() {
+    Ok("persistence") => crate::persistence_fixture::application(),
     Ok("motion") => crate::motion_fixture::application(),
     Ok("particles") => crate::particle_fixture::application(),
     Ok("layout") => crate::layout_fixture::application(),
@@ -70,6 +89,7 @@ pub(crate) fn exported_application() -> Application {
       name @ ("teaching" | "screens" | "hand-results" | "moon-results" | "match-results"
       | "tied-results" | "hold"),
     ) => crate::screens_fixture::application(name),
+    Ok("ai-lifecycle") => crate::ai_fixture::lifecycle_application(),
     Ok("ai") => crate::ai_fixture::application(),
     Err(_) => self::application(),
     Ok(name) => panic!("unknown Hearts fixture {name:?}"),
@@ -83,6 +103,7 @@ pub(crate) fn screen_application(initial: HeartsState, teaching: bool) -> Applic
     opponents: Opponents::Scripted,
     fresh: false,
     teaching,
+    new_match: self::fixture_match,
   })
 }
 
@@ -98,11 +119,40 @@ fn configured(
     opponents,
     fresh,
     teaching: fresh && opponents == Opponents::Rollout,
+    new_match: self::fixture_match,
   })
 }
 
 fn configured_root(root: HeartsRoot) -> Application {
   let gallery = root.gallery;
+  self::configured_content(root, gallery)
+}
+
+pub(crate) fn persistent_root(
+  initial: HeartsState,
+  fresh: bool,
+  opponents: Opponents,
+  new_match: fn() -> HeartsState,
+) -> HeartsRoot {
+  HeartsRoot {
+    initial,
+    gallery: false,
+    opponents,
+    fresh,
+    teaching: fresh,
+    new_match,
+  }
+}
+
+fn new_match() -> HeartsState {
+  HeartsState::new(fastrand::u64(..))
+}
+
+pub(crate) fn fixture_match() -> HeartsState {
+  HeartsState::new(43)
+}
+
+pub(crate) fn configured_content(root: impl Component, gallery: bool) -> Application {
   Application::new(assets::hearts::CONTENT)
     .global_keys([
       PhysicalKey::ArrowLeft,
@@ -142,33 +192,42 @@ impl Component for HeartsRoot {
   fn render(&self) -> impl Render {
     let interactive = self.opponents != Opponents::Disabled;
     let overlay = reactant::use_portal_target();
-    let (mix, set_mix) = hooks::use_state(AudioMix {
-      music: 0.22,
-      effects: 0.65,
-      ..AudioMix::default()
-    });
-    let (preferences, set_preferences) = hooks::use_state(Preferences::default());
+    let saves = hooks::use_optional_context::<Saves>();
+    let saved_settings = saves
+      .as_ref()
+      .and_then(|saves| saves.settings.value())
+      .copied()
+      .unwrap_or_default();
+    let (mix, set_mix) = hooks::use_state(saved_settings.mix());
+    let (preferences, set_preferences) = hooks::use_state(saved_settings.preferences);
+    let (exiting, set_exiting) = hooks::use_state(false);
+    let inactive = !reactant::application::use_application_state().is_active();
     let teaching = self.teaching;
     let (menu, set_menu) = hooks::use_state(teaching.then_some(Menu::PassingHelp));
     let (taught_play, set_taught_play) = hooks::use_state(false);
     let (generation, reset) = hooks::use_state(0_u64);
-    let initial = if generation == 0 {
-      self.initial.clone()
-    } else {
-      HeartsState::new(43)
-    };
+    let first = self.initial.clone();
+    let new_match = self.new_match;
+    let initial = hooks::use_memo(
+      move || {
+        if generation == 0 { first } else { new_match() }
+      },
+      generation,
+    );
     let policy = if self.opponents == Opponents::Scripted {
       crate::layout_fixture::scripted_decision
     } else {
       crate::ai::search::decide
     };
+    let suspended = inactive || exiting;
     let game = controller::use_hearts_with_policy(
       generation,
       move || initial,
       Seat::South,
-      !interactive || menu.is_some(),
+      !interactive || menu.is_some() || suspended,
       policy,
     );
+    session_save::use_autosave(&game, SavedSettings::capture(preferences, mix), exiting);
     let phase = game.view.table.phase;
     let show_help = set_menu.clone();
     hooks::use_effect(
@@ -347,10 +406,13 @@ impl Component for HeartsRoot {
           }),
           interactive.then(|| {
             reactant::GameRoot::new((
-              match_ui::PresentationPause(matches!(
-                menu,
-                Some(Menu::Pause | Menu::Settings | Menu::Rules | Menu::ConfirmNew)
-              )),
+              match_ui::PresentationPause(
+                suspended
+                  || matches!(
+                    menu,
+                    Some(Menu::Pause | Menu::Settings | Menu::Rules | Menu::ConfirmNew)
+                  ),
+              ),
               match_ui::Announcements,
               View::new()
                 .picking_mode(PickingMode::Ignore)
@@ -368,6 +430,10 @@ impl Component for HeartsRoot {
               mix,
               set_mix: set_mix.clone(),
               reset: EventCallback::new(move |()| reset.update(|value| value + 1)),
+              exit: saves.as_ref().map(|_| {
+                let exit = set_exiting.clone();
+                EventCallback::new(move |()| exit.set(true))
+              }),
             })
           }),
           (interactive
@@ -379,6 +445,12 @@ impl Component for HeartsRoot {
             new_game,
             menu: open_menu,
           }),
+          saves.is_some().then(|| SaveStatus {
+            target: overlay.clone(),
+            exiting,
+            set_exiting,
+          }),
+          crate::persistence_fixture::FixtureControls,
           OverlayHost::new(overlay),
         )),
     )

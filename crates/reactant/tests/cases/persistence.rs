@@ -122,10 +122,17 @@ fn failed_hydration_never_overwrites_unread_data_and_corruption_is_visible() {
   done_retry(retry.id, Ok(Some(b"broken json".to_vec())));
   assert!(store.snapshot().hydrated);
   assert!(store.snapshot().error.is_some());
+  assert!(backend.operations.lock().unwrap().is_empty());
+  store.retry();
+  let (reread, done_reread) = backend.next();
+  assert_eq!(reread.operation, PersistenceOperation::Load);
+  done_reread(reread.id, Ok(Some(b"still broken".to_vec())));
+  assert!(backend.operations.lock().unwrap().is_empty());
+  store.update(8);
   let (write, done_write) = backend.next();
-  assert_eq!(write.operation, PersistenceOperation::Store(b"7".to_vec()));
+  assert_eq!(write.operation, PersistenceOperation::Store(b"8".to_vec()));
   done_write(write.id, Ok(None));
-  assert_eq!(store.snapshot().durable, Some(7));
+  assert_eq!(store.snapshot().durable, Some(8));
 }
 
 #[test]

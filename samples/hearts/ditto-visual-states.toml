@@ -283,3 +283,15 @@ screen = "hearts"
 [[states]]
 key = "screens.hold-hand-and-hearts-broken.broken-hearts"
 screen = "hearts"
+
+[[states]]
+key = "storage.unreadable"
+screen = "hearts"
+
+[[states]]
+key = "storage.failed"
+screen = "hearts"
+
+[[states]]
+key = "storage.pending-exit"
+screen = "hearts"

@@ -427,3 +427,21 @@ state = "screens.hold-hand-and-hearts-broken.broken-hearts"
 scenario = "hold hand and hearts broken"
 checkpoint = "broken hearts"
 owner = "match_screens"
+
+[[mappings]]
+state = "storage.unreadable"
+scenario = "durable recovery"
+checkpoint = "unreadable save"
+owner = "autosave::corrupt_load_retry_does_not_replace_bytes_and_new_game_requires_confirmation"
+
+[[mappings]]
+state = "storage.failed"
+scenario = "durable recovery"
+checkpoint = "save failed"
+owner = "autosave::failed_save_keeps_game_alive_and_exit_waits_for_retry"
+
+[[mappings]]
+state = "storage.pending-exit"
+scenario = "durable recovery"
+checkpoint = "waiting for save"
+owner = "autosave::replacement_session_wins_after_old_write_and_background_keeps_save_alive"

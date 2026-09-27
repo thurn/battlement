@@ -65,6 +65,7 @@ struct Storage<T> {
   backend: Arc<dyn PersistenceBackend>,
   started: bool,
   accepting: bool,
+  load_failed: bool,
   path: Option<PathBuf>,
   slot: Option<Arc<PersistenceSlot>>,
   snapshot: PersistenceSnapshot<T>,
@@ -143,6 +144,7 @@ impl<T: Clone + PartialEq + Serialize + DeserializeOwned + Send + Sync + 'static
         backend,
         started: false,
         accepting: false,
+        load_failed: false,
         slot: None,
         snapshot: PersistenceSnapshot {
           desired: None,
@@ -240,7 +242,7 @@ impl<T: Clone + PartialEq + Serialize + DeserializeOwned + Send + Sync + 'static
         value: storage.snapshot.desired.clone(),
         version: storage.snapshot.version,
       };
-      let loading = !storage.snapshot.hydrated;
+      let loading = !storage.snapshot.hydrated || storage.load_failed;
       storage.prepare(intent, loading)
     };
     self.notify();
@@ -330,6 +332,9 @@ impl<T: Clone + PartialEq + Serialize + DeserializeOwned + Send + Sync + 'static
       } else {
         result.map(|_| active.intent.value)
       };
+      if active.loading {
+        storage.load_failed = result.is_err();
+      }
       match result {
         Ok(value) => {
           storage.snapshot.durable = value.clone();
@@ -360,6 +365,10 @@ impl<T: Clone + Serialize> Storage<T> {
     if !self.accepting {
       return None;
     }
+    if self.load_failed {
+      self.load_failed = false;
+      self.snapshot.hydrated = true;
+    }
     self.snapshot.version.revision = self
       .snapshot
       .version
@@ -375,6 +384,9 @@ impl<T: Clone + Serialize> Storage<T> {
   }
 
   fn next(&mut self) -> Option<Prepared> {
+    if self.load_failed {
+      return None;
+    }
     if self.active.is_some() || !self.snapshot.hydrated {
       return None;
     }

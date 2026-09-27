@@ -22,6 +22,7 @@ struct SearchGate {
 
 struct SearchExit(DisplayStore<&'static str>);
 struct AiFixture;
+struct LifecycleFixture;
 
 impl Drop for SearchExit {
   fn drop(&mut self) {
@@ -47,9 +48,17 @@ impl SearchGate {
 }
 
 pub(crate) fn application() -> Application {
+  self::configured(AiFixture)
+}
+
+pub(crate) fn lifecycle_application() -> Application {
+  self::configured(LifecycleFixture)
+}
+
+fn configured(root: impl Component) -> Application {
   Application::new(assets::hearts::CONTENT)
     .source_locale(SourceLocale::new("en-US").expect("source locale"))
-    .child(AiFixture)
+    .child(root)
     .document(|mut document| {
       document.root_id = crate::app::ROOT;
       document
@@ -59,6 +68,8 @@ pub(crate) fn application() -> Application {
 impl Component for AiFixture {
   fn render(&self) -> impl Render {
     let (paused, pause) = hooks::use_state(false);
+    let inactive = !reactant::application::use_application_state().is_active();
+    let paused = paused || inactive;
     let (menu, update_menu) = hooks::use_state(0_u32);
     let gate = hooks::use_memo(
       || SearchGate {
@@ -140,5 +151,30 @@ impl Component for AiFixture {
         Button::new(ls("Pause search")).on_press(move || pause.set(true)),
         Button::new(ls("Resume search")).on_press(move || resume.set(false)),
       ))
+  }
+}
+
+impl Component for LifecycleFixture {
+  fn render(&self) -> impl Render {
+    let (background, set_background) = hooks::use_state(false);
+    let suspend = set_background.clone();
+    reactant::application::provider(battlement::application::ApplicationState {
+      focused: !background,
+      paused: background,
+    })
+    .child((
+      AiFixture,
+      View::new()
+        .style(
+          Style::new()
+            .position(Position::Absolute)
+            .right(18.px())
+            .top(18.px()),
+        )
+        .child((
+          Button::new(ls("Background search")).on_press(move || suspend.set(true)),
+          Button::new(ls("Foreground search")).on_press(move || set_background.set(false)),
+        )),
+    ))
   }
 }

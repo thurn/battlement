@@ -37,7 +37,7 @@ impl Component for Probe {
       (),
       move || initial,
       Seat::South,
-      false,
+      !reactant::application::use_application_state().is_active(),
       layout_fixture::scripted_decision,
     );
     let viewport = app_context::use_viewport_size();
@@ -167,6 +167,19 @@ fn invalid_drop_and_capture_loss_restore_the_card_and_valid_drop_plays_once() {
   display.flush();
   self::same_point(display.world_point(card, Vector3::ZERO), original);
   assert_eq!(self::current(&current).game.accepted().version.revision, 0);
+  display.begin_drag_world(start, Vector3::ZERO);
+  display.set_application_state(battlement::application::ApplicationState {
+    focused: false,
+    paused: true,
+  });
+  display.flush();
+  self::same_point(display.world_point(card, Vector3::ZERO), original);
+  let release = display.project_world(Vector3::ZERO).unwrap();
+  display.pointer_up(0, release);
+  display.flush();
+  assert_eq!(self::current(&current).game.accepted().version.revision, 0);
+  display.set_application_state(battlement::application::ApplicationState::default());
+  display.flush();
   display.drag_world(start, Vector3::new(0.0, 0.0, 0.0));
   self::ready(&mut display, &current);
   assert_eq!(self::current(&current).view.hands[0].len(), 12);

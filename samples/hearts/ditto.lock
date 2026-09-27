@@ -235,21 +235,21 @@ source = "671526cca99dc5bc95ca61c6d96bb171bb8097cd993660bc81964c4cbd198e89"
 profile = "macos"
 scenario = "contextual help and menus"
 checkpoint = "larger rules"
-sha256 = "19ceca45b8026420ab124d21eff88ab8e712fa9a278a0ac2b169184649306c3a"
+sha256 = "58f82b75535ba29a662fced31bf361d5e8897a2c9e2d2c6364a9bb777a4079fa"
 width = 1280
 height = 720
-size_bytes = 401221
-source = "cc84665ad868e090f1ee1d0afb5a35ac81e7bb776e9954acd233b7cb76682aa2"
+size_bytes = 400552
+source = "1adf0f07cfb6bf59cee376a2ae6a9c567f534226687fcb3f8d062c63e5468396"
 
 [[baselines]]
 profile = "macos"
 scenario = "contextual help and menus"
 checkpoint = "larger settings"
-sha256 = "d65970c84fb803e0890c57e0259a36108b8ff1a249110a78c57b47ca4e4efd37"
+sha256 = "16d2bab72997fa281081f358f01160ae6209ea01e4f12bf6f3529a7cf9e84c17"
 width = 1280
 height = 720
-size_bytes = 405758
-source = "cc84665ad868e090f1ee1d0afb5a35ac81e7bb776e9954acd233b7cb76682aa2"
+size_bytes = 405450
+source = "1adf0f07cfb6bf59cee376a2ae6a9c567f534226687fcb3f8d062c63e5468396"
 
 [[baselines]]
 profile = "macos"
@@ -265,41 +265,71 @@ source = "cc84665ad868e090f1ee1d0afb5a35ac81e7bb776e9954acd233b7cb76682aa2"
 profile = "macos"
 scenario = "contextual help and menus"
 checkpoint = "new game confirmation"
-sha256 = "50555b67493c7b3ac599b11c9d337cbfd2663b2d434cfdbe1f73527794bba561"
+sha256 = "c6141cad57d98d76e524607f822db3a989ab9e829cd4a4db01122a66751f1687"
 width = 1280
 height = 720
-size_bytes = 368760
-source = "cc84665ad868e090f1ee1d0afb5a35ac81e7bb776e9954acd233b7cb76682aa2"
+size_bytes = 368031
+source = "1adf0f07cfb6bf59cee376a2ae6a9c567f534226687fcb3f8d062c63e5468396"
 
 [[baselines]]
 profile = "macos"
 scenario = "contextual help and menus"
 checkpoint = "passing help"
-sha256 = "475458ab2d7a55d47bec19c1367831b4c38acbb63cccb05999c3d3aacb2ac0f7"
+sha256 = "5823ac7ec30855363b6f40b12e56fad5c0c2f76f024fb7695fa3feaa2faad045"
 width = 1280
 height = 720
-size_bytes = 432281
-source = "e8c6c4db05d8d873c5e91d0216b51f44c6764c30d8edc1d4014a194a7e911a59"
+size_bytes = 431874
+source = "1adf0f07cfb6bf59cee376a2ae6a9c567f534226687fcb3f8d062c63e5468396"
 
 [[baselines]]
 profile = "macos"
 scenario = "contextual help and menus"
 checkpoint = "paused"
-sha256 = "c191c65878cbb81a98cbc5f02016ab295818b3ef9e825830777487fb28974e70"
+sha256 = "3787299e3290edd322141af48a4df2d8de1b8ab047b7c6b54e5a560f21b3cfba"
 width = 1280
 height = 720
-size_bytes = 403624
-source = "cc84665ad868e090f1ee1d0afb5a35ac81e7bb776e9954acd233b7cb76682aa2"
+size_bytes = 403337
+source = "1adf0f07cfb6bf59cee376a2ae6a9c567f534226687fcb3f8d062c63e5468396"
 
 [[baselines]]
 profile = "macos"
 scenario = "contextual help and menus"
 checkpoint = "playing help"
-sha256 = "40279a74153fe2489446d563749404ae10c59d96cc6ddb8a6ebde57a79e8bb69"
+sha256 = "78317845156d48385d8bf73e204582678e3e4543fff6d433b2a3abe2d193e434"
 width = 1280
 height = 720
-size_bytes = 385587
-source = "e8c6c4db05d8d873c5e91d0216b51f44c6764c30d8edc1d4014a194a7e911a59"
+size_bytes = 384870
+source = "1adf0f07cfb6bf59cee376a2ae6a9c567f534226687fcb3f8d062c63e5468396"
+
+[[baselines]]
+profile = "macos"
+scenario = "durable recovery"
+checkpoint = "save failed"
+sha256 = "5c37bcdd7890a4a5a909b6f6bf0e6b9117bfb0f96774a135728dcaaf6e70df9a"
+width = 1280
+height = 720
+size_bytes = 563808
+source = "1adf0f07cfb6bf59cee376a2ae6a9c567f534226687fcb3f8d062c63e5468396"
+
+[[baselines]]
+profile = "macos"
+scenario = "durable recovery"
+checkpoint = "unreadable save"
+sha256 = "2c55abcfdbc7e6a08d01dd8aab4d91df3c28cd1ac10fd0e467c265067d816779"
+width = 1280
+height = 720
+size_bytes = 57010
+source = "256c7f5d637d3299b4215d61ba58f8da55dca4204f1b5073ab65b8e5323f9666"
+
+[[baselines]]
+profile = "macos"
+scenario = "durable recovery"
+checkpoint = "waiting for save"
+sha256 = "64d2d391c8d79d6cd4876b6d8f71fea235ad83765eae1fdf47caf9af37ccc98b"
+width = 1280
+height = 720
+size_bytes = 326574
+source = "256c7f5d637d3299b4215d61ba58f8da55dca4204f1b5073ab65b8e5323f9666"
 
 [[baselines]]
 profile = "macos"

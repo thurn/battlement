@@ -132,12 +132,11 @@ fn displayed_models(display: &Display) -> BTreeSet<String> {
 fn landscape_and_portrait_keep_every_human_card_inside_the_playing_area() {
   for (width, height) in [(1280, 720), (720, 1280)] {
     let mut display = Display::mount_with(
-      hearts::application,
+      || hearts::application_from_state(HeartsState::new(43)),
       self::catalog(),
       Connect::new("test", "test", ScreenSize::new(width, height)),
     );
     display.flush();
-    display.activate_accessible("Got it");
     display.flush();
     display.settle();
     assert_eq!(

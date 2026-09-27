@@ -3,6 +3,7 @@ pub mod choices;
 pub mod deal;
 pub mod observations;
 pub mod presentation;
+mod restore;
 pub mod scoring;
 pub mod simulation;
 pub mod state;

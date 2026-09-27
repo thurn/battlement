@@ -140,7 +140,7 @@ impl CardInput {
   }
 
   pub(crate) fn enabled(&self) -> bool {
-    if !matches!(self.0.game.computer.state(), TaskState::Idle) {
+    if self.0.game.is_paused() || !matches!(self.0.game.computer.state(), TaskState::Idle) {
       return false;
     }
     self.0.game.game.status() == GameStatus::Ready && self.0.game.game.presentation().is_settled()
