@@ -96,6 +96,16 @@ namespace Battlement
         }
 
         /// <inheritdoc />
+        public void ResetSessionState()
+        {
+            if (handles.Count != 0 || scenes.Count != 0)
+            {
+                throw new InvalidOperationException("Asset session still has live leases.");
+            }
+            BattlementFontSession.Reset(retained.Values.Select(handle => handle.Value));
+        }
+
+        /// <inheritdoc />
         public void Dispose()
         {
             foreach (IBattlementSceneHandle scene in scenes.ToArray())

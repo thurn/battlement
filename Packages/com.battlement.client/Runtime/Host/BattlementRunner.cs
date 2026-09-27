@@ -456,7 +456,9 @@ namespace Battlement
                 error = new InvalidOperationException(
                     "Battlement-owned asset leases remained after scene reset."
                 );
+                return true;
             }
+            RequireOptions().AssetStorage.ResetSessionState();
             return true;
         }
 

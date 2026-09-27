@@ -266,6 +266,9 @@ namespace Battlement
 
         /// <summary>Begins loading one prepared scene additively.</summary>
         IBattlementSceneHandle LoadScene(IBattlementAssetLease sceneAsset);
+
+        /// <summary>Clears mutable cached asset state after all session leases end.</summary>
+        void ResetSessionState();
     }
 
     /// <summary>An owned asset preparation operation and its retained load handle.</summary>

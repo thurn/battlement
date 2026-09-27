@@ -476,6 +476,17 @@ namespace Battlement.Tests
 
         public int DisposeCount { get; private set; }
 
+        public int ResetSessionCount { get; private set; }
+
+        public void ResetSessionState()
+        {
+            if (handles.Count != 0 || sceneHandles.Count != 0)
+            {
+                throw new InvalidOperationException("Asset session still has live leases.");
+            }
+            ResetSessionCount++;
+        }
+
         public IBattlementAssetHandle Prepare(PreparedAsset asset)
         {
             var handle = new FakeAssetHandle(asset, Remove);

@@ -14,6 +14,65 @@ namespace Battlement.Tests
     public sealed class DittoPlayerStateResetTests
     {
         [Test]
+        public void FontAtlasPixelsDoNotRetainPreviousSessionText()
+        {
+            Font source = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(
+                "Assets/TextMesh Pro/Fonts/LiberationSans.ttf"
+            );
+            Assert.That(source, Is.Not.Null);
+            var ui = UnityEngine.TextCore.Text.FontAsset.CreateFontAsset(source);
+            var textMesh = TMPro.TMP_FontAsset.CreateFontAsset(source);
+            try
+            {
+                AssertAtlasReset(
+                    ui,
+                    text => ui.TryAddCharacters(text),
+                    () => ui.atlasTextures[0].GetRawTextureData<byte>().ToArray()
+                );
+                AssertAtlasReset(
+                    textMesh,
+                    text => textMesh.TryAddCharacters(text),
+                    () => textMesh.atlasTextures[0].GetRawTextureData<byte>().ToArray()
+                );
+            }
+            finally
+            {
+                foreach (Texture2D texture in ui.atlasTextures)
+                {
+                    Object.DestroyImmediate(texture);
+                }
+                foreach (Texture2D texture in textMesh.atlasTextures)
+                {
+                    Object.DestroyImmediate(texture);
+                }
+                Object.DestroyImmediate(ui.material);
+                Object.DestroyImmediate(textMesh.material);
+                Object.DestroyImmediate(ui);
+                Object.DestroyImmediate(textMesh);
+            }
+        }
+
+        private static void AssertAtlasReset(
+            Object font,
+            Func<string, bool> addCharacters,
+            Func<byte[]> pixels
+        )
+        {
+            const string text = "West score: 12";
+            Assert.That(addCharacters(text), Is.True);
+            byte[] expected = pixels();
+            Assert.That(expected.Any(pixel => pixel != 0), Is.True);
+            foreach (string previous in new[] { "New game", "Card inspection", "987654" })
+            {
+                Assert.That(addCharacters(previous), Is.True);
+                Assert.That(pixels(), Is.Not.EqualTo(expected));
+                BattlementFontSession.Reset(new object[] { font });
+                Assert.That(addCharacters(text), Is.True);
+                Assert.That(pixels(), Is.EqualTo(expected), previous);
+            }
+        }
+
+        [Test]
         public void BoundaryJournalsDirtyResetAndCleanPublicUnityStateExactlyOnce()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -82,6 +141,7 @@ namespace Battlement.Tests
                 State("reset", harness, engineTransport, authored, cameraId, preparedScene)
             );
             Assert.That(boundary.IsComplete, Is.False);
+            Assert.That(harness.AssetStorage.ResetSessionCount, Is.Zero);
 
             sceneHandle.CompleteUnload();
             Assert.That(boundary.Advance(), Is.True);
@@ -102,12 +162,14 @@ namespace Battlement.Tests
             );
             Assert.That(harness.AssetStorage.LiveHandleCount, Is.Zero);
             Assert.That(harness.AssetStorage.SceneHandles, Is.Empty);
+            Assert.That(harness.AssetStorage.ResetSessionCount, Is.EqualTo(1));
             Assert.That(boundary.IsReusable, Is.True);
             Assert.That(runnerResetBeforeEngineDestroyed, Is.True);
 
             DittoNativeEngineSession next = CreateEngine(engineTransport, "ditto-next");
             boundary.Begin();
             Assert.That(boundary.Advance(), Is.True);
+            Assert.That(harness.AssetStorage.ResetSessionCount, Is.EqualTo(1));
             Assert.That(engineTransport.HasEngine, Is.True);
             Assert.That(next.Destroy().Status, Is.EqualTo(BattlementTransportStatus.Success));
         }
