@@ -17,6 +17,7 @@ import sys
 from typing import Any
 
 import perf_analysis
+import perf_attempts
 import perf_candidate
 import perf_ci
 import perf_codex
@@ -31,6 +32,14 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 def main(arguments: argparse.Namespace) -> Path:
     """Build, print, and save one deterministic performance report."""
     _observation_window(arguments)
+    arguments.source_tree_oid = None
+    if arguments.commit:
+        arguments.commit = subprocess.check_output(
+            ['git', 'rev-parse', '--verify', '--end-of-options', f'{arguments.commit}^{{commit}}'],
+            cwd=REPOSITORY_ROOT, text=True).strip()
+        arguments.source_tree_oid = subprocess.check_output(
+            ['git', 'rev-parse', f'{arguments.commit}^{{tree}}'],
+            cwd=REPOSITORY_ROOT, text=True).strip()
     repository_url = _repository_url()
     records, children, warnings = perf_codex.discover_codex_threads(
         perf_codex.codex_root(), repository_url
@@ -98,7 +107,9 @@ def main(arguments: argparse.Namespace) -> Path:
         round(arguments.long_wait_seconds * 1000),
     )
     session_reports = [
-        perf_analysis.analyze_session(session, thresholds, arguments.top)
+        perf_analysis.analyze_session(session, thresholds, arguments.top,
+                                      ci_source_oid=arguments.commit,
+                                      ci_source_tree_oid=arguments.source_tree_oid)
         for session in sessions
     ]
     report = {
@@ -239,6 +250,7 @@ def _filter_explicit_selection(
                     span.attributes.get("source_oid"),
                     span.attributes.get("tested_oid"),
                 }
+                or span.attributes.get("staged_tree_oid") == arguments.source_tree_oid
                 for span in session.spans
             )
         ]
@@ -390,6 +402,7 @@ def _print_report(report: dict[str, Any], output: Path) -> None:
             f"unattributed {_duration(timing['unattributed_agent_turn_ms'])} · "
             f"{len(session['findings'])} findings"
         )
+        perf_attempts.print_summary(session['ci_attempts'], report['selection']['top'], _duration)
     if report["warnings"]:
         print("\nData warnings")
         for warning in report["warnings"]:

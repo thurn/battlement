@@ -206,8 +206,6 @@ def parse_operation_records(
         warnings.append(f"Operation trace has no start event: {source_path}")
         return spans, warnings
     operation_id = started["operation_id"]
-    if operation_id in known_operations:
-        return spans, warnings
     start_time = parse_timestamp(started.get("timestamp"))
     last_time = parse_timestamp(records[-1].get("timestamp"))
     if start_time is None or last_time is None:
@@ -251,17 +249,19 @@ def parse_operation_records(
     }
     parent = started.get("parent_operation_id")
     parent_id = known_operations.get(parent, f"operation:{parent}" if parent else None)
-    spans.append(Span(
-        f"operation:{operation_id}", parent_id, None, "operation", "operation",
-        started.get("name", "Operation"), start_time, finish_time,
-        terminal.get("outcome", "incomplete") if terminal else "incomplete",
-        attributes=attributes, container=True,
-    ))
+    if operation_id not in known_operations:
+        spans.append(Span(
+            f"operation:{operation_id}", parent_id, None, "operation", "operation",
+            started.get("name", "Operation"), start_time, finish_time,
+            terminal.get("outcome", "incomplete") if terminal else "incomplete",
+            attributes=attributes, container=True,
+        ))
     events = [
         event for index, record in enumerate(records)
         if (event := _normalize_operation_event(record, index)) is not None
     ]
-    _append_operation_children(spans, events, operation_id, attributes, warnings)
+    _append_operation_children(spans, events, operation_id, attributes, warnings,
+                               parent_id=known_operations.get(operation_id))
     return spans, warnings
 
 
@@ -363,8 +363,9 @@ def _normalize_workflow_event(
 def _append_operation_children(
     spans: list[Span], records: list[_OperationEvent], operation_id: str,
     attributes: dict[str, Any], warnings: list[str],
+    *, parent_id: str | None = None,
 ) -> None:
-    parent = f"operation:{operation_id}"
+    parent = parent_id or f"operation:{operation_id}"
     queued: dict[str, list[_OperationEvent]] = {}
     held: dict[str, list[_OperationEvent]] = {}
     processes: dict[str, list[_OperationEvent]] = {}

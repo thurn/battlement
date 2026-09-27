@@ -29,6 +29,7 @@ from perf_model import exclusive_durations, interval_difference_ms, interval_uni
 import perf_report  # noqa: E402
 import perf_tollgate  # noqa: E402
 import perf_timeline_cases  # noqa: E402
+import perf_attempt_cases  # noqa: E402
 import workflow_event  # noqa: E402
 
 
@@ -55,6 +56,7 @@ def main() -> None:
         _verify_tollgate_retries(root)
         _verify_private_report(root)
         perf_timeline_cases.verify(root)
+        perf_attempt_cases.verify(root)
         _verify_tollgate_failure(root)
     print("Performance report tests passed.")
 

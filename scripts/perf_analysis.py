@@ -12,6 +12,7 @@ import subprocess
 from typing import Any
 
 import perf_hotspots
+import perf_attempts
 from perf_model import (
     exclusive_durations,
     format_timestamp,
@@ -168,6 +169,7 @@ def analyze_session(
     session: SessionTrace,
     thresholds: Thresholds,
     top: int,
+    *, ci_source_oid: str | None = None, ci_source_tree_oid: str | None = None,
 ) -> dict[str, Any]:
     """Calculate interval-aware summaries, rankings, and workflow findings."""
     spans = sorted(session.spans, key=lambda span: (span.started_at, span.finished_at))
@@ -260,6 +262,8 @@ def analyze_session(
         "longest_waits": [_ranked_span(span, exclusive) for span in longest_waits],
         "largest_contributors": [_ranked_span(span, exclusive) for span in contributors],
         "ci_step_hotspots": perf_hotspots.ci_step_hotspots(normalized_spans, top),
+        "ci_attempts": perf_attempts.build(normalized_spans, source_oid=ci_source_oid,
+                                          source_tree_oid=ci_source_tree_oid),
         "tollgate_phase_hotspots": perf_hotspots.tollgate_phase_hotspots(
             normalized_spans, top
         ),
