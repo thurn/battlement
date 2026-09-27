@@ -14,6 +14,7 @@ use crate::{
   domain::{HeartsState, IgnorePresentation, Intention, Phase, Seat, transition},
   layout_fixture,
   projection::PresentationSeed,
+  reducer::HeartsAction,
   scene,
 };
 
@@ -94,7 +95,7 @@ impl Component for MotionFixture {
             game.game.presentation().status
           ))),
           Button::new(ls("Advance Hearts action")).on_press(move || {
-            dispatch.dispatch(version, next.clone());
+            dispatch.dispatch(version, HeartsAction::Human(next.clone()));
           }),
           Button::new(ls("Replay deal")).on_press(reset.update_callback(|value| value + 1)),
           Button::new(ls("Load final trick")).on_press(set_ending.update_callback(|value| !value)),

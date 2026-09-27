@@ -17,21 +17,28 @@ use crate::{
 
 pub(crate) const ROOT: ObjectId = object_id!("6644ed66-12dc-4590-9af8-19d174a47000");
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum Opponents {
+  Disabled,
+  Scripted,
+  Rollout,
+}
+
 struct HeartsRoot {
   initial: HeartsState,
   gallery: bool,
-  interactive: bool,
+  opponents: Opponents,
   fresh: bool,
 }
 
 /// Opens a new match through the same root used for restored state.
 pub fn application() -> Application {
-  self::configured(HeartsState::new(43), false, true, true)
+  self::configured(HeartsState::new(43), false, Opponents::Rollout, true)
 }
 
 /// Mounts an already validated logical match without replaying its history.
 pub fn application_from_state(initial: HeartsState) -> Application {
-  self::configured(initial, false, true, false)
+  self::configured(initial, false, Opponents::Rollout, false)
 }
 
 pub(crate) fn exported_application() -> Application {
@@ -39,16 +46,28 @@ pub(crate) fn exported_application() -> Application {
     Ok("motion") => crate::motion_fixture::application(),
     Ok("particles") => crate::particle_fixture::application(),
     Ok("layout") => crate::layout_fixture::application(),
-    Ok("cards") => self::configured(HeartsState::new(43), true, false, false),
-    Ok("restored") => self::configured(HeartsState::new(73), false, false, false),
-    Ok("shell") => self::configured(HeartsState::new(43), false, false, false),
-    Ok("input") | Err(_) => self::application(),
-    Ok("play") => self::application_from_state(crate::layout_fixture::playing_state()),
+    Ok("cards") => self::configured(HeartsState::new(43), true, Opponents::Disabled, false),
+    Ok("restored") => self::configured(HeartsState::new(73), false, Opponents::Disabled, false),
+    Ok("shell") => self::configured(HeartsState::new(43), false, Opponents::Disabled, false),
+    Ok("input") => self::configured(HeartsState::new(43), false, Opponents::Scripted, true),
+    Ok("play") => self::configured(
+      crate::layout_fixture::playing_state(),
+      false,
+      Opponents::Scripted,
+      false,
+    ),
+    Ok("ai") => crate::ai_fixture::application(),
+    Err(_) => self::application(),
     Ok(name) => panic!("unknown Hearts fixture {name:?}"),
   }
 }
 
-fn configured(initial: HeartsState, gallery: bool, interactive: bool, fresh: bool) -> Application {
+fn configured(
+  initial: HeartsState,
+  gallery: bool,
+  opponents: Opponents,
+  fresh: bool,
+) -> Application {
   Application::new(assets::hearts::CONTENT)
     .global_keys([
       PhysicalKey::ArrowLeft,
@@ -66,7 +85,7 @@ fn configured(initial: HeartsState, gallery: bool, interactive: bool, fresh: boo
     .child(HeartsRoot {
       initial,
       gallery,
-      interactive,
+      opponents,
       fresh,
     })
     .document(|mut document| {
@@ -91,6 +110,7 @@ fn configured(initial: HeartsState, gallery: bool, interactive: bool, fresh: boo
 
 impl Component for HeartsRoot {
   fn render(&self) -> impl Render {
+    let interactive = self.opponents != Opponents::Disabled;
     let overlay = reactant::use_portal_target();
     let (mix, set_mix) = hooks::use_state(battlement::AudioMix {
       music: 0.22,
@@ -103,7 +123,18 @@ impl Component for HeartsRoot {
     } else {
       HeartsState::new(43)
     };
-    let game = controller::use_hearts(generation, move || initial, Seat::South, !self.interactive);
+    let policy = if self.opponents == Opponents::Scripted {
+      crate::layout_fixture::scripted_decision
+    } else {
+      crate::ai::search::decide
+    };
+    let game = controller::use_hearts_with_policy(
+      generation,
+      move || initial,
+      Seat::South,
+      !interactive,
+      policy,
+    );
     let viewport = app_context::use_viewport_size();
     let aspect = f64::from(viewport.width) / f64::from(viewport.height);
     let input = card_input::use_card_input(game.clone(), viewport);
@@ -177,9 +208,9 @@ impl Component for HeartsRoot {
                   aspect,
                   inspection: input.inspection(),
                   fresh: self.fresh || generation > 0,
-                  sound: self.interactive,
+                  sound: interactive,
                 });
-                let table = if self.interactive {
+                let table = if interactive {
                   Node::new(ContextProvider::new().context(input.clone()).child(table))
                 } else {
                   Node::new(table)
@@ -191,7 +222,7 @@ impl Component for HeartsRoot {
                 )
               }),
             )),
-            self.interactive.then(|| {
+            interactive.then(|| {
               ContextProvider::new()
                 .context(input.clone())
                 .child(CardControls(overlay.clone()))
@@ -214,7 +245,7 @@ impl Component for HeartsRoot {
                 )))
             }),
           )),
-        self.interactive.then(|| {
+        interactive.then(|| {
           View::new()
             .picking_mode(PickingMode::Ignore)
             .style(
@@ -225,7 +256,7 @@ impl Component for HeartsRoot {
             )
             .child(audio::SoundControls { mix, set_mix })
         }),
-        self.interactive.then(|| reactant::audio::AudioMixProvider {
+        interactive.then(|| reactant::audio::AudioMixProvider {
           mix,
           children: Children::new(reactant::GameRoot::new(audio::GameAudio {
             phase: game.view.table.phase,

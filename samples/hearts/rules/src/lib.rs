@@ -1,4 +1,5 @@
 pub mod ai;
+mod ai_fixture;
 mod app;
 #[allow(dead_code)]
 pub mod assets;

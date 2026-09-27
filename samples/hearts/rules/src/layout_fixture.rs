@@ -1,11 +1,16 @@
 use battlement::{ParentScene, PickingMode, Prop, UiFontAddress};
 use reactant::{Application, app_context, hooks, prelude::*, world};
+use reactant_rules::CancellationToken;
 use trox::{SourceLocale, ls};
 
 use crate::{
+  ai::decision::Decision,
   assets,
   card_table::CardTable,
-  domain::{Checkpoint, HeartsState, IgnorePresentation, Intention, Phase, Seat, transition},
+  domain::{
+    AiObservation, Checkpoint, HeartsState, IgnorePresentation, Intention, Phase, RandomStream,
+    Seat, transition,
+  },
   projection::{HumanView, Projection},
   scene,
 };
@@ -98,4 +103,30 @@ pub(crate) fn playing_state() -> HeartsState {
     .expect("fixture pass");
   }
   state
+}
+
+/// Pins card-input fixtures independently of opponent strength.
+pub(crate) fn scripted_decision(
+  observation: AiObservation,
+  stream: RandomStream,
+  token: CancellationToken,
+) -> Decision {
+  token.checkpoint();
+  let intention = match observation.table.phase {
+    Phase::Passing => Intention::SubmitPass {
+      seat: observation.seat,
+      cards: observation.hand[..3].to_vec(),
+    },
+    Phase::Playing { .. } => Intention::PlayCard {
+      seat: observation.seat,
+      card: observation.legal_plays[0],
+    },
+    _ => panic!("scripted fixture decision phase"),
+  };
+  Decision {
+    observation,
+    previous_stream: stream,
+    next_stream: stream,
+    intention,
+  }
 }

@@ -4,6 +4,7 @@ pub mod deal;
 pub mod observations;
 pub mod presentation;
 pub mod scoring;
+pub mod simulation;
 pub mod state;
 pub mod transition;
 

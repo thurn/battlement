@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::domain::{Hands, Seat};
+use crate::domain::{Hands, PlayedCard, Seat};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HandResult {
@@ -39,4 +39,14 @@ pub fn winners(totals: [u16; 4]) -> Option<[bool; 4]> {
   }
   let lowest = *totals.iter().min().unwrap();
   Some(totals.map(|score| score == lowest))
+}
+
+/// Selects the highest card following the led suit in a complete trick.
+pub fn trick_winner(cards: &[PlayedCard; 4]) -> Seat {
+  cards
+    .iter()
+    .filter(|played| played.card.suit == cards[0].card.suit)
+    .max_by_key(|played| played.card.rank)
+    .unwrap()
+    .seat
 }

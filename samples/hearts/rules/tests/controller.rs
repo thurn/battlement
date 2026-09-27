@@ -12,8 +12,10 @@ use std::{
 use battlement::{ObjectId, object_id};
 use battlement_fake::assets::FakeAssetCatalog;
 use battlement_hearts_rules::{
-  HeartsController, HeartsReducer, controller,
-  domain::{AiObservation, Event, HeartsState, Phase, Seat},
+  HeartsController, HeartsReducer,
+  ai::decision::Decision,
+  controller,
+  domain::{AiObservation, Event, HeartsState, Intention, Phase, Seat},
 };
 use reactant::{GameStatus, ReducerDispatch, TaskState, host::ButtonHost, prelude::*};
 use reactant_rules::ReducerGame;
@@ -61,14 +63,32 @@ impl Component for Fixture {
       move || HeartsState::new(71 + key),
       Seat::South,
       paused,
-      move |observation, token| {
+      move |observation, stream, token| {
         let call = probe.calls.fetch_add(1, Ordering::SeqCst);
         probe.started.send(observation.clone()).unwrap();
         if probe.hold_first && call == 0 {
           probe.first.lock().unwrap().recv_timeout(TIMEOUT).unwrap();
         }
         token.checkpoint();
-        controller::choose_legal(observation, token)
+        let intention = match observation.table.phase {
+          Phase::Passing => Intention::SubmitPass {
+            seat: observation.seat,
+            cards: observation.hand[..3].to_vec(),
+          },
+          Phase::Playing { .. } => Intention::PlayCard {
+            seat: observation.seat,
+            card: observation.legal_plays[0],
+          },
+          _ => panic!("fixture decision phase"),
+        };
+        let mut next_stream = stream;
+        next_stream.below(52);
+        Decision {
+          observation,
+          previous_stream: stream,
+          next_stream,
+          intention,
+        }
       },
     );
     let phase = format!("{:?}", controller.view.table.phase);

@@ -33,7 +33,13 @@ impl Component for Probe {
   fn render(&self) -> impl Render {
     let overlay = reactant::use_portal_target();
     let initial = self.initial.clone();
-    let game = controller::use_hearts((), move || initial, Seat::South, false);
+    let game = controller::use_hearts_with_policy(
+      (),
+      move || initial,
+      Seat::South,
+      false,
+      layout_fixture::scripted_decision,
+    );
     let viewport = app_context::use_viewport_size();
     let aspect = hooks::use_external_store(self.aspect.clone());
     let input = card_input::use_card_input(game.clone(), viewport);

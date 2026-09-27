@@ -598,3 +598,28 @@ screenshot = { name = "reduced-scored", threshold = 0, anti_alias = false, max_c
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "Scored: 0 cards in trick" }, role = "heading", name = "Scored: 0 cards in trick" }
+
+
+[[scenarios]]
+name = "fair opponent cancellation and responsiveness"
+fixture = "ai"
+[[scenarios.steps]]
+wait = { object = "6644ed66-12dc-4590-9af8-19d174a47070", state = "visible" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Open menu" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Menu 1" }, role = "static-text", name = "Menu 1" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "No AI decision accepted" }, role = "static-text", name = "No AI decision accepted" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Pause search" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "6644ed66-12dc-4590-9af8-19d174a47071", state = "visible" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Paused with unchanged random streams" }, role = "static-text", name = "Paused with unchanged random streams" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Resume search" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "6644ed66-12dc-4590-9af8-19d174a47072", state = "visible" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Menu 1" }, role = "static-text", name = "Menu 1" }

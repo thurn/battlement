@@ -4,9 +4,10 @@ use reactant::{GameStatus, GameVersion, ReducerDispatch, ReducerHandle, Task, Ta
 use reactant_rules::CancellationToken;
 
 use crate::{
-  domain::{AiObservation, HeartsState, Intention, Phase, Rejection, Seat},
+  ai::{decision::Decision, search},
+  domain::{AiObservation, HeartsState, Intention, Phase, RandomStream, Rejection, Seat},
   projection::{CardToken, HumanView, PresentationSeed, Projection},
-  reducer::HeartsReducer,
+  reducer::{HeartsAction, HeartsReducer},
 };
 
 /// Application-owned controller; visual children receive its projected view and callbacks.
@@ -14,7 +15,7 @@ use crate::{
 pub struct HeartsController {
   pub game: ReducerHandle<HeartsReducer>,
   pub view: HumanView,
-  pub computer: Task<Intention>,
+  pub computer: Task<Decision>,
   projection: Rc<Projection>,
   version: GameVersion,
   human: Seat,
@@ -22,9 +23,10 @@ pub struct HeartsController {
 }
 
 #[derive(Clone, PartialEq)]
-struct Decision {
+struct SearchKey {
   session: u64,
   observation: AiObservation,
+  stream: RandomStream,
 }
 
 impl HeartsController {
@@ -68,7 +70,9 @@ impl HeartsController {
     if self.paused {
       return ReducerDispatch::Busy;
     }
-    self.game.dispatch(self.version, intention)
+    self
+      .game
+      .dispatch(self.version, HeartsAction::Human(intention))
   }
 }
 
@@ -79,7 +83,7 @@ pub fn use_hearts<K: hooks::Dependencies>(
   human: Seat,
   paused: bool,
 ) -> HeartsController {
-  self::use_hearts_with_policy(session_key, initialize, human, paused, self::choose_legal)
+  self::use_hearts_with_policy(session_key, initialize, human, paused, search::decide)
 }
 
 /// Runs an injected opponent with only its permitted observation and cancellation token.
@@ -88,23 +92,23 @@ pub fn use_hearts_with_policy<K: hooks::Dependencies>(
   initialize: impl FnOnce() -> HeartsState + 'static,
   human: Seat,
   paused: bool,
-  policy: impl FnOnce(AiObservation, CancellationToken) -> Intention + Send + 'static,
+  policy: impl FnOnce(AiObservation, RandomStream, CancellationToken) -> Decision + Send + 'static,
 ) -> HeartsController {
   let game = reactant::use_game_reducer(session_key, initialize, HeartsReducer);
   let accepted = game.accepted();
   let decision = if paused || matches!(game.status(), GameStatus::Failed | GameStatus::Stopped) {
     None
   } else {
-    self::next_observation(&accepted.state, human).map(|observation| Decision {
+    self::next_observation(&accepted.state, human).map(|observation| SearchKey {
       session: accepted.version.session,
+      stream: accepted.state.random().ai[observation.seat.index()],
       observation,
     })
   };
-  let input = decision
-    .as_ref()
-    .map(|decision| decision.observation.clone());
+  let input = decision.clone();
   let computer = reactant::use_task(decision.clone(), move |token| {
-    policy(input.expect("enabled decision"), token)
+    let input = input.expect("enabled decision");
+    policy(input.observation, input.stream, token)
   });
   let result = computer.state();
   let dispatch = game.clone();
@@ -112,7 +116,7 @@ pub fn use_hearts_with_policy<K: hooks::Dependencies>(
   let completion = result.clone();
   hooks::use_effect(
     move || {
-      let (Some(decision), TaskState::Ready(intention)) = (current, completion) else {
+      let (Some(decision), TaskState::Ready(result)) = (current, completion) else {
         return;
       };
       let accepted = dispatch.accepted();
@@ -123,7 +127,10 @@ pub fn use_hearts_with_policy<K: hooks::Dependencies>(
         return;
       }
       if dispatch.presentation().is_settled() {
-        dispatch.dispatch(accepted.version, (*intention).clone());
+        dispatch.dispatch(
+          accepted.version,
+          HeartsAction::Computer(Box::new((*result).clone())),
+        );
       }
     },
     (decision, result, game.presentation(), game.status()),
@@ -146,25 +153,6 @@ pub fn use_hearts_with_policy<K: hooks::Dependencies>(
     projection,
     human,
     paused,
-  }
-}
-
-/// Selects a legal deterministic command without consulting another seat's cards.
-pub fn choose_legal(observation: AiObservation, token: CancellationToken) -> Intention {
-  token.checkpoint();
-  match observation.table.phase {
-    Phase::Passing => Intention::SubmitPass {
-      seat: observation.seat,
-      cards: observation.hand.into_iter().take(3).collect(),
-    },
-    Phase::Playing { .. } => Intention::PlayCard {
-      seat: observation.seat,
-      card: *observation
-        .legal_plays
-        .first()
-        .expect("acting player has a legal card"),
-    },
-    _ => panic!("opponent requested outside a decision phase"),
   }
 }
 

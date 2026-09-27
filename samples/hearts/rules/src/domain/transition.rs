@@ -126,13 +126,7 @@ fn play_card(state: &mut HeartsState, seat: Seat, card: CardId, sink: &mut impl 
 
 fn collect_trick(state: &mut HeartsState, sink: &mut impl PresentationSink) {
   let cards: [PlayedCard; 4] = state.trick.as_slice().try_into().unwrap();
-  let led_suit = cards[0].card.suit;
-  let winner = cards
-    .iter()
-    .filter(|played| played.card.suit == led_suit)
-    .max_by_key(|played| played.card.rank)
-    .unwrap()
-    .seat;
+  let winner = scoring::trick_winner(&cards);
   state.captured[winner.index()].extend(cards.map(|played| played.card));
   state.trick.clear();
   state.leader = winner;

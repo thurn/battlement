@@ -28,6 +28,7 @@ pub enum Rejection {
   DuplicatePassCard,
   WrongPhase,
   AlreadyPassed,
+  StaleDecision,
 }
 
 impl Display for Rejection {
@@ -43,6 +44,7 @@ impl Display for Rejection {
       Self::PassCount => "Choose exactly three cards to pass.",
       Self::DuplicatePassCard => "Choose three different cards to pass.",
       Self::WrongPhase => "That action is not available in this phase.",
+      Self::StaleDecision => "The decision no longer matches this hand.",
       Self::AlreadyPassed => "Your pass is already submitted.",
     })
   }
