@@ -367,10 +367,15 @@ fn hand(
     );
   }
   let (x, z, angle, width, spacing) = match seat {
-    Seat::North => (0.0, 3.6, 180.0, 1.65, 0.56),
+    Seat::North => (0.0, 3.25, 180.0, 1.65, 0.56),
     Seat::West => (-half_width * 0.60, 0.6, 90.0, 1.5, 0.32),
     Seat::East => (half_width * 0.60, 0.6, -90.0, 1.5, 0.32),
     Seat::South => unreachable!(),
+  };
+  let (curvature, fan_angle) = if seat == Seat::North {
+    (0.025, 4.5)
+  } else {
+    (0.01, 2.5)
   };
   Node::new(
     self::fan(
@@ -379,8 +384,8 @@ fn hand(
       width,
       FanStyle {
         spacing,
-        curvature: 0.01,
-        angle: 2.5,
+        curvature,
+        angle: fan_angle,
         ..style
       },
     )
@@ -388,7 +393,7 @@ fn hand(
       x,
       z,
       angle,
-      self::rise(cards.len(), 0.01),
+      self::rise(cards.len(), curvature),
     )),
   )
 }

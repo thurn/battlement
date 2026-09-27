@@ -194,6 +194,8 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
       0.0,
       if portrait {
         5.8
+      } else if x.abs() < half_width * 0.45 {
+        6.8
       } else {
         5.1 + (index % 2) as f64 * 0.7
       },
