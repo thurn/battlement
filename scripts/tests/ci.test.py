@@ -40,7 +40,6 @@ def main() -> None:
         _verify_lockfile_preflight(root)
         _verify_wire_preflight(root)
         _verify_cargo_target_isolation(root)
-        _verify_cargo_targets_do_not_cross_checkouts(root)
         _verify_parallel_sample_target_isolation(root)
         _verify_sample_worker_defaults()
         _verify_windows_paths(root)
@@ -220,59 +219,6 @@ def _verify_cargo_target_isolation(root: Path) -> None:
     assert first_root.stat().st_mtime_ns > first_access
 
 
-def _verify_cargo_targets_do_not_cross_checkouts(root: Path) -> None:
-    cache = root / "cross-checkout-cache"
-    old_checkout = root / "old-checkout"
-    new_checkout = root / "new-checkout"
-    _cargo_test_checkout(old_checkout, "fn main() {}\n")
-    _cargo_test_checkout(
-        new_checkout,
-        """fn main() {}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn new_checkout_test_runs() {
-        panic!("new checkout test executed");
-    }
-}
-""",
-    )
-    ci.CI_CACHE_ROOT = cache
-    ci.REPOSITORY_ROOT = old_checkout
-    old_environment = ci.cargo_environment(None)
-    subprocess.run(
-        ["cargo", "test", "--workspace", "--quiet"],
-        cwd=old_checkout,
-        env=old_environment,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    for path in new_checkout.rglob("*"):
-        if path.is_file():
-            os.utime(path, ns=(1, 1))
-
-    ci.REPOSITORY_ROOT = new_checkout
-    new_environment = ci.cargo_environment(None)
-    assert old_environment["CARGO_TARGET_DIR"] != new_environment["CARGO_TARGET_DIR"]
-    try:
-        subprocess.run(
-            ["cargo", "test", "--workspace", "--quiet"],
-            cwd=new_checkout,
-            env=new_environment,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as error:
-        output = error.stdout + error.stderr
-        assert "new_checkout_test_runs" in output
-        assert "new checkout test executed" in output
-    else:
-        raise AssertionError("new checkout reused an older checkout's test binary")
-
-
 def _verify_parallel_sample_target_isolation(root: Path) -> None:
     ci.REPOSITORY_ROOT = root / "checkout"
     ci.CI_CACHE_ROOT = root / "cache"
@@ -291,7 +237,7 @@ def _verify_parallel_sample_target_isolation(root: Path) -> None:
         return subprocess.CompletedProcess(command, 0, stdout="")
 
     class ImmediateCache:
-        def run(self, _step: str, _inputs: tuple[str, ...], function: object) -> bool:
+        def run(self, _step: str, _inputs: tuple[str, ...], function: object, **_options: object) -> bool:
             assert callable(function)
             function()
             return True
@@ -305,7 +251,11 @@ def _verify_parallel_sample_target_isolation(root: Path) -> None:
         ci.unity_editor_lease = nullcontext
         ci.unity_project_transaction = lambda *_arguments: nullcontext()
         ci.standalone_sample_workers = lambda: 2
-        with patch.object(ci.platform, "system", return_value="Windows"):
+        with (
+            patch.object(ci.platform, "system", return_value="Windows"),
+            patch.object(ci.cargo_targets, "environment", side_effect=lambda _root, _cache, _workspace, scope=None:
+                         nullcontext(ci.cargo_targets.CargoEnvironment(ci.cargo_environment(None, scope)))),
+        ):
             ci.build_standalone_samples(["basic", "chess"], ImmediateCache())
     finally:
         ci.process_priority.run = original_run
@@ -385,6 +335,7 @@ def _verify_ditto_gate_contract() -> None:
 def _verify_ditto_build_leases_span_gate(root: Path) -> None:
     class Leases:
         cache_root = root / "ditto-cache"
+        evidence_root = root / "ditto-evidence"
 
         def __init__(self) -> None:
             self.prepared: list[str] = []
@@ -397,6 +348,9 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
             self.checked = True
 
     leases = Leases()
+    target = root / "builder-target"
+    (target / "debug").mkdir(parents=True)
+    (target / "debug" / ci.executable_name("rt")).write_text("fixture builder")
     commands: list[list[str]] = []
 
     def completed(command: list[str], **_options: object) -> subprocess.CompletedProcess[str]:
@@ -407,10 +361,14 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
         patch.object(ci.platform, "system", return_value="Darwin"),
         patch.object(ci.subprocess, "run", side_effect=completed),
         patch.object(ci.process_priority, "run", side_effect=completed),
+        patch.object(ci.cargo_targets, "environment", return_value=nullcontext(
+            ci.cargo_targets.CargoEnvironment({"CARGO_TARGET_DIR": str(target)}))),
     ):
         ci.build_standalone_samples(["basic", "chess"], object(), leases)
     assert commands[0] == ["cargo", "build", "-p", "rt"]
     assert sorted(leases.prepared) == ["basic", "chess"]
+    assert leases.binary.read_text() == "fixture builder"
+    assert leases.binary.is_relative_to(leases.evidence_root)
 
     steps: list[tuple[list[str], dict[str, str]]] = []
 
@@ -443,7 +401,7 @@ def _verify_selected_native_execution() -> None:
         def __init__(self, *_arguments: object, **_options: object) -> None:
             pass
 
-        def run(self, _step: str, _inputs: tuple[str, ...], function: object) -> bool:
+        def run(self, _step: str, _inputs: tuple[str, ...], function: object, **_options: object) -> bool:
             assert callable(function)
             function()
             return True

@@ -19,6 +19,7 @@ import tempfile
 import time
 from typing import Callable
 
+import cargo_targets
 import process_priority
 from resource_slots import unity_editor_lease
 from unity_transaction import UnityProjectTransaction, unity_project_transaction
@@ -70,7 +71,7 @@ def run(
         completed = runner(
             command,
             cwd=cwd,
-            env=environment,
+            **cargo_targets.process_options(environment),
             check=True,
             text=True,
             capture_output=capture,

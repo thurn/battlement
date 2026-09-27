@@ -13,6 +13,7 @@ import operation_log
 FIXTURE_OUTPUT_PREFIX = "    [fixture] "
 
 CHECKS = (
+    ("Test warm Cargo target ownership", "scripts/tests/cargo-targets.test.py"),
     ("Test process resource accounting", "scripts/tests/process-usage.test.py"),
     ("Test process scheduling priority", "scripts/tests/process-priority.test.py"),
     ("Test operation telemetry", "scripts/tests/operation-log.test.py"),

@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+import cargo_targets
 
 from platform_support import lock_file, resolve_executable, try_lock_file, unlock_file
 from resource_slots import compiler_capacity_lease, compiler_maintenance_lease
@@ -295,6 +296,7 @@ class CiCache:
                     path
                     for path in child.iterdir()
                     if path.is_dir() and not path.is_symlink()
+                    and cargo_targets.idle(path, self.cache_root)
                 )
             elif child.is_dir() and not child.is_symlink():
                 candidates.append(child)

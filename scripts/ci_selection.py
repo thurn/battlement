@@ -18,6 +18,8 @@ GLOBAL_RUST_INPUTS = (
     "Cargo.toml",
     "rust-toolchain.toml",
     "scripts/ci.py",
+    "scripts/cargo_targets.py",
+    "scripts/cargo_rustc.rs",
     "scripts/ci_selection.py",
 )
 TOOLING_RUST_INPUTS = (

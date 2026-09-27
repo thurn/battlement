@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable
+from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -26,6 +27,7 @@ import tollgate_evidence
 
 from ci_cache import CiCache
 import ci_steps
+import cargo_targets
 import ci_selection
 import ci_tooling
 from ci_steps import run_parallel_steps, run_step
@@ -78,6 +80,8 @@ ROOT_RUST_INPUTS = (
     "samples",
     "scripts/ci.py",
     "scripts/ci_cache.py",
+    "scripts/cargo_targets.py",
+    "scripts/cargo_rustc.rs",
     "scripts/ci_selection.py",
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
@@ -93,6 +97,8 @@ SAMPLE_SHARED_INPUTS = (
     "crates",
     "scripts/ci.py",
     "scripts/ci_cache.py",
+    "scripts/cargo_targets.py",
+    "scripts/cargo_rustc.rs",
     "scripts/ci_selection.py",
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
@@ -323,6 +329,13 @@ def cargo_environment(
     return environment
 
 
+def run_cargo(workspace: Path | None, command: list[str], *, scope: str | None = None) -> None:
+    """Run one Cargo consumer with exclusive ownership of a warm target."""
+    with cargo_targets.environment(REPOSITORY_ROOT, CI_CACHE_ROOT, workspace, scope=scope) as environment:
+        process_priority.run(command, cwd=REPOSITORY_ROOT,
+                             **environment.process_options(), check=True)
+
+
 def rust_workspace_inputs(workspace: Path | None) -> tuple[str, ...]:
     """Return staged inputs that can change one Rust workspace result."""
     if workspace is None:
@@ -347,10 +360,10 @@ def lint_rust_workspaces(
             "root workspace",
             lambda: ci_cache.run(
                 root_cache_name("rust-lint-root", selection), rust_workspace_inputs(None),
-                lambda: process_priority.run(
+                lambda: run_cargo(None,
                     ["cargo", "clippy", *ci_selection.root_arguments(selection), "--all-targets", "--", "-D", "warnings"],
-                    cwd=REPOSITORY_ROOT, env=cargo_environment(None), check=True,
                 ),
+                lease=nullcontext,
             ),
         ))
     steps.extend(
@@ -359,15 +372,13 @@ def lint_rust_workspaces(
             lambda workspace=workspace: ci_cache.run(
                 f"rust-lint-{workspace.parent.as_posix().replace('/', '-')}",
                 rust_workspace_inputs(workspace),
-                lambda: process_priority.run(
+                lambda: run_cargo(workspace,
                     [
                         "cargo", "clippy", "--manifest-path", str(workspace),
                         "--all-targets", "--", "-D", "warnings",
                     ],
-                    cwd=REPOSITORY_ROOT,
-                    env=cargo_environment(workspace),
-                    check=True,
                 ),
+                lease=nullcontext,
             ),
         )
         for workspace in selection.samples
@@ -393,12 +404,10 @@ def test_rust_workspaces(
             lambda workspace=workspace: ci_cache.run(
                 f"rust-test-{workspace.parent.as_posix().replace('/', '-')}",
                 rust_workspace_inputs(workspace),
-                lambda: process_priority.run(
+                lambda: run_cargo(workspace,
                     ["cargo", "test", "--manifest-path", str(workspace)],
-                    cwd=REPOSITORY_ROOT,
-                    env=cargo_environment(workspace),
-                    check=True,
                 ),
+                lease=nullcontext,
             ),
         )
         for workspace in selection.samples
@@ -429,10 +438,8 @@ def test_root_workspace(ci_cache: CiCache, selection: ci_selection.RustSelection
     for name, inputs, arguments in groups:
         ci_cache.run(
             root_cache_name(name, selection), inputs,
-            lambda: process_priority.run(
-                ["cargo", "test", *arguments], cwd=REPOSITORY_ROOT,
-                env=cargo_environment(None), check=True,
-            ),
+            lambda: run_cargo(None, ["cargo", "test", *arguments]),
+            lease=nullcontext,
         )
 
 
@@ -906,18 +913,17 @@ def build_standalone_samples(
             f"standalone-{name}",
             (*SAMPLE_SHARED_INPUTS, f"samples/{name}"),
             lambda: build_uncached(name),
+            lease=nullcontext,
         )
 
     def build_uncached(name: str) -> None:
         if platform.system() != "Darwin":
-            process_priority.run(
+            run_cargo(None,
                 [
                     "cargo", "run", "--quiet", "-p", "rt", "--",
                     "ditto", "--config", f"samples/{name}/ditto.toml", "build",
                 ],
-                cwd=REPOSITORY_ROOT,
-                env=cargo_environment(None, f"standalone-{name}"),
-                check=True,
+                scope=f"standalone-{name}",
             )
             return
         if ditto_builds is None:
@@ -950,13 +956,16 @@ def prepare_standalone_builder(ditto_builds: DittoBuildLeases | None) -> float:
     """Compile the shared builder before concurrent tests acquire its Cargo target."""
     started = time.monotonic()
     with ci_steps.span("Prepare standalone sample builder"):
-        environment = cargo_environment(None)
-        if ditto_builds is not None:
-            ditto_builds.binary = Path(environment["CARGO_TARGET_DIR"]) / "debug" / "rt"
-        process_priority.run(
-            ["cargo", "build", "-p", "rt"],
-            cwd=REPOSITORY_ROOT, env=environment, check=True,
-        )
+        with cargo_targets.environment(REPOSITORY_ROOT, CI_CACHE_ROOT, None) as environment:
+            process_priority.run(
+                ["cargo", "build", "-p", "rt"], cwd=REPOSITORY_ROOT,
+                **environment.process_options(), check=True,
+            )
+            if ditto_builds is not None:
+                ditto_builds.evidence_root.mkdir(parents=True, exist_ok=True)
+                binary = ditto_builds.evidence_root / executable_name("rt")
+                shutil.copy2(Path(environment["CARGO_TARGET_DIR"]) / "debug" / binary.name, binary)
+                ditto_builds.binary = binary
     return time.monotonic() - started
 
 
@@ -1053,17 +1062,15 @@ def publish_empty_ditto_validation(
 
 def run_reactant_asset_fast_lane() -> None:
     """Run the fast tier's single consolidated CLI and browser process lane."""
-    run_step(
-        "Run Reactant asset CLI/browser scenario",
-        [
-            sys.executable,
-            "scripts/reactant_asset_validation.py",
-            "fast",
-            "--portion",
-            "cli/browser",
-        ],
-        environment=cargo_environment(None),
-    )
+    with cargo_targets.environment(REPOSITORY_ROOT, CI_CACHE_ROOT, None) as environment:
+        run_step(
+            "Run Reactant asset CLI/browser scenario",
+            function=lambda: subprocess.run(
+                [sys.executable, "scripts/reactant_asset_validation.py", "fast",
+                 "--portion", "cli/browser"], cwd=REPOSITORY_ROOT,
+                **environment.process_options(), check=True,
+            ),
+        )
 
 
 def select_native_samples(paths: list[str], samples: list[str]) -> list[str]:
