@@ -486,7 +486,7 @@ The product plan never waives a failed required check.
 | Tasks | Dependency changes, pause/restart/unmount, cancellation within sampling/rollouts, bounded workers, failure/retry, no UI search/join. |
 | Input/presentation | Passing, inspect/reasons, drag cancellation, keyboard/controller confirmation, modal focus, pause/reorientation/reduced motion, stable identity. |
 | Storage | Absent/valid/corrupt, native/browser failure/commit, coalescing, old/new races, retry, termination boundaries, no partial load. |
-| Platform | Mobile builds/lifecycle; desktop WebGL input/shaders/audio activation/storage/reload/finite worker pool. |
+| Platform | Desktop WebGL input/shaders/audio activation/storage/reload/finite worker pool; physical mobile testing is skipped. |
 
 Prefer black-box behavior/native Ditto to implementation-mirroring tests. Complex
 pure rules/sampling tests are useful. Use explicit rare deals, not CI seed search.

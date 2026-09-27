@@ -14,11 +14,11 @@ async (page, context) => {
   return {
     canvas,
     startupDeadline,
-    async click(x, y) {
+    async click(x, y, duration = 200) {
       const box = await canvas.boundingBox();
       if (!box || x < 0 || y < 0 || x >= box.width || y >= box.height) throw new Error('Canvas input is outside the viewport');
-      await page.mouse.click(box.x + x, box.y + y, { delay: 200 });
-      await page.waitForTimeout(200);
+      await page.mouse.click(box.x + x, box.y + y, { delay: duration });
+      await page.waitForTimeout(duration);
       await page.mouse.move(0, 0);
     },
     async capture(name, clip) {

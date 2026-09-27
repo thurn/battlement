@@ -79,7 +79,7 @@ existing-pool substitutions for thematic gaps; retain required engine work.
 | [V01](#v01) | hv-a8o.63 | hv-a8o.64 | hv-a8o.59 | Compare the scene to the reference and improve it — pass 1 |
 | [V02](#v02) | hv-a8o.65 | hv-a8o.66 | hv-a8o.64 | Compare the scene to the reference and improve it — pass 2 |
 | [V03](#v03) | hv-a8o.67 | hv-a8o.68 | hv-a8o.66 | Compare the scene to the reference and improve it — pass 3 |
-| [H30](#h30) | hv-a8o.60 | hv-a8o.61 | hv-a8o.68 | Assemble final automated evidence and mobile review packet |
+| [H30](#h30) | hv-a8o.60 | hv-a8o.61 | hv-a8o.68 | Assemble final automated evidence and desktop review packet |
 
 ## Detailed assignments
 
@@ -479,7 +479,7 @@ remaining discrepancies for the next task.
 
 ### H30
 
-**Assemble final automated evidence and mobile review packet** — hv-a8o.60; review hv-a8o.61.
+**Assemble final automated evidence and desktop review packet** — hv-a8o.60; review hv-a8o.61.
 
 **Scope and interface:** Run final risk-selected rules/engine/native/browser coverage, retain exact source/build evidence, exercise representative warm sample/engine/host CI budgets, and prepare the desktop review packet. Audit all required engine changes and closed introspections.
 

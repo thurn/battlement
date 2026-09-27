@@ -43,3 +43,8 @@ samples = ["chess"]
 paths = ["crates/reactant/src/persistence*.rs", "crates/battlement-native/src/browser_persistence.rs", "Packages/com.battlement.client/Runtime/BattlementPersistence.jslib", "samples/hearts/rules/examples/browser_persistence*", "samples/hearts/rules/src/saved_game.rs", "samples/hearts/rules/src/domain/*", "fixtures/browser-persistence/*", "scripts/browser_persistence_proof.py", "web/checks/persistence.js"]
 reason = "Typed browser persistence must acknowledge real IndexedDB transactions and survive reload, failure, and owner replacement"
 kind = "persistence"
+
+[[risks]]
+paths = ["samples/hearts/rules/src/app.rs", "samples/hearts/rules/src/startup.rs", "samples/hearts/rules/src/card_table.rs", "samples/hearts/rules/src/scene.rs", "samples/hearts/rules/src/audio.rs", "samples/hearts/rules/src/session_save.rs", "samples/hearts/project-assets.json", "samples/hearts/Assets/ThirdParty/*.fbx", "samples/hearts/Assets/ThirdParty/*.png", "samples/hearts/ProjectSettings/QualitySettings.asset"]
+reason = "Hearts WebGL rendering, pointer input, audio activation and durable mid-hand resume"
+samples = ["hearts"]
