@@ -138,10 +138,11 @@ fn fixture(limits: DeliveryLimits) -> Fixture {
     .delivery_limits(limits)
     .root(move |menu| {
       View::new().child((
-        reactant::host::ButtonHost::new(ls("Menu"))
-          .name("menu")
-          .on_click(|menu: &mut u32| *menu += 1),
-        Label::new(ls(menu.to_string())).name("menu-count"),
+        Button::new(ls("Menu"))
+          .host_name("menu")
+          .on_press(|menu: &mut u32| *menu += 1),
+        Text::new(ls(menu.to_string())).host_name("menu-count"),
+        (*menu > 0).then(|| Button::new(ls("Close menu")).on_press(|menu: &mut u32| *menu = 0)),
         GameRoot::new(Board {
           controls: board_controls.clone(),
         }),
@@ -214,6 +215,16 @@ fn pause_freezes_motion_and_wait_while_menu_and_workers_continue() {
 
   display.click_ui(display.find_ui(root, "menu"));
   assert_eq!(text(&display, root, "menu-count"), "1");
+  display.expect_button("Close menu");
+  display.activate_accessible("Close menu");
+  assert_eq!(text(&display, root, "menu-count"), "0");
+  assert!(
+    !display
+      .accessibility()
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Close menu"))
+  );
   display.click_ui(display.find_ui(root, "resume-first"));
   Clock::advance(&mut display, Duration::from_secs(1));
   assert_eq!(x(&display, root), 5.0);
@@ -249,6 +260,16 @@ fn paused_budget_backpressures_and_old_owner_cannot_resume_replacement() {
   assert_eq!(text(&display, root, "stage"), "0");
   display.click_ui(display.find_ui(root, "menu"));
   assert_eq!(text(&display, root, "menu-count"), "1");
+  display.expect_button("Close menu");
+  display.activate_accessible("Close menu");
+  assert_eq!(text(&display, root, "menu-count"), "0");
+  assert!(
+    !display
+      .accessibility()
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Close menu"))
+  );
 
   old_owner.resume();
   display.poll();

@@ -47,7 +47,7 @@ pub(crate) fn environment(aspect: f64) -> impl Render {
   )
 }
 
-pub(crate) fn seats(view: &HumanView, portrait: bool) -> impl Render {
+pub(crate) fn seats(view: &HumanView, portrait: bool, larger_text: bool) -> impl Render {
   [
     (Seat::North, 50.0, if portrait { 13.0 } else { 4.0 }),
     (
@@ -60,7 +60,16 @@ pub(crate) fn seats(view: &HumanView, portrait: bool) -> impl Render {
       if portrait { 84.0 } else { 78.0 },
       if portrait { 28.0 } else { 18.0 },
     ),
-    (Seat::South, 50.0, if portrait { 60.0 } else { 57.0 }),
+    (
+      Seat::South,
+      50.0,
+      match (portrait, larger_text) {
+        (true, true) => 55.0,
+        (true, false) => 60.0,
+        (false, true) => 42.0,
+        (false, false) => 57.0,
+      },
+    ),
   ]
   .into_iter()
   .map(|(seat, left, top)| {
@@ -74,16 +83,19 @@ pub(crate) fn seats(view: &HumanView, portrait: bool) -> impl Render {
       "{name}  ·  {}",
       view.table.totals[seat.index()]
     )))
+    .semantic(reactant::control_behavior::static_text_props(trox::ls(
+      format!("{name}: {} total points", view.table.totals[seat.index()]),
+    )))
     .picking_mode(PickingMode::Ignore)
     .style(
       Style::new()
         .position(Position::Absolute)
         .left(left.pct())
         .top(top.pct())
-        .width(120.px())
-        .margin_left((-60).px())
+        .width(150.px())
+        .margin_left((-75).px())
         .height(32.px())
-        .font_size(22.px())
+        .font_size(if larger_text { 28.px() } else { 22.px() })
         .unity_text_align(TextAnchor::MiddleCenter)
         .color(Color::rgb(0.08, 0.14, 0.06)),
     )

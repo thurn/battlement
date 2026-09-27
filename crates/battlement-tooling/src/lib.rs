@@ -14,6 +14,7 @@ pub mod host;
 pub mod ios_build;
 pub mod ios_target;
 pub mod macos_build;
+mod macos_content_project;
 pub mod odiff_binary;
 pub mod plugin;
 pub mod plugin_build;

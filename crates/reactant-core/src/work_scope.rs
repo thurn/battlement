@@ -48,16 +48,26 @@ pub(crate) fn batches(
   for group in groups {
     let mut split: Vec<(Option<u64>, bool, Vec<Command>)> = Vec::new();
     for command in group {
-      let scope = self::target(&command.body)
-        .and_then(|id| owners.get(&id).copied())
-        .or_else(|| {
-          matches!(
-            command.body,
-            CommandBody::AccessibilityUpdate(_) | CommandBody::GeometryObservationUpdate(_)
-          )
-          .then_some(observation_scope)
-          .flatten()
-        });
+      let scope = if let CommandBody::AccessibilityUpdate(update) = &command.body {
+        update
+          .snapshot
+          .as_ref()
+          .map_or(observation_scope, |snapshot| {
+            snapshot
+              .nodes
+              .iter()
+              .filter_map(|node| owners.get(&node.object_id).copied())
+              .max()
+          })
+      } else {
+        self::target(&command.body)
+          .and_then(|id| owners.get(&id).copied())
+          .or_else(|| {
+            matches!(command.body, CommandBody::GeometryObservationUpdate(_))
+              .then_some(observation_scope)
+              .flatten()
+          })
+      };
       let control = matches!(command.body, CommandBody::MotionValuePlayback(_));
       if let Some((_, _, commands)) = split
         .iter_mut()

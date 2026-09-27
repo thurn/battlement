@@ -109,10 +109,18 @@ fn illegal_cards_are_inspectable_and_selection_then_confirm_admits_one_play() {
       .any(|node| node.label.as_deref() == Some("Open the first trick with the two of clubs."))
   );
   let before = display.world().objects().count();
+  let blocked_card = display.button_event("Two of Clubs");
   display.click_button("Inspect selected card");
   display.flush();
   assert!(display.world().objects().count() > before);
-  display.click_button("Two of Clubs");
+  assert!(
+    !display
+      .accessibility()
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Two of Clubs"))
+  );
+  display.deliver_ui_event(blocked_card);
   display.flush();
   assert_eq!(self::current(&current).game.accepted().version.revision, 0);
   display.click_button("Close inspection");

@@ -181,7 +181,7 @@ pub struct AccessibilityNodeSnapshot {
 /// One complete canonical semantic tree.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct AccessibilitySnapshot {
-  /// Monotonic semantic commit sequence.
+  /// Monotonic semantic commit sequence; hosts ignore obsolete snapshots released after a pause.
   pub commit_sequence: u64,
   /// Canonical semantic roots in document order.
   pub roots: Vec<ObjectId>,

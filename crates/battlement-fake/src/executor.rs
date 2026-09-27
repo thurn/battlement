@@ -767,7 +767,9 @@ where
         .apply_update(value)
         .unwrap_or_else(|error| panic!("geometry registry update failed: {error:?}")),
       CommandBody::AccessibilityUpdate(value) => {
-        if let Some(snapshot) = &value.snapshot {
+        if let Some(snapshot) = &value.snapshot
+          && snapshot.commit_sequence > self.accessibility.commit_sequence
+        {
           for node in &snapshot.nodes {
             assert!(
               self.ui_world.element(node.object_id).is_some()

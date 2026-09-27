@@ -343,3 +343,87 @@ state = "motion.reduced-scored"
 scenario = "Hearts choreography"
 checkpoint = "reduced-scored"
 owner = "choreography_tests"
+
+[[mappings]]
+state = "screens.contextual-help-and-menus.passing-help"
+scenario = "contextual help and menus"
+checkpoint = "passing help"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.contextual-help-and-menus.paused"
+scenario = "contextual help and menus"
+checkpoint = "paused"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.contextual-help-and-menus.larger-settings"
+scenario = "contextual help and menus"
+checkpoint = "larger settings"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.contextual-help-and-menus.larger-table-and-retained-selection"
+scenario = "contextual help and menus"
+checkpoint = "larger table and retained selection"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.contextual-help-and-menus.larger-card-inspection"
+scenario = "contextual help and menus"
+checkpoint = "larger card inspection"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.contextual-help-and-menus.playing-help"
+scenario = "contextual help and menus"
+checkpoint = "playing help"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.contextual-help-and-menus.larger-rules"
+scenario = "contextual help and menus"
+checkpoint = "larger rules"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.contextual-help-and-menus.new-game-confirmation"
+scenario = "contextual help and menus"
+checkpoint = "new game confirmation"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.hand-results-and-next-deal.hand-results"
+scenario = "hand results and next deal"
+checkpoint = "hand results"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.hand-results-and-next-deal.next-hand"
+scenario = "hand results and next deal"
+checkpoint = "next hand"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.moon-hand-results.moon-scoring"
+scenario = "moon hand results"
+checkpoint = "moon scoring"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.match-winner-and-confirmed-replacement.match-results"
+scenario = "match winner and confirmed replacement"
+checkpoint = "match results"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.shared-match-winner.shared-win"
+scenario = "shared match winner"
+checkpoint = "shared win"
+owner = "match_screens"
+
+[[mappings]]
+state = "screens.hold-hand-and-hearts-broken.broken-hearts"
+scenario = "hold hand and hearts broken"
+checkpoint = "broken hearts"
+owner = "match_screens"

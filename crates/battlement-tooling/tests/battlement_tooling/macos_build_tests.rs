@@ -530,6 +530,7 @@ printf 'native rust engine\n' > "$target_dir/$target/$profile/libbattlement_rule
     format!(
       r#"#!/bin/sh
 set -eu
+source_settings=$(cat '{}')
 project=''
 method=''
 log=''
@@ -559,11 +560,18 @@ printf 'settings changed by Unity\n' > "$project/ProjectSettings/ProjectSettings
 mkdir -p "$project/Assets/AddressableAssetsData"
 printf 'generated catalog\n' > "$project/Assets/AddressableAssetsData/catalog.txt"
 printf 'generated addressables metadata\n' > "$project/Assets/AddressableAssetsData.meta"
+test "$(cat '{}')" = "$source_settings"
 printf 'complete Unity build log\n' > "$log"
 "#,
+      self
+        .path("repo/game/ProjectSettings/ProjectSettings.asset")
+        .display(),
       self.transcript.display(),
       self.transcript.display(),
-      self.transcript.display()
+      self.transcript.display(),
+      self
+        .path("repo/game/ProjectSettings/ProjectSettings.asset")
+        .display()
     )
   }
 }

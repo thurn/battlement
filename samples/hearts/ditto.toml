@@ -252,6 +252,8 @@ navigation = { action = "next" }
 [[scenarios.steps]]
 navigation = { action = "next" }
 [[scenarios.steps]]
+navigation = { action = "next" }
+[[scenarios.steps]]
 navigation = { action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "passed" }
@@ -335,6 +337,8 @@ accessibility_action = { target = { role = "button", name = "Effects on" }, acti
 screenshot = { name = "muted" }
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "New game" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Start new game" }, action = "activate" }
 [[scenarios.steps]]
 wait = { object = "controls", state = "enabled" }
 [[scenarios.steps]]
@@ -623,3 +627,147 @@ accessibility_action = { target = { role = "button", name = "Resume search" }, a
 wait = { object = "6644ed66-12dc-4590-9af8-19d174a47072", state = "visible" }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "static-text", name = "Menu 1" }, role = "static-text", name = "Menu 1" }
+
+[[scenarios]]
+name = "contextual help and menus"
+fixture = "teaching"
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Choose three cards to pass" }, role = "dialog", name = "Choose three cards to pass" }
+[[scenarios.steps]]
+screenshot = { name = "passing help" }
+[[scenarios.steps]]
+navigation = { action = "next" }
+[[scenarios.steps]]
+navigation = { action = "activate" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Seven of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Menu" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "paused" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Settings" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "slider", name = "Music volume" }, action = "decrement" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "slider", name = "Effects volume" }, action = "increment" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Text size: standard" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Reduced motion: automatic" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Animation pace: relaxed" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "larger settings" }
+[[scenarios.steps]]
+navigation = { action = "cancel" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Choose three to pass · 1 / 3" }, role = "heading", name = "Choose three to pass · 1 / 3" }
+[[scenarios.steps]]
+screenshot = { name = "larger table and retained selection" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Inspect selected card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "larger card inspection" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Choose three cards to pass." }, role = "static-text", name = "Choose three cards to pass." }
+[[scenarios.steps]]
+navigation = { action = "cancel" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Queen of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "King of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Pass three cards" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Play a card, avoid points" }, role = "dialog", name = "Play a card, avoid points" }
+[[scenarios.steps]]
+screenshot = { name = "playing help" }
+[[scenarios.steps]]
+navigation = { action = "activate" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Menu" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Rules" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "larger rules" }
+[[scenarios.steps]]
+navigation = { action = "cancel" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "New game" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "new game confirmation" }
+[[scenarios.steps]]
+navigation = { action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Two of Clubs" }, role = "button", name = "Two of Clubs" }
+
+[[scenarios]]
+name = "hand results and next deal"
+fixture = "hand-results"
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Hand results" }, role = "heading", name = "Hand results" }
+[[scenarios.steps]]
+screenshot = { name = "hand results" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Next hand" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Pass three cards to the right (East)." }, role = "static-text", name = "Pass three cards to the right (East)." }
+[[scenarios.steps]]
+screenshot = { name = "next hand" }
+
+[[scenarios]]
+name = "moon hand results"
+fixture = "moon-results"
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "You shot the moon! Each opponent receives 26 points." }, role = "static-text", name = "You shot the moon! Each opponent receives 26 points." }
+[[scenarios.steps]]
+screenshot = { name = "moon scoring" }
+
+[[scenarios]]
+name = "match winner and confirmed replacement"
+fixture = "match-results"
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "You won the match" }, role = "heading", name = "You won the match" }
+[[scenarios.steps]]
+screenshot = { name = "match results" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "New game" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Start new game" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Pass three cards to the left (West)." }, role = "static-text", name = "Pass three cards to the left (West)." }
+
+[[scenarios]]
+name = "shared match winner"
+fixture = "tied-results"
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Shared win · You and West" }, role = "heading", name = "Shared win · You and West" }
+[[scenarios.steps]]
+screenshot = { name = "shared win" }
+
+[[scenarios]]
+name = "hold hand and hearts broken"
+fixture = "hold"
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Two of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Play selected card" }, action = "activate" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Hold hand · Your turn · Hearts are broken" }, role = "static-text", name = "Hold hand · Your turn · Hearts are broken" }
+[[scenarios.steps]]
+screenshot = { name = "broken hearts" }

@@ -227,3 +227,59 @@ screen = "hearts"
 [[states]]
 key = "motion.reduced-scored"
 screen = "hearts"
+
+[[states]]
+key = "screens.contextual-help-and-menus.passing-help"
+screen = "hearts"
+
+[[states]]
+key = "screens.contextual-help-and-menus.paused"
+screen = "hearts"
+
+[[states]]
+key = "screens.contextual-help-and-menus.larger-settings"
+screen = "hearts"
+
+[[states]]
+key = "screens.contextual-help-and-menus.larger-table-and-retained-selection"
+screen = "hearts"
+
+[[states]]
+key = "screens.contextual-help-and-menus.larger-card-inspection"
+screen = "hearts"
+
+[[states]]
+key = "screens.contextual-help-and-menus.playing-help"
+screen = "hearts"
+
+[[states]]
+key = "screens.contextual-help-and-menus.larger-rules"
+screen = "hearts"
+
+[[states]]
+key = "screens.contextual-help-and-menus.new-game-confirmation"
+screen = "hearts"
+
+[[states]]
+key = "screens.hand-results-and-next-deal.hand-results"
+screen = "hearts"
+
+[[states]]
+key = "screens.hand-results-and-next-deal.next-hand"
+screen = "hearts"
+
+[[states]]
+key = "screens.moon-hand-results.moon-scoring"
+screen = "hearts"
+
+[[states]]
+key = "screens.match-winner-and-confirmed-replacement.match-results"
+screen = "hearts"
+
+[[states]]
+key = "screens.shared-match-winner.shared-win"
+screen = "hearts"
+
+[[states]]
+key = "screens.hold-hand-and-hearts-broken.broken-hearts"
+screen = "hearts"

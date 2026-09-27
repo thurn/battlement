@@ -11,6 +11,7 @@ use trox::ls;
 use crate::{
   assets,
   domain::{Event, Phase},
+  settings::Preferences,
 };
 
 pub(crate) struct GameAudio {
@@ -73,6 +74,11 @@ pub(crate) fn cue(event: Event) -> Option<(AudioClipAddress, f64)> {
 
 impl Component for SoundControls {
   fn render(&self) -> impl Render {
+    let font = if hooks::use_context::<Preferences>().larger_text {
+      24.0
+    } else {
+      18.0
+    };
     let music = self.mix.music > 0.0;
     let effects = self.mix.effects > 0.0;
     View::new()
@@ -85,13 +91,13 @@ impl Component for SoundControls {
       )
       .child((
         Button::new(ls(if music { "Music on" } else { "Music off" }))
-          .style(self::button_style())
+          .style(self::button_style(font))
           .on_press(self.set_mix.update_callback(|mix| AudioMix {
             music: if mix.music > 0.0 { 0.0 } else { 0.22 },
             ..mix
           })),
         Button::new(ls(if effects { "Effects on" } else { "Effects off" }))
-          .style(self::button_style())
+          .style(self::button_style(font))
           .on_press(self.set_mix.update_callback(|mix| AudioMix {
             effects: if mix.effects > 0.0 { 0.0 } else { 0.65 },
             ..mix
@@ -100,12 +106,12 @@ impl Component for SoundControls {
   }
 }
 
-fn button_style() -> Style {
+fn button_style(font: f32) -> Style {
   Style::new()
     .width(104.px())
     .margin_left(6.px())
     .height(40.px())
-    .font_size(18.px())
+    .font_size(font.px())
     .color(Color::rgb(0.08, 0.14, 0.06))
     .background_color(Color::rgb(0.96, 0.92, 0.77))
     .border_radius(6.px())

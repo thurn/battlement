@@ -38,6 +38,26 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void PausedOlderSnapshotsCannotRestoreDismissedControls()
+        {
+            using var fixture = new Fixture();
+            fixture.ApplySnapshot();
+            fixture.Manager.Apply(
+                new AccessibilityUpdatePayload(
+                    new AccessibilitySnapshot(
+                        2,
+                        Array.Empty<ObjectId>(),
+                        Array.Empty<AccessibilityNodeSnapshot>()
+                    ),
+                    Array.Empty<string>()
+                )
+            );
+            fixture.ApplySnapshot();
+            Assert.That(fixture.Manager.Mirror, Is.Empty);
+            Assert.That(fixture.Activate(fixture.Manager.Generation), Is.False);
+        }
+
+        [Test]
         public void UnnamedRowsRemainInTheirNamedTable()
         {
             using var fixture = new Fixture();

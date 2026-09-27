@@ -82,7 +82,10 @@ namespace Battlement.UI
 
         public void Apply(AccessibilityUpdatePayload update)
         {
-            if (update.Snapshot is AccessibilitySnapshot snapshot)
+            if (
+                update.Snapshot is AccessibilitySnapshot snapshot
+                && snapshot.CommitSequence > commitSequence
+            )
             {
                 Validate(snapshot);
                 mirror.Clear();
@@ -104,7 +107,7 @@ namespace Battlement.UI
 
         internal void Apply(IBattlementAccessibilityUpdateView update)
         {
-            if (update.HasSnapshot)
+            if (update.HasSnapshot && update.CommitSequence > commitSequence)
             {
                 var nodes = new List<AccessibilityNodeSnapshot>(update.NodeCount);
                 for (int index = 0; index < update.NodeCount; index++)

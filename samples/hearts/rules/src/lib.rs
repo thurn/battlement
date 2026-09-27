@@ -20,12 +20,16 @@ pub mod controller;
 pub mod domain;
 mod inspection;
 mod layout_fixture;
+mod match_ui;
+mod menus;
 mod motion_fixture;
 mod particle_fixture;
 mod particles;
 pub mod projection;
 pub mod reducer;
 mod scene;
+mod screens_fixture;
+mod settings;
 
 pub use projection::HumanView;
 

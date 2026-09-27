@@ -12,7 +12,7 @@ use reactant_testing::Display;
 #[test]
 fn every_logical_card_has_its_own_imported_face_and_model_with_one_shared_back() {
   let declaration: serde_json::Value =
-    serde_json::from_str(include_str!("../../project-assets.json")).unwrap();
+    serde_json::from_str(include_str!("../../../project-assets.json")).unwrap();
   let addresses = declaration["addresses"].as_array().unwrap();
   let models = declaration["models"].as_array().unwrap();
   let materials = declaration["materials"].as_array().unwrap();
@@ -88,6 +88,9 @@ fn restoring_then_resetting_displays_only_the_current_human_hand_and_shared_back
   );
   display.click_ui(reset);
   display.flush();
+  assert_eq!(self::displayed_models(&display), expected);
+  display.activate_accessible("Start new game");
+  display.flush();
   let fresh = self::visible_models(&HeartsState::new(43));
   assert_ne!(expected, fresh);
   assert_eq!(self::displayed_models(&display), fresh);
@@ -134,6 +137,9 @@ fn landscape_and_portrait_keep_every_human_card_inside_the_playing_area() {
       Connect::new("test", "test", ScreenSize::new(width, height)),
     );
     display.flush();
+    display.activate_accessible("Got it");
+    display.flush();
+    display.settle();
     assert_eq!(
       self::displayed_models(&display),
       self::visible_models(&HeartsState::new(43))
@@ -168,7 +174,7 @@ fn landscape_and_portrait_keep_every_human_card_inside_the_playing_area() {
   }
 }
 
-fn catalog() -> FakeAssetCatalog {
+pub(crate) fn catalog() -> FakeAssetCatalog {
   let mut catalog = FakeAssetCatalog::new();
   for asset in assets::ASSET_CATALOG {
     match asset {
@@ -187,6 +193,12 @@ fn catalog() -> FakeAssetCatalog {
       PreparedAsset::Material(address) => catalog.add_material(address.clone()),
       _ => panic!("unexpected Hearts asset: {asset:?}"),
     }
+  }
+  for address in [
+    assets::hearts::particles::ACCENT,
+    assets::hearts::particles::MOTES,
+  ] {
+    catalog.add_particle_effect(address);
   }
   catalog
 }
@@ -272,6 +284,8 @@ fn music_and_effects_controls_preserve_playhead_and_new_game_disposes_old_audio(
   display.flush();
   assert_eq!(pass_cues(&display), 1);
   display.activate_accessible("New game");
+  display.flush();
+  display.activate_accessible("Start new game");
   display.flush();
   assert!(display.audio(id).is_none());
   display.settle();

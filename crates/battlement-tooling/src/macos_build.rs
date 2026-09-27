@@ -641,7 +641,8 @@ fn resolve_content(
         .write(&pending.path().join(SOURCE_MANIFEST_FILE))?;
       fs::write(pending.path().join(BUILD_LOG_FILE), [])?;
       let unity_log = pending.path().join("unity.log");
-      let mut unity = unity_command(request, &request.unity_project, "content-miss")?;
+      let project = crate::macos_content_project::stage(request, pending.path())?;
+      let mut unity = unity_editor_command(request, "content-miss")?;
       unity
         .args([
           "-batchmode",
@@ -650,7 +651,7 @@ fn resolve_content(
           "-quit",
           "-projectPath",
         ])
-        .arg(&request.unity_project)
+        .arg(project.path())
         .args([
           "-buildTarget",
           "StandaloneOSX",
@@ -666,6 +667,7 @@ fn resolve_content(
         .env("BATTLEMENT_DITTO_SCENE_PATH", unity_scene(request)?);
       let _lease = UnityEditorLease::acquire_with_control(&request.resource_slots, control)?;
       let output = run_logged(unity, pending.path(), "content", control)?;
+      drop(project);
       append_unity_log(pending.path(), &unity_log)?;
       if !output.status.success() {
         return Ok(Err(failed(pending, "content", &output, now)?));
@@ -795,7 +797,7 @@ fn shell_project(request: &MacosBuildRequest) -> PathBuf {
   request.unity_project.clone()
 }
 
-fn shell_package(request: &MacosBuildRequest) -> PathBuf {
+pub(crate) fn shell_package(request: &MacosBuildRequest) -> PathBuf {
   let canonical = request.repository.join("Packages/com.battlement.client");
   if canonical.is_dir() {
     canonical
@@ -809,36 +811,7 @@ fn stage_shell_project(request: &MacosBuildRequest, staging: &Path) -> Result<St
   let project = staging.join("shell-project");
   fs::create_dir_all(project.join("Assets"))?;
   clone_tree(&source.join("Packages"), &project.join("Packages"))?;
-  let embedded_package = project.join("Packages/com.battlement.client");
-  if !embedded_package.is_dir() {
-    clone_tree(&shell_package(request), &embedded_package)?;
-  }
-  let manifest_path = project.join("Packages/manifest.json");
-  let mut manifest: serde_json::Value = serde_json::from_slice(&fs::read(&manifest_path)?)?;
-  let manifest = manifest
-    .as_object_mut()
-    .context("shell package manifest is not an object")?;
-  manifest.remove("testables");
-  manifest
-    .get_mut("dependencies")
-    .and_then(serde_json::Value::as_object_mut)
-    .context("shell package dependencies are not an object")?
-    .insert(
-      "com.battlement.client".to_owned(),
-      serde_json::Value::String("file:com.battlement.client".to_owned()),
-    );
-  fs::write(&manifest_path, json_bytes(&manifest)?)?;
-  let lock_path = project.join("Packages/packages-lock.json");
-  if lock_path.is_file() {
-    let mut lock: serde_json::Value = serde_json::from_slice(&fs::read(&lock_path)?)?;
-    if let Some(package) = lock["dependencies"]["com.battlement.client"].as_object_mut() {
-      package.insert(
-        "version".to_owned(),
-        serde_json::Value::String("file:com.battlement.client".to_owned()),
-      );
-    }
-    fs::write(lock_path, json_bytes(&lock)?)?;
-  }
+  crate::macos_content_project::embed_client(request, &project)?;
   clone_tree(
     &source.join("ProjectSettings"),
     &project.join("ProjectSettings"),
@@ -890,11 +863,6 @@ fn contract_inputs(request: &MacosBuildRequest) -> Result<Vec<NativeInput>> {
       })
     })
     .collect()
-}
-
-fn unity_command(request: &MacosBuildRequest, project: &Path, reason: &str) -> Result<Command> {
-  unity_editor_command(request, reason)?;
-  crate::transactional_unity_command(project, &request.tools.unity_editor)
 }
 
 fn unity_editor_command(request: &MacosBuildRequest, reason: &str) -> Result<Command> {
@@ -1014,7 +982,7 @@ fn verify_plugin(plugin: &Path, staging: &Path, control: BuildControl<'_>) -> Re
   Ok(())
 }
 
-fn clone_tree(source: &Path, destination: &Path) -> Result<()> {
+pub(crate) fn clone_tree(source: &Path, destination: &Path) -> Result<()> {
   ensure!(
     source.is_dir(),
     "artifact is not a directory: {}",
@@ -1141,7 +1109,10 @@ fn recipe_input(component: &str) -> GeneratedInput {
 }
 
 fn recipe_digest() -> String {
-  format!("{:x}", Sha256::digest(include_bytes!("macos_build.rs")))
+  let mut digest = Sha256::new();
+  digest.update(include_bytes!("macos_build.rs"));
+  digest.update(include_bytes!("macos_content_project.rs"));
+  format!("{:x}", digest.finalize())
 }
 
 fn unity_scene(request: &MacosBuildRequest) -> Result<String> {

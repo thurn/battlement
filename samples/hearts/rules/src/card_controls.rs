@@ -7,6 +7,7 @@ use crate::{
   card_input::{self, CardInput},
   domain::{Phase, Seat},
   inspection::Inspection,
+  settings::Preferences,
 };
 
 pub(crate) struct CardControls(pub PortalTarget);
@@ -15,13 +16,21 @@ impl Component for CardControls {
   fn render(&self) -> impl Render {
     let input = hooks::use_required_context::<CardInput>();
     let viewport = app_context::use_viewport_size();
-    let portrait = viewport.width < viewport.height;
-    let height = if portrait { 106.0 } else { 44.0 };
+    let preferences = hooks::use_context::<Preferences>();
+    let portrait = viewport.width < viewport.height || preferences.larger_text;
+    let font = if preferences.larger_text { 24.0 } else { 16.0 };
+    let height = if preferences.larger_text {
+      142.0
+    } else if portrait {
+      106.0
+    } else {
+      52.0
+    };
     let selected = input.selected_cards().last().copied();
     let description = selected
       .and_then(|token| input.card(token))
       .and_then(|card| card.face)
-      .map(card_input::name);
+      .map(|card| format!("Selected: {}", card_input::name(card)));
     let prompt = match input.phase() {
       Phase::Passing => format!(
         "Choose three to pass · {} / 3",
@@ -78,32 +87,52 @@ impl Component for CardControls {
                   .child(
                     Heading::new(ls(prompt), 2).style(
                       Style::new()
-                        .font_size(16.px())
+                        .font_size(font.px())
                         .width(if portrait { 100.pct() } else { 350.px() })
-                        .height(if portrait { 24.px() } else { 44.px() }),
+                        .height(if portrait { 32.px() } else { 44.px() }),
                     ),
                   ),
-                Label::new(ls(description.unwrap_or_else(|| "No card selected".into())))
-                  .picking_mode(PickingMode::Ignore)
-                  .style(Style::new().width(135.px()).height(if portrait {
-                    24.px()
-                  } else {
-                    44.px()
-                  })),
+                Text::new(ls(description.unwrap_or_else(|| "No card selected".into()))).style(
+                  Style::new()
+                    .font_size(font.px())
+                    .width(if preferences.larger_text {
+                      420.px()
+                    } else {
+                      205.px()
+                    })
+                    .height(if portrait { 32.px() } else { 44.px() }),
+                ),
                 View::new()
                   .picking_mode(PickingMode::Ignore)
                   .style(
                     Style::new()
                       .flex_direction(FlexDirection::Row)
-                      .height(44.px()),
+                      .height(52.px())
+                      .font_size(font.px()),
                   )
                   .child((
                     Button::new(ls("Pass three cards"))
-                      .style(Style::new().height(40.px()).width(140.px()))
+                      .style(
+                        Style::new()
+                          .height(48.px())
+                          .width(if preferences.larger_text {
+                            205.px()
+                          } else {
+                            140.px()
+                          }),
+                      )
                       .disabled(!input.can_pass())
                       .on_press(move || pass.pass()),
                     Button::new(ls("Play selected card"))
-                      .style(Style::new().height(40.px()).width(140.px()))
+                      .style(
+                        Style::new()
+                          .height(48.px())
+                          .width(if preferences.larger_text {
+                            205.px()
+                          } else {
+                            140.px()
+                          }),
+                      )
                       .disabled(!selected.is_some_and(|token| input.can_play(token)))
                       .on_press(move || {
                         if let Some(token) = selected {
@@ -111,7 +140,15 @@ impl Component for CardControls {
                         }
                       }),
                     Button::new(ls("Inspect selected card"))
-                      .style(Style::new().height(40.px()).width(140.px()))
+                      .style(
+                        Style::new()
+                          .height(48.px())
+                          .width(if preferences.larger_text {
+                            205.px()
+                          } else {
+                            140.px()
+                          }),
+                      )
                       .disabled(selected.is_none())
                       .on_press(move || inspect.inspect()),
                   )),

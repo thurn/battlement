@@ -17,6 +17,7 @@ use crate::{
   particles,
   projection::{HumanView, VisibleCard},
   reducer::HeartsReducer,
+  settings::Preferences,
 };
 
 #[derive(Clone, Copy, Default)]
@@ -24,6 +25,7 @@ pub(crate) struct CardTiming {
   pub travel: f64,
   pub deal: bool,
   pub reduced: bool,
+  pub duration_scale: f64,
 }
 
 pub(crate) struct AnimatedTable {
@@ -38,6 +40,7 @@ impl Component for AnimatedTable {
   fn render(&self) -> impl Render {
     let event = reactant::use_game_publication::<ReducerGame<HeartsReducer>>();
     let reduced = motion_config::use_reduced_motion();
+    let duration_scale = reactant::hooks::use_context::<Preferences>().duration_scale();
     let initial_deal = self.fresh && event.is_none();
     let deal = event.as_deref() == Some(&Event::Deal)
       || (initial_deal && self.view.table.phase == Phase::Passing);
@@ -50,10 +53,12 @@ impl Component for AnimatedTable {
         _ => 0.25,
       }
     };
+    let travel = travel * duration_scale;
     let timing = CardTiming {
       travel,
       deal,
       reduced,
+      duration_scale,
     };
     let scope = animation_controls::use_animation_scope();
     let animation_scope = scope.clone();
@@ -69,7 +74,7 @@ impl Component for AnimatedTable {
           return None;
         }
         let arrival = if initial_deal && !reduced {
-          Duration::from_secs_f64(51.0 * 0.045 + travel)
+          Duration::from_secs_f64(51.0 * 0.045 * duration_scale + travel)
         } else if reduced {
           Duration::from_millis(100)
         } else {
@@ -95,7 +100,7 @@ impl Component for AnimatedTable {
           animation_scope,
           sequence.label_at(
             "ready",
-            SequencePosition::Absolute(arrival + Duration::from_secs_f64(hold)),
+            SequencePosition::Absolute(arrival + Duration::from_secs_f64(hold * duration_scale)),
           ),
         ))
       },
@@ -141,7 +146,9 @@ impl CardTiming {
       return child;
     }
     let delay = if self.deal && !self.reduced {
-      seat.map_or(0.0, |seat| (index * 4 + seat.index()) as f64 * 0.045)
+      seat.map_or(0.0, |seat| {
+        (index * 4 + seat.index()) as f64 * 0.045 * self.duration_scale
+      })
     } else {
       0.0
     };

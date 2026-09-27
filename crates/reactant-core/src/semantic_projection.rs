@@ -129,11 +129,44 @@ pub(crate) fn build(
       scroll_axis: draft.semantic.scroll_axis,
     });
   }
-  AccessibilitySnapshot {
+  let mut snapshot = AccessibilitySnapshot {
     commit_sequence,
     roots,
     nodes,
+  };
+  self::retain_top_modal(&mut snapshot);
+  snapshot
+}
+
+fn retain_top_modal(snapshot: &mut AccessibilitySnapshot) {
+  let Some(root) = snapshot
+    .nodes
+    .iter()
+    .rev()
+    .find(|node| node.role == SemanticRole::Dialog)
+    .map(|node| node.object_id)
+  else {
+    return;
+  };
+  let mut retained = HashSet::from([root]);
+  for node in &snapshot.nodes {
+    if node
+      .parent_id
+      .is_some_and(|parent| retained.contains(&parent))
+    {
+      retained.insert(node.object_id);
+    }
   }
+  snapshot
+    .nodes
+    .retain(|node| retained.contains(&node.object_id));
+  snapshot
+    .nodes
+    .iter_mut()
+    .find(|node| node.object_id == root)
+    .expect("modal root")
+    .parent_id = None;
+  snapshot.roots = vec![root];
 }
 
 fn collect_sources<'a>(tree: &'a RenderTree, sources: &mut HashMap<ObjectId, Source<'a>>) {

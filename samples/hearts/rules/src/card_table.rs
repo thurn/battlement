@@ -10,6 +10,7 @@ use crate::{
   choreography::CardTiming,
   domain::Seat,
   projection::{CardToken, HumanView, VisibleCard},
+  settings::Preferences,
 };
 
 const CARD_WIDTH: f64 = 4.31462;
@@ -92,6 +93,12 @@ impl Component for CardTable {
     let inspection_id = hooks::use_memo(Uuid::new_v4, self.inspection.map(|card| card.token));
     let portrait = self.aspect < 1.0;
     let half_width = 5.7 * self.aspect;
+    let larger_text = hooks::use_context::<Preferences>().larger_text;
+    let footer_inset = if larger_text {
+      if portrait { 0.7 } else { 1.8 }
+    } else {
+      0.0
+    };
     let hands: Vec<_> = Seat::ALL
       .into_iter()
       .map(|seat| {
@@ -102,6 +109,7 @@ impl Component for CardTable {
           portrait,
           &destinations,
           self.timing,
+          footer_inset,
         )
       })
       .collect();
@@ -270,6 +278,7 @@ fn hand(
   portrait: bool,
   destinations: &Destinations,
   timing: CardTiming,
+  footer_inset: f64,
 ) -> Node {
   let style = FanStyle {
     timing,
@@ -295,7 +304,7 @@ fn hand(
                 ..style
               },
             )
-            .plane(self::plane(-0.5, -3.0 - row as f64 * 1.55))
+            .plane(self::plane(-0.5, -3.0 - row as f64 * 1.55 + footer_inset))
           })
           .collect::<Vec<_>>(),
       );
@@ -313,7 +322,10 @@ fn hand(
           ..style
         },
       )
-      .plane(self::plane(-0.5, -4.0 - self::rise(cards.len(), 0.01))),
+      .plane(self::plane(
+        -0.5,
+        -4.0 - self::rise(cards.len(), 0.01) + footer_inset,
+      )),
     );
   }
   let (x, z, angle, width, spacing) = match seat {

@@ -344,7 +344,7 @@ namespace Battlement.UI
             }
             if (next == surface.ActiveModal)
             {
-                if (next is not null && !next.FocusActivated && PresentationReady(next))
+                if (next is not null && !ContainsFocus(next) && PresentationReady(next))
                     FocusModal(next);
                 return;
             }
@@ -392,13 +392,11 @@ namespace Battlement.UI
             {
                 FocusRequired(entry, requested);
                 entry.LastFocused = requested;
-                entry.FocusActivated = true;
                 return;
             }
             VisualElement? fallback = SequentialTraversal(entry).FirstOrDefault();
             FocusRequired(entry, fallback ?? entry.Wrapper);
             entry.LastFocused = fallback ?? entry.Wrapper;
-            entry.FocusActivated = true;
         }
 
         private void OnFocusIn(FocusInEvent eventValue)
@@ -758,7 +756,6 @@ namespace Battlement.UI
             public int SourceOrdinal { get; set; }
             public bool Waiting { get; set; }
             public bool WrapperCurrent { get; set; }
-            public bool FocusActivated { get; set; }
             public bool HostFill { get; set; }
             public VisualElement? LastFocused { get; set; }
 
