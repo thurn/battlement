@@ -4,6 +4,7 @@ use std::{
   collections::BTreeSet,
   fs::{self, File},
   io::{self, Write},
+  mem,
   path::{Path, PathBuf},
 };
 
@@ -14,12 +15,12 @@ use uuid::Uuid;
 use crate::wire::{
   common::{ErrorCode, ErrorSource},
   result::{ErrorOccurrence, RunResult, RunStatus},
-  result_format, run_storage_io, validation,
+  run_index::{self, RunIndex},
+  run_storage_io, validation,
 };
 
 pub const DEFAULT_RETENTION_BYTES: u64 = 1024 * 1024 * 1024;
 pub const RETENTION_SECONDS: u64 = 7 * 24 * 60 * 60;
-const INDEX_FILE: &str = "index.json";
 
 /// One active, exclusively owned run directory.
 #[derive(Debug)]
@@ -84,6 +85,7 @@ pub struct RunMaintenance {
 pub struct RunStore {
   pub(super) root: PathBuf,
   pub(super) index: RunIndex,
+  baseline: RunIndex,
 }
 
 impl RunStore {
@@ -91,19 +93,18 @@ impl RunStore {
   pub fn open(root: impl Into<PathBuf>) -> Result<Self> {
     let root = root.into();
     fs::create_dir_all(&root).with_context(|| format!("create run store {}", root.display()))?;
-    let index_path = root.join(INDEX_FILE);
-    let mut index = if index_path.exists() {
-      let bytes = fs::read(&index_path).context("read run index")?;
-      serde_json::from_slice(&bytes).context("parse run index")?
-    } else {
-      RunIndex::default()
-    };
-    validate_index(&index)?;
+    let mut index = run_index::read(&root)?;
+    let baseline = index.clone();
     let changed = reconcile_index(&root, &mut index)?;
+    let mut store = Self {
+      root,
+      index,
+      baseline,
+    };
     if changed {
-      run_storage_io::write_atomic(&index_path, &result_format::canonical_pretty_json(&index)?)?;
+      store.sync_index()?;
     }
-    Ok(Self { root, index })
+    Ok(store)
   }
 
   /// Allocates a run, its event stream, active lease, and first partial result.
@@ -114,6 +115,10 @@ impl RunStore {
     now_unix_s: u64,
   ) -> Result<ActiveRun> {
     validation::identifier("run_id", &initial.run_id)?;
+    self.sync_index()?;
+    let lock = run_index::lock(&self.root)?;
+    self.index = run_index::read(&self.root)?;
+    self.baseline = self.index.clone();
     ensure!(
       !self
         .index
@@ -123,8 +128,8 @@ impl RunStore {
       "run ID is already indexed"
     );
     let path = self.run_directory(&initial.run_id)?;
-    ensure!(!path.exists(), "run directory already exists");
-    fs::create_dir_all(path.join("logs")).context("create run logs directory")?;
+    fs::create_dir(&path).with_context(|| format!("allocate run directory {}", path.display()))?;
+    fs::create_dir(path.join("logs")).context("create run logs directory")?;
     File::create(path.join("logs/events.jsonl")).context("create run event stream")?;
     initial.artifacts = run_storage_io::scan_artifacts(&path)?;
     initial.validate()?;
@@ -143,7 +148,9 @@ impl RunStore {
       artifact_bytes: run_storage_io::directory_bytes(&path)?,
       artifacts_evicted: false,
     });
-    self.persist_index()?;
+    run_index::write(&self.root, &self.index)?;
+    self.baseline = self.index.clone();
+    mem::drop(lock);
     writeln!(stderr, "DITTO_RUN_DIR={}", path.display()).context("write run directory progress")?;
     Ok(ActiveRun {
       run_id: initial.run_id,
@@ -170,7 +177,7 @@ impl RunStore {
     entry.repository = Some(repository.to_string_lossy().into_owned());
     entry.suite = Some(suite.to_owned());
     entry.last_accessed_unix_s = now_unix_s;
-    self.persist_index()
+    self.sync_index()
   }
 
   /// Atomically replaces the recoverable partial result.
@@ -213,7 +220,7 @@ impl RunStore {
     entry.last_accessed_unix_s = now_unix_s;
     entry.terminal_status = Some(result.status);
     entry.artifact_bytes = bytes;
-    self.persist_index()?;
+    self.sync_index()?;
     Ok(active.path.join(run_storage_io::RESULT_FILE))
   }
 
@@ -260,14 +267,15 @@ impl RunStore {
     }
     release?;
     self.entry_mut(source_run_id)?.last_accessed_unix_s = now_unix_s;
-    self.persist_index()
+    self.sync_index()
   }
 
   /// Loads an authoritative result and updates its LRU access time.
   pub fn load_result(&mut self, run_id: &str, now_unix_s: u64) -> Result<RunResult> {
+    self.sync_index()?;
     let result = self.peek_result(run_id)?;
     self.entry_mut(run_id)?.last_accessed_unix_s = now_unix_s;
-    self.persist_index()?;
+    self.sync_index()?;
     Ok(result)
   }
 
@@ -282,7 +290,7 @@ impl RunStore {
       .with_context(|| format!("run result is missing: {}", path.display()))
   }
 
-  /// Returns the immutable lightweight index in allocation order.
+  /// Returns this owner's last synchronized index in allocation order.
   pub fn entries(&self) -> &[RunIndexEntry] {
     &self.index.entries
   }
@@ -301,11 +309,10 @@ impl RunStore {
       .ok_or_else(|| anyhow::anyhow!("run is not indexed"))
   }
 
-  pub(super) fn persist_index(&self) -> Result<()> {
-    run_storage_io::write_atomic(
-      &self.root.join(INDEX_FILE),
-      &result_format::canonical_pretty_json(&self.index)?,
-    )
+  pub(super) fn sync_index(&mut self) -> Result<()> {
+    self.index = run_index::merge(&self.root, &self.baseline, &self.index)?;
+    self.baseline = self.index.clone();
+    Ok(())
   }
 
   fn prepare_result(
@@ -329,7 +336,7 @@ impl RunStore {
     let entry = self.entry_mut(&active.run_id)?;
     entry.last_accessed_unix_s = now_unix_s;
     entry.artifact_bytes = bytes;
-    self.persist_index()
+    self.sync_index()
   }
 }
 
@@ -360,12 +367,6 @@ impl ActiveRun {
   }
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct RunIndex {
-  pub(super) entries: Vec<RunIndexEntry>,
-}
-
 pub(super) fn recover_result(mut result: RunResult, durability_failure: bool) -> Result<RunResult> {
   if durability_failure {
     let next = result.errors.len() + 1;
@@ -390,15 +391,6 @@ pub(super) fn recover_result(mut result: RunResult, durability_failure: bool) ->
     result.exit_code = 130;
   }
   Ok(result)
-}
-
-fn validate_index(index: &RunIndex) -> Result<()> {
-  let mut ids = BTreeSet::new();
-  for entry in &index.entries {
-    validation::identifier("run index ID", &entry.run_id)?;
-    ensure!(ids.insert(&entry.run_id), "run index IDs must be unique");
-  }
-  Ok(())
 }
 
 fn reconcile_index(root: &Path, index: &mut RunIndex) -> Result<bool> {

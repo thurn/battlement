@@ -19,6 +19,7 @@ mod result_format;
 mod result_nested_validation;
 mod result_validation;
 mod review_validation;
+mod run_index;
 mod run_retention;
 pub(crate) mod run_storage_io;
 mod validation;

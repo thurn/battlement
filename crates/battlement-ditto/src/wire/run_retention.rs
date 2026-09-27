@@ -4,7 +4,7 @@ use anyhow::{Context, Result, ensure};
 use uuid::Uuid;
 
 use crate::wire::{
-  run_storage,
+  run_index, run_storage,
   run_storage::{
     ActiveRun, EvictedRun, RETENTION_SECONDS, RecoveredRun, RunCleanupPreview, RunCleanupScope,
     RunMaintenance, RunStore,
@@ -22,6 +22,7 @@ impl RunStore {
 
   /// Converts every expired partial run into an interrupted or durability result.
   pub fn recover_abandoned(&mut self, now_unix_s: u64) -> Result<Vec<RecoveredRun>> {
+    self.sync_index()?;
     let runs: Vec<_> = self
       .index
       .entries
@@ -81,12 +82,13 @@ impl RunStore {
         status: result.status,
       });
     }
-    self.persist_index()?;
+    self.sync_index()?;
     Ok(recovered)
   }
 
   /// Evicts expired and least-recently-used inactive terminal run artifacts.
   pub fn cleanup(&mut self, now_unix_s: u64, maximum_bytes: u64) -> Result<Vec<EvictedRun>> {
+    self.sync_index()?;
     let mut candidates = Vec::new();
     let mut retained_bytes = 0_u64;
     for entry in &mut self.index.entries {
@@ -143,7 +145,7 @@ impl RunStore {
         artifact_bytes: bytes,
       });
     }
-    self.persist_index()?;
+    self.sync_index()?;
     Ok(evicted)
   }
 
@@ -154,8 +156,7 @@ impl RunStore {
     now_unix_s: u64,
   ) -> Result<RunCleanupPreview> {
     let mut preview = RunCleanupPreview::default();
-    for entry in self
-      .index
+    for entry in run_index::read(&self.root)?
       .entries
       .iter()
       .filter(|entry| in_scope(entry, scope))
@@ -196,6 +197,7 @@ impl RunStore {
     preview: &RunCleanupPreview,
     now_unix_s: u64,
   ) -> Result<Vec<EvictedRun>> {
+    self.sync_index()?;
     let mut evicted = Vec::new();
     for planned in &preview.inactive {
       let directory = self.run_directory(&planned.run_id)?;
@@ -221,7 +223,7 @@ impl RunStore {
       entry.artifacts_evicted = true;
       evicted.push(planned.clone());
     }
-    self.persist_index()?;
+    self.sync_index()?;
     Ok(evicted)
   }
 }
