@@ -461,6 +461,7 @@ namespace Battlement.UI
             private readonly UiAlign justifyItems;
             private readonly BattlementGridPlacement[] placements;
             private readonly float[] rows;
+            private readonly (float Width, float Height)[] preferred;
             private readonly float width;
 
             public GridSignature(
@@ -480,23 +481,33 @@ namespace Battlement.UI
                 this.placements = placements.ToArray();
                 this.columns = columns.ToArray();
                 this.rows = rows.ToArray();
+                preferred = children
+                    .Select(child => (PreferredWidth(child), PreferredHeight(child)))
+                    .ToArray();
                 this.width = width;
                 this.height = height;
                 this.alignItems = alignItems;
                 this.justifyItems = justifyItems;
             }
 
-            public bool Equals(GridSignature? other) =>
-                other is not null
-                && width.Equals(other.width)
-                && height.Equals(other.height)
-                && alignItems == other.alignItems
-                && justifyItems == other.justifyItems
-                && children.SequenceEqual(other.children)
-                && items.SequenceEqual(other.items)
-                && placements.SequenceEqual(other.placements)
-                && columns.SequenceEqual(other.columns)
-                && rows.SequenceEqual(other.rows);
+            public bool Equals(GridSignature? other)
+            {
+                if (other is null)
+                    return false;
+                if (!width.Equals(other.width) || !height.Equals(other.height))
+                    return false;
+                if (alignItems != other.alignItems || justifyItems != other.justifyItems)
+                    return false;
+                if (
+                    !children.SequenceEqual(other.children)
+                    || !items.SequenceEqual(other.items)
+                    || !placements.SequenceEqual(other.placements)
+                )
+                    return false;
+                return columns.SequenceEqual(other.columns)
+                    && rows.SequenceEqual(other.rows)
+                    && preferred.SequenceEqual(other.preferred);
+            }
         }
     }
 }

@@ -211,6 +211,103 @@ namespace Battlement.Tests
         }
 
         [UnityTest]
+        public IEnumerator FixedTrackItemsRealignAfterTextSizeChanges()
+        {
+            var owned = new GameObject("binding table rows");
+            var panel = ScriptableObject.CreateInstance<PanelSettings>();
+            var texture = new RenderTexture(1024, 1024, 24);
+            texture.Create();
+            panel.targetTexture = texture;
+            panel.scaleMode = UnityEngine.UIElements.PanelScaleMode.ConstantPixelSize;
+            panel.scale = 1;
+            UIDocument document = owned.AddComponent<UIDocument>();
+            document.panelSettings = panel;
+            var table = new VisualElement();
+            table.style.width = 839;
+            var rows = new VisualElement[2];
+            var grids = new BattlementLayoutContainer[2];
+            var labels = new Label[2];
+            var controls = new VisualElement[2];
+            for (int index = 0; index < rows.Length; index++)
+            {
+                var row = new VisualElement();
+                row.style.minHeight = 318;
+                var grid = new BattlementLayoutContainer(BattlementLayoutContainerKind.Grid);
+                grid.style.width = new Length(100, LengthUnit.Percent);
+                grid.ApplyGrid(
+                    new UiElement.Grid
+                    {
+                        Columns = new GridTrack[] { new GridTrack.Fraction(1) },
+                        Rows = new GridTrack[] { new GridTrack.Px(140), new GridTrack.Px(220) },
+                        AlignItems = UiAlign.Center,
+                    }
+                );
+                var label = new Label(index == 0 ? "Gauche" : "Droite");
+                label.style.fontSize = 54;
+                label.style.whiteSpace = WhiteSpace.Normal;
+                label.style.paddingLeft = 18;
+                label.style.marginTop = 0;
+                label.style.marginBottom = 0;
+                var cell = new VisualElement();
+                cell.style.alignItems = Align.Center;
+                cell.style.justifyContent = Justify.Center;
+                var control = new VisualElement();
+                control.style.height = 150;
+                control.style.width = 410;
+                cell.Add(control);
+                grid.Adapter.Insert(label, 0);
+                grid.Adapter.Insert(cell, 1);
+                row.Add(grid);
+                table.Add(row);
+                rows[index] = row;
+                grids[index] = grid;
+                labels[index] = label;
+                controls[index] = control;
+            }
+            document.rootVisualElement.Add(table);
+            try
+            {
+                for (int frame = 0; frame < 18; frame++)
+                {
+                    UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+                    yield return null;
+                }
+                foreach (Label label in labels)
+                    label.style.fontSize = 108;
+                for (int frame = 0; frame < 12; frame++)
+                {
+                    UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+                    yield return null;
+                }
+                for (int index = 0; index < rows.Length; index++)
+                {
+                    Assert.That(
+                        labels[index].worldBound.center.y - grids[index].worldBound.y,
+                        Is.EqualTo(70).Within(1)
+                    );
+                    Assert.That(grids[index].layout.height, Is.EqualTo(360).Within(1));
+                    Assert.That(rows[index].layout.height, Is.GreaterThanOrEqualTo(359));
+                    Assert.That(
+                        controls[index].worldBound.yMin,
+                        Is.GreaterThanOrEqualTo(labels[index].worldBound.yMax - 1)
+                    );
+                    Assert.That(grids[index].GridLayout!.DiagnosticCount, Is.Zero);
+                }
+                Assert.That(
+                    rows[1].worldBound.yMin,
+                    Is.GreaterThanOrEqualTo(controls[0].worldBound.yMax - 1)
+                );
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+                Object.DestroyImmediate(panel);
+                texture.Release();
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator MinimumHeightCentersContentAndResolvesPercentageItems()
         {
             var owned = new GameObject("grid alignment");
