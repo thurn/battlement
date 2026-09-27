@@ -87,6 +87,9 @@ status = os.environ.get("FAKE_STATUS", "passed")
 disposition = "reused" if "--no-build" in arguments else "created"
 config = Path(arguments[arguments.index("--config") + 1])
 sample = config.parent.name
+if prepared := os.environ.get("DITTO_CI_PREPARED_BUILDS"):
+    assert os.environ["DITTO_REPLAY_BUILD_FINGERPRINT"] == json.loads(prepared)[sample]
+    assert "--no-build" in arguments
 if (
     sample in os.environ.get("FAKE_MISSING_EXACT", "").split(",")
     and "--no-build" in arguments
@@ -114,7 +117,9 @@ elif result_mode == "malformed":
     output.write_text("{")
 if os.environ.get("DITTO_REPLAY_BUILD_FINGERPRINT"):
     assert os.environ["DITTO_REPLAY_BUILD_FINGERPRINT"] == "a" * 64
-    Path(os.environ["FAKE_REPLAY_MARKER"]).write_text("replayed")
+    if marker := os.environ.get("FAKE_REPLAY_MARKER"):
+        Path(marker).write_text("replayed")
+    assert "--no-build" in arguments
 time.sleep(float(os.environ.get("FAKE_SLEEP_AFTER_RESULT", "0")))
 raise SystemExit(0 if status == "passed" else 1)
 '''
@@ -297,6 +302,17 @@ def main() -> None:
             "created",
             "created",
         ]
+
+        pinned = environment | {"DITTO_CI_PREPARED_BUILDS": json.dumps({"ui": "a" * 64})}
+        pinned_gate = run(["gate", "--sample", "ui"], pinned)
+        assert pinned_gate.returncode == 0, pinned_gate.stderr
+        pinned_report = json.loads((artifact_root(pinned_gate) / "gate.json").read_text())
+        assert pinned_report["samples"][0]["build"] == "reused"
+        missing_pinned = run(["gate", "--sample", "ui"], pinned | {"FAKE_MISSING_EXACT": "ui"})
+        assert missing_pinned.returncode == 1, "pinned player must not rebuild from mutable source"
+        wrong_selection = run(["gate", "--sample", "chess"], pinned)
+        assert wrong_selection.returncode == 1
+        assert "do not match" in wrong_selection.stderr
 
         gated = run(["gate"], environment)
         assert gated.returncode == 0, gated.stderr

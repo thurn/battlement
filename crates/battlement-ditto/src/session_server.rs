@@ -35,6 +35,7 @@ use crate::{
 };
 
 const MAXIMUM_JSON_BYTES: usize = 1024 * 1024;
+const MAXIMUM_SCENARIO_BYTES: usize = 16 * 1024 * 1024;
 const MAXIMUM_PNG_BYTES: usize = 64 * 1024 * 1024;
 const NEXT_JOB_WAIT: Duration = Duration::from_secs(30);
 
@@ -844,7 +845,7 @@ fn scenario(
   if query.is_some() || Uuid::parse_str(scenario_id).is_err() {
     return state.error(400, "scenario completion route is malformed");
   }
-  let body = match request_body(request, "application/json", MAXIMUM_JSON_BYTES) {
+  let body = match request_body(request, "application/json", MAXIMUM_SCENARIO_BYTES) {
     Ok(body) => body,
     Err(error) => return request_body_error(state, error, "application/json"),
   };

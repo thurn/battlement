@@ -303,6 +303,8 @@ def execute_sample(
     if preparation or scenarios is not None:
         arguments.extend(expected)
     environment = ditto_environment(cache_root)
+    if expected_fingerprint is not None and preparation is None:
+        environment["DITTO_REPLAY_BUILD_FINGERPRINT"] = expected_fingerprint
     recipe = ditto_replay.record(
         REPOSITORY_ROOT, DITTO, cache_root, sample, expected, environment,
         runner_arguments=["ditto"],
@@ -395,18 +397,28 @@ def gate(samples: tuple[str, ...] = SAMPLES) -> None:
     """Run every process-isolated canonical suite concurrently."""
     platform_report()
     _, scenario_count, screenshot_count = inventory(samples)
+    prepared = json.loads(os.environ.get("DITTO_CI_PREPARED_BUILDS", "null"))
+    if prepared is not None:
+        if not isinstance(prepared, dict) or set(prepared) != set(samples):
+            raise RuntimeError("Prepared native builds do not match the selected samples")
+        for fingerprint in prepared.values():
+            if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+                raise RuntimeError("Prepared native build has no SHA256 fingerprint")
+            if any(character not in "0123456789abcdef" for character in fingerprint):
+                raise RuntimeError("Prepared native build fingerprint is not hexadecimal")
     started = time.monotonic()
     results = []
     failures = []
     with ThreadPoolExecutor(max_workers=len(SAMPLES)) as executor:
-        # Each process selects or materializes its exact build before launching.
+        # Prepared players stay pinned while sibling WebGL builds mutate Unity caches.
         pending = {
             executor.submit(
                 contextvars.copy_context().run,
                 execute_sample,
                 sample,
                 retain=False,
-                allow_build=True,
+                expected_fingerprint=prepared[sample] if prepared is not None else None,
+                allow_build=prepared is None,
             ): sample
             for sample in samples
         }

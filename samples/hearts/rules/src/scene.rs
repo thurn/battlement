@@ -27,6 +27,10 @@ pub(crate) fn environment(aspect: f64) -> impl Render {
         0,
         assets::hearts::materials::CLEARING,
       )]),
+    world::Cylinder::new()
+      .position(Vector3::new(0.0, 0.005, 0.0))
+      .scale(Vector3::new(half_width * 1.30, 0.005, 7.0))
+      .materials([MaterialAssignment::new(0, assets::hearts::materials::SAND)]),
     world::Group::new().rotation(self::yaw(-35.0)).child(
       world::Light::new()
         .light_type(LightType::Directional)
@@ -40,7 +44,7 @@ pub(crate) fn environment(aspect: f64) -> impl Render {
         .light_type(LightType::Directional)
         .rotation(self::pitch(35.0))
         .color(Color::rgb(0.75, 0.84, 1.0))
-        .intensity(0.15)
+        .intensity(0.25)
         .shadows(ShadowMode::None),
     ),
     self::forest(half_width, portrait),

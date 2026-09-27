@@ -408,7 +408,8 @@ fn mutating_routes_replay_exact_requests_without_repeating_host_work() {
   );
   assert_eq!(artifact_conflict.status, 409);
 
-  let scenario_body = passed_scenario();
+  let mut scenario_body = passed_scenario();
+  scenario_body.resize(1024 * 1024 + 1, b' ');
   let scenario_id = values["scenario_complete"]["scenario_id"]
     .as_str()
     .unwrap()
@@ -417,6 +418,16 @@ fn mutating_routes_replay_exact_requests_without_repeating_host_work() {
     "{}/jobs/{}/scenarios/{scenario_id}/complete",
     server.base_url(),
     job().job_id
+  );
+  assert_http_error(
+    exchange(
+      "POST",
+      &scenario_url,
+      &[("Content-Type", "application/json")],
+      &[],
+      Some(16 * 1024 * 1024 + 1),
+    ),
+    413,
   );
   let first_scenario = json_request("POST", &scenario_url, &scenario_body);
   let replay_scenario = json_request("POST", &scenario_url, &scenario_body);

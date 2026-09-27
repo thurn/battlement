@@ -561,7 +561,6 @@ Do not infer an irreducible coverage/budget conflict from elapsed time alone.
 
 Completion requires a polished full match, substantive Reactant improvements used
 by Hearts/chess, closed blocking introspections, passing automated validation
-within budget, visual/audio evidence, mobile deliverables, and user-owned device/
-performance and final aesthetic sign-off. Planning completion requires this
+within budget, visual/audio evidence, and final user aesthetic sign-off. Planning completion requires this
 document, preserved independent reference, and verified deferred native graph to
 be reviewed and delivered; it does not claim future implementation already exists.

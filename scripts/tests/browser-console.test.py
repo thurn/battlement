@@ -24,6 +24,9 @@ process.stdin.on('end', async () => {
     {name:'verified Unity startup', stack:unity, message:warning, passes:true},
     {name:'unidentified blocking', stack:'Error\n at another_operation()', message:warning},
     {name:'other GUID caller', stack:'Error\n at build.wasm.UnityGUID::Init()', message:warning},
+    {name:'verified Unity reload', stack:unity, message:warning, connected:true, navigation:'main', passes:true},
+    {name:'subframe keeps runtime boundary', stack:unity, message:warning, connected:true, navigation:'child'},
+    {name:'reconnected runtime blocking', stack:unity, message:warning, connected:true, navigation:'main', reconnected:true},
     {name:'runtime blocking', stack:unity, message:warning, connected:true},
     {name:'ordinary error', stack:unity, message:'Storage transaction failed'},
     {name:'missing stack', stack:'', message:warning},
@@ -35,7 +38,9 @@ process.stdin.on('end', async () => {
   for (const scenario of cases) {
     const listeners = new Map();
     const emit = (type, text) => listeners.get('console')({type:()=>type,text:()=>text});
+    const mainFrame = {};
     const page = {
+      mainFrame() { return mainFrame; },
       on(name, callback) { listeners.set(name, callback); },
       off(name) { listeners.delete(name); },
       setDefaultTimeout() {},
@@ -48,6 +53,8 @@ process.stdin.on('end', async () => {
         vm.runInNewContext('('+callback+')('+JSON.stringify(argument)+')',realm);
         this.runMessages = () => {
           if(scenario.connected) emit('log','battlement.host.connected');
+          if(scenario.navigation) listeners.get('framenavigated')(scenario.navigation === 'main' ? mainFrame : {});
+          if(scenario.reconnected) emit('log','battlement.host.connected');
           realm.console.error(scenario.message);
         };
       },

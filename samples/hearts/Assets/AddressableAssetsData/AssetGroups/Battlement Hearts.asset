@@ -235,6 +235,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5b72d652f4bc5408a9f3dbc18bc20979
+    m_Address: hearts/materials/sand
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5bc307d1c967543c2b7dbce1fde2b19b
     m_Address: hearts/cards/hearts/seven
     m_ReadOnly: 0

@@ -666,23 +666,24 @@ def run_unity_edit_mode_tests(assemblies: tuple[str, ...]) -> None:
     with tempfile.NamedTemporaryFile(prefix="battlement-unity-tests-results.", delete=False) as result_file:
         test_results = Path(result_file.name)
     native_fixture = REPOSITORY_ROOT / "target/unity-native-fixture/release"
+    native_fixture.mkdir(parents=True, exist_ok=True)
     native_fixture_link = REPOSITORY_ROOT / (
         "battlement_rules.dll" if platform.system() == "Windows" else "battlement_rules"
     )
     tests_passed = False
     try:
-        process_priority.run(
-            [
-                "cargo", "build", "--quiet", "--release", "-p", "battlement-native-export-fixture",
-                "--target-dir", str(REPOSITORY_ROOT / "target/unity-native-fixture"),
-            ],
-            cwd=REPOSITORY_ROOT,
-            check=True,
-        )
         library_name = {
             "Darwin": "libbattlement_rules.dylib",
             "Linux": "libbattlement_rules.so",
         }.get(platform.system(), "battlement_rules.dll")
+        with cargo_targets.environment(REPOSITORY_ROOT, CI_CACHE_ROOT, None) as cargo:
+            process_priority.run(
+                ["cargo", "build", "--quiet", "--release", "-p", "battlement-native-export-fixture"],
+                cwd=REPOSITORY_ROOT, **cargo.process_options(), check=True,
+            )
+            # Unity consumes a private copy after the mutable compiler lease ends.
+            library = Path(cargo["CARGO_TARGET_DIR"]) / "release" / library_name
+            shutil.copy2(library, native_fixture / library_name)
         shutil.copy2(native_fixture / library_name, native_fixture_link)
         environment = os.environ.copy()
         for variable in ("DYLD_LIBRARY_PATH", "LD_LIBRARY_PATH"):
@@ -691,23 +692,24 @@ def run_unity_edit_mode_tests(assemblies: tuple[str, ...]) -> None:
             )
         environment["PATH"] = os.pathsep.join((str(native_fixture), environment["PATH"]))
         assembly_names = ";".join(assemblies)
-        with unity_project_transaction(REPOSITORY_ROOT, "edit-mode-tests") as transaction:
-            result = transaction.run(
-                [
-                    str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
-                    "-projectPath", str(REPOSITORY_ROOT), "-runTests", "-testPlatform",
-                    "EditMode", "-assemblyNames", assembly_names, "-testResults",
-                    str(test_results), "-logFile", str(test_log),
-                ],
-                cwd=REPOSITORY_ROOT,
-                env=environment,
-            )
-        if result.returncode != 0:
-            # Unity can leave its empty project lock behind when compilation aborts
-            # batch mode before normal editor shutdown. The process above has exited
-            # and this operation holds the repository's exclusive editor lease.
-            (REPOSITORY_ROOT / "Temp/UnityLockfile").unlink(missing_ok=True)
-        wait_for_unity_project_unlock()
+        with unity_editor_lease():
+            with unity_project_transaction(REPOSITORY_ROOT, "edit-mode-tests") as transaction:
+                result = transaction.run(
+                    [
+                        str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
+                        "-projectPath", str(REPOSITORY_ROOT), "-runTests", "-testPlatform",
+                        "EditMode", "-assemblyNames", assembly_names, "-testResults",
+                        str(test_results), "-logFile", str(test_log),
+                    ],
+                    cwd=REPOSITORY_ROOT,
+                    env=environment,
+                )
+            if result.returncode != 0:
+                # Unity can leave its empty project lock behind when compilation aborts
+                # batch mode before normal editor shutdown. The process above has exited
+                # and this operation holds the repository's exclusive editor lease.
+                (REPOSITORY_ROOT / "Temp/UnityLockfile").unlink(missing_ok=True)
+            wait_for_unity_project_unlock()
         results = test_results.read_text(encoding="utf-8", errors="replace")
         if result.returncode != 0:
             failed_cases = re.findall(
@@ -780,7 +782,7 @@ def run_selected_unity_tests(
             f"unity-edit-mode-{selection.scope.value}",
             selection.cache_inputs,
             lambda: run_unity_edit_mode_tests(selection.assemblies),
-            lease=unity_editor_lease,
+            lease=nullcontext,
         ),
     )
 
@@ -995,6 +997,7 @@ def run_ditto_validation(
         ditto_builds.assert_healthy()
         environment["DITTO_CI_CACHE_ROOT"] = str(ditto_builds.cache_root)
         environment["DITTO_CI_BINARY"] = str(ditto_builds.binary)
+        environment["DITTO_CI_PREPARED_BUILDS"] = json.dumps(ditto_builds.fingerprints())
     command = [sys.executable, "scripts/ditto_ci.py", "gate"]
     if explicit_samples:
         for sample in samples:

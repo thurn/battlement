@@ -33,6 +33,45 @@ const SESSION_1: &str = "03000000-0000-4000-8000-000000000001";
 const SESSION_2: &str = "03000000-0000-4000-8000-000000000002";
 
 #[test]
+fn interruption_preserves_completed_prefix_and_its_job_identity() {
+  let directory = TempDir::new().unwrap();
+  let path = directory.path().join("orchestration.json");
+  let orchestrator = ScenarioOrchestrator::new(
+    self::job(3),
+    SESSION_1.to_owned(),
+    path.clone(),
+    None,
+    Arc::new(|| 0),
+    Arc::new(TestMaterializer),
+  )
+  .unwrap();
+  orchestrator
+    .scenario_complete(&self::completion(
+      0,
+      ExecutionStatus::Passed,
+      self::passed_boundary(),
+    ))
+    .unwrap();
+  let snapshot = orchestrator.interrupt().unwrap();
+  assert_eq!(snapshot.jobs.len(), 1);
+  assert_eq!(snapshot.jobs[0].job_id, JOB_ID);
+  assert_eq!(snapshot.jobs[0].player_session_id, SESSION_1);
+  assert_eq!(snapshot.jobs[0].status, JobStatus::Interrupted);
+  assert_eq!(snapshot.jobs[0].first_scenario_index, Some(0));
+  assert_eq!(snapshot.jobs[0].last_scenario_index, Some(0));
+  assert_eq!(snapshot.scenarios[0].status, ScenarioStatus::Passed);
+  for scenario in &snapshot.scenarios[1..] {
+    assert_eq!(scenario.status, ScenarioStatus::NotRun);
+    assert_eq!(scenario.status_reason.as_deref(), Some("run-interrupted"));
+  }
+  assert_eq!(orchestrator.interrupt().unwrap(), snapshot);
+  assert_eq!(
+    serde_json::from_slice::<ScenarioOrchestrationSnapshot>(&fs::read(path).unwrap()).unwrap(),
+    snapshot
+  );
+}
+
+#[test]
 fn two_jobs_preserve_results_deadline_relaunch_and_bail() {
   let directory = TempDir::new().unwrap();
   let state_path = directory.path().join("orchestration.json");

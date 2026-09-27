@@ -619,6 +619,13 @@ fn detail_hotspots(result: &RunResult, directory: &Path) -> Result<Vec<Performan
   detail_hotspots_from_source(&source, &measured_steps)
 }
 
+fn numeric_field(fields: &serde_json::Value, name: &str) -> Option<u64> {
+  let value = fields.get(name)?;
+  value
+    .as_u64()
+    .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+}
+
 fn detail_hotspots_from_source(
   source: &str,
   measured_steps: &BTreeMap<String, BTreeSet<u32>>,
@@ -660,9 +667,11 @@ fn detail_hotspots_from_source(
       continue;
     };
     let entry = totals.entry(component.to_owned()).or_default();
-    entry.0 += 1;
+    entry.0 += numeric_field(fields, "calls").unwrap_or(1);
     entry.1 += self_duration;
-    entry.2 = entry.2.max(self_duration);
+    entry.2 = entry
+      .2
+      .max(numeric_field(fields, "maximum_self_duration_us").unwrap_or(self_duration));
     entry.3 += duration;
   }
   let mut hotspots = totals
@@ -851,7 +860,7 @@ mod tests {
     let lines = [
       r#"{"event_name":"reactant.component.render","fields":{"component":"startup","duration_us":1000,"self_duration_us":1000}}"#,
       r#"{"event_name":"ditto.context","body":{"context":"step-started","scenario_id":"detail","step_index":1}}"#,
-      r#"{"event_name":"reactant.component.render","fields":{"component":"measured","duration_us":"20","self_duration_us":"10"}}"#,
+      r#"{"event_name":"reactant.component.render","fields":{"component":"measured","calls":"5001","duration_us":"100050","self_duration_us":"50030","maximum_self_duration_us":"30"}}"#,
       r#"{"event_name":"ditto.context","body":{"context":"step-ended","scenario_id":"detail","result":{"index":1}}}"#,
       r#"{"event_name":"reactant.component.render","fields":{"component":"after","duration_us":1000,"self_duration_us":1000}}"#,
     ]
@@ -860,7 +869,9 @@ mod tests {
     let hotspots = detail_hotspots_from_source(&lines, &measured).unwrap();
     assert_eq!(hotspots.len(), 1);
     assert_eq!(hotspots[0].component, "measured");
-    assert_eq!(hotspots[0].total_self_duration_us, 10);
-    assert_eq!(hotspots[0].total_inclusive_duration_us, 20);
+    assert_eq!(hotspots[0].calls, 5001);
+    assert_eq!(hotspots[0].maximum_self_duration_us, 30);
+    assert_eq!(hotspots[0].total_self_duration_us, 50030);
+    assert_eq!(hotspots[0].total_inclusive_duration_us, 100050);
   }
 }

@@ -420,7 +420,7 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Acceptance:** Resolved clipping/readability/occlusion/timing issues and documented remaining user-sign-off items. Decoration is reduced before clarity. Required sound roles and controlled effects use existing assets or permitted simple geometry, with thematic substitutions documented; no claim of physical 60fps without user evidence.
 
-**Validation:** Native landscape/portrait controlled captures, actual listening, full-hand profiling/warmup distributions and final reference comparison.
+**Validation:** Native landscape/portrait controlled captures, full-hand profiling/warmup distributions and final reference comparison. Subjective listening remains required under final user aesthetic acceptance (hv-a8o.62).
 
 **Introspection focus:** Which iteration cycles are too slow or opaque? Improve capture/profiling/asset feedback utilities and remove sample workarounds exposed by polish.
 

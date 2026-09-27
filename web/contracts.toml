@@ -45,6 +45,6 @@ reason = "Typed browser persistence must acknowledge real IndexedDB transactions
 kind = "persistence"
 
 [[risks]]
-paths = ["samples/hearts/rules/src/app.rs", "samples/hearts/rules/src/startup.rs", "samples/hearts/rules/src/card_table.rs", "samples/hearts/rules/src/scene.rs", "samples/hearts/rules/src/audio.rs", "samples/hearts/rules/src/session_save.rs", "samples/hearts/project-assets.json", "samples/hearts/Assets/ThirdParty/*.fbx", "samples/hearts/Assets/ThirdParty/*.png", "samples/hearts/ProjectSettings/QualitySettings.asset"]
+paths = ["Packages/com.battlement.client/Editor/BattlementPrimitiveBuild.cs", "samples/hearts/rules/src/app.rs", "samples/hearts/rules/src/startup.rs", "samples/hearts/rules/src/card_table.rs", "samples/hearts/rules/src/scene.rs", "samples/hearts/rules/src/audio.rs", "samples/hearts/rules/src/session_save.rs", "samples/hearts/project-assets.json", "samples/hearts/Assets/ThirdParty/*.fbx", "samples/hearts/Assets/ThirdParty/*.png", "samples/hearts/ProjectSettings/QualitySettings.asset"]
 reason = "Hearts WebGL rendering, pointer input, audio activation and durable mid-hand resume"
 samples = ["hearts"]

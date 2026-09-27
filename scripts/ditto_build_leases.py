@@ -47,6 +47,7 @@ class DittoBuildLeases:
         self.cache_root = cache_root.resolve()
         self.evidence_root = evidence_root
         self._builds: list[RetainedBuild] = []
+        self._fingerprints: dict[str, str] = {}
         self._lock = Lock()
 
     def prepare(self, sample: str) -> dict[str, object]:
@@ -94,7 +95,13 @@ class DittoBuildLeases:
             raise
         with self._lock:
             self._builds.append(retained)
+            self._fingerprints[sample] = str(result["build_fingerprint"])
         return result
+
+    def fingerprints(self) -> dict[str, str]:
+        """Return exact prepared players while their producer leases remain held."""
+        with self._lock:
+            return dict(self._fingerprints)
 
     def assert_healthy(self) -> None:
         """Reject execution if any producer stopped protecting its prepared build."""
@@ -110,6 +117,7 @@ class DittoBuildLeases:
         with self._lock:
             builds = self._builds
             self._builds = []
+            self._fingerprints.clear()
         failures = []
         for build in builds:
             try:

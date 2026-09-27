@@ -116,7 +116,10 @@ def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> s
         const loading = !initialized && /^(still waiting on run dependencies:|dependency: (?:dataUrl|loading-workers)|\\(end of list\\))$/.test(text.trim());
         if (loading || unityStartupWait(text)) startupProgress.push(text);
         else if (text.startsWith(pacingWarning + '\\n') && /at (?:Object\\.)?MainLoop_runner(?: |\\()/.test(text)) runtimeAdvisories.push(text);
-        else if (message.type() === 'error') failures.push(text.slice(0, 2000));
+        else if (message.type() === 'error') failures.push(text);
+      };
+      const onNavigation = frame => {
+        if (frame === page.mainFrame()) initialized = false;
       };
       const onError = error => failures.push(String(error));
       const onDialog = dialog => {
@@ -129,6 +132,7 @@ def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> s
         if (request.failure()?.errorText === 'net::ERR_ABORTED') canceledRequests.push(detail);
         else failures.push(detail);
       };
+      page.on('framenavigated', onNavigation);
       page.on('console', onConsole);
       page.on('pageerror', onError);
       page.on('dialog', onDialog);
@@ -164,6 +168,7 @@ def _check_code(contract: str, url: str, evidence_prefix: str, shared: str) -> s
         await page.screenshot({ path: EVIDENCE_VALUE + '-failed.png', fullPage: true, timeout: 10000 }).catch(() => {});
         throw new Error(`${error}\\nConsole: ${logs.join('\\n')}\\nNetwork/errors: ${failures.join('\\n')}`);
       } finally {
+        page.off('framenavigated', onNavigation);
         page.off('console', onConsole);
         page.off('pageerror', onError);
         page.off('dialog', onDialog);

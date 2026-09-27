@@ -31,7 +31,7 @@ pub use crate::world_object::WorldObject;
 pub use crate::world_particles::ParticleEmitter;
 pub use crate::world_text::Text;
 pub use crate::world_view::{Camera, Light};
-pub use crate::world_visuals::{Mesh, Plane, Sprite};
+pub use crate::world_visuals::{Cylinder, Mesh, Plane, Sprite};
 pub use reactant_core::local_point::{
   LocalPoint, LocalPointTarget, PointTracking, ResolvedLocalPoint,
 };

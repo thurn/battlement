@@ -136,6 +136,37 @@ impl ScenarioOrchestrator {
     self.state.lock().unwrap().snapshot()
   }
 
+  /// Retains completed scenarios and their job identity when execution is interrupted.
+  pub fn interrupt(&self) -> Result<ScenarioOrchestrationSnapshot> {
+    let mut state = self.state.lock().unwrap();
+    if let Some(active) = state.active.take() {
+      let indexes = active
+        .job
+        .scenarios
+        .iter()
+        .filter_map(|expected| {
+          state
+            .scenarios
+            .iter()
+            .find(|(_, result)| result.id == expected.id && result.status != ScenarioStatus::NotRun)
+            .map(|(index, _)| *index)
+        })
+        .collect::<Vec<_>>();
+      state.jobs.push(JobResult {
+        job_id: active.job.job_id,
+        player_session_id: active.player_session_id,
+        status: JobStatus::Interrupted,
+        first_scenario_index: indexes.first().copied(),
+        last_scenario_index: indexes.last().copied(),
+      });
+      mark_suffix(&mut state, &active.job.scenarios, "run-interrupted");
+    }
+    state.pending_recovery = None;
+    let snapshot = state.snapshot();
+    persist(&self.state_path, &snapshot)?;
+    Ok(snapshot)
+  }
+
   pub(crate) fn player_lost(
     &self,
     job: JobResult,

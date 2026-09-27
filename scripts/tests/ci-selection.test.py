@@ -4,6 +4,7 @@
 
 from contextlib import nullcontext
 from pathlib import Path
+import os
 import sys
 import subprocess
 import tempfile
@@ -15,6 +16,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import ci_selection
 import ci
+import resource_slots
 
 
 workspaces = [
@@ -132,6 +134,14 @@ with tempfile.TemporaryDirectory() as directory:
         patch.object(ci, "CI_CACHE_ROOT", repository / "cache"),
         patch.object(cache, "maintain", return_value=False),
         patch.object(cache, "invocation", side_effect=nullcontext),
+        # These dependency fixtures contain only tiny crates; reserve one job
+        # without changing the production compiler admission policy.
+        patch.dict(os.environ, {"CARGO_BUILD_JOBS": "1"}),
+        patch.object(resource_slots, "compiler_capacity_lease", side_effect=lambda:
+            resource_slots.SlotLease(
+                resource_slots.GLOBAL_RESOURCE_ROOT, "machine-heavy",
+                resource_slots.MACHINE_CAPACITY, 1, inherit_compiler_capacity=True,
+            )),
     ):
         ci.test_root_workspace(cache, selection)
         unrelated = ci_selection.select_rust(repository, ["crates/unrelated/src/lib.rs"], [])

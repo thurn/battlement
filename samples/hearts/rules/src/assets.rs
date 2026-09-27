@@ -320,6 +320,8 @@ pub mod hearts {
 
     /// Addressable key `hearts/materials/clearing` (UnityEngine.Material) from `Assets/Generated/Imported/Clearing.mat` in group `Battlement Hearts`.
     pub const CLEARING: MaterialAddress = MaterialAddress::from_static("hearts/materials/clearing");
+    /// Addressable key `hearts/materials/sand` (UnityEngine.Material) from `Assets/Generated/Imported/Sand.mat` in group `Battlement Hearts`.
+    pub const SAND: MaterialAddress = MaterialAddress::from_static("hearts/materials/sand");
   }
 
   pub mod particles {
@@ -458,6 +460,7 @@ pub const ASSET_CATALOG: &[PreparedAsset] = &[
   PreparedAsset::Prefab(hearts::forest::TREE_1_A_COLOR1),
   PreparedAsset::Prefab(hearts::forest::TREE_2_A_COLOR1),
   PreparedAsset::Material(hearts::materials::CLEARING),
+  PreparedAsset::Material(hearts::materials::SAND),
   PreparedAsset::Prefab(hearts::particles::ACCENT),
   PreparedAsset::Prefab(hearts::particles::MOTES),
 ];

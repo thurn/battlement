@@ -5,7 +5,8 @@
   "materials": [
     {"path": "Assets/Generated/Imported/Motes.mat", "shader": "Sprites/Default", "color": "#FFF0BD66"},
     {"path": "Assets/Generated/Imported/Accent.mat", "shader": "Sprites/Default", "color": "#BF4B4199"},
-    {"path": "Assets/Generated/Imported/Clearing.mat", "color": "#476C21"},
+    {"path": "Assets/Generated/Imported/Clearing.mat", "color": "#567B2B"},
+    {"path": "Assets/Generated/Imported/Sand.mat", "color": "#9C834A"},
     {"path": "Assets/Generated/Imported/Card Back.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/cardback_A.png"},
     {"path": "Assets/Generated/Imported/clubs_two.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/clubs_two.png"},
     {"path": "Assets/Generated/Imported/clubs_three.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/clubs_three.png"},
@@ -137,6 +138,7 @@
     {"address": "hearts/audio/collect", "path": "Assets/ThirdParty/NotJam/click_4.opus"},
     {"address": "hearts/audio/result", "path": "Assets/ThirdParty/NotJam/lap_complete.opus"},
     {"address": "hearts/materials/clearing", "path": "Assets/Generated/Imported/Clearing.mat"},
+    {"address": "hearts/materials/sand", "path": "Assets/Generated/Imported/Sand.mat"},
     {"address": "hearts/content","path": "Assets/Scenes/Content.unity"},
     {"address": "hearts/fonts/control","path": "Assets/ThirdParty/Fonts/Barlow Condensed 700 UI.asset"},
     {"address": "hearts/cards/back","path": "Assets/ThirdParty/KayKit/PlayingCards/cardback_A.png"},

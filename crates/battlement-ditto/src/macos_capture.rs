@@ -320,7 +320,11 @@ pub fn capture_macos(
   } else {
     request.timeouts.interrupt_grace
   };
-  let orchestration = orchestrator.snapshot();
+  let orchestration = if terminal {
+    orchestrator.snapshot()
+  } else {
+    orchestrator.interrupt()?
+  };
   let exit_code = if terminal {
     execution_exit_code(&orchestration)
   } else {

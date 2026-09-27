@@ -110,6 +110,7 @@ namespace Battlement
         private string? activationTransactionId;
         private DittoStepPerformanceRecorder? performanceRecorder;
         private uint profileIdleFrames;
+        private DittoRenderStatistics? renderStatistics;
         private ObjectId? pointerClickTarget;
         private DittoStepAction.PointerAction? pendingPointerAction;
         private DittoObservationRegion? visualObservationRegion;
@@ -341,6 +342,7 @@ namespace Battlement
                 return;
             }
             disposed = true;
+            renderStatistics?.Dispose();
             if (videoRecorder?.IsActive == true)
             {
                 videoRecorder.TruncateForRuntimeFailure();
@@ -728,6 +730,7 @@ namespace Battlement
             if (visualObservationRegion is not null)
                 previousVisualFingerprint = commit.PixelFingerprint;
             CaptureVideoFrame(frame, commit);
+            renderStatistics?.Sample();
             if (TryFreezeObserved())
             {
                 return;
@@ -749,6 +752,8 @@ namespace Battlement
                     settleDurationMs += PhaseDuration();
                     presentationReady = true;
                     executionStarted = now();
+                    if (scenario.Performance?.Pass == DittoPerformancePass.Detail)
+                        renderStatistics = new DittoRenderStatistics();
                     profileIdleFrames = scenario.Performance?.IdleFrames ?? 0;
                     phase = profileIdleFrames == 0 ? Phase.None : Phase.ProfileIdle;
                 }
@@ -758,7 +763,10 @@ namespace Battlement
             {
                 profileIdleFrames--;
                 if (profileIdleFrames == 0)
+                {
+                    renderStatistics?.Emit(scenario.Id, null);
                     phase = Phase.None;
+                }
                 return;
             }
             DittoResolvedStep step = scenario.Steps[nextStep];
@@ -774,6 +782,7 @@ namespace Battlement
                         throw new InvalidOperationException(
                             "Pointer baseline did not produce a visual fingerprint."
                         );
+                    renderStatistics?.Begin();
                     performanceRecorder!.BeginInputDispatch();
                     if (!DispatchPointer(pendingPointerAction!, out string? dispatchDiagnostic))
                     {
@@ -1454,6 +1463,8 @@ namespace Battlement
                 status == DittoStepStatus.Passed ? performanceRecorder?.Finish() : null,
                 ControlledTrace()
             );
+            if (result.Performance is not null)
+                renderStatistics?.Emit(scenario.Id, step.Index);
             performanceRecorder = null;
             pointerClickTarget = null;
             pendingPointerAction = null;

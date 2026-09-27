@@ -347,6 +347,9 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
         def assert_healthy(self) -> None:
             self.checked = True
 
+        def fingerprints(self) -> dict[str, str]:
+            return {sample: "a" * 64 for sample in self.prepared}
+
     leases = Leases()
     target = root / "builder-target"
     (target / "debug").mkdir(parents=True)
@@ -384,6 +387,9 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
     with patch.object(ci, "run_step", side_effect=record):
         ci.run_ditto_validation(2.5, leases, "retained-invocation")
     assert leases.checked
+    assert json.loads(steps[0][1]["DITTO_CI_PREPARED_BUILDS"]) == {
+        "basic": "a" * 64, "chess": "a" * 64,
+    }
     assert steps[0][1]["DITTO_CI_CACHE_ROOT"] == str(leases.cache_root)
     assert steps[0][1]["DITTO_CI_BINARY"] == str(leases.binary)
     assert steps[0][1]["DITTO_CI_INVOCATION_ID"] == "retained-invocation"
@@ -731,7 +737,7 @@ def _verify_unity_execution_selection(root: Path) -> None:
         def run(
             self, step: str, inputs: tuple[str, ...], function: object, *, lease: object,
         ) -> bool:
-            assert lease is ci.unity_editor_lease
+            assert lease is nullcontext
             self.calls.append((step, inputs))
             assert callable(function)
             function()
