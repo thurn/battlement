@@ -1,0 +1,12 @@
+mod addressables_cli_tests;
+mod ditto_cli_tests;
+mod ditto_commands_tests;
+mod ditto_gallery_tests;
+mod ditto_selection_tests;
+mod plugin_cli_tests;
+mod reactant_assets_browser_tests;
+mod reactant_assets_cli_tests;
+mod reactant_assets_commands_preview_tests;
+mod reactant_assets_manifest_tests;
+mod reactant_assets_render_tests;
+mod reactant_assets_transaction_tests;

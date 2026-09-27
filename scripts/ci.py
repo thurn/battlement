@@ -70,6 +70,7 @@ WINDOWS_STANDALONE_SAMPLE_WORKERS = 1
 RUST_WORKSPACE_WORKERS = 2
 DEFAULT_CARGO_JOBS = 3
 ROOT_RUST_INPUTS = (
+    ".cargo",
     "Cargo.toml",
     "Cargo.lock",
     "rust-toolchain.toml",
@@ -84,6 +85,7 @@ ROOT_RUST_INPUTS = (
     *ci_selection.TOOLING_RUST_INPUTS,
 )
 SAMPLE_SHARED_INPUTS = (
+    ".cargo",
     "Cargo.toml",
     "Cargo.lock",
     "rust-toolchain.toml",

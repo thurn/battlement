@@ -20,7 +20,7 @@ time](08-public-display-driver.md) is integrated.
 public display driver. The public `RulesRun` consumer executes `Game::execute`
 on the shared worker boundary; `PublicationDisplay` drives publication and
 lifecycle observations without advancing host time or frames. Its scenarios
-live in `crates/reactant-testing/tests/publications.rs`.
+live in `crates/reactant-testing/tests/reactant_testing/publications.rs`.
 
 ## Example
 

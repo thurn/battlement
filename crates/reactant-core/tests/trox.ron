@@ -3,7 +3,7 @@
     terms: "localization/terms.ron",
     source_bundle: "localization/bundles/en-US.trox.json",
     source_report: "localization/en-US.csv",
-    sources: [(language: Rust, include: ["localization.rs"])],
+    sources: [(language: Rust, include: ["reactant_core/localization.rs"])],
     locales: {
         "fr": (
             profile: "localization/fr.ron",

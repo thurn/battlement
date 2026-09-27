@@ -1,3 +1,5 @@
+// This binary isolates exported-ABI environment changes and panic hooks from direct adapter tests.
+
 use std::{
   env,
   ffi::{CStr, c_char},

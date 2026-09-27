@@ -16,7 +16,7 @@ use battlement_ditto::{
 };
 use serde_json::json;
 
-use crate::{
+use crate::macos_capture_tests::{
   CAPTURE_TEST_GATE,
   macos_fixture::{self, FixtureBuild, FixtureLauncher, PassMaterializer},
 };

@@ -14,7 +14,7 @@ def verify_root_rust_cache(ci, root: Path) -> None:
     repository.mkdir()
     subprocess.run(["git", "init", "--quiet"], cwd=repository, check=True)
     dependencies = (
-        "Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
+        ".cargo/config.toml", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
         "crates/reactant-core/src/audio.rs",
         "crates/reactant-core/tests/fixtures/data.json",
         "samples/reactant/rules/src/lifetime_proof.rs",

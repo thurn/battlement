@@ -1,0 +1,54 @@
+use lifetime_fixture::{CONTENT_SCENE, ROOT_ID};
+
+#[path = "../support/batch_engine.rs"]
+mod batch_engine;
+#[path = "../support/session_game.rs"]
+mod session_game;
+
+mod application_services;
+mod audio_lifecycle;
+mod batches;
+mod display;
+mod effect_exit_retention;
+mod game_selectors;
+mod gameplay_pause;
+mod geometric_pointer;
+mod geometric_ui_capture;
+mod host_settings;
+mod inline;
+mod input;
+mod input_capture;
+mod lifetime_fixture;
+mod mixed_queue;
+mod mixed_replacement;
+mod mixed_retained;
+mod mixed_tree;
+mod modal_focus;
+mod motion_observation;
+mod observations;
+mod persistence_worker;
+mod presentation_hosts;
+mod presentation_identity;
+mod presentation_inspector;
+mod presentation_lifetime;
+mod prompts;
+mod publications;
+mod queued_input;
+mod reducer_presentation;
+mod reducer_sessions;
+mod scroll_region;
+mod sessions;
+mod snapshot_animations;
+mod stable_stores;
+mod tasks;
+mod world_hit_regions;
+mod world_hosts;
+mod world_layout;
+mod world_materials;
+mod world_motion;
+mod world_motion_controls;
+mod world_motion_parameters;
+mod world_motion_scopes;
+mod world_motion_values;
+mod world_navigation;
+mod world_text;

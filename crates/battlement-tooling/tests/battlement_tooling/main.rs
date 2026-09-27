@@ -1,0 +1,10 @@
+mod build_cache_tests;
+mod build_identity_tests;
+mod discovery_tests;
+mod fingerprint_tests;
+mod ios_build_tests;
+mod macos_build_tests;
+mod odiff_binary_tests;
+mod process_priority_tests;
+mod resource_fairness_tests;
+mod trox_arguments;

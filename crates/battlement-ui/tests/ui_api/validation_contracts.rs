@@ -1,4 +1,4 @@
-use super::*;
+use crate::ui_api_tests::*;
 
 #[test]
 fn panel_input_configuration_rejects_nonfinite_and_negative_distance() {

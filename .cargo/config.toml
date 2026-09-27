@@ -1,0 +1,3 @@
+[env]
+# Consolidated suites share a process; bound concurrent fixture subprocesses.
+RUST_TEST_THREADS = { value = "3", force = false }

@@ -1,3 +1,5 @@
+// This binary isolates process-wide current-directory mutation from other tests.
+
 use std::{
   env, fs,
   path::{Path, PathBuf},

@@ -1,0 +1,1109 @@
+#[path = "command_coverage.rs"]
+mod command_coverage;
+use crate::support;
+
+use std::{cell::RefCell, num::NonZeroU64, panic::AssertUnwindSafe, rc::Rc, sync::Arc};
+
+use battlement::{
+  Action, ActionBody, ActionId, Batch, BatchFailed, CameraState, ClientMessage, Command,
+  CommandBody, Connect, CoreErrorCode, DisplayId, DisplayOrientation, DragMode, DragPayload,
+  GameObject, GameObjectKind, GeometryGeneration, GeometryObservation, GeometryObservationBatch,
+  GeometryObservationId, GeometryObservationResult, GeometryObservationTarget,
+  GeometryObservationUpdate, GeometryObservationValue, GeometryValue, LocalTransform,
+  MaterialInstance, MaterialParameter, MaterialParameterDeclaration, MaterialParameterKind,
+  ObjectId, ParallelCommandGroup, PointerEvent, PreparedAsset, RendererInstancesPayload, Response,
+  ResponseMessage, Scene, SceneId, ScreenSize, SessionId, Snapshot, Style, UiDocument,
+  UiFontAddress, UiNode, Vector3, ViewportGeometry, ViewportRect,
+};
+use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
+use battlement_cloud_fake::diagnostics::{DiagnosticsFake, FakeDiagnosticsCommandOutcome};
+use battlement_fake::{
+  assets::{FakeAnimator, FakeAssetCatalog, FakePrefab},
+  client::{FakeClient, PointerInput},
+  world::WorldTransform,
+};
+use battlement_native::{
+  ConnectView, CoreClientMessageView, Engine, EngineError, EngineResponse, FlatBufferSubmitError,
+  UiEventActionView, UiEventResult,
+};
+use support::ScriptedEngine;
+use uuid::Uuid;
+
+struct CoreScriptedEngine {
+  probe: Rc<RefCell<Vec<ClientMessage<(), CoreErrorCode>>>>,
+  connect_response: Option<Response>,
+  submit_response: Option<Response>,
+}
+
+impl CoreScriptedEngine {
+  fn new(connect_response: Response, submit_response: Response) -> Self {
+    Self {
+      probe: Rc::new(RefCell::new(Vec::new())),
+      connect_response: Some(connect_response),
+      submit_response: Some(submit_response),
+    }
+  }
+}
+
+impl Engine for CoreScriptedEngine {
+  const WIRE_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_DIGEST_C;
+
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    let response = self
+      .connect_response
+      .take()
+      .ok_or_else(|| EngineError::new("unexpected connect"))?;
+    support::encoded_unchecked(response)
+  }
+
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    let message = CoreClientMessageView::read(bytes)
+      .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
+    let CoreClientMessageView::BatchFailed(failure) = message else {
+      return Err(FlatBufferSubmitError::engine(EngineError::new(
+        "unexpected core submission",
+      )));
+    };
+    let error_codes = [
+      CoreErrorCode::InvalidEncoding,
+      CoreErrorCode::LimitExceeded,
+      CoreErrorCode::WrongSession,
+      CoreErrorCode::DuplicateId,
+      CoreErrorCode::UnknownCommand,
+      CoreErrorCode::UnknownObject,
+      CoreErrorCode::UnknownScene,
+      CoreErrorCode::UnknownAsset,
+      CoreErrorCode::AssetNotPrepared,
+      CoreErrorCode::AssetTypeMismatch,
+      CoreErrorCode::AssetInUse,
+      CoreErrorCode::ComponentMissing,
+      CoreErrorCode::InvalidComponentCount,
+      CoreErrorCode::InvalidHierarchy,
+      CoreErrorCode::InvalidProperty,
+      CoreErrorCode::PropertyControlledByBillboard,
+      CoreErrorCode::InfiniteWait,
+      CoreErrorCode::EarlierBatchFailed,
+      CoreErrorCode::HandlerNotRegistered,
+      CoreErrorCode::HandlerFailed,
+      CoreErrorCode::UnityException,
+      CoreErrorCode::ModuleUnavailable,
+      CoreErrorCode::DiagnosticsMetadataInvalid,
+      CoreErrorCode::DiagnosticsOperationFailed,
+    ];
+    let error_code = *error_codes
+      .get(usize::from(failure.error_code()))
+      .ok_or_else(|| {
+        FlatBufferSubmitError::engine(EngineError::new("unexpected core error code"))
+      })?;
+    let session_id = battlement::SessionId::from_uuid(Uuid::from_bytes(failure.session_id()))
+      .expect("verified session ID is nonzero");
+    let batch_id = battlement::BatchId::from_uuid(Uuid::from_bytes(failure.batch_id()))
+      .expect("verified batch ID is nonzero");
+    let command_id = failure.command_id().map(|value| {
+      battlement::CommandId::from_uuid(Uuid::from_bytes(value))
+        .expect("verified command ID is nonzero")
+    });
+    self
+      .probe
+      .borrow_mut()
+      .push(ClientMessage::BatchFailed(BatchFailed::new(
+        session_id,
+        batch_id,
+        command_id,
+        error_code,
+        failure.message(),
+      )));
+    let response = self
+      .submit_response
+      .take()
+      .ok_or_else(|| FlatBufferSubmitError::engine(EngineError::new("unexpected submit")))?;
+    support::encoded(response).map_err(FlatBufferSubmitError::engine)
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    let session =
+      SessionId::from_uuid(Uuid::from_bytes(action.session_id())).expect("verified session ID");
+    Ok(UiEventResult {
+      disposition: if action.default_prevented() {
+        battlement::UiEventDisposition::PreventDefault
+      } else {
+        battlement::UiEventDisposition::Continue
+      },
+      response: support::encoded(Response::empty(session))?,
+    })
+  }
+
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
+    Ok(None)
+  }
+}
+
+fn session(value: u128) -> battlement::SessionId {
+  battlement::SessionId::from_uuid(Uuid::from_u128(value)).unwrap()
+}
+
+fn action(value: u128) -> ActionId {
+  ActionId::from_uuid(Uuid::from_u128(value)).unwrap()
+}
+
+fn batch_id(value: u128) -> battlement::BatchId {
+  battlement::BatchId::from_uuid(Uuid::from_u128(value)).unwrap()
+}
+
+fn command_id(value: u128) -> battlement::CommandId {
+  battlement::CommandId::from_uuid(Uuid::from_u128(value)).unwrap()
+}
+
+fn object_id(value: u128) -> ObjectId {
+  ObjectId::from_uuid(Uuid::from_u128(value)).unwrap()
+}
+
+fn scene_id(value: u128) -> SceneId {
+  SceneId::from_uuid(Uuid::from_u128(value)).unwrap()
+}
+
+fn catalog() -> Arc<FakeAssetCatalog> {
+  let mut value = FakeAssetCatalog::new();
+  value.add_scene("test/scene");
+  value.add_scene("test/scene2");
+  value.add_material("test/material");
+  value.add_texture("test/texture");
+  value.add_text_mesh_pro_font("test/font");
+  value.add_audio_clip("test/audio");
+  value.add_particle_effect("test/particles");
+  value.add_prefab(
+    "test/prefab",
+    FakePrefab::new()
+      .with_material_slots(2)
+      .with_camera(CameraState::default())
+      .with_light(battlement::LightState::default())
+      .with_animator(
+        FakeAnimator::new()
+          .with_state(0, "Idle")
+          .with_state(0, "Walk")
+          .with_bool_parameter("running")
+          .with_int_parameter("count")
+          .with_float_parameter("blend")
+          .with_trigger_parameter("fire"),
+      )
+      .with_particle_systems()
+      .with_pointer_collider(),
+  );
+  Arc::new(value)
+}
+
+fn snapshot(session_id: battlement::SessionId, objects: Vec<GameObject>) -> Snapshot {
+  Snapshot::new(
+    session_id,
+    vec![PreparedAsset::Scene("test/scene".into())],
+    vec![Scene::new(scene_id(10), "test/scene")],
+    objects,
+    object_id(1),
+  )
+}
+
+fn camera() -> GameObject {
+  GameObject::new(
+    object_id(1),
+    GameObjectKind::Camera {
+      camera: CameraState::default(),
+    },
+  )
+}
+
+#[test]
+fn snapshot_can_select_unity_main_camera_without_a_camera_object() {
+  let session_id = session(99);
+  let snapshot = Snapshot::new_with_main_camera(
+    session_id,
+    vec![PreparedAsset::Scene("test/scene".into())],
+    vec![Scene::new(scene_id(10), "test/scene")],
+    Vec::new(),
+  );
+  let engine = ScriptedEngine::new(
+    [Response::new(
+      session_id,
+      vec![ResponseMessage::Snapshot(snapshot)],
+    )],
+    [],
+    [],
+  );
+
+  let client = FakeClient::connect(engine, catalog());
+
+  assert!(client.world().uses_main_camera());
+  assert_eq!(client.world().input_camera_id(), None);
+}
+
+fn base_response(session_id: battlement::SessionId, objects: Vec<GameObject>) -> Response {
+  Response::new(
+    session_id,
+    vec![ResponseMessage::Snapshot(snapshot(session_id, objects))],
+  )
+}
+
+fn command(session_id: battlement::SessionId, body: CommandBody, id: u128) -> Response {
+  Response::new(
+    session_id,
+    vec![ResponseMessage::Batch(Batch::new(
+      batch_id(id + 1000),
+      session_id,
+      vec![ParallelCommandGroup::new(vec![Command::new(
+        command_id(id),
+        body,
+      )])],
+    ))],
+  )
+}
+
+#[test]
+fn default_connect_and_snapshot_are_observable() {
+  let session_id = session(1);
+  let engine = ScriptedEngine::new([base_response(session_id, vec![camera()])], [], []);
+  let probe = engine.probe.clone();
+  let client = FakeClient::connect(engine, catalog());
+
+  let connect = &probe.borrow().connects[0];
+  assert_eq!(connect.platform, "battlement-fake");
+  assert_eq!(connect.unity_version, "battlement-fake");
+  assert_eq!(connect.screen_width, 1920);
+  assert_eq!(connect.screen_height, 1080);
+  assert!(connect.modules.is_empty());
+  assert!(client.world().input_enabled());
+  assert_eq!(client.world().input_camera_id(), Some(object_id(1)));
+  assert_eq!(client.world().primary_scene_id(), scene_id(10));
+}
+
+#[test]
+fn explicit_connect_preserves_non_diagnostics_modules() {
+  let session_id = session(11);
+  let engine = ScriptedEngine::new([base_response(session_id, vec![camera()])], [], []);
+  let probe = engine.probe.clone();
+  let mut connect = Connect::new(
+    "custom-platform",
+    "custom-version",
+    ScreenSize {
+      width: 800,
+      height: 600,
+    },
+  );
+  connect.modules.push("example.leaderboards".to_owned());
+
+  let _client = FakeClient::connect_with(engine, catalog(), connect);
+
+  assert_eq!(
+    probe.borrow().connects[0].modules,
+    vec!["example.leaderboards".to_owned()]
+  );
+}
+
+#[test]
+fn geometry_batches_are_validated_and_exposed_through_the_engine_action() {
+  let session_id = session(101);
+  let observation_id = GeometryObservationId(object_id(102));
+  let update = GeometryObservationUpdate {
+    added: vec![GeometryObservation {
+      observation_id,
+      target: GeometryObservationTarget::Viewport {
+        display_id: DisplayId(0),
+      },
+    }],
+    removed: vec![],
+  };
+  let initial = Response::new(
+    session_id,
+    vec![
+      ResponseMessage::Snapshot(snapshot(session_id, vec![camera()])),
+      ResponseMessage::Batch(Batch::new(
+        batch_id(1100),
+        session_id,
+        vec![ParallelCommandGroup::new(vec![Command::new(
+          command_id(1101),
+          CommandBody::GeometryObservationUpdate(update),
+        )])],
+      )),
+    ],
+  );
+  let geometry = GeometryObservationBatch {
+    generation: GeometryGeneration(NonZeroU64::new(1).unwrap()),
+    changed: vec![GeometryObservationValue {
+      observation_id,
+      result: GeometryObservationResult::Current(GeometryValue::Viewport(ViewportGeometry {
+        viewport: ViewportRect {
+          x: 0.0,
+          y: 0.0,
+          width: 1920.0,
+          height: 1080.0,
+          display_id: DisplayId(0),
+        },
+        safe_area: ViewportRect {
+          x: 20.0,
+          y: 10.0,
+          width: 1880.0,
+          height: 1060.0,
+          display_id: DisplayId(0),
+        },
+        scale: 1.0,
+        dpi: Some(144.0),
+        orientation: DisplayOrientation::Landscape,
+      })),
+    }],
+  };
+  let expected = ClientMessage::Action(Action::new(
+    action(1),
+    session_id,
+    ActionBody::GeometryObservations(geometry.clone()),
+  ));
+  let engine = ScriptedEngine::new(
+    [initial],
+    [(expected, Response::new(session_id, vec![]))],
+    [],
+  );
+  let probe = engine.probe.clone();
+  let mut client = FakeClient::connect(engine, catalog());
+
+  client.submit_geometry(geometry.clone());
+
+  assert_eq!(
+    probe.borrow().submits,
+    vec![ClientMessage::Action(Action::new(
+      action(1),
+      session_id,
+      ActionBody::GeometryObservations(geometry),
+    ))]
+  );
+}
+
+#[test]
+fn diagnostics_failures_follow_the_normal_batch_failure_behavior() {
+  let session_id = session(101);
+  let failed_batch = batch_id(102);
+  let failed_command = command_id(103);
+  let response = Response::new(
+    session_id,
+    vec![
+      ResponseMessage::Snapshot(snapshot(session_id, vec![camera()])),
+      ResponseMessage::Batch(Batch::new(
+        failed_batch,
+        session_id,
+        vec![ParallelCommandGroup::new(vec![Command::new(
+          failed_command,
+          CommandBody::Diagnostics(DiagnosticsCommand::SetMetadata(
+            DiagnosticsMetadata::set("battlement.scene", "castle").expect("valid metadata"),
+          )),
+        )])],
+      )),
+    ],
+  );
+  let engine = CoreScriptedEngine::new(response, Response::empty(session_id));
+  let probe = engine.probe.clone();
+
+  let client = FakeClient::connect_with_diagnostics(engine, catalog(), DiagnosticsFake::absent());
+
+  assert_eq!(
+    *probe.borrow(),
+    vec![ClientMessage::BatchFailed(BatchFailed::new(
+      session_id,
+      failed_batch,
+      Some(failed_command),
+      CoreErrorCode::ModuleUnavailable,
+      "A Diagnostics command failed in the fake client.",
+    ))]
+  );
+  assert_eq!(
+    client.diagnostics().command_results()[0].outcome,
+    FakeDiagnosticsCommandOutcome::Failed(CoreErrorCode::ModuleUnavailable)
+  );
+}
+
+#[test]
+fn invalid_diagnostics_metadata_follows_the_normal_batch_failure_behavior() {
+  let session_id = session(111);
+  let failed_batch = batch_id(112);
+  let failed_command = command_id(113);
+  let response = Response::new(
+    session_id,
+    vec![
+      ResponseMessage::Snapshot(snapshot(session_id, vec![camera()])),
+      ResponseMessage::Batch(Batch::new(
+        failed_batch,
+        session_id,
+        vec![ParallelCommandGroup::new(vec![Command::new(
+          failed_command,
+          CommandBody::Diagnostics(DiagnosticsCommand::SetMetadata(DiagnosticsMetadata {
+            key: " invalid".to_owned(),
+            value: Some("value".to_owned()),
+          })),
+        )])],
+      )),
+    ],
+  );
+  let engine = CoreScriptedEngine::new(response, Response::empty(session_id));
+  let probe = engine.probe.clone();
+
+  let client = FakeClient::connect_with_diagnostics(engine, catalog(), DiagnosticsFake::default());
+
+  assert_eq!(
+    *probe.borrow(),
+    vec![ClientMessage::BatchFailed(BatchFailed::new(
+      session_id,
+      failed_batch,
+      Some(failed_command),
+      CoreErrorCode::DiagnosticsMetadataInvalid,
+      "A Diagnostics command failed in the fake client.",
+    ))]
+  );
+  assert_eq!(
+    client.diagnostics().command_results()[0].outcome,
+    FakeDiagnosticsCommandOutcome::Failed(CoreErrorCode::DiagnosticsMetadataInvalid)
+  );
+}
+
+#[test]
+fn diagnostics_reject_reused_command_ids_before_reexecution() {
+  let session_id = session(121);
+  let duplicate = command_id(122);
+  let body = || {
+    CommandBody::Diagnostics(DiagnosticsCommand::SetMetadata(
+      DiagnosticsMetadata::set("battlement.scene", "castle").expect("valid metadata"),
+    ))
+  };
+  let response = Response::new(
+    session_id,
+    vec![
+      ResponseMessage::Snapshot(snapshot(session_id, vec![camera()])),
+      ResponseMessage::Batch(Batch::new(
+        batch_id(123),
+        session_id,
+        vec![
+          ParallelCommandGroup::new(vec![Command::new(duplicate, body())]),
+          ParallelCommandGroup::new(vec![Command::new(duplicate, body())]),
+        ],
+      )),
+    ],
+  );
+
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = CoreScriptedEngine::new(response, Response::empty(session_id));
+    let _client =
+      FakeClient::connect_with_diagnostics(engine, catalog(), DiagnosticsFake::default());
+  }));
+
+  assert!(panic.is_err());
+}
+
+#[test]
+fn hierarchy_transforms_and_active_state_match_behavior() {
+  let session_id = session(2);
+  let parent = GameObject {
+    local_transform: LocalTransform {
+      position: Vector3::new(10.0, 0.0, 0.0),
+      ..LocalTransform::default()
+    },
+    ..GameObject::new(object_id(2), GameObjectKind::Empty)
+  };
+  let child = GameObject {
+    parent_id: Some(object_id(2)),
+    local_transform: LocalTransform {
+      position: Vector3::new(2.0, 3.0, 4.0),
+      ..LocalTransform::default()
+    },
+    ..GameObject::new(object_id(3), GameObjectKind::Cube { materials: vec![] })
+  };
+  let engine = ScriptedEngine::new(
+    [base_response(session_id, vec![camera(), parent, child])],
+    [],
+    [],
+  );
+  let client = FakeClient::connect(engine, catalog());
+
+  assert_eq!(client.world().children(object_id(2)).unwrap().count(), 1);
+  client.assert_world_transform(
+    object_id(3),
+    WorldTransform {
+      position: Vector3::new(12.0, 3.0, 4.0),
+      rotation: battlement::Quaternion::IDENTITY,
+      scale: Vector3::ONE,
+    },
+    1e-9,
+  );
+  assert!(client.assert_object(object_id(3)).active_in_hierarchy());
+}
+
+#[test]
+fn commands_are_applied_only_by_explicit_poll_and_duplicate_batches_are_ignored() {
+  let session_id = session(3);
+  let position = CommandBody::TransformSetLocalPosition(battlement::PropertyCommand::canceling(
+    battlement::PositionPayload {
+      object_id: object_id(2),
+      position: Vector3::new(4.0, 5.0, 6.0),
+    },
+  ));
+  let response = command(session_id, position, 20);
+  let engine = ScriptedEngine::new(
+    [base_response(
+      session_id,
+      vec![
+        camera(),
+        GameObject::new(object_id(2), GameObjectKind::Empty),
+      ],
+    )],
+    [],
+    [Some(response.clone()), Some(response)],
+  );
+  let mut client = FakeClient::connect(engine, catalog());
+
+  client.assert_local_transform(object_id(2), LocalTransform::default(), 0.0);
+  client.poll();
+  client.assert_local_transform(
+    object_id(2),
+    LocalTransform {
+      position: Vector3::new(4.0, 5.0, 6.0),
+      ..LocalTransform::default()
+    },
+    0.0,
+  );
+  assert_eq!(client.commands().len(), 1);
+  client.poll();
+  assert_eq!(client.commands().len(), 1);
+}
+
+#[test]
+fn input_emits_exact_pointer_order_and_deterministic_ids() {
+  let session_id = session(4);
+  let world_hit = Vector3::new(2.0, 3.0, 4.0);
+  let mut target = GameObject::new(object_id(2), GameObjectKind::Cube { materials: vec![] });
+  target.pointer_events = vec![
+    PointerEvent::Enter,
+    PointerEvent::Down,
+    PointerEvent::Up,
+    PointerEvent::Click,
+  ];
+  let empty = Response::new(session_id, vec![]);
+  let expected = [
+    ActionBody::PointerEnter(battlement::PointerPayload {
+      object_id: object_id(2),
+      pointer_id: 0,
+      screen_position: battlement::ScreenPosition { x: 960.0, y: 540.0 },
+      world_hit,
+    }),
+    ActionBody::PointerDown(battlement::PointerButtonPayload {
+      object_id: object_id(2),
+      pointer_id: 0,
+      screen_position: battlement::ScreenPosition { x: 960.0, y: 540.0 },
+      world_hit,
+      button: battlement::PointerButton::Left,
+    }),
+    ActionBody::PointerUp(battlement::PointerButtonPayload {
+      object_id: object_id(2),
+      pointer_id: 0,
+      screen_position: battlement::ScreenPosition { x: 960.0, y: 540.0 },
+      world_hit,
+      button: battlement::PointerButton::Left,
+    }),
+    ActionBody::PointerClick(battlement::PointerButtonPayload {
+      object_id: object_id(2),
+      pointer_id: 0,
+      screen_position: battlement::ScreenPosition { x: 960.0, y: 540.0 },
+      world_hit,
+      button: battlement::PointerButton::Left,
+    }),
+  ];
+  let submits = expected.iter().enumerate().map(|(index, body)| {
+    (
+      ClientMessage::Action(Action::new(
+        action(index as u128 + 1),
+        session_id,
+        body.clone(),
+      )),
+      empty.clone(),
+    )
+  });
+  let engine = ScriptedEngine::new(
+    [base_response(session_id, vec![camera(), target])],
+    submits,
+    [],
+  );
+  let mut client = FakeClient::connect(engine, catalog());
+
+  client.click_at(object_id(2), world_hit);
+}
+
+#[test]
+fn drag_helpers_emit_world_locations_and_move_the_fake_object() {
+  let session_id = session(40);
+  let start = Vector3::new(2.0, 0.0, 1.0);
+  let end = Vector3::new(-3.0, 0.0, 4.0);
+  let target = GameObject::new(object_id(2), GameObjectKind::Cube { materials: vec![] })
+    .position(start)
+    .draggable(DragMode::PreserveOffset);
+  let input = PointerInput {
+    pointer_id: 0,
+    screen_position: battlement::ScreenPosition { x: 500.0, y: 300.0 },
+    world_hit: Vector3::new(2.25, 0.0, 1.0),
+    button: battlement::PointerButton::Left,
+  };
+  let expected = [
+    ActionBody::DragStart(DragPayload::new(
+      object_id(2),
+      0,
+      input.screen_position,
+      start,
+    )),
+    ActionBody::DragEnd(DragPayload::new(
+      object_id(2),
+      0,
+      input.screen_position,
+      end,
+    )),
+  ];
+  let empty = Response::new(session_id, vec![]);
+  let submits = expected.iter().enumerate().map(|(index, body)| {
+    (
+      ClientMessage::Action(Action::new(
+        action(index as u128 + 1),
+        session_id,
+        body.clone(),
+      )),
+      empty.clone(),
+    )
+  });
+  let engine = ScriptedEngine::new(
+    [base_response(session_id, vec![camera(), target])],
+    submits,
+    [],
+  );
+  let mut client = FakeClient::connect(engine, catalog());
+
+  client.drag_start(object_id(2), input);
+  client.drag_end(object_id(2), input, end);
+
+  assert_eq!(client.world().world_transform(object_id(2)).position, end);
+}
+
+#[test]
+fn reconnect_resets_session_state_but_retains_journal() {
+  let first = session(5);
+  let second = session(6);
+  let body = CommandBody::ObjectSetActive(battlement::ObjectSetActivePayload {
+    object_id: object_id(2),
+    active: false,
+  });
+  let first_command = command(first, body.clone(), 30);
+  let second_command = command(second, body, 30);
+  let engine = ScriptedEngine::new(
+    [
+      base_response(
+        first,
+        vec![
+          camera(),
+          GameObject::new(object_id(2), GameObjectKind::Empty),
+        ],
+      ),
+      base_response(
+        second,
+        vec![
+          camera(),
+          GameObject::new(object_id(2), GameObjectKind::Empty),
+        ],
+      ),
+    ],
+    [],
+    [Some(first_command), Some(second_command)],
+  );
+  let mut client = FakeClient::connect(engine, catalog());
+  client.poll();
+  assert!(!client.assert_object(object_id(2)).active_self());
+  client.reconnect();
+  assert!(client.assert_object(object_id(2)).active_self());
+  client.poll();
+  assert_eq!(client.commands().len(), 2);
+  assert_ne!(
+    client.commands()[0].session_id,
+    client.commands()[1].session_id
+  );
+}
+
+#[test]
+fn representative_invalid_inputs_panic_at_the_fake_boundary() {
+  let initial_session = session(51);
+  let empty_response = Response::new(initial_session, vec![]);
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = ScriptedEngine::new([empty_response], [], []);
+    let _ = FakeClient::connect(engine, catalog());
+  }));
+  assert!(panic.is_err());
+
+  let duplicate_object = GameObject::new(object_id(2), GameObjectKind::Empty);
+  let invalid_snapshot = Snapshot::new(
+    initial_session,
+    vec![PreparedAsset::Scene("test/scene".into())],
+    vec![Scene::new(scene_id(10), "test/scene")],
+    vec![camera(), duplicate_object.clone(), duplicate_object],
+    object_id(1),
+  );
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = ScriptedEngine::new(
+      [Response::new(
+        initial_session,
+        vec![ResponseMessage::Snapshot(invalid_snapshot)],
+      )],
+      [],
+      [],
+    );
+    let _ = FakeClient::connect(engine, catalog());
+  }));
+  assert!(panic.is_err());
+
+  let invalid_catalog_snapshot = Snapshot::new(
+    initial_session,
+    vec![PreparedAsset::Scene("test/material".into())],
+    vec![Scene::new(scene_id(10), "test/material")],
+    vec![camera()],
+    object_id(1),
+  );
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = ScriptedEngine::new(
+      [Response::new(
+        initial_session,
+        vec![ResponseMessage::Snapshot(invalid_catalog_snapshot)],
+      )],
+      [],
+      [],
+    );
+    let _ = FakeClient::connect(engine, catalog());
+  }));
+  assert!(panic.is_err());
+
+  let command_session = session(52);
+  let invalid_command = Command::new(
+    command_id(1),
+    CommandBody::TimeWait(battlement::WaitPayload { duration_ms: 1 }),
+  )
+  .nonblocking();
+  let invalid_command_response = Response::new(
+    command_session,
+    vec![ResponseMessage::Batch(Batch::new(
+      batch_id(1),
+      command_session,
+      vec![ParallelCommandGroup::new(vec![invalid_command])],
+    ))],
+  );
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = ScriptedEngine::new(
+      [base_response(
+        command_session,
+        vec![
+          camera(),
+          GameObject::new(object_id(2), GameObjectKind::Empty),
+        ],
+      )],
+      [],
+      [Some(invalid_command_response)],
+    );
+    let mut client = FakeClient::connect(engine, catalog());
+    client.poll();
+  }));
+  assert!(panic.is_err());
+
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let body = CommandBody::ObjectSetActive(battlement::ObjectSetActivePayload {
+      object_id: object_id(99),
+      active: false,
+    });
+    let engine = ScriptedEngine::new(
+      [base_response(
+        command_session,
+        vec![
+          camera(),
+          GameObject::new(object_id(2), GameObjectKind::Empty),
+        ],
+      )],
+      [],
+      [Some(command(command_session, body, 2))],
+    );
+    let mut client = FakeClient::connect(engine, catalog());
+    client.poll();
+  }));
+  assert!(panic.is_err());
+
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let body = CommandBody::ObjectReparent(battlement::ObjectReparentPayload {
+      object_id: object_id(2),
+      parent_id: Some(object_id(2)),
+      world_position_stays: false,
+    });
+    let engine = ScriptedEngine::new(
+      [base_response(
+        command_session,
+        vec![
+          camera(),
+          GameObject::new(object_id(2), GameObjectKind::Empty),
+        ],
+      )],
+      [],
+      [Some(command(command_session, body, 3))],
+    );
+    let mut client = FakeClient::connect(engine, catalog());
+    client.poll();
+  }));
+  assert!(panic.is_err());
+
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = ScriptedEngine::new(
+      [base_response(
+        command_session,
+        vec![
+          camera(),
+          GameObject::new(object_id(2), GameObjectKind::Empty),
+        ],
+      )],
+      [],
+      [],
+    );
+    let mut client = FakeClient::connect(engine, catalog());
+    client.click(object_id(2));
+  }));
+  assert!(panic.is_err());
+}
+
+#[test]
+fn dynamic_ui_font_styles_require_the_prepared_catalog_kind() {
+  let create_session = session(53);
+  let create_document = UiDocument::new(object_id(89));
+  let create_root = create_document.root_id;
+  let create_snapshot = snapshot(create_session, vec![camera()]).ui_document(create_document);
+  let create = CommandBody::VisualElementCreate(Box::new(battlement::VisualElementCreate::new(
+    create_root,
+    UiNode::new(
+      object_id(91),
+      battlement::UiLabel::new("create")
+        .style(Style::new().unity_font_definition(UiFontAddress::new("test/ui-font"))),
+    ),
+  )));
+  let mut create_catalog = FakeAssetCatalog::new();
+  create_catalog.add_scene("test/scene");
+  create_catalog.add_ui_font("test/ui-font");
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = ScriptedEngine::new(
+      [Response::new(
+        create_session,
+        vec![ResponseMessage::Snapshot(create_snapshot)],
+      )],
+      [],
+      [Some(command(create_session, create, 4))],
+    );
+    let mut client = FakeClient::connect(engine, Arc::new(create_catalog));
+    client.poll();
+  }));
+  assert!(panic.is_err());
+
+  let update_session = session(54);
+  let label_id = object_id(93);
+  let update_document =
+    UiDocument::new(object_id(94)).child(UiNode::new(label_id, battlement::UiLabel::new("update")));
+  let update_snapshot = snapshot(update_session, vec![camera()])
+    .prepared_assets([
+      PreparedAsset::Scene("test/scene".into()),
+      PreparedAsset::UiFont(UiFontAddress::new("test/font")),
+    ])
+    .ui_document(update_document);
+  let update =
+    CommandBody::VisualElementUpdate(Box::new(battlement::VisualElementUpdate::Properties {
+      object_id: label_id,
+      element: Box::new(
+        battlement::UiLabel::default()
+          .style(Style::new().unity_font_definition(UiFontAddress::new("test/font")))
+          .into(),
+      ),
+    }));
+  let mut update_catalog = FakeAssetCatalog::new();
+  update_catalog.add_scene("test/scene");
+  update_catalog.add_texture("test/font");
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = ScriptedEngine::new(
+      [Response::new(
+        update_session,
+        vec![ResponseMessage::Snapshot(update_snapshot)],
+      )],
+      [],
+      [Some(command(update_session, update, 5))],
+    );
+    let mut client = FakeClient::connect(engine, Arc::new(update_catalog));
+    client.poll();
+  }));
+  assert!(panic.is_err());
+}
+
+#[test]
+fn assertion_helpers_report_missing_objects_and_world_transform() {
+  let session_id = session(7);
+  let engine = ScriptedEngine::new([base_response(session_id, vec![camera()])], [], []);
+  let client = FakeClient::connect(engine, catalog());
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    client.assert_object_absent(object_id(1))
+  }));
+  assert!(panic.is_err());
+  let unknown = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    client.world().world_transform(object_id(99))
+  }));
+  assert!(unknown.is_err());
+}
+
+#[test]
+fn undeclared_material_command_cannot_change_a_card() {
+  for partial in [false, true] {
+    let session_id = session(151);
+    let mut assets = FakeAssetCatalog::new();
+    assets.add_scene("test/scene");
+    assets.add_material_with_parameters(
+      "test/material",
+      [
+        MaterialParameter::<f64>::new("_Clip").value(0.0),
+        MaterialParameter::<f64>::new("_Other").value(1.0),
+      ],
+    );
+    let mut initial = snapshot(
+      session_id,
+      vec![
+        camera(),
+        GameObject::new(object_id(2), GameObjectKind::Quad { materials: vec![] }),
+      ],
+    );
+    initial.prepared_assets.push(if partial {
+      PreparedAsset::MaterialParameters {
+        address: "test/material".into(),
+        parameters: vec![MaterialParameterDeclaration {
+          name: "_Other".into(),
+          kind: MaterialParameterKind::Float,
+        }],
+      }
+    } else {
+      PreparedAsset::Material("test/material".into())
+    });
+    let engine = ScriptedEngine::new(
+      [Response::new(
+        session_id,
+        vec![ResponseMessage::Snapshot(initial)],
+      )],
+      [],
+      [Some(command(
+        session_id,
+        CommandBody::RendererSetInstances(RendererInstancesPayload {
+          object_id: object_id(2),
+          instances: vec![
+            MaterialInstance::new("test/material")
+              .parameter(MaterialParameter::<f64>::new("_Clip"), 0.5),
+          ],
+        }),
+        1,
+      ))],
+    );
+    let mut client = FakeClient::connect(engine, Arc::new(assets));
+    let before = client.assert_object(object_id(2)).clone();
+    assert!(std::panic::catch_unwind(AssertUnwindSafe(|| client.poll())).is_err());
+    assert_eq!(client.assert_object(object_id(2)), &before);
+  }
+}
+
+#[test]
+fn geometric_legacy_click_and_drag_keep_core_transport_beside_logical_targets() {
+  for dragging in [false, true] {
+    let session_id = session(191);
+    let mut input_camera = camera();
+    input_camera.local_transform.position = Vector3::new(0.0, 0.0, -10.0);
+    input_camera.kind = GameObjectKind::Camera {
+      camera: CameraState {
+        projection: battlement::CameraProjection::Orthographic,
+        ..CameraState::default()
+      },
+    };
+    let mut target = GameObject::new(
+      object_id(2),
+      GameObjectKind::BoxHitRegion {
+        region: battlement::BoxHitRegionState {
+          size: Vector3::new(2.0, 2.0, 2.0),
+          center: Vector3::ZERO,
+        },
+      },
+    );
+    if dragging {
+      target.drag_mode = Some(DragMode::PreserveOffset);
+    } else {
+      target.pointer_events = vec![
+        PointerEvent::Enter,
+        PointerEvent::Down,
+        PointerEvent::Up,
+        PointerEvent::Click,
+      ];
+    }
+    let mut logical = target.clone();
+    logical.object_id = object_id(3);
+    logical.local_transform.position = Vector3::new(4.0, 0.0, 0.0);
+    logical.world_pointer = Some(battlement::WorldPointerSettings::default());
+    let screen = battlement::ScreenPosition { x: 960.0, y: 540.0 };
+    let payload = battlement::PointerButtonPayload {
+      object_id: object_id(2),
+      pointer_id: 0,
+      screen_position: screen,
+      world_hit: Vector3::new(0.0, 0.0, -1.0),
+      button: battlement::PointerButton::Left,
+    };
+    let expected = if dragging {
+      vec![
+        ActionBody::DragStart(DragPayload::new(object_id(2), 0, screen, Vector3::ZERO)),
+        ActionBody::DragEnd(DragPayload::new(
+          object_id(2),
+          0,
+          battlement::ScreenPosition { x: 960.0, y: 810.0 },
+          Vector3::new(0.0, 2.5, 0.0),
+        )),
+      ]
+    } else {
+      vec![
+        ActionBody::PointerEnter(battlement::PointerPayload {
+          object_id: object_id(2),
+          pointer_id: 0,
+          screen_position: screen,
+          world_hit: payload.world_hit,
+        }),
+        ActionBody::PointerDown(payload),
+        ActionBody::PointerUp(payload),
+        ActionBody::PointerClick(payload),
+      ]
+    };
+    let count = expected.len();
+    let engine = ScriptedEngine::new(
+      [base_response(
+        session_id,
+        vec![input_camera, target, logical],
+      )],
+      expected.into_iter().enumerate().map(|(i, body)| {
+        (
+          ClientMessage::Action(Action::new(action(i as u128 + 1), session_id, body)),
+          Response::empty(session_id),
+        )
+      }),
+      [],
+    );
+    let probe = engine.probe.clone();
+    let mut client = FakeClient::connect(engine, catalog());
+    client.sample_pointer(0, battlement::PanelPoint::new(960.0, 540.0), true);
+    let release = if dragging {
+      let moved = battlement::PanelPoint::new(960.0, 270.0);
+      client.sample_pointer(0, moved, true);
+      assert_eq!(
+        client.world().world_transform(object_id(2)).position,
+        Vector3::new(0.0, 2.5, 0.0)
+      );
+      moved
+    } else {
+      battlement::PanelPoint::new(960.0, 540.0)
+    };
+    client.sample_pointer(0, release, false);
+    assert_eq!(probe.borrow().submits.len(), count);
+  }
+}

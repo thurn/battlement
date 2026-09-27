@@ -8,6 +8,8 @@ These conventions also apply to Rust rules under `samples/`.
 - `mod.rs` and `lib.rs` contain only module and use declarations.
 - Order items: private constants/statics, thread-local declarations, public type
   aliases, public constants, traits, structs/enums, functions, then private items.
+- Use `tests/<crate_name>/main.rs` as the shared integration test entrypoint.
+  Keep separate targets only when process-wide state must be isolated.
 - Prefer inline expressions over temporary bindings.
 - Use macros only with strong justification after considering traits or other
   reusable abstractions.

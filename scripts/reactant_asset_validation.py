@@ -27,9 +27,9 @@ from unity_transaction import UnityProjectTransaction, unity_project_transaction
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 UNITY_VERSION = "6000.5.8f1"
 FAST_TEST = (
-    "real_browser_batch_emits_deterministic_rgba_png_metadata_for_every_paint_family"
+    "reactant_assets_render_tests::real_browser_batch_emits_deterministic_rgba_png_metadata_for_every_paint_family"
 )
-CLI_TEST_TARGETS = (
+CLI_TEST_MODULES = (
     "reactant_assets_browser_tests",
     "reactant_assets_cli_tests",
     "reactant_assets_commands_preview_tests",
@@ -147,7 +147,7 @@ def cli_browser() -> None:
             "test",
             "--workspace",
             "--test",
-            "reactant_assets_render_tests",
+            "rt",
             FAST_TEST,
             "--",
             "--exact",
@@ -250,7 +250,7 @@ def exhaustive(evidence: Path) -> None:
             ["cargo", "test", "--workspace"],
             environment=cargo_environment("exhaustive-rust"),
         )
-        for target in CLI_TEST_TARGETS:
+        for target in CLI_TEST_MODULES:
             run(
                 [
                     "cargo",
@@ -258,7 +258,8 @@ def exhaustive(evidence: Path) -> None:
                     "-p",
                     "rt",
                     "--test",
-                    target,
+                    "rt",
+                    f"{target}::",
                     "--",
                     "--ignored",
                     "--nocapture",

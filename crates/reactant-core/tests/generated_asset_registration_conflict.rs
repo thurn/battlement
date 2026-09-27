@@ -1,3 +1,5 @@
+// Deliberately conflicting linked registrations must remain isolated from other Reactant tests.
+
 mod runtime_support;
 
 use std::{any::Any, panic::AssertUnwindSafe};

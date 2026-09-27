@@ -1,3 +1,5 @@
+// This binary owns the exact process-wide generated-asset registry asserted by these tests.
+
 mod runtime_support;
 
 use std::{collections::VecDeque, slice, sync::Arc};

@@ -1,3 +1,5 @@
+// This binary owns its generated-asset registry so prepared-asset snapshots remain isolated.
+
 mod runtime_support;
 
 use std::{any::Any, panic::AssertUnwindSafe};

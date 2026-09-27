@@ -19,7 +19,7 @@ queue](09-checkpoint-publication.md) is integrated.
 connection from task 09; display driver. `response.rs` implements retained typed
 requests and response handles; `PublicationDisplay` exposes early request access
 and prompt-aware `settle`. Public scenarios live in
-`crates/reactant-testing/tests/prompts.rs` and extend the FIFO scenario in
+`crates/reactant-testing/tests/reactant_testing/prompts.rs` and extend the FIFO scenario in
 `publications.rs`.
 
 ## Example

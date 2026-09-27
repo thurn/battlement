@@ -1,0 +1,25 @@
+mod baseline_publication_tests;
+mod baseline_tests;
+mod config_tests;
+mod coverage_ledger_tests;
+mod image_comparison_tests;
+mod ios_simulator_tests;
+mod macos_capture_tests;
+mod macos_wake_tests;
+mod outcome_tests;
+mod player_supervision_tests;
+mod r2_baseline_tests;
+mod review_acceptance_tests;
+mod review_server_tests;
+mod run_catalog_tests;
+mod run_concurrency_tests;
+mod run_storage_tests;
+mod scenario_orchestration_tests;
+mod session_server_tests;
+mod watch_tests;
+mod webgl_capture_tests;
+mod wire_job_tests;
+mod wire_lifecycle_tests;
+mod wire_result_tests;
+
+use battlement_ditto as ditto;

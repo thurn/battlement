@@ -154,7 +154,7 @@ No finding below is a measured surviving mutation yet.
 These tests have plausible bugs to catch. Do not delete them to make a
 refactoring pass:
 
-- [ui_api_tests.rs](../crates/battlement-ui/tests/ui_api_tests.rs): exact tags,
+- [ui_api_tests.rs](../crates/battlement-ui/tests/battlement_ui/ui_api_tests.rs): exact tags,
   default omission, sparse reset, shorthand expansion, and style merge protect
   the Rust–Unity contract. A serializer emitting explicit null for an omitted
   property or a merge dropping a reset is a real bug. Prefer structural JSON
@@ -229,7 +229,7 @@ fail the replacement tests.
 
 **Prerequisites:** Task 1.
 
-Split these four suites: `crates/battlement-ui/tests/ui_api_tests.rs`,
+Split these four suites: `crates/battlement-ui/tests/battlement_ui/ui_api_tests.rs`,
 `samples/ui/rules/tests/ui_commands.rs`,
 `samples/reactant/rules/tests/composition.rs`, and
 `Packages/com.battlement.client/Tests/Editor/BattlementUiDocumentTests.cs`.

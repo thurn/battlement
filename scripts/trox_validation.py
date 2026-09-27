@@ -30,7 +30,7 @@ CONFIGURATIONS = (
     ),
     (
         Path("crates/reactant-core/tests"),
-        (Path("localization.rs"), Path("localization"), Path("trox.ron")),
+        (Path("reactant_core/localization.rs"), Path("localization"), Path("trox.ron")),
         (
             Path("localization/en-US.csv"),
             Path("localization/fr.csv"),

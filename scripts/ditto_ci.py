@@ -517,7 +517,7 @@ def adapter(name: str) -> None:
         raise RuntimeError(f"unknown adapter: {name}")
     output = artifact_directory(f"adapter-{name}")
     completed = command([
-        "cargo", "test", "-p", "battlement-ditto", "--test", test, "--", "--nocapture",
+        "cargo", "test", "-p", "battlement-ditto", "--test", "battlement_ditto", f"{test}::", "--", "--nocapture",
     ])
     report = {
         "schema": 1,
