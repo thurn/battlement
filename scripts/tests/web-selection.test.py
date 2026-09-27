@@ -4,13 +4,46 @@
 from pathlib import Path
 import sys
 import tempfile
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import web_selection
 from web_selection import select
 from web_compatibility import contracts, site_digest
 
 
+def verify_prepared_site_lifetime():
+    repository = Path(__file__).resolve().parents[2]
+    for fail in (False, True):
+        sites = []
+
+        def check(_repository, site, samples, revision):
+            assert (site / "fixture/index.html").is_file()
+            assert samples == ["fixture"] and revision == "source"
+            sites.append(site)
+            if fail:
+                raise RuntimeError("browser assertion failed")
+            return site / "result.json"
+
+        with (
+            patch.object(web_selection, "changed_paths", return_value=("source", [])),
+            patch.object(web_selection, "select", return_value=web_selection.Selection(fixtures=["test"])),
+            patch.object(web_selection, "check_site", side_effect=check),
+        ):
+            try:
+                with web_selection.prepare_affected(repository) as validate:
+                    assert not sites, "preparation must not start rendering checks"
+                    validate()
+                    assert sites[0].is_dir()
+            except RuntimeError as error:
+                assert fail and str(error) == "browser assertion failed"
+            else:
+                assert not fail
+        assert len(sites) == 1 and not sites[0].exists()
+
+
 def main():
+    verify_prepared_site_lifetime()
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
         (root / "web/checks").mkdir(parents=True)

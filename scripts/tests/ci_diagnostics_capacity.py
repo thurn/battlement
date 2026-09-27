@@ -37,7 +37,7 @@ def exercise() -> None:
             patch.object(ci.process_priority, "run"),
             resource_slots.SlotLease(slots, "machine-heavy", 6, 3),
         ):
-            ci.run_csharp_preflight([], selection, cache)
+            ci.run_dotnet_diagnostics(selection, cache)
 
 
 if __name__ == "__main__":

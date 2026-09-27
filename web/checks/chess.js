@@ -49,10 +49,11 @@ async (page, context) => {
     } finally { await page.mouse.up(); }
   }
   await click(320, 128);
-  await waitForPlay(false);
-  await check.expectImage('game-board', title, play, 0.2);
+  const board = await waitForPlay(false);
+  const changed = await check.difference(title, board);
+  if (changed < 0.2) throw new Error(`Game board changed fraction ${changed}, expected at least 0.2`);
   await page.waitForFunction(() => window.chessAudioContexts.some(audio => audio.state === 'running'));
   const audio = await page.evaluate(() => window.chessAudioContexts.map(audio => audio.state));
   const result = check.result('Activate audio and start a game through the visible Play menu');
-  return { ...result, assertions: result.assertions + 1, audio };
+  return { ...result, assertions: result.assertions + 2, audio, changed };
 }

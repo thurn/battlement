@@ -477,8 +477,9 @@ def _verify_selected_native_execution() -> None:
             "changed_paths",
             return_value=("HEAD", ["samples/ui/rules/src/lib.rs"]),
         ),
-        patch.object(web_selection, "validate_affected", side_effect=validate_concurrently),
+        patch.object(web_selection, "prepare_affected", side_effect=lambda *_a: nullcontext(validate_concurrently)),
         patch.multiple(ci, run_csharp_preflight=lambda *_a: None,
+                       run_dotnet_diagnostics=lambda *_a: None,
                        check_cargo_lockfiles=lambda *_a: None,
                        check_wire_schema_closure=lambda: None,
                        lint_rust_workspaces=lambda *_a: None),
@@ -524,7 +525,7 @@ def _verify_selected_native_execution() -> None:
             patch.object(ci, "prepare_standalone_builder", side_effect=AssertionError("unexpected builder")),
         ):
             ci.run_ci(full=True, use_ci_cache=False, ditto=True)
-            selection = csharp.call_args.args[1]
+            selection = unity.call_args.args[0]
             assert selection.scope == ci.unity_test_selection.Scope.ALL
             assert selection.dotnet_diagnostics
             assert ci.unity_test_selection.HOST_ASSEMBLY in selection.assemblies
@@ -550,7 +551,7 @@ def _verify_selected_native_execution() -> None:
             stack.enter_context(patcher)
         stack.enter_context(patch.object(ci.ci_tooling, "run", side_effect=lambda *_a, **_k: sibling("tooling")))
         stack.enter_context(patch.object(ci, "run_ditto_validation", side_effect=lambda *_a, **_k: sibling("native")))
-        stack.enter_context(patch.object(web_selection, "validate_affected", side_effect=lambda *_a: sibling("browser", True)))
+        stack.enter_context(patch.object(web_selection, "prepare_affected", side_effect=lambda *_a: nullcontext(lambda: sibling("browser", True))))
         try:
             ci.run_ci(full=True, use_ci_cache=False, ditto=True)
         except RuntimeError as error:
@@ -706,7 +707,8 @@ def _verify_csharp_preflight() -> None:
             options["function"]()
 
     with patch.object(ci, "run_step", side_effect=record_step):
-        ci.run_csharp_preflight([], selection, Cache())
+        ci.run_csharp_preflight([])
+        ci.run_dotnet_diagnostics(selection, Cache())
     assert steps == [
         "Restore local .NET tools",
         "Check C# formatting",
@@ -792,6 +794,7 @@ def _verify_runtime_checks_overlap() -> None:
             return 1.5
 
         with (
+            patch.object(ci, "run_dotnet_diagnostics"),
             patch.object(ci, "test_rust_workspaces", side_effect=lambda *_args: execute("rust")),
             patch.object(ci, "run_selected_unity_tests", side_effect=lambda *_args: execute("unity")),
         ):

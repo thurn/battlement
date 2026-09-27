@@ -459,6 +459,7 @@ def test_runtime_integrations(
         )
 
     def unity() -> None:
+        run_dotnet_diagnostics(unity_selection, ci_cache)
         seconds["unity"] = run_selected_unity_tests(unity_selection, ci_cache)
 
     steps = [("Rust tests", rust), ("Unity tests", unity)]
@@ -865,12 +866,8 @@ def check_samples_have_no_csharp(samples: list[str]) -> None:
             )
 
 
-def run_csharp_preflight(
-    samples: list[str],
-    selection: unity_test_selection.Selection,
-    ci_cache: CiCache,
-) -> None:
-    """Run the complete authoritative C# gate before expensive validation."""
+def run_csharp_preflight(samples: list[str]) -> None:
+    """Reject formatting and authoring errors before expensive validation."""
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step(
@@ -885,6 +882,12 @@ def run_csharp_preflight(
         "Check samples have no C#",
         function=lambda: check_samples_have_no_csharp(samples),
     )
+
+
+def run_dotnet_diagnostics(
+    selection: unity_test_selection.Selection, ci_cache: CiCache,
+) -> None:
+    """Run C# diagnostics before tests of the same Unity project."""
     if selection.dotnet_diagnostics:
         run_step(
             "Check .NET diagnostics",
@@ -1116,7 +1119,7 @@ def run_ci(
         flush=True,
     )
     unity_selection = unity_test_selection.select(REPOSITORY_ROOT, paths)
-    run_csharp_preflight(samples, unity_selection, ci_cache)
+    run_csharp_preflight(samples)
     run_step(
         "Check rust-analyzer projects",
         [sys.executable, "scripts/update-rust-analyzer-projects.py", "--check"],
@@ -1207,7 +1210,7 @@ def run_ci(
                 f"total={rust_test_seconds + reactant_cli_seconds + unity_seconds:.3f}s",
                 flush=True,
             )
-        from web_selection import validate_affected
+        from web_selection import prepare_affected
         validations = [
             ("Repository tooling", lambda: run_step(
                 "Test repository tooling",
@@ -1217,7 +1220,7 @@ def run_ci(
             )),
             ("Browser contracts", lambda: run_step(
                 "Validate affected browser contracts",
-                function=lambda: validate_affected(REPOSITORY_ROOT),
+                function=lambda: validate_browser(),
             )),
         ]
 
@@ -1239,7 +1242,8 @@ def run_ci(
 
         if full and platform.system() == "Darwin":
             validations.append(("Native scenarios", validate_native))
-        run_parallel_steps(validations, workers=3)
+        with prepare_affected(REPOSITORY_ROOT) as validate_browser:
+            run_parallel_steps(validations, workers=3)
     finally:
         if ditto_builds is not None:
             ditto_builds.close()

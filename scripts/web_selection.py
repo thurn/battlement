@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 import gzip
@@ -107,6 +109,13 @@ def changed_paths(repository: Path) -> tuple[str, list[str]]:
 
 def validate_affected(repository: Path) -> None:
     """Build and check only selected local browser contracts; retain native checks independently."""
+    with prepare_affected(repository) as validate:
+        validate()
+
+
+@contextmanager
+def prepare_affected(repository: Path) -> Iterator[Callable[[], None]]:
+    """Prepare players before callers admit competing native rendering work."""
     names = sorted({
         path.parent.name
         for pattern in ("*/sample.toml", "*/reactant.toml")
@@ -116,6 +125,7 @@ def validate_affected(repository: Path) -> None:
     selected = select(repository, paths, names)
     print("Browser risk selection: " + json.dumps(selected.report(), sort_keys=True), flush=True)
     if not selected:
+        yield lambda: None
         return
     if selected.workers:
         import webgl_worker_proof
@@ -125,6 +135,7 @@ def validate_affected(repository: Path) -> None:
         import browser_persistence_proof
         browser_persistence_proof.run()
     if not (selected.fixtures or selected.players):
+        yield lambda: None
         return
     # Preparation owns its compiler cache and Unity project lease.
     import importlib.util
@@ -153,5 +164,9 @@ console.log('battlement.host.connected');
             output = prepare.prepare(sample, True, prepare.DEFAULT_CACHE_ROOT)
             shutil.copytree(output, site / sample)
             checked.append(sample)
-        evidence = check_site(repository, site, sorted(checked), revision)
-        print(f"Affected browser evidence: {evidence}", flush=True)
+
+        def validate() -> None:
+            evidence = check_site(repository, site, sorted(checked), revision)
+            print(f"Affected browser evidence: {evidence}", flush=True)
+
+        yield validate
