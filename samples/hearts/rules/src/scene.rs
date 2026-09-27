@@ -118,20 +118,21 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
     for (index, z) in [-5.8, -2.9, 0.5, 3.6, 6.4].into_iter().enumerate() {
       let inset = if portrait {
         0.85
-      } else if index == 0 {
-        0.2
       } else {
-        -0.25
+        -1.15 + (index % 3) as f64 * 0.18
       };
       let x = side * (half_width + inset);
-      objects.push(self::prop(
-        assets::hearts::forest::HILL_4X2X2_COLOR1,
-        x,
-        -0.8,
-        z,
-        scale,
-        side * 90.0,
-      ));
+      let elevated = !portrait && index >= 3;
+      if portrait || elevated {
+        objects.push(self::prop(
+          assets::hearts::forest::HILL_4X2X2_COLOR1,
+          x,
+          if portrait { -0.8 } else { -0.45 },
+          z,
+          scale,
+          side * 90.0,
+        ));
+      }
       objects.push(self::prop(
         if index % 2 == 0 {
           assets::hearts::forest::TREE_1_A_COLOR1
@@ -139,7 +140,7 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
           assets::hearts::forest::TREE_2_A_COLOR1
         },
         x,
-        0.0,
+        if elevated { 0.55 } else { 0.0 },
         z + 0.3,
         scale,
         index as f64 * 73.0,
@@ -149,7 +150,7 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
         x - side * 0.7,
         0.0,
         z - 0.9,
-        scale * 1.4,
+        scale * if portrait { 1.4 } else { 1.8 },
         index as f64 * 42.0,
       ));
       objects.push(self::prop(
@@ -162,15 +163,28 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
       ));
     }
   }
-  let count = (half_width * 2.0 / 2.3).ceil() as usize;
+  let count = (half_width * 2.0 / if portrait { 2.3 } else { 3.1 }).ceil() as usize;
   for index in 0..=count {
     let x = -half_width + index as f64 * (2.0 * half_width / count as f64);
     objects.push(self::prop(
-      assets::hearts::forest::TREE_2_A_COLOR1,
+      if !portrait && index % 2 == 0 {
+        assets::hearts::forest::TREE_1_A_COLOR1
+      } else {
+        assets::hearts::forest::TREE_2_A_COLOR1
+      },
       x,
       0.0,
-      5.8,
-      scale,
+      if portrait {
+        5.8
+      } else {
+        5.1 + (index % 2) as f64 * 0.7
+      },
+      scale
+        * if portrait {
+          1.0
+        } else {
+          0.75 + (index % 3) as f64 * 0.12
+        },
       index as f64 * 51.0,
     ));
     if x.abs() > half_width * 0.72 {
@@ -188,7 +202,7 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
     let side = if index % 2 == 0 { -1.0 } else { 1.0 };
     objects.push(self::prop(
       assets::hearts::forest::GRASS_1_A_COLOR1,
-      side * (half_width + if portrait { 0.3 } else { -0.2 } - (index % 3) as f64 * 0.1),
+      side * (half_width + if portrait { 0.3 } else { -1.1 } - (index % 3) as f64 * 0.1),
       0.0,
       -5.3 + (index / 2) as f64 * 0.92,
       scale,
