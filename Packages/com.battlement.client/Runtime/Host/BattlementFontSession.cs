@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 
@@ -9,6 +10,11 @@ namespace Battlement
     /// <summary>Resets glyph packing history in session-owned dynamic fonts.</summary>
     internal static class BattlementFontSession
     {
+        // Stable atlas positions for common controls, independent of cached text request order.
+        private static readonly string commonCharacters = new(
+            Enumerable.Range(32, 95).Select(value => (char)value).ToArray()
+        );
+
         public static void Reset(IEnumerable<object?> assets)
         {
             var visited = new HashSet<Object>();
@@ -18,8 +24,10 @@ namespace Battlement
             }
         }
 
-        private static void Reset(object? asset, HashSet<Object> visited)
+        internal static void Reset(object? asset, HashSet<Object> visited)
         {
+            if (asset is not FontAsset && asset is not TMPro.TMP_FontAsset)
+                return;
             if (asset is not Object value || value == null || !visited.Add(value))
             {
                 return;
@@ -33,6 +41,7 @@ namespace Battlement
                 )
                 {
                     font.ClearFontAssetData();
+                    font.TryAddCharacters(commonCharacters);
                 }
                 if (font.fallbackFontAssetTable is not null)
                 {
@@ -52,6 +61,7 @@ namespace Battlement
                 if (textMeshFont.atlasPopulationMode != TMPro.AtlasPopulationMode.Static)
                 {
                     textMeshFont.ClearFontAssetData();
+                    textMeshFont.TryAddCharacters(commonCharacters);
                 }
                 if (textMeshFont.fallbackFontAssetTable is not null)
                 {

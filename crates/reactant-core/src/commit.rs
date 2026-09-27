@@ -1,8 +1,8 @@
 use std::{cell::Cell, rc::Rc, thread};
 
 use battlement::{
-  ActionId, Batch, BatchId, BatchStart, Command, ParallelCommandGroup, Response, ResponseMessage,
-  SessionId, Snapshot,
+  ActionId, Batch, BatchId, BatchStart, Command, CommandBody, ParallelCommandGroup, Response,
+  ResponseMessage, SessionId, Snapshot,
 };
 
 use crate::{
@@ -109,10 +109,36 @@ impl ReactantCommit {
   }
 
   fn take_groups(&mut self) -> Vec<Vec<Command>> {
-    self
+    let mut groups = self
       .groups
       .take()
-      .expect("Reactant commit was already consumed")
+      .expect("Reactant commit was already consumed");
+    let mut motion = Vec::new();
+    for group in &mut groups {
+      let mut structural = Vec::new();
+      for command in std::mem::take(group) {
+        if command.blocking && matches!(command.body, CommandBody::MotionSetWorldDescriptor(_)) {
+          motion.push(command);
+        } else {
+          structural.push(command);
+        }
+      }
+      *group = structural;
+    }
+    // Reparent and construct all targets before starting their movement together.
+    if !motion.is_empty() {
+      let effects = groups
+        .iter()
+        .position(|group| {
+          group
+            .iter()
+            .any(|command| matches!(command.body, CommandBody::MotionScope(_)))
+        })
+        .unwrap_or(groups.len());
+      groups.insert(effects, motion);
+    }
+    groups.retain(|group| !group.is_empty());
+    groups
   }
 }
 

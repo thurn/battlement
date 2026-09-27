@@ -17,6 +17,66 @@ namespace Battlement.Tests
     public sealed class MotionWorldTests
     {
         [Test]
+        public void LabelOnlySequencesAdvanceReadinessAndHonorPause()
+        {
+            ObjectId scope = Id("dd2b86de-0408-4f43-9be7-e58f56cb7061");
+            ObjectId playback = Id("dd2b86de-0408-4f43-9be7-e58f56cb7062");
+            double now = 0;
+            using var world = new BattlementMotionWorld(
+                unscaledTime: () => now,
+                registerPlayerLoop: false
+            );
+            world.Install(
+                new VisualElement(),
+                scope,
+                EmptyDescriptor(scope, scope) with
+                {
+                    Clock = new MotionClockSource.Unscaled(),
+                    ScopeId = scope,
+                    ScopeRoot = true,
+                }
+            );
+            world.Apply(
+                new MotionScopeOperation(
+                    scope,
+                    new MotionScopeCommand.Start(
+                        playback,
+                        1,
+                        new MotionSequenceEntry[]
+                        {
+                            new MotionSequenceEntry.Label(
+                                "ready",
+                                new MotionSequenceSchedule.Absolute(300_000)
+                            ),
+                        }
+                    )
+                )
+            );
+            var operation = (RunningMotion)world.RunningOperation(playback)!;
+            Assert.That(operation.IsHeld, Is.False);
+            Assert.That(world.ActiveFiniteTimelineCount, Is.EqualTo(1));
+            now = 0.1;
+            world.PostLayout();
+            world.Apply(
+                new MotionValuePlaybackOperation(playback, 1, new MotionPlaybackCommand.Pause())
+            );
+            Assert.That(operation.IsHeld, Is.True);
+            Assert.That(world.ActiveFiniteTimelineCount, Is.Zero);
+            Assert.That(world.ActiveHeldTimelineCount, Is.EqualTo(1));
+            now = 2;
+            world.PostLayout();
+            Assert.That(world.DrainEventBatch(), Is.Null);
+            world.Apply(
+                new MotionValuePlaybackOperation(playback, 1, new MotionPlaybackCommand.Play())
+            );
+            Assert.That(operation.IsHeld, Is.False);
+            now = 2.2;
+            world.PostLayout();
+            Assert.That(world.ActiveFiniteTimelineCount, Is.Zero);
+            Assert.That(world.DrainEventBatch()!.LabelEvents!.Single().Label, Is.EqualTo("ready"));
+        }
+
+        [Test]
         public void ScopeResumePreservesAnIndependentMotionPause()
         {
             ObjectId host = Id("a24fb6fb-0733-4b95-8265-3cfa997e2141");

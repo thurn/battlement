@@ -163,3 +163,67 @@ screen = "hearts"
 [[states]]
 key = "particles.restored-motion"
 screen = "hearts"
+
+[[states]]
+key = "motion.deal-midpoint"
+screen = "hearts"
+
+[[states]]
+key = "motion.deal-end"
+screen = "hearts"
+
+[[states]]
+key = "motion.pass-midpoint"
+screen = "hearts"
+
+[[states]]
+key = "motion.pass-end"
+screen = "hearts"
+
+[[states]]
+key = "motion.play-midpoint"
+screen = "hearts"
+
+[[states]]
+key = "motion.play-paused"
+screen = "hearts"
+
+[[states]]
+key = "motion.play-paused-later"
+screen = "hearts"
+
+[[states]]
+key = "motion.fourth-card-landing"
+screen = "hearts"
+
+[[states]]
+key = "motion.trick-hold"
+screen = "hearts"
+
+[[states]]
+key = "motion.collect-midpoint"
+screen = "hearts"
+
+[[states]]
+key = "motion.collect-end"
+screen = "hearts"
+
+[[states]]
+key = "motion.retarget-midpoint"
+screen = "hearts"
+
+[[states]]
+key = "motion.retarget-end"
+screen = "hearts"
+
+[[states]]
+key = "motion.reduced-full-trick"
+screen = "hearts"
+
+[[states]]
+key = "motion.reduced-collected"
+screen = "hearts"
+
+[[states]]
+key = "motion.reduced-scored"
+screen = "hearts"

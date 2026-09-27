@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::{
   assets, card_assets, card_gesture,
   card_input::{self, CardInput},
+  choreography::CardTiming,
   domain::Seat,
   projection::{CardToken, HumanView, VisibleCard},
 };
@@ -20,9 +21,21 @@ pub(crate) struct CardTable {
   view: HumanView,
   aspect: f64,
   inspection: Option<VisibleCard>,
+  timing: CardTiming,
 }
 
 struct CardSurface(VisibleCard, Option<world::LayoutDestination>);
+
+#[derive(Clone, Copy, Default)]
+struct FanStyle {
+  spacing: f64,
+  curvature: f64,
+  angle: f64,
+  timing: CardTiming,
+  seat: Option<Seat>,
+  half_width: f64,
+  first: usize,
+}
 
 impl CardTable {
   pub(crate) fn new(view: &HumanView, aspect: f64) -> Self {
@@ -30,7 +43,13 @@ impl CardTable {
       view: view.clone(),
       aspect,
       inspection: None,
+      timing: CardTiming::default(),
     }
+  }
+
+  pub(crate) fn timing(mut self, timing: CardTiming) -> Self {
+    self.timing = timing;
+    self
   }
 
   pub(crate) fn inspect(mut self, card: Option<VisibleCard>) -> Self {
@@ -82,6 +101,7 @@ impl Component for CardTable {
           half_width,
           portrait,
           &destinations,
+          self.timing,
         )
       })
       .collect();
@@ -101,9 +121,10 @@ impl Component for CardTable {
           &[*card],
           &destinations,
           if portrait { 0.63 } else { 1.3 },
-          0.0,
-          0.0,
-          0.0,
+          FanStyle {
+            timing: self.timing,
+            ..FanStyle::default()
+          },
         )
         .plane(self::plane(x - 0.5, z - 0.5))
       })
@@ -126,7 +147,14 @@ impl Component for CardTable {
             self.view.captured[seat.index()]
               .iter()
               .enumerate()
-              .map(|(index, card)| self::child(*card, &destinations, width, index)),
+              .map(|(index, card)| {
+                self.timing.child(
+                  self::child(*card, &destinations, width, index),
+                  None,
+                  index,
+                  half_width,
+                )
+              }),
           )
       })
       .collect();
@@ -241,7 +269,14 @@ fn hand(
   half_width: f64,
   portrait: bool,
   destinations: &Destinations,
+  timing: CardTiming,
 ) -> Node {
+  let style = FanStyle {
+    timing,
+    seat: Some(seat),
+    half_width,
+    ..FanStyle::default()
+  };
   if seat == Seat::South {
     if portrait {
       let spacing = (half_width * 2.0 - 0.65) / 7.0;
@@ -250,16 +285,35 @@ fn hand(
           .chunks(7)
           .enumerate()
           .map(|(row, cards)| {
-            self::fan(cards, destinations, spacing * 1.12, spacing, 0.0, 0.0)
-              .plane(self::plane(-0.5, -3.0 - row as f64 * 1.55))
+            self::fan(
+              cards,
+              destinations,
+              spacing * 1.12,
+              FanStyle {
+                spacing,
+                first: row * 7,
+                ..style
+              },
+            )
+            .plane(self::plane(-0.5, -3.0 - row as f64 * 1.55))
           })
           .collect::<Vec<_>>(),
       );
     }
     let spacing = ((half_width * 2.0 - 3.0) / 13.0).min(1.16);
     return Node::new(
-      self::fan(cards, destinations, spacing * 2.0, spacing, 0.01, -2.3)
-        .plane(self::plane(-0.5, -4.0 - self::rise(cards.len(), 0.01))),
+      self::fan(
+        cards,
+        destinations,
+        spacing * 2.0,
+        FanStyle {
+          spacing,
+          curvature: 0.01,
+          angle: -2.3,
+          ..style
+        },
+      )
+      .plane(self::plane(-0.5, -4.0 - self::rise(cards.len(), 0.01))),
     );
   }
   let (x, z, angle, width, spacing) = match seat {
@@ -291,8 +345,18 @@ fn hand(
       .position(Vector3::new(x, 0.0, z))
       .rotation(self::yaw(angle))
       .child(
-        self::fan(cards, destinations, width, spacing, 0.01, 2.5)
-          .plane(self::plane(-0.5, -0.5 - self::rise(cards.len(), 0.01))),
+        self::fan(
+          cards,
+          destinations,
+          width,
+          FanStyle {
+            spacing,
+            curvature: 0.01,
+            angle: 2.5,
+            ..style
+          },
+        )
+        .plane(self::plane(-0.5, -0.5 - self::rise(cards.len(), 0.01))),
       ),
   )
 }
@@ -301,21 +365,24 @@ fn fan(
   cards: &[VisibleCard],
   destinations: &Destinations,
   width: f64,
-  spacing: f64,
-  curvature: f64,
-  angle: f64,
+  style: FanStyle,
 ) -> world::Fan {
   let spread = cards.len().saturating_sub(1) as f64;
   world::Fan::new()
     .extent((1.0, 1.0))
-    .curve(spread * spacing, self::rise(cards.len(), curvature))
-    .angle((spread * angle).to_radians())
-    .children(
-      cards
-        .iter()
-        .enumerate()
-        .map(|(index, card)| self::child(*card, destinations, width, index)),
+    .curve(
+      spread * style.spacing,
+      self::rise(cards.len(), style.curvature),
     )
+    .angle((spread * style.angle).to_radians())
+    .children(cards.iter().enumerate().map(|(index, card)| {
+      style.timing.child(
+        self::child(*card, destinations, width, index),
+        style.seat,
+        index + style.first,
+        style.half_width,
+      )
+    }))
 }
 
 fn child(

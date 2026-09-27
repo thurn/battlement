@@ -247,3 +247,99 @@ state = "particles.restored-motion"
 scenario = "seeded particles"
 checkpoint = "restored-motion"
 owner = "reactant-testing::particle_lifecycle::emitter_owns_restart_replacement_disablement_and_motion_preference"
+
+[[mappings]]
+state = "motion.deal-midpoint"
+scenario = "Hearts choreography"
+checkpoint = "deal-midpoint"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.deal-end"
+scenario = "Hearts choreography"
+checkpoint = "deal-end"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.pass-midpoint"
+scenario = "Hearts choreography"
+checkpoint = "pass-midpoint"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.pass-end"
+scenario = "Hearts choreography"
+checkpoint = "pass-end"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.play-midpoint"
+scenario = "Hearts choreography"
+checkpoint = "play-midpoint"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.play-paused"
+scenario = "Hearts choreography"
+checkpoint = "play-paused"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.play-paused-later"
+scenario = "Hearts choreography"
+checkpoint = "play-paused-later"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.fourth-card-landing"
+scenario = "Hearts choreography"
+checkpoint = "fourth-card-landing"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.trick-hold"
+scenario = "Hearts choreography"
+checkpoint = "trick-hold"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.collect-midpoint"
+scenario = "Hearts choreography"
+checkpoint = "collect-midpoint"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.collect-end"
+scenario = "Hearts choreography"
+checkpoint = "collect-end"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.retarget-midpoint"
+scenario = "Hearts choreography"
+checkpoint = "retarget-midpoint"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.retarget-end"
+scenario = "Hearts choreography"
+checkpoint = "retarget-end"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.reduced-full-trick"
+scenario = "Hearts choreography"
+checkpoint = "reduced-full-trick"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.reduced-collected"
+scenario = "Hearts choreography"
+checkpoint = "reduced-collected"
+owner = "choreography_tests"
+
+[[mappings]]
+state = "motion.reduced-scored"
+scenario = "Hearts choreography"
+checkpoint = "reduced-scored"
+owner = "choreography_tests"

@@ -415,6 +415,7 @@ pub struct LayoutChild {
   measurement: Option<LayoutMeasurement>,
   content: Child,
   movement: Option<Transition>,
+  initial: Option<StyleTarget>,
 }
 
 impl LayoutChild {
@@ -427,6 +428,7 @@ impl LayoutChild {
       measurement: None,
       content: Child::new(content),
       movement: None,
+      initial: None,
     }
   }
 
@@ -443,6 +445,7 @@ impl LayoutChild {
       measurement: Some(measurement),
       content: Child::new(content),
       movement: None,
+      initial: None,
     }
   }
 
@@ -455,6 +458,13 @@ impl LayoutChild {
       "layout item and destination IDs must match"
     );
     self.item = item;
+    self
+  }
+
+  /// Supplies the mount origin before moving into the computed layout pose.
+  #[must_use]
+  pub fn initial(mut self, target: StyleTarget) -> Self {
+    self.initial = Some(target);
     self
   }
 
@@ -766,12 +776,14 @@ impl<A: LayoutAlgorithm> Component for WorldLayout<A> {
         let group = match target {
           Some(target) => {
             let group = group.transform(child.destination.base(target));
-            if child.destination.moving(layout_id, target) {
-              group.with_motion(
-                MotionProps::new()
-                  .animate(placement_target(target.transform))
-                  .blocking_command(),
-              )
+            if child.initial.is_some() || child.destination.moving(layout_id, target) {
+              let motion = MotionProps::new()
+                .animate(placement_target(target.transform))
+                .blocking_command();
+              group.with_motion(match &child.initial {
+                Some(initial) => motion.initial(initial.clone()),
+                None => motion,
+              })
             } else {
               group.with_motion(MotionProps::new().animate(StyleTarget::new()))
             }

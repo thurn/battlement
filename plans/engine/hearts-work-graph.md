@@ -5,15 +5,12 @@ Visual-pass planning: **hv-dz8**.
 
 [Design and contracts](hearts.md) · [Blind React reference](hearts-react-reference.md)
 
-## Execution hold
+## Execution authority
 
-**hv-a8o.1** is the execution-authorization gate and depends on the planning bead.
-The user clarified that the present task is detailed planning and filing only.
-The epic, gate, all implementation/introspection tasks, and final acceptance are
-natively deferred without expiry. Closing hv-qn6 does not release implementation.
-After a later explicit execution instruction, record it in the gate, resolve any
-design questions, and release statuses deliberately while retaining dependencies.
-Do not infer permission from elapsed time, an approved direction, or task creation.
+The full epic is authorized; **hv-a8o.1** records that authority. Native bead
+status and the serial dependencies below govern eligibility. Planning-era
+execution-hold text in older bead descriptions does not override that recorded
+authority or require another approval prompt.
 
 ## Dependency contract
 

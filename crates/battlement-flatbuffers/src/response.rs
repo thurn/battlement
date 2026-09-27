@@ -3194,7 +3194,9 @@ fn validate_response(value: wire::Response<'_>) -> Result<(), ProtocolError> {
             ));
           }
         } else if batch.cancel_scope().is_some() {
-          if batch.work_scope().is_some() || batch.start() != wire::BatchStart::Now {
+          if batch.work_scope().is_some()
+            || batch.start() == wire::BatchStart::AfterEarlierBlockingWork
+          {
             return Err(ProtocolError::new(
               "cancellation must be independent unowned work",
             ));

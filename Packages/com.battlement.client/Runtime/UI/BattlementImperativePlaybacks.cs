@@ -124,7 +124,8 @@ namespace Battlement.UI
             System.Action refresh,
             Action<ImperativePlayback> cancel,
             System.Action pause,
-            System.Action resume
+            System.Action resume,
+            Func<bool>? sequenceHeld = null
         )
         {
             if (!values.TryGetValue(playbackId.Value, out ImperativePlayback playback))
@@ -147,7 +148,8 @@ namespace Battlement.UI
                 refresh,
                 () => cancel(playback),
                 () =>
-                    playback.Addresses.All(address =>
+                    sequenceHeld?.Invoke()
+                    ?? playback.Addresses.All(address =>
                         descriptors.TryGetValue(
                             address.DescriptorId.Value,
                             out DescriptorState descriptor

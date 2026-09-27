@@ -5,7 +5,7 @@ use reactant_rules::CancellationToken;
 
 use crate::{
   domain::{AiObservation, HeartsState, Intention, Phase, Rejection, Seat},
-  projection::{CardToken, HumanView, Projection},
+  projection::{CardToken, HumanView, PresentationSeed, Projection},
   reducer::HeartsReducer,
 };
 
@@ -128,8 +128,16 @@ pub fn use_hearts_with_policy<K: hooks::Dependencies>(
     },
     (decision, result, game.presentation(), game.status()),
   );
-  let projection = hooks::use_memo(|| Rc::new(Projection::default()), accepted.version.session);
   let presented = game.presented();
+  let seed = hooks::use_optional_context::<PresentationSeed>();
+  let projection = hooks::use_memo(
+    move || {
+      Rc::new(seed.map_or_else(Projection::default, |seed| {
+        Projection::with_order_seed(seed.0)
+      }))
+    },
+    presented.version.session,
+  );
   HeartsController {
     view: projection.view(&presented.state, human),
     version: presented.version,

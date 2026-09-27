@@ -67,6 +67,9 @@ impl Target {
   }
 
   pub(crate) fn configure(&mut self, definition: &MotionDescriptor, world: &FakeWorld) {
+    if let Some(writer) = &mut self.world {
+      writer.configure(world);
+    }
     let mut material = None;
     let mut audio = None;
     for track in tracks(definition) {

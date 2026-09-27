@@ -40,7 +40,10 @@ namespace Battlement
             }
             if (
                 value.CancelScope.HasValue
-                && (value.WorkScope.HasValue || value.Start != Wire.BatchStart.Now)
+                && (
+                    value.WorkScope.HasValue
+                    || value.Start == Wire.BatchStart.AfterEarlierBlockingWork
+                )
             )
                 throw new InvalidDataException("Cancellation must be independent unowned work.");
             if (

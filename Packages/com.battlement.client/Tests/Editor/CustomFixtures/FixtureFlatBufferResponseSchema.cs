@@ -102,7 +102,10 @@ namespace Battlement.CustomFixtures
                 }
                 if (
                     batch.CancelScope.HasValue
-                    && (batch.WorkScope.HasValue || batch.Start != CoreWire.BatchStart.Now)
+                    && (
+                        batch.WorkScope.HasValue
+                        || batch.Start == CoreWire.BatchStart.AfterEarlierBlockingWork
+                    )
                 )
                     throw new InvalidDataException(
                         "Cancellation must be independent unowned work."

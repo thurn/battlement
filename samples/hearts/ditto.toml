@@ -440,3 +440,161 @@ accessibility_action = { target = { role = "button", name = "Full motion" }, act
 
 [[scenarios.steps]]
 screenshot = { name = "restored-motion", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios]]
+name = "Hearts choreography"
+fixture = "motion"
+motion = "controlled"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Replay deal" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 15 }
+
+[[scenarios.steps]]
+screenshot = { name = "deal-midpoint", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 150 }
+
+[[scenarios.steps]]
+screenshot = { name = "deal-end", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 12 }
+
+[[scenarios.steps]]
+screenshot = { name = "pass-midpoint", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+screenshot = { name = "pass-end", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 3 }
+
+[[scenarios.steps]]
+screenshot = { name = "play-midpoint", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle motion pause" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "play-paused", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 60 }
+
+[[scenarios.steps]]
+screenshot = { name = "play-paused-later", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle motion pause" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 5 }
+
+[[scenarios.steps]]
+screenshot = { name = "fourth-card-landing", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 6 }
+
+[[scenarios.steps]]
+screenshot = { name = "trick-hold", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 19 }
+
+[[scenarios.steps]]
+screenshot = { name = "collect-midpoint", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+screenshot = { name = "collect-end", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 2 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Retarget table layout" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 2 }
+
+[[scenarios.steps]]
+screenshot = { name = "retarget-midpoint", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+screenshot = { name = "retarget-end", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Retarget table layout" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Load final trick" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle reduced motion" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Advance Hearts action" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 6 }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced-full-trick", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 5 }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced-collected", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced-scored", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Scored: 0 cards in trick" }, role = "heading", name = "Scored: 0 cards in trick" }

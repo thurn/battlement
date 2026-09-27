@@ -733,6 +733,42 @@ namespace Battlement.Tests
             Assert.That(Failures(harness), Is.Empty);
         }
 
+        [Test]
+        public void CancellationDestroysRecoveredHostsAfterPreparationCompletes()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            var root = new ObjectId(Guid.NewGuid());
+            Batch original = BatchWithGroups(session, BatchStart.Now, Group(Create(root))) with
+            {
+                WorkScope = 7,
+            };
+            SubmitResponse(harness, Response(session, original));
+            Batch cancel = BatchWithGroups(session, BatchStart.Now) with { CancelScope = 7 };
+            Batch recovery = BatchWithGroups(
+                session,
+                BatchStart.AfterEarlierAssetPreparation,
+                Group(Wait(TimeSpan.FromMilliseconds(100))),
+                Group(Create(root))
+            );
+            Batch cleanup = BatchWithGroups(
+                session,
+                BatchStart.AfterEarlierAssetPreparation,
+                Group(
+                    new Command(new CommandId(Guid.NewGuid()), new CommandBody.Object.Destroy(root))
+                )
+            ) with
+            {
+                CancelScope = 7,
+            };
+            SubmitResponse(harness, Response(session, cancel, recovery, cleanup));
+            Assert.That(HasIdentity(root), Is.False);
+            harness.Clock.Advance(TimeSpan.FromMilliseconds(100));
+            harness.Runner.RunFrame();
+            Assert.That(HasIdentity(root), Is.False, "Cleanup must run after reconstruction.");
+            Assert.That(Failures(harness), Is.Empty);
+        }
+
         private static SessionId Connect(BattlementTestHarness harness)
         {
             var session = new SessionId(Guid.NewGuid());

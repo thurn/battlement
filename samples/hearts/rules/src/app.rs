@@ -9,7 +9,7 @@ use crate::{
   assets, audio, card_assets,
   card_controls::CardControls,
   card_input,
-  card_table::CardTable,
+  choreography::AnimatedTable,
   controller,
   domain::{HeartsState, Seat, cards},
   particles, scene,
@@ -21,32 +21,34 @@ struct HeartsRoot {
   initial: HeartsState,
   gallery: bool,
   interactive: bool,
+  fresh: bool,
 }
 
 /// Opens a new match through the same root used for restored state.
 pub fn application() -> Application {
-  self::application_from_state(HeartsState::new(43))
+  self::configured(HeartsState::new(43), false, true, true)
 }
 
 /// Mounts an already validated logical match without replaying its history.
 pub fn application_from_state(initial: HeartsState) -> Application {
-  self::configured(initial, false, true)
+  self::configured(initial, false, true, false)
 }
 
 pub(crate) fn exported_application() -> Application {
   match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() {
+    Ok("motion") => crate::motion_fixture::application(),
     Ok("particles") => crate::particle_fixture::application(),
     Ok("layout") => crate::layout_fixture::application(),
-    Ok("cards") => self::configured(HeartsState::new(43), true, false),
-    Ok("restored") => self::configured(HeartsState::new(73), false, false),
-    Ok("shell") => self::configured(HeartsState::new(43), false, false),
+    Ok("cards") => self::configured(HeartsState::new(43), true, false, false),
+    Ok("restored") => self::configured(HeartsState::new(73), false, false, false),
+    Ok("shell") => self::configured(HeartsState::new(43), false, false, false),
     Ok("input") | Err(_) => self::application(),
     Ok("play") => self::application_from_state(crate::layout_fixture::playing_state()),
     Ok(name) => panic!("unknown Hearts fixture {name:?}"),
   }
 }
 
-fn configured(initial: HeartsState, gallery: bool, interactive: bool) -> Application {
+fn configured(initial: HeartsState, gallery: bool, interactive: bool, fresh: bool) -> Application {
   Application::new(assets::hearts::CONTENT)
     .global_keys([
       PhysicalKey::ArrowLeft,
@@ -65,6 +67,7 @@ fn configured(initial: HeartsState, gallery: bool, interactive: bool) -> Applica
       initial,
       gallery,
       interactive,
+      fresh,
     })
     .document(|mut document| {
       document.root_id = ROOT;
@@ -169,7 +172,13 @@ impl Component for HeartsRoot {
             world::SceneRoot::new(ParentScene::PrimaryScene).child((
               surfaces,
               (!self.gallery).then(|| {
-                let table = CardTable::new(&game.view, aspect).inspect(input.inspection());
+                let table = reactant::GameRoot::new(AnimatedTable {
+                  view: game.view.clone(),
+                  aspect,
+                  inspection: input.inspection(),
+                  fresh: self.fresh || generation > 0,
+                  sound: self.interactive,
+                });
                 let table = if self.interactive {
                   Node::new(ContextProvider::new().context(input.clone()).child(table))
                 } else {
@@ -199,7 +208,10 @@ impl Component for HeartsRoot {
                     .height(100.pct())
                     .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
                 )
-                .child(scene::seats(&game.view, aspect < 1.0))
+                .child(reactant::GameRoot::new(scene::seats(
+                  &game.view,
+                  aspect < 1.0,
+                )))
             }),
           )),
         self.interactive.then(|| {

@@ -138,6 +138,34 @@ fn sequence_effect_occurrences_preserve_order_deduplicate_delivery_and_capture_p
   assert_eq!(display.particle_occurrences().len(), 2);
 }
 
+#[test]
+fn settling_label_only_sequences_reaches_effects_and_finite_particle_expiry() {
+  let (mut display, _root, probe) = fixture();
+  let (_, scope) = probe.0.borrow().as_ref().unwrap().clone();
+  let playback = scope.start(
+    AnimationSequence::new()
+      .label_at(
+        "cue",
+        SequencePosition::Absolute(Duration::from_millis(300)),
+      )
+      .play_sound(AudioClipAddress::from("motion/chime"))
+      .particle_for(
+        PrefabAddress::from("motion/spark"),
+        MotionPositionRef::identified(WORLD).follow(),
+        Duration::from_millis(200),
+      ),
+  );
+  let complete = Rc::new(Cell::new(false));
+  let completed = complete.clone();
+  playback.on_complete(move || completed.set(true));
+  display.flush();
+  display.settle();
+  display.flush();
+  assert_eq!(display.audio_occurrences().len(), 1);
+  assert_eq!(display.particle_occurrences().len(), 1);
+  assert!(complete.get());
+}
+
 fn presented(display: &Display<App>, root: ObjectId, value: f32) {
   assert_eq!(
     display

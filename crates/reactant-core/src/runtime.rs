@@ -11,9 +11,9 @@ use std::{
 };
 
 use battlement::{
-  self, AccessibilitySnapshot, AccessibilityUpdate, ActionId, Batch, Command, CommandBody,
-  GeometryGeneration, GeometryObservationBatch, MotionEventBatch, MotionSequence, ObjectId,
-  SessionId, Snapshot, UiDocument, UiEvent, UiEventDisposition,
+  self, AccessibilitySnapshot, AccessibilityUpdate, ActionId, Batch, BatchStart, Command,
+  CommandBody, GeometryGeneration, GeometryObservationBatch, MotionEventBatch, MotionSequence,
+  ObjectId, SessionId, Snapshot, UiDocument, UiEvent, UiEventDisposition,
 };
 use battlement_flatbuffers::{RetainedUiBudget, RetainedUiSnapshot};
 use trox::{Bundle, Localizer, SourceLocale};
@@ -1528,12 +1528,7 @@ impl<G: 'static> Reactant<G> {
     crate::work_scope::extract_snapshot(snapshot, &self.current_work_owners)
   }
 
-  pub(crate) fn recover_scope(
-    &mut self,
-    scope: u64,
-    session: SessionId,
-    restore_observations: bool,
-  ) -> Option<Batch> {
+  pub(crate) fn recover_scope(&mut self, scope: u64, session: SessionId) -> Option<Batch> {
     let trees = self
       .roots
       .iter()
@@ -1573,28 +1568,37 @@ impl<G: 'static> Reactant<G> {
     if !commands.is_empty() {
       groups.insert(0, commands);
     }
-    if restore_observations && let Some(snapshot) = &mut self.last_accessibility {
-      // The cancelled scope may have held the latest semantic update. Publish it
-      // after rebuilding its hosts, with a fresh sequence even if it was delivered.
-      self.semantic_commit_sequence += 1;
-      snapshot.commit_sequence = self.semantic_commit_sequence;
-      groups.push(vec![Command::new_v4(CommandBody::AccessibilityUpdate(
-        AccessibilityUpdate {
-          snapshot: Some(snapshot.clone()),
-          announcements: Vec::new(),
-        },
-      ))]);
-    }
     (!groups.is_empty()).then(|| {
-      Batch::new(
+      let mut batch = Batch::new(
         battlement::BatchId::new_v4(),
         session,
         groups
           .into_iter()
           .map(battlement::ParallelCommandGroup::new)
           .collect(),
-      )
+      );
+      // Cleanup and replacement hosts follow this reconstruction barrier,
+      // including when prepared assets are still loading.
+      batch.start = BatchStart::AfterEarlierAssetPreparation;
+      batch
     })
+  }
+
+  pub(crate) fn recover_accessibility(&mut self, session: SessionId) -> Option<Batch> {
+    let snapshot = self.last_accessibility.as_mut()?;
+    // A canceled scope may have held the latest semantic update. Restore it
+    // after the response's earlier observations, with a fresh commit sequence.
+    self.semantic_commit_sequence += 1;
+    snapshot.commit_sequence = self.semantic_commit_sequence;
+    let mut batch = Batch::parallel(
+      session,
+      [CommandBody::AccessibilityUpdate(AccessibilityUpdate {
+        snapshot: Some(snapshot.clone()),
+        announcements: Vec::new(),
+      })],
+    );
+    batch.start = BatchStart::AfterEarlierAssetPreparation;
+    Some(batch)
   }
 
   fn install_rendered(

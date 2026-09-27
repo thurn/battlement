@@ -26,12 +26,19 @@ namespace Battlement.Tests
             {
                 AssertAtlasReset(
                     ui,
-                    text => ui.TryAddCharacters(text),
+                    text => Assert.That(ui.TryAddCharacters(text), Is.True),
                     () => ui.atlasTextures[0].GetRawTextureData<byte>().ToArray()
                 );
                 AssertAtlasReset(
                     textMesh,
-                    text => textMesh.TryAddCharacters(text),
+                    text =>
+                    {
+                        textMesh.TryAddCharacters(text);
+                        Assert.That(
+                            text.All(value => textMesh.characterLookupTable.ContainsKey(value)),
+                            Is.True
+                        );
+                    },
                     () => textMesh.atlasTextures[0].GetRawTextureData<byte>().ToArray()
                 );
             }
@@ -54,20 +61,34 @@ namespace Battlement.Tests
 
         private static void AssertAtlasReset(
             Object font,
-            Func<string, bool> addCharacters,
+            Action<string> addCharacters,
             Func<byte[]> pixels
         )
         {
             const string text = "West score: 12";
-            Assert.That(addCharacters(text), Is.True);
+            BattlementFontSession.Reset(new object[] { font });
+            addCharacters(text);
             byte[] expected = pixels();
             Assert.That(expected.Any(pixel => pixel != 0), Is.True);
-            foreach (string previous in new[] { "New game", "Card inspection", "987654" })
+            var initialized = new HashSet<Object>();
+            addCharacters("Ω");
+            BattlementFontSession.Reset(font, initialized);
+            addCharacters(text);
+            Assert.That(pixels(), Is.EqualTo(expected));
+            addCharacters("Ж");
+            byte[] current = pixels();
+            BattlementFontSession.Reset(font, initialized);
+            Assert.That(
+                pixels(),
+                Is.EqualTo(current),
+                "Repeated leases must retain current glyphs."
+            );
+            foreach (string previous in new[] { "Δ", "é", "Ж" })
             {
-                Assert.That(addCharacters(previous), Is.True);
+                addCharacters(previous);
                 Assert.That(pixels(), Is.Not.EqualTo(expected));
                 BattlementFontSession.Reset(new object[] { font });
-                Assert.That(addCharacters(text), Is.True);
+                addCharacters(text);
                 Assert.That(pixels(), Is.EqualTo(expected), previous);
             }
         }

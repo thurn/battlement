@@ -225,6 +225,15 @@ impl GamePresentation {
 pub fn use_animate<G: Game>(
   author: impl FnOnce(&G::StateAnimation) -> Option<SnapshotAnimation>,
 ) -> SnapshotPlayback {
+  self::use_animate_with_initial::<G>(None, author)
+}
+
+/// Authors an optional initial presentation through the same receipt as later publications.
+/// Pass no initial event when restoring an already presented game.
+pub fn use_animate_with_initial<G: Game>(
+  initial: Option<G::StateAnimation>,
+  author: impl FnOnce(&G::StateAnimation) -> Option<SnapshotAnimation>,
+) -> SnapshotPlayback {
   let playback = SnapshotPlayback {
     current: hooks::use_ref(None),
   };
@@ -242,9 +251,12 @@ pub fn use_animate<G: Game>(
       .downcast::<G::StateAnimation>()
       .unwrap_or_else(|_| panic!("game animation type mismatch"))
   });
-  let plan = animation.as_deref().and_then(author);
+  let (initial_pending, consume_initial) = hooks::use_state(initial.is_some());
+  let initial = initial.filter(|_| initial_pending);
+  let plan = animation.as_deref().or(initial.as_ref()).and_then(author);
   hooks::use_commit_effect(
     move || {
+      consume_initial.set(false);
       if let Some(plan) = plan
         && let Some((playback, blocking)) = plan.submit(&app)
       {

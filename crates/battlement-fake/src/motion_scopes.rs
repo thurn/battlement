@@ -750,6 +750,40 @@ impl Entry {
 }
 
 impl Sequence {
+  pub(crate) fn deadline(&self, now: u64) -> Option<u64> {
+    if self.is_paused() || self.speed <= 0.0 {
+      return None;
+    }
+    if !matches!(
+      self.clock,
+      MotionClockSource::Unscaled | MotionClockSource::Scaled
+    ) {
+      return None;
+    }
+    let elapsed = self.elapsed(now);
+    self
+      .entries
+      .iter()
+      .enumerate()
+      .filter_map(|(index, entry)| {
+        if entry.completed.is_some() {
+          return None;
+        }
+        let deadline = match entry.started {
+          None => self.eligible(index)?,
+          Some(start) => match &entry.definition {
+            MotionSequenceEntry::Particle { particle, .. } => {
+              start.checked_add(particle.lifetime_ms.checked_mul(1000)?)?
+            }
+            _ => return None,
+          },
+        };
+        (deadline > elapsed)
+          .then(|| now.saturating_add(((deadline - elapsed) as f64 / self.speed).ceil() as u64))
+      })
+      .min()
+  }
+
   pub(crate) fn is_paused(&self) -> bool {
     self.paused || self.scope_paused
   }

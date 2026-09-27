@@ -2,19 +2,15 @@ use std::time::Duration;
 
 use battlement::{AudioBus, AudioClipAddress, AudioMix};
 use reactant::{
-  SnapshotAnimation,
-  animation_controls::{self, AnimationSequence, SequenceSoundOptions},
   audio::{self, AudioSettings, AudioTrack},
   hooks,
   prelude::*,
 };
-use reactant_rules::ReducerGame;
 use trox::ls;
 
 use crate::{
   assets,
   domain::{Event, Phase},
-  reducer::HeartsReducer,
 };
 
 pub(crate) struct GameAudio {
@@ -58,27 +54,6 @@ impl Component for GameAudio {
         ..AudioSettings::default()
       },
     );
-    let scope = animation_controls::use_animation_scope();
-    let animation_scope = scope.clone();
-    reactant::use_animate::<ReducerGame<HeartsReducer>>(move |event| {
-      let (address, volume) = self::cue(*event)?;
-      Some(
-        SnapshotAnimation::sequence(
-          animation_scope.clone(),
-          AnimationSequence::new().play_sound_with(
-            address,
-            SequenceSoundOptions {
-              volume,
-              ..SequenceSoundOptions::default()
-            },
-          ),
-        )
-        .nonblocking(),
-      )
-    });
-    View::new()
-      .picking_mode(PickingMode::Ignore)
-      .motion(MotionProps::new().animation_scope(scope))
   }
 }
 

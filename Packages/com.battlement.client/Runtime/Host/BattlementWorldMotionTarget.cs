@@ -27,6 +27,7 @@ namespace Battlement
         private readonly IBattlementGeometryWorldSource? geometryWorld;
         private readonly IBattlementGeometryDisplaySource geometryDisplays;
         private UnityVector3 position;
+        private Transform? placementParent;
         private UnityVector3 rotation;
         private UnityVector3 scale;
         private UnityVector3 offset;
@@ -54,6 +55,7 @@ namespace Battlement
         )
         {
             this.transform = transform;
+            placementParent = transform.parent;
             this.audioSources = audioSources;
             this.geometryWorld = geometryWorld;
             this.geometryDisplays = geometryDisplays ?? new UnityBattlementGeometryDisplaySource();
@@ -86,6 +88,7 @@ namespace Battlement
 
         internal void Configure(MotionDescriptor descriptor)
         {
+            placementParent = transform.parent;
             MotionPropertyTarget.MaterialScalar? nextMaterial = null;
             ObjectId? nextAudio = null;
             bool usesLight = false;
@@ -259,6 +262,13 @@ namespace Battlement
         public void WriteScalar(MotionProperty property, double value)
         {
             Require(property);
+            // Local placement belongs to the parent in which its descriptor was authored.
+            // A fresh descriptor retargets from the preserved pose after reparenting.
+            if (
+                property is >= MotionProperty.LocalPositionX and <= MotionProperty.LocalScaleZ
+                && transform.parent != placementParent
+            )
+                return;
             float number = checked((float)value);
             if (!float.IsFinite(number))
                 throw Invalid("World Motion channels must remain finite.");

@@ -157,7 +157,9 @@ impl OutputDelivery {
               });
             }
             batch.cancel_scope = batch.work_scope.take();
-            batch.start = battlement::BatchStart::Now;
+            // Cancellation is admitted immediately; destruction follows recovered
+            // parents and their preparation so it cannot leave resurrected hosts.
+            batch.start = battlement::BatchStart::AfterEarlierAssetPreparation;
             for group in &mut batch.groups {
               group.commands.retain(|command| {
                 matches!(

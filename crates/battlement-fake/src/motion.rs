@@ -424,6 +424,12 @@ impl MotionWorld {
           .chain(entry.restore.deadline(now))
       })
       .chain(self.graph.deadline(now))
+      .chain(
+        self
+          .sequences
+          .values()
+          .filter_map(|sequence| sequence.deadline(now)),
+      )
       .min()
   }
 

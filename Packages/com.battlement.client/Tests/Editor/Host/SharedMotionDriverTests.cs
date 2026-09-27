@@ -12,6 +12,47 @@ namespace Battlement.Tests
     public sealed class SharedMotionDriverTests
     {
         [Test]
+        public void ReparentPreservesPoseAcrossPreparationFramesBeforeRetarget()
+        {
+            var rendered = new GameObject("Reparented motion");
+            var parent = new GameObject("Destination parent");
+            try
+            {
+                parent.transform.position = new UnityEngine.Vector3(10, 0, 0);
+                ObjectId host = Id();
+                ObjectId clock = Id();
+                var target = new BattlementWorldMotionTarget(rendered.transform);
+                using var motion = new BattlementMotionWorld(registerPlayerLoop: false);
+                MotionDescriptor first = Descriptor(host, clock, MotionProperty.LocalPositionX, 4);
+                target.Configure(first);
+                motion.Prepare(target, host, first)!.Commit();
+                motion.SetControlledClock(clock, 1_000_000);
+                motion.PostLayout();
+                rendered.transform.SetParent(parent.transform, true);
+                for (int frame = 0; frame < 3; frame++)
+                    motion.PostLayout();
+                Assert.That(rendered.transform.position.x, Is.EqualTo(4).Within(0.00001));
+                MotionDescriptor next = Descriptor(
+                    host,
+                    clock,
+                    MotionProperty.LocalPositionX,
+                    0,
+                    2
+                );
+                target.Configure(next);
+                motion.Prepare(target, host, next)!.Commit();
+                motion.AdvanceControlledClock(clock, 500_000);
+                motion.PostLayout();
+                Assert.That(rendered.transform.position.x, Is.EqualTo(7).Within(0.00001));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rendered);
+                UnityEngine.Object.DestroyImmediate(parent);
+            }
+        }
+
+        [Test]
         public void UiAndWorldShareSamplingPauseSpeedStopAndRetarget()
         {
             var rendered = new GameObject("Motion world host");

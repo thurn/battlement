@@ -11,10 +11,14 @@ mod card_input_tests;
 mod card_table;
 #[cfg(test)]
 mod card_table_tests;
+mod choreography;
+#[cfg(test)]
+mod choreography_tests;
 pub mod controller;
 pub mod domain;
 mod inspection;
 mod layout_fixture;
+mod motion_fixture;
 mod particle_fixture;
 mod particles;
 pub mod projection;

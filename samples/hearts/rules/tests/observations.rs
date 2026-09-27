@@ -195,3 +195,31 @@ fn opaque_identity_survives_reveal_and_capture_but_is_fresh_after_restore() {
   );
   assert_eq!(state.random(), &random);
 }
+
+#[test]
+fn reproducible_hidden_card_paths_keep_fresh_opaque_identity() {
+  let state = HeartsState::new(43);
+  let first = Projection::with_order_seed(71);
+  let second = Projection::with_order_seed(71);
+  for seat in Seat::ALL {
+    let hidden_faces = |projection: &Projection| {
+      let visible = projection.view(&state, seat);
+      projection.view(&state, seat.clockwise(1)).hands[seat.index()]
+        .iter()
+        .map(|hidden| {
+          visible.hands[seat.index()]
+            .iter()
+            .find(|card| card.token == hidden.token)
+            .unwrap()
+            .face
+            .unwrap()
+        })
+        .collect::<Vec<_>>()
+    };
+    assert_eq!(hidden_faces(&first), hidden_faces(&second));
+    assert_ne!(
+      first.view(&state, seat).hands,
+      second.view(&state, seat).hands
+    );
+  }
+}

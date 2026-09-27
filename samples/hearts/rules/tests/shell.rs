@@ -274,6 +274,8 @@ fn music_and_effects_controls_preserve_playhead_and_new_game_disposes_old_audio(
   display.activate_accessible("New game");
   display.flush();
   assert!(display.audio(id).is_none());
+  display.settle();
+  display.flush();
   assert_eq!(
     display
       .audio_occurrences()

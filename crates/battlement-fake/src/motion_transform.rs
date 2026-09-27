@@ -7,6 +7,7 @@ use crate::{transform, world::FakeWorld};
 #[derive(Clone)]
 pub(crate) struct TransformWriter {
   host: ObjectId,
+  parent: Option<ObjectId>,
   position: [f64; 3],
   rotation: [f64; 3],
   scale: [f64; 3],
@@ -21,6 +22,7 @@ impl TransformWriter {
     let pose = world.require_object(host).local_transform();
     Self {
       host,
+      parent: world.require_object(host).parent_id(),
       position: channels(pose.position),
       rotation: angles(pose.rotation),
       scale: channels(pose.scale),
@@ -29,6 +31,10 @@ impl TransformWriter {
       factor: [1.0; 3],
       displayed: pose,
     }
+  }
+
+  pub(crate) fn configure(&mut self, world: &FakeWorld) {
+    self.parent = world.require_object(self.host).parent_id();
   }
 
   pub(crate) fn read(&mut self, property: MotionProperty, world: &FakeWorld) -> MotionValue {
@@ -52,6 +58,11 @@ impl TransformWriter {
     value: &MotionValue,
     world: &mut FakeWorld,
   ) {
+    if property <= MotionProperty::LocalScaleZ
+      && world.require_object(self.host).parent_id() != self.parent
+    {
+      return;
+    }
     self.synchronize(world);
     let MotionValue::Scalar(value) = value else {
       panic!("world Motion requires a scalar value");

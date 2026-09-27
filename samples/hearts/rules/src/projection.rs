@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use fastrand::Rng;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -33,16 +34,16 @@ pub struct HumanView {
 /// Private mapping for one mounted session; construct fresh after restore.
 pub struct Projection {
   tokens: BTreeMap<CardId, CardToken>,
+  order: BTreeMap<CardToken, usize>,
 }
+
+/// Optional reproducible visual ordering, independent of opaque IDs and game randomness.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) struct PresentationSeed(pub u64);
 
 impl Default for Projection {
   fn default() -> Self {
-    Self {
-      tokens: cards::deck()
-        .into_iter()
-        .map(|card| (card, CardToken(Uuid::new_v4())))
-        .collect(),
-    }
+    Self::with_order_seed(fastrand::u64(..))
   }
 }
 
@@ -53,6 +54,22 @@ impl CardToken {
 }
 
 impl Projection {
+  /// Reproduces hidden-card positions without making their presentation IDs predictable.
+  pub fn with_order_seed(seed: u64) -> Self {
+    let tokens: BTreeMap<_, _> = cards::deck()
+      .into_iter()
+      .map(|card| (card, CardToken(Uuid::new_v4())))
+      .collect();
+    let mut ordered = cards::deck();
+    Rng::with_seed(seed).shuffle(&mut ordered);
+    let order = ordered
+      .into_iter()
+      .enumerate()
+      .map(|(index, card)| (tokens[&card], index))
+      .collect();
+    Self { tokens, order }
+  }
+
   pub fn view(&self, state: &HeartsState, seat: Seat) -> HumanView {
     let observation = state.observe(seat);
     let hands = std::array::from_fn(|index| {
@@ -63,7 +80,7 @@ impl Projection {
         .map(|&card| self.card(card, owner == seat))
         .collect();
       if owner != seat {
-        cards.sort_unstable_by_key(|card| card.token);
+        cards.sort_unstable_by_key(|card| self.order[&card.token]);
       }
       cards
     });

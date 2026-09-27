@@ -45,6 +45,21 @@ namespace Battlement.UI
 
         public bool IsInfinite => Entries.Any(entry => entry.Infinite);
 
+        public bool IsHeld =>
+            Paused || Clock is MotionClockSource.Controlled or MotionClockSource.Audio;
+
+        public bool HasPendingFiniteWork =>
+            Entries
+                .Select((entry, index) => (entry, index))
+                .Any(value =>
+                    value.entry.CompletedAt is null
+                    && (
+                        value.entry.StartedAt is null
+                            ? EligibleAt(value.index).HasValue
+                            : !value.entry.Infinite
+                    )
+                );
+
         public bool Complete => Entries.All(entry => entry.CompletedAt is not null);
 
         public ulong Elapsed(ulong now)

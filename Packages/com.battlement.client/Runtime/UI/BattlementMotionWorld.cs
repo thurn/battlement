@@ -81,14 +81,20 @@ namespace Battlement.UI
 
         internal int ActiveFiniteTimelineCount =>
             descriptors.Values.Sum(value => value.ActiveFiniteTimelineCount)
-            + graph.ActiveFiniteTimelineCount;
+            + graph.ActiveFiniteTimelineCount
+            + activeSequences.Values.Count(sequence =>
+                sequence.HasPendingFiniteWork && !sequence.IsHeld
+            );
 
         internal int ActiveInfiniteTimelineCount =>
             descriptors.Values.Sum(value => value.ActiveInfiniteTimelineCount)
             + graph.ActiveInfiniteTimelineCount;
 
         internal int ActiveHeldTimelineCount =>
-            descriptors.Values.Sum(value => value.ActiveHeldTimelineCount);
+            descriptors.Values.Sum(value => value.ActiveHeldTimelineCount)
+            + activeSequences.Values.Count(sequence =>
+                sequence.HasPendingFiniteWork && sequence.IsHeld
+            );
 
         internal MotionPresentationObservation ObservePresentation() =>
             MotionPresentationObservation.Capture(
@@ -1445,7 +1451,12 @@ namespace Battlement.UI
                     FinishImperative(playbackId.Value, MotionPlaybackOutcome.Cancelled);
                 },
                 scopePause.Pause,
-                scopePause.Resume
+                scopePause.Resume,
+                activeSequences.ContainsKey(playbackId.Value)
+                    ? () =>
+                        activeSequences.TryGetValue(playbackId.Value, out var sequence)
+                        && sequence.IsHeld
+                    : null
             );
         }
 

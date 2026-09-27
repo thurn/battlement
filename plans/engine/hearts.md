@@ -8,11 +8,9 @@ Other games may continue to use the lower-level engine contracts. The numbered
 engine migration sequence is not itself a prerequisite: inspect actual code and
 follow the [native work graph](hearts-work-graph.md).
 
-The user approved the product direction and clarified that the current request
-is **detailed planning and native bead filing only**. Future implementation and
-introspection remain natively deferred without expiry. Closing the design bead
-does not authorize execution. Explicit user authorization is required to release
-the execution gate and planned work.
+Full implementation and paired introspection are authorized under
+[the work graph's execution authority](hearts-work-graph.md#execution-authority).
+Follow its serial prerequisites through delivery and acceptance.
 
 Deliver a beautiful complete offline Hearts game and meaningful reusable
 Reactant improvements. A sample-only implementation fails. Preserve the
@@ -429,7 +427,7 @@ logs are actionable without dumping private cards into player UI.
 
 Follow the [work graph](hearts-work-graph.md). Every bounded implementation has a
 separate blocking introspection bead; the next feature depends on introspection,
-not just delivered code. All execution is deferred until explicitly authorized.
+not just delivered code. Follow the work graph’s execution authority.
 
 Each review must record evidence and answer:
 

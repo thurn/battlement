@@ -19,6 +19,7 @@ namespace Battlement
         private readonly Dictionary<PreparedAsset, IBattlementAssetHandle> retained = new();
         private readonly HashSet<IBattlementAssetHandle> handles = new();
         private readonly HashSet<IBattlementSceneHandle> scenes = new();
+        private readonly HashSet<UnityEngine.Object> initializedFonts = new();
         private bool isDisposed;
 
         /// <inheritdoc />
@@ -77,7 +78,7 @@ namespace Battlement
                 retained.Add(checkedAsset, shared);
             }
 
-            IBattlementAssetHandle handle = new RetainedHandle(shared, Remove);
+            IBattlementAssetHandle handle = new RetainedHandle(shared, Remove, InitializeFont);
             handles.Add(handle);
             return handle;
         }
@@ -102,7 +103,9 @@ namespace Battlement
             {
                 throw new InvalidOperationException("Asset session still has live leases.");
             }
-            BattlementFontSession.Reset(retained.Values.Select(handle => handle.Value));
+            initializedFonts.Clear();
+            foreach (IBattlementAssetHandle handle in retained.Values)
+                InitializeFont(handle.Value);
         }
 
         /// <inheritdoc />
@@ -125,6 +128,7 @@ namespace Battlement
 
             handles.Clear();
             retained.Clear();
+            initializedFonts.Clear();
             isDisposed = true;
         }
 
@@ -133,6 +137,9 @@ namespace Battlement
         private void RemoveRetained(IBattlementAssetHandle handle) => retained.Remove(handle.Asset);
 
         private void Remove(IBattlementSceneHandle handle) => scenes.Remove(handle);
+
+        private void InitializeFont(object? value) =>
+            BattlementFontSession.Reset(value, initializedFonts);
 
         private static string AddressOf(PreparedAsset asset) =>
             asset switch
@@ -159,14 +166,17 @@ namespace Battlement
         {
             private readonly IBattlementAssetHandle shared;
             private readonly Action<IBattlementAssetHandle> onDispose;
+            private readonly Action<object?> initialize;
             private bool isDisposed;
 
             public RetainedHandle(
                 IBattlementAssetHandle shared,
-                Action<IBattlementAssetHandle> onDispose
+                Action<IBattlementAssetHandle> onDispose,
+                Action<object?> initialize
             )
             {
                 this.shared = shared;
+                this.initialize = initialize;
                 this.onDispose = onDispose;
             }
 
@@ -174,7 +184,15 @@ namespace Battlement
 
             public bool IsDone => shared.IsDone;
 
-            public object? Value => shared.Value;
+            public object? Value
+            {
+                get
+                {
+                    object? value = shared.Value;
+                    initialize(value);
+                    return value;
+                }
+            }
 
             public Exception? Error => shared.Error;
 
