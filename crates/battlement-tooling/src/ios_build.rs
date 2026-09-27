@@ -344,6 +344,10 @@ fn build_pending(
       "BATTLEMENT_IOS_PROVISIONING_PROFILE",
       request.target.profile_uuid(),
     )
+    .env(
+      "BATTLEMENT_IOS_BUNDLE_IDENTIFIER",
+      request.target.bundle_identifier(),
+    )
     .env("BATTLEMENT_DITTO_BUILD_PATH", &xcode_project)
     .env("BATTLEMENT_DITTO_SCENE_PATH", self::unity_scene(request)?)
     .env(

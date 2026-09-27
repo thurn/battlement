@@ -1,4 +1,9 @@
-use std::{fs, path::PathBuf, sync::atomic::AtomicBool};
+use std::{
+  fs,
+  path::PathBuf,
+  sync::atomic::AtomicBool,
+  time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::{Context, Result, bail, ensure};
 use battlement_tooling::{
@@ -9,16 +14,52 @@ use battlement_tooling::{
   developer_tools,
   host::{Host, SystemHost},
   ios_build::{self, IosBuildRequest, IosBuildResult, IosBuildTools},
-  ios_target::{IosSigning, IosTarget},
+  ios_device::{self, IosDeviceRequest, IosDeviceTools},
+  ios_target::{self, IosSigning, IosTarget},
 };
 use sha2::{Digest, Sha256};
 
 pub(crate) struct BuildOptions {
+  pub bundle_identifier: String,
   pub unsigned: bool,
   pub team: Option<String>,
   pub identity: Option<String>,
   pub profile: Option<PathBuf>,
   pub cache: Option<PathBuf>,
+}
+
+pub(crate) fn device(
+  cache: PathBuf,
+  fingerprint: &str,
+  request: IosDeviceRequest,
+  interrupted: &AtomicBool,
+) -> Result<()> {
+  ensure!(
+    cfg!(target_os = "macos"),
+    "iOS device installation requires macOS and Xcode"
+  );
+  let cache = BuildCache::open(cache, DEFAULT_BUILD_CACHE_BYTES)?;
+  let build = cache.retain_for_replay(
+    fingerprint,
+    SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+  )?;
+  let executable = |name| {
+    SystemHost
+      .find_executable(name)
+      .with_context(|| format!("{name} is unavailable"))
+  };
+  let receipt = ios_device::install(
+    &build,
+    &IosDeviceTools {
+      xcrun: executable("xcrun")?,
+      codesign: executable("codesign")?,
+      plutil: executable("plutil")?,
+    },
+    &request,
+    BuildControl::new(interrupted),
+  )?;
+  println!("{}", serde_json::to_string_pretty(&receipt)?);
+  Ok(())
 }
 
 /// Builds a device artifact with explicit unsigned or caller-supplied signing inputs.
@@ -31,6 +72,7 @@ pub(crate) fn build(
     cfg!(target_os = "macos"),
     "iOS device builds require macOS and Xcode"
   );
+  ios_target::validate_bundle_identifier(&options.bundle_identifier)?;
   let signing = if options.unsigned {
     None
   } else {
@@ -42,6 +84,7 @@ pub(crate) fn build(
       options
         .profile
         .context("supply an installed --provisioning-profile")?,
+      &options.bundle_identifier,
     )?)
   };
   let cargo = SystemHost
@@ -72,7 +115,10 @@ pub(crate) fn build(
     ],
   )?);
   let request = IosBuildRequest {
-    target: IosTarget::Device { signing },
+    target: IosTarget::Device {
+      bundle_identifier: options.bundle_identifier,
+      signing,
+    },
     repository,
     unity_project: project.root.clone(),
     rust_manifest: project.manifest.clone(),
@@ -139,7 +185,12 @@ pub(crate) fn build(
   }
 }
 
-fn signing(team: String, identity: String, profile: PathBuf) -> Result<IosSigning> {
+fn signing(
+  team: String,
+  identity: String,
+  profile: PathBuf,
+  bundle_identifier: &str,
+) -> Result<IosSigning> {
   let contents = fs::read(&profile).context("read supplied installed provisioning profile")?;
   let security = SystemHost
     .find_executable("security")
@@ -158,20 +209,39 @@ fn signing(team: String, identity: String, profile: PathBuf) -> Result<IosSignin
   let plutil = SystemHost
     .find_executable("plutil")
     .context("plutil is unavailable")?;
-  let profile_uuid = SystemHost.command_output(
-    &plutil,
-    &[
-      "-extract",
-      "UUID",
-      "raw",
-      "-o",
-      "-",
-      plist
-        .path()
-        .to_str()
-        .context("temporary path is not UTF-8")?,
-    ],
-  )?;
+  let field = |name| {
+    SystemHost.command_output(
+      &plutil,
+      &[
+        "-extract",
+        name,
+        "raw",
+        "-o",
+        "-",
+        plist
+          .path()
+          .to_str()
+          .context("temporary path is not UTF-8")?,
+      ],
+    )
+  };
+  let profile_uuid = field("UUID")?;
+  ensure!(
+    field("TeamIdentifier.0")? == team,
+    "provisioning profile belongs to another development team"
+  );
+  let application = field("Entitlements.application-identifier")?;
+  let prefix = field("ApplicationIdentifierPrefix.0")?;
+  let expected = format!("{prefix}.{bundle_identifier}");
+  let matches = application
+    .strip_suffix('*')
+    .map_or(application == expected, |prefix| {
+      expected.starts_with(prefix)
+    });
+  ensure!(
+    matches,
+    "provisioning profile does not authorize bundle identifier {bundle_identifier}; supply a matching installed profile"
+  );
   Ok(IosSigning {
     team,
     identity,

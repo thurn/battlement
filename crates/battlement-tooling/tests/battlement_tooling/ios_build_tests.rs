@@ -3,15 +3,17 @@
 use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, process::Command};
 
 use battlement_tooling::{
-  build_cache::{BUILD_LOG_FILE, BuildCache, SOURCE_MANIFEST_FILE},
+  build_cache::{BUILD_LOG_FILE, BuildCache, BuildHandle, SOURCE_MANIFEST_FILE},
   build_control::BuildControl,
   build_identity::CaptureAdapter,
   ios_build::{
     IosBuildOutcome, IosBuildRequest, IosBuildResult, IosBuildTools, STARTUP_IDENTITY_FILE,
     ios_startup_identity, player_app, select_ios_player,
   },
+  ios_device::{self, IosDeviceRequest, IosDeviceTools},
   ios_target::{IosSigning, IosTarget},
 };
+use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 
 #[test]
@@ -96,7 +98,10 @@ fn device_builds_use_device_sdk_and_do_not_reuse_simulator_or_unsigned_signature
       other => panic!("unexpected result: {other:?}"),
     };
   let mut request = fixture.request();
-  request.target = IosTarget::Device { signing: None };
+  request.target = IosTarget::Device {
+    bundle_identifier: "dev.example.game".to_owned(),
+    signing: None,
+  };
   let unsigned = match select_ios_player(&request, true, BuildControl::default()).unwrap() {
     IosBuildResult::Ready {
       build,
@@ -117,11 +122,15 @@ fn device_builds_use_device_sdk_and_do_not_reuse_simulator_or_unsigned_signature
   assert!(transcript.contains("iphoneos\n"));
   assert!(transcript.contains("CODE_SIGNING_ALLOWED=NO"));
   request.target = IosTarget::Device {
+    bundle_identifier: "dev.example.game".to_owned(),
     signing: Some(IosSigning {
       team: "SUPPLIED_TEAM".to_owned(),
       identity: "Supplied Development Identity".to_owned(),
       profile_uuid: "SUPPLIED_PROFILE".to_owned(),
-      profile_fingerprint: "a".repeat(64),
+      profile_fingerprint: Sha256::digest(b"profile")
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect(),
     }),
   };
   let signed = match select_ios_player(&request, true, BuildControl::default()).unwrap() {
@@ -131,6 +140,17 @@ fn device_builds_use_device_sdk_and_do_not_reuse_simulator_or_unsigned_signature
     } => build,
     other => panic!("unexpected result: {other:?}"),
   };
+  let mut other_app = request.clone();
+  if let IosTarget::Device {
+    bundle_identifier, ..
+  } = &mut other_app.target
+  {
+    *bundle_identifier = "dev.example.other".to_owned();
+  }
+  assert!(matches!(
+    select_ios_player(&other_app, false, BuildControl::default()).unwrap(),
+    IosBuildResult::Required { .. }
+  ));
   assert_ne!(
     unsigned.metadata().identity.fingerprint,
     signed.metadata().identity.fingerprint
@@ -139,6 +159,72 @@ fn device_builds_use_device_sdk_and_do_not_reuse_simulator_or_unsigned_signature
   assert!(transcript.contains("CODE_SIGN_STYLE=Manual"));
   assert!(transcript.contains("profile=SUPPLIED_PROFILE"));
   assert!(!transcript.contains("allowProvisioningUpdates"));
+  assert!(transcript.contains("bundle=dev.example.game"));
+  self::device_delivery(&fixture, &simulator, &unsigned, &signed);
+}
+
+fn device_delivery(
+  fixture: &Fixture,
+  simulator: &BuildHandle,
+  unsigned: &BuildHandle,
+  signed: &BuildHandle,
+) {
+  fixture.executable("tools/codesign", "#!/bin/sh\nexit 0\n");
+  fixture.executable(
+    "tools/devicectl",
+    r#"#!/bin/sh
+set -eu
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --json-output) result="$2"; shift 2 ;;
+    --environment-variables) environment="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf '{"info":{"outcome":"success"},"result":{"process":{"processIdentifier":123}}}' > "$result"
+printf '%s' "${environment:-}" > "$result.environment"
+"#,
+  );
+  let tools = IosDeviceTools {
+    xcrun: fixture.path("tools/devicectl"),
+    codesign: fixture.path("tools/codesign"),
+    plutil: PathBuf::from("/usr/bin/plutil"),
+  };
+  let request = IosDeviceRequest {
+    device: "explicit-device".to_owned(),
+    evidence: fixture.path("delivery"),
+    launch: true,
+    fixture: Some("motion".to_owned()),
+  };
+  for invalid in [simulator, unsigned] {
+    assert!(ios_device::install(invalid, &tools, &request, BuildControl::default()).is_err());
+  }
+  assert!(!request.evidence.exists());
+  let receipt = ios_device::install(signed, &tools, &request, BuildControl::default()).unwrap();
+  assert_eq!(
+    receipt.build_fingerprint,
+    signed.metadata().identity.fingerprint
+  );
+  assert_eq!(receipt.bundle_identifier, "dev.example.game");
+  assert!(receipt.launch.is_some());
+  assert!(request.evidence.join("receipt.json").is_file());
+  assert_eq!(
+    serde_json::from_slice::<serde_json::Value>(
+      &fs::read(request.evidence.join("launch.json.environment")).unwrap()
+    )
+    .unwrap(),
+    serde_json::json!({"BATTLEMENT_DITTO_SEMANTIC_FIXTURE":"motion"})
+  );
+  assert!(ios_device::install(signed, &tools, &request, BuildControl::default()).is_err());
+  fixture.executable("tools/codesign", "#!/bin/sh\nexit 1\n");
+  let invalid_signature = IosDeviceRequest {
+    evidence: fixture.path("invalid-signature"),
+    ..request
+  };
+  assert!(
+    ios_device::install(signed, &tools, &invalid_signature, BuildControl::default()).is_err()
+  );
+  assert!(!invalid_signature.evidence.exists());
 }
 
 struct Fixture {
@@ -305,10 +391,11 @@ case "$method" in
   *) exit 1 ;;
 esac
 [ "$BATTLEMENT_DITTO_IOS_SIMULATOR_ARCHITECTURE" = 'arm64' ]
-printf 'profile=%s\n' "$BATTLEMENT_IOS_PROVISIONING_PROFILE" >> '{}'
+printf 'profile=%s bundle=%s\n' "$BATTLEMENT_IOS_PROVISIONING_PROFILE" "$BATTLEMENT_IOS_BUNDLE_IDENTIFIER" >> '{}'
 [ -f "$project/Assets/Plugins/iOS/libbattlement_rules.a" ]
 [ -f "$project/Assets/Resources/BattlementDittoBuildIdentity.json" ]
 mkdir -p "$BATTLEMENT_DITTO_BUILD_PATH/Unity-iPhone.xcodeproj"
+printf '%s' "$BATTLEMENT_IOS_BUNDLE_IDENTIFIER" > "$BATTLEMENT_DITTO_BUILD_PATH/bundle-identifier"
 printf 'unity log\n' > "$log"
 "#,
       self.transcript.display(),
@@ -331,7 +418,9 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 mkdir -p "$products/Release-$sdk/Fixture.app"
-printf 'plist' > "$products/Release-$sdk/Fixture.app/Info.plist"
+bundle=$(cat bundle-identifier)
+printf '<plist version="1.0"><dict><key>CFBundleIdentifier</key><string>%s</string></dict></plist>' "$bundle" > "$products/Release-$sdk/Fixture.app/Info.plist"
+printf 'profile' > "$products/Release-$sdk/Fixture.app/embedded.mobileprovision"
 "#,
       self.transcript.display(),
       self.transcript.display()

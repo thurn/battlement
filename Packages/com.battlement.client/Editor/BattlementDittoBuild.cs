@@ -535,6 +535,14 @@ namespace Battlement.Editor
             }
 
             iOSSdkVersion previousSdk = PlayerSettings.iOS.sdkVersion;
+            string previousIdentifier = PlayerSettings.GetApplicationIdentifier(
+                NamedBuildTarget.iOS
+            );
+            if (!simulator)
+                PlayerSettings.SetApplicationIdentifier(
+                    NamedBuildTarget.iOS,
+                    Required("BATTLEMENT_IOS_BUNDLE_IDENTIFIER")
+                );
             AppleMobileArchitectureSimulator previousArchitecture = PlayerSettings
                 .iOS
                 .simulatorSdkArchitecture;
@@ -587,6 +595,7 @@ namespace Battlement.Editor
             finally
             {
                 PlayerSettings.iOS.sdkVersion = previousSdk;
+                PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.iOS, previousIdentifier);
                 PlayerSettings.iOS.simulatorSdkArchitecture = previousArchitecture;
                 EditorUserBuildSettings.iOSXcodeBuildConfig = previousBuildType;
                 PlayerSettings.allowedAutorotateToPortrait = previousPortrait;

@@ -30,6 +30,8 @@ enum Command {
   Build(BuildArgs),
   /// Build an arm64 physical iOS player with explicit signing policy.
   IosBuild(IosBuildArgs),
+  /// Install an exact signed iOS build and optionally launch a native fixture.
+  IosDevice(IosDeviceArgs),
   /// Build and run a Reactant application.
   Run(RunArgs),
   /// Prepare a Reactant application and open it in Unity Play mode.
@@ -99,6 +101,9 @@ struct BuildArgs {
 struct IosBuildArgs {
   #[command(flatten)]
   project: ProjectArgs,
+  /// Explicit application identity; it must match the supplied provisioning profile.
+  #[arg(long)]
+  bundle_identifier: String,
   /// Build an unsigned artifact for SDK/link validation; it cannot be installed.
   #[arg(long, conflicts_with_all = ["signing_team", "signing_identity", "provisioning_profile"])]
   unsigned: bool,
@@ -114,6 +119,28 @@ struct IosBuildArgs {
   /// Immutable build cache directory.
   #[arg(long)]
   cache: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+struct IosDeviceArgs {
+  /// Immutable cache used by ios-build.
+  #[arg(long)]
+  cache: PathBuf,
+  /// Exact build fingerprint reported by ios-build.
+  #[arg(long)]
+  fingerprint: String,
+  /// Explicit paired physical device identifier from xcrun devicectl list devices.
+  #[arg(long)]
+  device: String,
+  /// New directory retaining installation, launch and build identity receipts.
+  #[arg(long)]
+  output: PathBuf,
+  /// Launch after installation and leave the app running for device testing.
+  #[arg(long)]
+  launch: bool,
+  /// Semantic fixture name from the application's Ditto suite.
+  #[arg(long, requires = "launch")]
+  fixture: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -172,11 +199,25 @@ fn run() -> Result<u8> {
       crate::ios::build(
         &project,
         crate::ios::BuildOptions {
+          bundle_identifier: args.bundle_identifier,
           unsigned: args.unsigned,
           team: args.signing_team,
           identity: args.signing_identity,
           profile: args.provisioning_profile,
           cache: args.cache,
+        },
+        &INTERRUPTED,
+      )?;
+    }
+    Command::IosDevice(args) => {
+      crate::ios::device(
+        args.cache,
+        &args.fingerprint,
+        battlement_tooling::ios_device::IosDeviceRequest {
+          device: args.device,
+          evidence: args.output,
+          launch: args.launch,
+          fixture: args.fixture,
         },
         &INTERRUPTED,
       )?;
@@ -308,6 +349,7 @@ mod tests {
       [
         "build",
         "ios-build",
+        "ios-device",
         "run",
         "author",
         "assets",
@@ -324,7 +366,17 @@ mod tests {
   #[test]
   fn device_build_requires_explicit_signing_policy() {
     assert!(Cli::try_parse_from(["rt", "ios-build"]).is_err());
-    assert!(Cli::try_parse_from(["rt", "ios-build", "--unsigned"]).is_ok());
+    assert!(Cli::try_parse_from(["rt", "ios-build", "--unsigned"]).is_err());
+    assert!(
+      Cli::try_parse_from([
+        "rt",
+        "ios-build",
+        "--unsigned",
+        "--bundle-identifier",
+        "dev.example.game"
+      ])
+      .is_ok()
+    );
     assert!(
       Cli::try_parse_from(["rt", "ios-build", "--unsigned", "--signing-team", "team"]).is_err()
     );

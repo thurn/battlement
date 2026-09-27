@@ -12,6 +12,7 @@ pub mod doctor;
 pub mod fingerprint;
 pub mod host;
 pub mod ios_build;
+pub mod ios_device;
 pub mod ios_target;
 pub mod macos_build;
 mod macos_content_project;

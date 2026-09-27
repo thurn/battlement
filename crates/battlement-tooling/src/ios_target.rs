@@ -19,7 +19,10 @@ pub struct IosSigning {
 #[derive(Clone, Debug)]
 pub enum IosTarget {
   Simulator,
-  Device { signing: Option<IosSigning> },
+  Device {
+    bundle_identifier: String,
+    signing: Option<IosSigning>,
+  },
 }
 
 impl IosTarget {
@@ -69,6 +72,7 @@ impl IosTarget {
     match self {
       Self::Device {
         signing: Some(signing),
+        ..
       } => vec![
         "CODE_SIGNING_ALLOWED=YES".to_owned(),
         "CODE_SIGN_STYLE=Manual".to_owned(),
@@ -83,6 +87,7 @@ impl IosTarget {
     match self {
       Self::Device {
         signing: Some(signing),
+        ..
       } => &signing.profile_uuid,
       _ => "",
     }
@@ -90,7 +95,15 @@ impl IosTarget {
 
   pub fn retain_signing(&self, options: &mut BTreeMap<String, String>) -> Result<()> {
     if let Self::Device {
+      bundle_identifier, ..
+    } = self
+    {
+      self::validate_bundle_identifier(bundle_identifier)?;
+      options.insert("bundle-identifier".to_owned(), bundle_identifier.clone());
+    }
+    if let Self::Device {
       signing: Some(signing),
+      ..
     } = self
     {
       for (key, value) in [
@@ -116,6 +129,42 @@ impl IosTarget {
   }
 
   pub fn is_signed(&self) -> bool {
-    matches!(self, Self::Device { signing: Some(_) })
+    matches!(
+      self,
+      Self::Device {
+        signing: Some(_),
+        ..
+      }
+    )
   }
+
+  pub fn bundle_identifier(&self) -> &str {
+    match self {
+      Self::Simulator => "",
+      Self::Device {
+        bundle_identifier, ..
+      } => bundle_identifier,
+    }
+  }
+}
+
+/// Rejects ambiguous or invalid app identities before any signing or build work.
+pub fn validate_bundle_identifier(identifier: &str) -> Result<()> {
+  ensure!(
+    identifier.contains('.'),
+    "iOS bundle identifier must have multiple components"
+  );
+  for component in identifier.split('.') {
+    ensure!(
+      !component.is_empty(),
+      "iOS bundle identifier contains an empty component"
+    );
+    ensure!(
+      component
+        .bytes()
+        .all(|value| value.is_ascii_alphanumeric() || value == b'-'),
+      "iOS bundle identifier contains an invalid character"
+    );
+  }
+  Ok(())
 }
