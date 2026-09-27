@@ -17,7 +17,7 @@ Reactant improvements. A sample-only implementation fails. Preserve the
 [blind React reference](hearts-react-reference.md) as the independent comparison;
 do not rewrite it to justify the eventual Rust implementation.
 
-Targets: native macOS, desktop WebGL, native iOS/Android; mouse, touch, keyboard,
+Targets: native macOS and desktop WebGL; mouse, touch, keyboard,
 controller, portrait, and landscape. Exclude phone browsers, Windows/Linux,
 networking, accounts, configurable house rules, undo, hints, tutorial campaigns,
 store publishing, and public web deployment. Prioritize familiar React ownership,
@@ -511,18 +511,11 @@ Listen to the actual mix and timing. Repeated lifecycle changes must not leak or
 repeat audio. Verify deterministic particles stay off faces, and inspect clarity,
 hit targets, safe areas, lighting, clipping, depth order, and visible focus.
 
-Deliver Android APKs and native iOS device builds through the user's signing
-route. Establish SDK/signing/installation prerequisites in the first audit.
-Missing credentials/access are external dependencies; unsigned projects and
-simulator evidence do not prove physical delivery. No store publishing.
-
-Provide a physical-test packet with exact build identity, installation steps,
-fixtures, timing overlay/log export, and expectations for a full hand, AI,
-effects, rotation, background/resume, failure/retry, controller, and touch.
-Target sustained 60 fps on iPhone 12 / Pixel 6 class hardware. Measure a full hand
-after warmup, with frame-time distributions/missed frames, not a static scene.
-Reduce decoration before clarity. The user performs device testing and sign-off;
-keep physical/performance and aesthetic gates open until actual results arrive.
+Physical iPhone and Android delivery/testing are skipped by explicit user
+direction, including signing, installation, device lifecycle and physical
+performance gates. Native macOS Ditto retains deterministic viewport, safe-area,
+input and lifecycle coverage; it does not establish physical mobile behavior.
+No store publishing. Final user aesthetic approval remains required.
 
 ### Five-minute CI contract
 

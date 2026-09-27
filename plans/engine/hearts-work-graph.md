@@ -16,7 +16,9 @@ authority or require another approval prompt.
 
 The serial backbone is AUTHORIZE → H01 → R01 → … → H29 → R29 →
 V01 → RV01 → V02 → RV02 → V03 → RV03 → H30 → R30 → ACCEPT.
-Every implementation (H or V) has a dedicated introspection (R or RV), which
+H24/R24, H25/R25 and the iPhone signing prerequisite are skipped by user direction;
+the active backbone proceeds from R23 to H26. Physical mobile testing is not an acceptance gate.
+Every remaining implementation (H or V) has a dedicated introspection (R or RV), which
 blocks the next implementation. Each has its own native bead.
 Keys identify assignments; native IDs are the handles for claiming and evidence.
 Split oversized work before execution and preserve the implementation/review chain.
@@ -68,9 +70,9 @@ existing-pool substitutions for thematic gaps; retain required engine work.
 | [H21](#h21) | hv-a8o.42 | hv-a8o.43 | hv-a8o.41 | Complete match screens, contextual teaching, and settings |
 | [H22](#h22) | hv-a8o.44 | hv-a8o.45 | hv-a8o.43 | Integrate autosave, recovery, and foreground/background lifecycle |
 | [H23](#h23) | hv-a8o.46 | hv-a8o.47 | hv-a8o.45 | Finish portrait, safe-area, and cross-input ergonomics |
-| [H24](#h24) | hv-a8o.48 | hv-a8o.49 | hv-a8o.47 | Add reproducible native iOS device delivery |
-| [H25](#h25) | hv-a8o.50 | hv-a8o.51 | hv-a8o.49 | Add reproducible native Android delivery |
-| [H26](#h26) | hv-a8o.52 | hv-a8o.53 | hv-a8o.51 | Validate desktop WebGL Hearts compatibility |
+| [H24](#h24) | hv-a8o.48 | hv-a8o.49 | hv-a8o.47 | Skipped: native iOS device delivery |
+| [H25](#h25) | hv-a8o.50 | hv-a8o.51 | hv-a8o.47 | Skipped: native Android delivery |
+| [H26](#h26) | hv-a8o.52 | hv-a8o.53 | hv-a8o.47 | Validate desktop WebGL Hearts compatibility |
 | [H27](#h27) | hv-a8o.54 | hv-a8o.55 | hv-a8o.53 | Migrate chess music to shared audio lifecycle |
 | [H28](#h28) | hv-a8o.56 | hv-a8o.57 | hv-a8o.55 | Migrate a focused chess opponent path to shared tasks |
 | [H29](#h29) | hv-a8o.58 | hv-a8o.59 | hv-a8o.57 | Refine Hearts art, audio, and measured performance |
@@ -366,25 +368,13 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Add reproducible native iOS device delivery** — hv-a8o.48; review hv-a8o.49.
 
-**Scope and interface:** Extend existing simulator/build identity tooling for real iOS target compilation, SDK/architecture identity, user provisioning/signing route, installation and lifecycle fixture access. Keep reusable build support in tooling, not Hearts shell scripts.
-
-**Acceptance:** Produce a device-compatible signed build through supplied credentials and exact identity/install instructions. Missing user credentials are recorded external prerequisites, not silently replaced by a simulator or unsigned-project success claim.
-
-**Validation:** Build identity/cache invalidation tests and native iOS build/install/lifecycle smoke when credentials available; retain logs and user handoff steps.
-
-**Introspection focus:** What did native delivery force the app author to know? Generalize target/signing diagnostics and cache keys without weakening exact-build evidence.
+**Disposition:** H24, R24 and the signing prerequisite hv-wpb0 are skipped by explicit user direction. Retained tooling is available, but no signed-device or physical iPhone success is claimed. Continue from R23 to H26.
 
 ### H25
 
 **Add reproducible native Android delivery** — hv-a8o.50; review hv-a8o.51.
 
-**Scope and interface:** Connect existing Android host hooks to shared target/build identity/tool resolution. Build ARM64 Rust plugin and installable APK with reproducible SDK/NDK/Unity inputs, development signing and install/log collection instructions.
-
-**Acceptance:** Installable APK, exact build identity and native lifecycle fixture route exist. Tool/ABI failures are actionable. No ad hoc sample build fork or runtime dependency on chess; cache invalidates relevant Android inputs.
-
-**Validation:** Build identity tests, Android build/emulator smoke and user physical-device packet; retain exact logs and signing classification.
-
-**Introspection focus:** Which Android steps can shared tools own? Remove repeated CLI paths, manual plugin copying and opaque platform prerequisites.
+**Disposition:** H25 and R25 are skipped by explicit user direction. Android build, installation, lifecycle and physical performance testing are not completion gates. No Android build or device-test success is claimed. Continue from R23 to H26.
 
 ### H26
 
@@ -426,7 +416,7 @@ Its completion is followed by the paired introspection before dependent work.
 
 **Refine Hearts art, audio, and measured performance** — hv-a8o.58; review hv-a8o.59.
 
-**Scope and interface:** Iterate assembled scene/input/motion/audio against the reference and native captures through composition, lighting, mix and parameter tuning of the existing pool. Do not expand into asset creation or acquisition; use the documented substitutions. Measure frame cost, batching/materials/shadows/particles and AI responsiveness on reproducible builds. Provide user-facing physical performance instrumentation for the selected device classes.
+**Scope and interface:** Iterate assembled scene/input/motion/audio against the reference and native captures through composition, lighting, mix and parameter tuning of the existing pool. Do not expand into asset creation or acquisition; use the documented substitutions. Measure frame cost, batching/materials/shadows/particles and AI responsiveness on reproducible builds. Retain desktop performance instrumentation; physical mobile testing is skipped.
 
 **Acceptance:** Resolved clipping/readability/occlusion/timing issues and documented remaining user-sign-off items. Decoration is reduced before clarity. Required sound roles and controlled effects use existing assets or permitted simple geometry, with thematic substitutions documented; no claim of physical 60fps without user evidence.
 
@@ -491,9 +481,9 @@ remaining discrepancies for the next task.
 
 **Assemble final automated evidence and mobile review packet** — hv-a8o.60; review hv-a8o.61.
 
-**Scope and interface:** Run final risk-selected rules/engine/native/browser coverage, retain exact source/build evidence, exercise representative warm sample/engine/host CI budgets, and prepare Android/iOS installation and user test instructions. Audit all required engine changes and closed introspections.
+**Scope and interface:** Run final risk-selected rules/engine/native/browser coverage, retain exact source/build evidence, exercise representative warm sample/engine/host CI budgets, and prepare the desktop review packet. Audit all required engine changes and closed introspections.
 
-**Acceptance:** Automated gates pass within defined budget with honest cold/queue reporting. Evidence covers complete match, visual/audio and runtime lifecycle. Mobile packet contains exact build identities and expected outcomes; user-owned final acceptance remains open.
+**Acceptance:** Automated gates pass within defined budget with honest cold/queue reporting. Evidence covers complete match, visual/audio and runtime lifecycle. Desktop review packet contains exact build identities and expected outcomes; user-owned final acceptance remains open.
 
 **Validation:** Full staged validation plus scoped acceptance matrix; graph/evidence audit; no reuse after relevant inputs change.
 
@@ -502,11 +492,9 @@ remaining discrepancies for the next task.
 ## User-owned final acceptance
 
 **hv-a8o.62** depends on **hv-a8o.61** and remains deferred for user sign-off.
-Collect physical mobile results and final aesthetic approval against exact builds.
-The agent delivers native iOS/Android builds, install instructions, deterministic
-fixtures and performance instrumentation. The user owns iPhone 12 / Pixel 6 class
-testing and final 60 fps/performance and aesthetic sign-off. Missing signing or
-device access is an explicit external prerequisite, not a simulator substitute.
+Collect final aesthetic approval against exact desktop builds and retained native
+visual/audio evidence. Physical iPhone and Android testing, signing and install
+packets are skipped by user direction and do not block this gate.
 Failed acceptance produces bounded repair/introspection work with verified edges.
 Closing the final implementation task is not equivalent to closing this gate or
 the epic.
