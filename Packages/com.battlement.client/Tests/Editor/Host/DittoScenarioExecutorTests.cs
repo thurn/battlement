@@ -11,6 +11,53 @@ namespace Battlement.Tests
     public sealed class DittoScenarioExecutorTests
     {
         [Test]
+        public void ViewportWaitAndLayoutKeepTheExactAnimationTime()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            int attempts = 0;
+            TimeSpan? frozen = null;
+            TimeSpan? captured = null;
+            var scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Advance(3)),
+                Step(1, new DittoStepAction.Viewport(390, 844, new uint[] { 0, 44, 390, 766 })),
+                Step(
+                    2,
+                    new DittoStepAction.Screenshot(
+                        new DittoScreenshot("rotated", new DittoComparison("0", false, "0"))
+                    )
+                )
+            );
+            using var executor = new DittoScenarioExecutor(
+                harness.Runner,
+                scenario,
+                DittoPlatform.Macos,
+                1280,
+                720,
+                new Dictionary<string, ObjectId>(),
+                10_000,
+                () => TimeSpan.Zero,
+                _ =>
+                {
+                    captured = harness.Runner.DittoElapsed;
+                    return new DittoScreenshotStepOutcome(Guid.NewGuid().ToString("D"), null, true);
+                },
+                (_, message) => throw new AssertionException(message),
+                resizeViewport: viewport =>
+                {
+                    frozen ??= harness.Runner.DittoElapsed;
+                    Assert.That(harness.Runner.DittoElapsed, Is.EqualTo(frozen));
+                    Assert.That(viewport.Width, Is.EqualTo(390));
+                    return ++attempts == 4;
+                }
+            );
+            Drain(executor);
+            Assert.That(attempts, Is.EqualTo(4));
+            Assert.That(captured, Is.EqualTo(frozen));
+            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
         public void ControlledClockOwnsScenarioSetupTime()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

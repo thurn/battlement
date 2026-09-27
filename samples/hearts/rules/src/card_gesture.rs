@@ -1,7 +1,7 @@
 use battlement::{ClickEvent, PanelPoint, PointerButton, PointerType, Quaternion, Vector3};
 use reactant::{GameVersion, app_context, event::ReactantEvent, hooks, world};
 
-use crate::{card_input::CardInput, projection::CardToken, scene};
+use crate::{card_input::CardInput, hand_pan::HandPan, projection::CardToken, scene};
 
 #[derive(Clone)]
 struct Gesture {
@@ -9,6 +9,8 @@ struct Gesture {
   origin: PanelPoint,
   slop: f64,
   moved: bool,
+  panning: bool,
+  pan_origin: f64,
   version: GameVersion,
 }
 
@@ -18,6 +20,8 @@ pub(crate) fn use_gesture(
   input: Option<CardInput>,
 ) -> (Vector3, world::PointerHandlers) {
   let viewport = app_context::use_viewport_size();
+  let pan = hooks::use_optional_context::<HandPan>();
+  let down_pan = pan.clone();
   let gesture = hooks::use_ref(None::<Gesture>);
   let suppress_click = hooks::use_ref(false);
   let (offset, set_offset) = hooks::use_state(Vector3::ZERO);
@@ -66,6 +70,8 @@ pub(crate) fn use_gesture(
             3.0
           },
           moved: false,
+          panning: false,
+          pan_origin: down_pan.as_ref().map_or(0.0, |pan| pan.offset),
           version: input.version(),
         }));
       },
@@ -79,10 +85,18 @@ pub(crate) fn use_gesture(
       }
       let dx = event.payload().position.x - drag.origin.x;
       let dy = event.payload().position.y - drag.origin.y;
-      drag.moved |= dx.hypot(dy) > drag.slop;
+      if !drag.moved && dx.hypot(dy) > drag.slop {
+        drag.moved = true;
+        drag.panning = pan.as_ref().is_some_and(HandPan::enabled) && dx.abs() > dy.abs();
+      }
       if drag.moved {
         move_suppression.replace(true);
-        if let Some(target) = destination
+        if drag.panning {
+          pan
+            .as_ref()
+            .expect("pannable hand")
+            .pan_to(drag.pan_origin - dx);
+        } else if let Some(target) = destination
           .as_ref()
           .and_then(world::LayoutDestination::latest)
         {
@@ -112,8 +126,10 @@ pub(crate) fn use_gesture(
         }
         up.replace(None);
         up_offset.set(Vector3::ZERO);
+        if !drag.moved || drag.panning {
+          return;
+        }
         if let Some(input) = &input
-          && drag.moved
           && drag.version == input.version()
         {
           input.drop_card(token, event.payload().position);

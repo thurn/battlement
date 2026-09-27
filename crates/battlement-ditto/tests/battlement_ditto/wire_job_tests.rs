@@ -10,6 +10,59 @@ const SHARED_JOB_FIXTURE: &str =
   include_str!("../../../../Packages/com.battlement.client/Tests/Fixtures/Ditto/job-contract.json");
 
 #[test]
+fn viewport_contract_rejects_invalid_bounds_and_fixed_surface_operations() {
+  let fixture: Value = serde_json::from_str(SHARED_JOB_FIXTURE).unwrap();
+  let mut valid = fixture["valid"].clone();
+  valid["scenarios"][0]["steps"] = json!([fixture["viewport_step"]]);
+  let job: Job = serde_json::from_value(valid.clone()).unwrap();
+  job.validate().unwrap();
+  for case in fixture["viewport_invalid"].as_array().unwrap() {
+    let mut changed = valid.clone();
+    let (parent, field) = case["pointer"].as_str().unwrap().rsplit_once('/').unwrap();
+    changed
+      .pointer_mut(parent)
+      .unwrap()
+      .as_object_mut()
+      .unwrap()
+      .insert(field.into(), case["value"].clone());
+    if let Ok(job) = serde_json::from_value::<Job>(changed) {
+      assert!(job.validate().is_err(), "{}", case["name"]);
+    }
+  }
+  let mut profiled = job.clone();
+  profiled.command = Command::Profile;
+  profiled.scenarios[0].performance = Some(PerformanceAttempt {
+    pass: PerformancePass::Score,
+    warmup: false,
+    iteration: 1,
+    target_fps: 60,
+    idle_frames: 0,
+  });
+  assert!(
+    profiled
+      .validate()
+      .unwrap_err()
+      .to_string()
+      .contains("viewport steps cannot be profiled")
+  );
+  let mut video = job.clone();
+  video.scenarios[0].steps.push(ResolvedStep {
+    index: 1,
+    name: None,
+    timeout_ms: 1000,
+    measure: false,
+    action: StepKind::Video(VideoStep::Stop),
+  });
+  assert!(
+    video
+      .validate()
+      .unwrap_err()
+      .to_string()
+      .contains("viewport steps cannot share a scenario with video")
+  );
+}
+
+#[test]
 fn shared_csharp_job_fixture_has_matching_acceptance() {
   let fixture: Value = serde_json::from_str(SHARED_JOB_FIXTURE).unwrap();
   let valid = fixture["valid"].clone();

@@ -322,6 +322,7 @@ pub(super) fn step_name(kind: &StepKind) -> StepName {
     StepKind::PointerAction { .. } => StepName::PointerAction,
     StepKind::PointerSample { .. } => StepName::PointerSample,
     StepKind::Navigation { .. } => StepName::Navigation,
+    StepKind::Viewport(_) => StepName::Viewport,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,
   }

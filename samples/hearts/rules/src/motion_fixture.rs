@@ -43,7 +43,6 @@ impl Component for MotionFixture {
     let (ending, set_ending) = hooks::use_state(false);
     let (paused, set_paused) = hooks::use_state(false);
     let (reduced, set_reduced) = hooks::use_state(false);
-    let (rotated, set_rotated) = hooks::use_state(false);
     let game = controller::use_hearts(
       (generation, ending),
       move || self::initial(ending),
@@ -52,15 +51,6 @@ impl Component for MotionFixture {
     );
     let viewport = app_context::use_viewport_size();
     let viewport_aspect = f64::from(viewport.width) / f64::from(viewport.height);
-    let aspect = if rotated {
-      if viewport_aspect > 1.0 {
-        1.0 / viewport_aspect
-      } else {
-        viewport_aspect * 0.8
-      }
-    } else {
-      viewport_aspect
-    };
     let dispatch = game.game.clone();
     let version = dispatch.accepted().version;
     let next = self::next(&dispatch.accepted().state);
@@ -101,8 +91,6 @@ impl Component for MotionFixture {
           Button::new(ls("Load final trick")).on_press(set_ending.update_callback(|value| !value)),
           Button::new(ls("Toggle motion pause"))
             .on_press(set_paused.update_callback(|value| !value)),
-          Button::new(ls("Retarget table layout"))
-            .on_press(set_rotated.update_callback(|value| !value)),
           Button::new(ls("Toggle reduced motion"))
             .on_press(set_reduced.update_callback(|value| !value)),
         )),
@@ -111,7 +99,7 @@ impl Component for MotionFixture {
         GameRoot::new(
           MotionConfig::new(AnimatedTable {
             view: game.view,
-            aspect,
+            aspect: viewport_aspect,
             inspection: None,
             fresh: !ending,
             sound: true,

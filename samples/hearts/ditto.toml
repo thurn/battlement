@@ -48,6 +48,10 @@ display = { width = 1280, height = 720, scale = 1.0 }
 target = "macos"
 display = { width = 720, height = 1280, scale = 1.0 }
 
+[profiles.phone]
+target = "macos"
+display = { width = 390, height = 844, scale = 1.0 }
+
 [[scenarios]]
 name = "new match"
 fixture = "shell"
@@ -551,7 +555,7 @@ accessibility_action = { target = { role = "button", name = "Advance Hearts acti
 advance = { frames = 2 }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "Retarget table layout" }, action = "activate" }
+viewport = { width = 720, height = 1280, safe_area = [0, 0, 720, 1280] }
 
 [[scenarios.steps]]
 advance = { frames = 2 }
@@ -566,7 +570,7 @@ advance = { frames = 30 }
 screenshot = { name = "retarget-end", threshold = 0, anti_alias = false, max_changed_percent = 0 }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "Retarget table layout" }, action = "activate" }
+viewport = { width = 1280, height = 720, safe_area = [0, 0, 1280, 720] }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Load final trick" }, action = "activate" }
@@ -865,3 +869,177 @@ accessibility_action = { target = { role = "button", name = "Foreground search" 
 wait = { object = "6644ed66-12dc-4590-9af8-19d174a47072", state = "visible" }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "static-text", name = "AI passes accepted" }, role = "static-text", name = "AI passes accepted" }
+
+[[scenarios]]
+name = "phone viewport and gestures"
+fixture = "input"
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+viewport = { width = 390, height = 844, safe_area = [0, 44, 390, 766] }
+[[scenarios.steps]]
+screenshot = { name = "phone safe area" }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "press", target = [0.78, 0.68] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "move", target = [0.18, 0.68] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "release", target = [0.18, 0.68] }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Choose three to pass · 0 / 3" }, role = "heading", name = "Choose three to pass · 0 / 3" }
+[[scenarios.steps]]
+screenshot = { name = "panned" }
+[[scenarios.steps]]
+viewport = { width = 1280, height = 720, safe_area = [30, 0, 1220, 700] }
+[[scenarios.steps]]
+screenshot = { name = "landscape" }
+[[scenarios.steps]]
+viewport = { width = 390, height = 844, safe_area = [0, 44, 390, 766] }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Menu" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Settings" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Text size: standard" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "large settings" }
+[[scenarios.steps]]
+navigation = { action = "cancel" }
+[[scenarios.steps]]
+screenshot = { name = "large phone" }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Music on" }, action = "click", completion = { target = { role = "button", name = "Music off" }, role = "button", name = "Music off", disabled = false } }
+[[scenarios.steps]]
+pointer_action = { target = { role = "button", name = "Music off" }, action = "click", completion = { target = { role = "button", name = "Music on" }, role = "button", name = "Music on", disabled = false } }
+
+[[scenarios]]
+name = "restored default viewport"
+fixture = "input"
+[[scenarios.steps]]
+screenshot = { name = "default" }
+[[scenarios]]
+name = "phone controller reveal"
+fixture = "input"
+[[scenarios.steps]]
+viewport = { width = 390, height = 844, safe_area = [0, 44, 390, 766] }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+navigation = { action = "right" }
+[[scenarios.steps]]
+screenshot = { name = "last card focus" }
+[[scenarios]]
+name = "rotation through pass and play"
+fixture = "input"
+motion = "controlled"
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Seven of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Queen of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "King of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+viewport = { width = 390, height = 844, safe_area = [0, 44, 390, 766] }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Choose three to pass · 3 / 3" }, role = "heading", name = "Choose three to pass · 3 / 3" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Pass three cards" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 6 }
+[[scenarios.steps]]
+screenshot = { name = "passing before rotation" }
+[[scenarios.steps]]
+viewport = { width = 1280, height = 720, safe_area = [30, 0, 1220, 700] }
+[[scenarios.steps]]
+screenshot = { name = "passing after rotation" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Two of Clubs" }, action = "activate" }
+[[scenarios.steps]]
+viewport = { width = 390, height = 844, safe_area = [0, 44, 390, 766] }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Play selected card" }, role = "button", name = "Play selected card", disabled = false }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Play selected card" }, action = "activate" }
+[[scenarios.steps]]
+advance = { frames = 6 }
+[[scenarios.steps]]
+screenshot = { name = "playing before rotation" }
+[[scenarios.steps]]
+viewport = { width = 1280, height = 720, safe_area = [30, 0, 1220, 700] }
+[[scenarios.steps]]
+screenshot = { name = "playing after rotation" }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+
+[[scenarios]]
+name = "phone upward drag and cancel"
+fixture = "play"
+[[scenarios.steps]]
+viewport = { width = 390, height = 844, safe_area = [0, 44, 390, 766] }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.68] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "release", target = [0.08, 0.68] }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Play selected card" }, role = "button", name = "Play selected card", disabled = false }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Inspect selected card" }, action = "activate" }
+[[scenarios.steps]]
+screenshot = { name = "portrait inspection" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Close inspection" }, action = "activate" }
+
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.68] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "move", target = [0.08, 0.53] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "move", target = [0.50, 0.45] }
+[[scenarios.steps]]
+screenshot = { name = "upward drag" }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "cancel" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Play selected card" }, role = "button", name = "Play selected card", disabled = false }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.68] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "move", target = [0.08, 0.53] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "move", target = [0.50, 0.45] }
+[[scenarios.steps]]
+pointer = { pointer_id = 1, phase = "release", target = [0.50, 0.45] }
+[[scenarios.steps]]
+wait = { object = "controls", state = "enabled" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Play selected card" }, role = "button", name = "Play selected card", disabled = true }
+[[scenarios.steps]]
+screenshot = { name = "played through upward drag" }

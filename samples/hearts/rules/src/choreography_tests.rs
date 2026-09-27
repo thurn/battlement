@@ -1,13 +1,14 @@
 use std::{collections::BTreeSet, time::Duration};
 
 use battlement::{
-  AudioClipAddress, CommandBody, GameObjectKind, MotionScopeCommand, ObjectId, PreparedAsset,
+  AudioClipAddress, CommandBody, GameObjectKind, MotionScopeCommand, ObjectId, PreparedAsset, Rect,
+  ScreenSize,
 };
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use reactant_rules::ReducerGame;
 use reactant_testing::Display;
 
-use crate::{app, assets, motion_fixture, reducer::HeartsReducer};
+use crate::{app, assets, motion_fixture, reducer::HeartsReducer, test_geometry};
 
 #[test]
 fn milestones_pause_and_hold_a_complete_trick_before_collection() {
@@ -108,12 +109,32 @@ fn deal_blocks_input_and_retargeting_does_not_repeat_occurrences() {
   self::action(&mut display);
   display.advance(Duration::from_millis(150));
   let occurrences = self::sequences(&display);
-  self::activate(&mut display, "Retarget table layout");
+  test_geometry::observe_viewport(
+    &mut display,
+    1,
+    ScreenSize::new(720, 1280),
+    Rect {
+      x: 0.0,
+      y: 0.0,
+      width: 720.0,
+      height: 1280.0,
+    },
+  );
   self::settle(&mut display);
   assert_eq!(self::sounds(&display, assets::hearts::audio::PASS), 1);
   assert_eq!(self::sequences(&display), occurrences + 1);
   let sounds = display.audio_occurrences().len();
-  self::activate(&mut display, "Retarget table layout");
+  test_geometry::observe_viewport(
+    &mut display,
+    2,
+    ScreenSize::new(1280, 720),
+    Rect {
+      x: 0.0,
+      y: 0.0,
+      width: 1280.0,
+      height: 720.0,
+    },
+  );
   self::settle(&mut display);
   assert_eq!(display.audio_occurrences().len(), sounds);
   assert_eq!(self::sequences(&display), occurrences + 1);

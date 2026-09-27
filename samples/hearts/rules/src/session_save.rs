@@ -64,6 +64,7 @@ pub(crate) fn use_autosave(game: &HeartsController, settings: SavedSettings, exi
 impl Component for SaveStatus {
   fn render(&self) -> impl Render {
     let saves = hooks::use_optional_context::<Saves>();
+    let layout = crate::layout::use_layout();
     saves.map(|saves| {
       if self.exiting {
         return Node::new(ExitDialog {
@@ -93,8 +94,8 @@ impl Component for SaveStatus {
               .style(
                 Style::new()
                   .position(Position::Absolute)
-                  .left(145.px())
-                  .top(26.px())
+                  .left((layout.safe.x as f32 + if layout.portrait { 18.0 } else { 145.0 }).px())
+                  .top((layout.safe.y as f32 + if layout.portrait { 172.0 } else { 26.0 }).px())
                   .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL))
                   .color(Color::rgb(0.06, 0.12, 0.03)),
               )

@@ -57,6 +57,7 @@ namespace Battlement
         Drag,
         Key,
         Navigation,
+        Viewport,
         Advance,
         Wait,
         Assert,

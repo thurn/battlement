@@ -54,6 +54,25 @@ fn canonical_capture_dimensions_follow_the_declared_profile() {
 }
 
 #[test]
+fn canonical_capture_dimensions_follow_each_checkpoint_viewport() {
+  let fixture = Fixture::new();
+  fixture.replace("samples/fixture/ditto.toml", "name = \"changed\"\n[[scenarios.steps]]", "name = \"changed\"\n[[scenarios.steps]]\nviewport = { width = 390, height = 844, safe_area = [0, 44, 390, 766] }\n[[scenarios.steps]]");
+  assert!(
+    coverage_ledger::check_repository(fixture.root())
+      .unwrap_err()
+      .to_string()
+      .contains("checkpoint viewport")
+  );
+  let (head, tail) = LOCK.rsplit_once("width = 1280\nheight = 720").unwrap();
+  fs::write(
+    fixture.root().join("samples/fixture/ditto.lock"),
+    format!("{head}width = 390\nheight = 844{tail}"),
+  )
+  .unwrap();
+  fixture.check();
+}
+
+#[test]
 fn supplemental_baselines_require_known_profiles_and_keep_canonical_coverage() {
   let fixture = Fixture::new();
   let extra = LOCK

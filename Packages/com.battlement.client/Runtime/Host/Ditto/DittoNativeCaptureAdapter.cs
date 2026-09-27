@@ -306,6 +306,21 @@ namespace Battlement
             }
         }
 
+        public void Resize(uint width, uint height)
+        {
+            if (!ready || captureOperation is not null || probeCompletion is not null)
+                throw new InvalidOperationException(
+                    "Resize requires an idle, proven capture adapter."
+                );
+            if (width == 0 || height == 0 || Screen.width != width || Screen.height != height)
+                throw new InvalidOperationException(
+                    "Resize requires the exact presented framebuffer dimensions."
+                );
+            this.width = width;
+            this.height = height;
+            latestCommit = null;
+        }
+
         public DittoRenderCommit CommitPresentedFrame(
             ulong committedFrame,
             DittoObservationRegion? region = null,
@@ -506,6 +521,11 @@ namespace Battlement
             if (readbackFailed)
             {
                 FailCapture(operation, "The framebuffer GPU readback failed.");
+                return;
+            }
+            if ((ulong)pixels.Length != (ulong)width * height * 4)
+            {
+                FailCapture(operation, "The framebuffer GPU readback has the wrong byte size.");
                 return;
             }
             DittoNativeCaptureResult result = BindCapturedPixels(
@@ -883,8 +903,13 @@ namespace Battlement
                 uint fingerprintHeight
             )
             {
-                if (framebuffer == null)
+                if (
+                    framebuffer == null
+                    || framebuffer.width != width
+                    || framebuffer.height != height
+                )
                 {
+                    Release(framebuffer);
                     framebuffer = Texture(
                         checked((int)width),
                         checked((int)height),

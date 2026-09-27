@@ -8,31 +8,42 @@ use trox::ls;
 use battlement::{
   Action, ActionBody, ActionId, ClientMessage, CommandBody, DisplayId, DisplayOrientation,
   GeometryGeneration, GeometryObservationBatch, GeometryObservationResult,
-  GeometryObservationValue, GeometryValue, ResponseMessage, ScreenSize, ViewportGeometry,
+  GeometryObservationValue, GeometryValue, Rect, ResponseMessage, ScreenSize, ViewportGeometry,
   ViewportRect, application::ApplicationState, application::ReducedMotionPreference,
 };
 use battlement_native::Engine;
-use reactant_core::{app::App, prelude::*};
+use reactant_core::{app::App, app_context, prelude::*};
 
-type Observation = (ScreenSize, ApplicationState, ReducedMotionPreference, bool);
+type Observation = (
+  ScreenSize,
+  ApplicationState,
+  ReducedMotionPreference,
+  bool,
+  Rect,
+);
 
 #[derive(PartialEq)]
 struct Observed(Rc<RefCell<Vec<Observation>>>);
 
 impl Component for Observed {
   fn render(&self) -> impl Render {
-    let screen = use_viewport_size();
+    let viewport = app_context::use_viewport();
+    let screen = viewport.size;
     let application = use_application_state();
     let reduced_motion = use_reduced_motion_preference();
     let effective_motion = use_reduced_motion();
     let values = Rc::clone(&self.0);
     use_effect(
       move || {
-        values
-          .borrow_mut()
-          .push((screen, application, reduced_motion, effective_motion));
+        values.borrow_mut().push((
+          screen,
+          application,
+          reduced_motion,
+          effective_motion,
+          viewport.safe_area,
+        ));
       },
-      (screen, application, reduced_motion, effective_motion),
+      (viewport, application, reduced_motion, effective_motion),
     );
     Label::new(ls(format!(
       "{}x{} {}",
@@ -76,7 +87,13 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
       observation_id: observation.observation_id,
       result: GeometryObservationResult::Current(GeometryValue::Viewport(ViewportGeometry {
         viewport: rect,
-        safe_area: rect,
+        safe_area: ViewportRect {
+          x: 40.0,
+          y: 60.0,
+          width: 900.0,
+          height: 660.0,
+          ..rect
+        },
         scale: 2.0,
         dpi: Some(192.0),
         orientation: DisplayOrientation::Landscape,
@@ -92,6 +109,15 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
     .unwrap();
   let _ = app.poll().unwrap();
   assert_eq!(values.borrow().last().unwrap().0, ScreenSize::new(512, 384));
+  assert_eq!(
+    values.borrow().last().unwrap().4,
+    Rect {
+      x: 20.0,
+      y: 30.0,
+      width: 450.0,
+      height: 330.0
+    }
+  );
   let inactive = ApplicationState {
     focused: false,
     paused: true,
@@ -130,6 +156,12 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
       ApplicationState::default(),
       ReducedMotionPreference::NoPreference,
       false,
+      Rect {
+        x: 0.0,
+        y: 0.0,
+        width: 400.0,
+        height: 300.0
+      },
     )
   );
 }

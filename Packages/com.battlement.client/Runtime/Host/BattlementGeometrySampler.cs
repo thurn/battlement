@@ -72,6 +72,7 @@ namespace Battlement
         private readonly Dictionary<GeometryObservationId, GeometryObservationResult> latest =
             new();
         private ulong generation;
+        internal ViewportRect? DittoSafeArea { get; set; }
 
         public BattlementGeometrySampler(
             BattlementUiDocuments documents,
@@ -123,6 +124,7 @@ namespace Battlement
             registry = new GeometryRegistry();
             latest.Clear();
             generation = 0;
+            DittoSafeArea = null;
         }
 
         public GeometryObservationBatch? Sample()
@@ -364,7 +366,7 @@ namespace Battlement
             return Current(
                 new ViewportGeometry(
                     viewport,
-                    safeArea,
+                    DittoSafeArea ?? safeArea,
                     display.Scale,
                     display.Dpi,
                     display.Orientation

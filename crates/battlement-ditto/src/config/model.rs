@@ -168,6 +168,7 @@ pub struct Step {
 /// A supported scenario action.
 #[derive(Clone, Debug, PartialEq)]
 pub enum StepKind {
+  Viewport(crate::wire::job::ViewportStep),
   Navigation {
     action: crate::wire::common::NavigationAction,
   },

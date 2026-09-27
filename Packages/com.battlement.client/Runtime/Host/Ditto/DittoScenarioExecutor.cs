@@ -43,6 +43,8 @@ namespace Battlement
         {
             None,
             StartupSettle,
+            ViewportResize,
+            ViewportSettle,
             ProfileIdle,
             PointerBaseline,
             PointerPressPresentation,
@@ -71,6 +73,7 @@ namespace Battlement
         private readonly DittoCapturePixelLayout? videoLayout;
         private readonly System.Action setup;
         private readonly Func<bool> isFocused;
+        private readonly Func<DittoStepAction.Viewport, bool>? resizeViewport;
         private readonly ulong runTimeoutMs;
         private readonly List<DittoPlayerStepResult> results = new();
         private readonly Dictionary<int, ControlledPointerState> controlledPointers = new();
@@ -140,7 +143,8 @@ namespace Battlement
             DittoNativeVideoRecorder? video = null,
             Func<DittoRenderCommit, byte[]>? videoFrame = null,
             DittoCapturePixelLayout? nativeVideoLayout = null,
-            Func<bool>? observeFocus = null
+            Func<bool>? observeFocus = null,
+            Func<DittoStepAction.Viewport, bool>? resizeViewport = null
         )
             : this(
                 runner,
@@ -160,7 +164,8 @@ namespace Battlement
                 video,
                 videoFrame,
                 nativeVideoLayout,
-                observeFocus
+                observeFocus,
+                resizeViewport
             ) { }
 
         public DittoScenarioExecutor(
@@ -181,7 +186,8 @@ namespace Battlement
             DittoNativeVideoRecorder? video = null,
             Func<DittoRenderCommit, byte[]>? videoFrame = null,
             DittoCapturePixelLayout? nativeVideoLayout = null,
-            Func<bool>? observeFocus = null
+            Func<bool>? observeFocus = null,
+            Func<DittoStepAction.Viewport, bool>? resizeViewport = null
         )
         {
             if (runner == null)
@@ -196,6 +202,7 @@ namespace Battlement
             reportError = errorReporter ?? throw new ArgumentNullException(nameof(errorReporter));
             setup = setupScenario ?? (() => { });
             isFocused = observeFocus ?? (() => UnityEngine.Application.isFocused);
+            this.resizeViewport = resizeViewport;
             pollFailure = observeFailure ?? (() => null);
             onStepStarted = stepStarted ?? (_ => { });
             onStepEnded = stepEnded ?? ((_, completion) => completion(true));
@@ -296,6 +303,19 @@ namespace Battlement
                         }
                         return complete;
                     }
+                    if (phase == Phase.ViewportResize)
+                    {
+                        DittoResolvedStep viewportStep = scenario.Steps[nextStep];
+                        if (TryExpireStep(viewportStep))
+                            return complete;
+                        var viewport = (DittoStepAction.Viewport)viewportStep.Action;
+                        if (!resizeViewport!(viewport))
+                            return false;
+                        targets.Resize(viewport.Width, viewport.Height);
+                        runner.SetDittoSafeArea(viewport);
+                        motion.RestartQuietWindow();
+                        phase = Phase.ViewportSettle;
+                    }
                     PrepareFrame();
                     AdvanceBoundary();
                     return complete;
@@ -382,7 +402,7 @@ namespace Battlement
         {
             stepStarted = now();
             stepActive = true;
-            if (step.Action is not DittoStepAction.Screenshot)
+            if (step.Action is not DittoStepAction.Screenshot and not DittoStepAction.Viewport)
             {
                 preserveAdvanceState = false;
             }
@@ -448,6 +468,17 @@ namespace Battlement
                         DittoErrorCode.InputUnreachable,
                         "Physical key input has no deterministic semantic delivery contract."
                     );
+                    break;
+                case DittoStepAction.Viewport:
+                    if (resizeViewport is null)
+                        throw new InvalidOperationException(
+                            "Viewport changes require a native resize coordinator."
+                        );
+                    runner.CancelDittoPointers();
+                    controlledPointers.Clear();
+                    presentationReady = false;
+                    phase = Phase.ViewportResize;
+                    phaseStarted = now();
                     break;
                 case DittoStepAction.Navigation navigation:
                     presentationReady = false;
@@ -590,7 +621,7 @@ namespace Battlement
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             motion.PrepareFrame(
                 phase == Phase.FrameAdvance,
-                preserveAdvanceState && phase == Phase.ScreenshotSettle
+                preserveAdvanceState && phase is Phase.ViewportSettle or Phase.ScreenshotSettle
             );
             motionPrepareNs = ElapsedNanoseconds(started);
             runner.BeginDittoFrameObservation();
@@ -878,6 +909,10 @@ namespace Battlement
                         PassStep(step);
                     }
                     break;
+                case Phase.ViewportSettle when frame.IsSettled:
+                    presentationReady = true;
+                    PassStep(step);
+                    break;
                 case Phase.Settle when frame.IsSettled:
                     if (pendingPointerAction?.Completion is not null && !completionWitnessMatched)
                         break;
@@ -889,7 +924,6 @@ namespace Battlement
                 case Phase.ScreenshotSettle when frame.IsSettled:
                     settleDurationMs += PhaseDuration();
                     presentationReady = true;
-                    preserveAdvanceState = false;
                     phase = Phase.None;
                     Capture(step);
                     break;
@@ -910,10 +944,12 @@ namespace Battlement
                     break;
                 case Phase.StartupSettle:
                 case Phase.ProfileIdle:
+                case Phase.ViewportSettle:
                 case Phase.Settle:
                 case Phase.ScreenshotSettle:
                     break;
                 case Phase.ScreenshotCapture:
+                case Phase.ViewportResize:
                 case Phase.None:
                 default:
                     throw new InvalidOperationException("No frame-driven step is active.");

@@ -44,6 +44,10 @@ this deliberately samples that animation time. Instant mode completes direct twe
 immediately and steps remaining finite Motion work deterministically. Looping particles use a canonical prewarmed phase in instant mode. Other infinite
 motion freezes once finite work is ready. Asset and
 scene preparation freeze logical time, including during explicit frame advances.
+Native macOS `viewport` steps use explicit framebuffer dimensions and a synthetic
+safe area in top-left pixels. Resizing holds logical time; a preceding controlled
+checkpoint stays frozen through layout and capture. Video/performance scenarios
+require a fixed viewport.
 
 Inspect the terminal result, screenshots, and retained logs; keep their paths
 and run identity. Before persistence QA, read `battlement.host.storage` in retained

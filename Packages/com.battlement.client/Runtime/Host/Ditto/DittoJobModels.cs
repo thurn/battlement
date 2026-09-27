@@ -152,6 +152,9 @@ namespace Battlement
 
     internal abstract record DittoStepAction
     {
+        internal sealed record Viewport(uint Width, uint Height, IReadOnlyList<uint> SafeArea)
+            : DittoStepAction;
+
         internal sealed record Click(DittoInputTarget Target) : DittoStepAction;
 
         internal sealed record Hover(DittoInputTarget Target) : DittoStepAction;

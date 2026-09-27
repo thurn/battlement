@@ -157,6 +157,7 @@ pub struct ResolvedStep {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub enum StepKind {
+  Viewport(ViewportStep),
   Navigation {
     action: crate::wire::common::NavigationAction,
   },
@@ -369,4 +370,33 @@ enum RawVideoStep {
     max_duration_ms: u64,
   },
   Stop {},
+}
+
+/// Deterministic macOS framebuffer resize with a synthetic top-left safe area.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ViewportStep {
+  pub width: u32,
+  pub height: u32,
+  pub safe_area: [u32; 4],
+}
+
+impl ViewportStep {
+  pub(crate) fn validate(&self) -> anyhow::Result<()> {
+    anyhow::ensure!(
+      (1..=8192).contains(&self.width) && (1..=8192).contains(&self.height),
+      "viewport dimensions must be between 1 and 8192"
+    );
+    let [x, y, width, height] = self.safe_area;
+    anyhow::ensure!(
+      width > 0 && height > 0,
+      "viewport safe area must be nonempty"
+    );
+    anyhow::ensure!(
+      u64::from(x) + u64::from(width) <= u64::from(self.width)
+        && u64::from(y) + u64::from(height) <= u64::from(self.height),
+      "viewport safe area must fit the framebuffer"
+    );
+    Ok(())
+  }
 }

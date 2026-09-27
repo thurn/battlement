@@ -35,6 +35,8 @@ const KEYS: &[&str] = &[
   "secret_access_key_env",
   "target",
   "display",
+  "viewport",
+  "safe_area",
   "headless_command",
   "device",
   "orientation",

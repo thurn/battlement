@@ -34,7 +34,6 @@ namespace Battlement.UI
         {
             this.owner = owner;
             this.adapter = adapter;
-            owner.RegisterCallback<GeometryChangedEvent>(_ => Refresh());
         }
 
         public int DiagnosticCount { get; private set; }

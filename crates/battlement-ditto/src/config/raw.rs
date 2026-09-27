@@ -162,6 +162,7 @@ pub(super) struct RawStep {
   pub drag: Option<RawDrag>,
   pub key: Option<RawKey>,
   pub navigation: Option<RawNavigation>,
+  pub viewport: Option<crate::wire::job::ViewportStep>,
   pub advance: Option<RawAdvance>,
   pub wait: Option<RawWait>,
   #[serde(rename = "assert")]

@@ -66,6 +66,7 @@ namespace Battlement.UI
                 gridLayout = new BattlementGridLayout(this, Adapter);
             if (kind == BattlementLayoutContainerKind.Stack)
                 stackLayout = new BattlementStackLayout(this, Adapter);
+            RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
         }
 
         public BattlementLayoutContainerKind Kind { get; }
@@ -144,6 +145,23 @@ namespace Battlement.UI
             }
             Refresh();
         }
+
+        private void OnGeometryChanged(GeometryChangedEvent change)
+        {
+            if (
+                ChangedConstraint(style.width, change.oldRect.width, change.newRect.width)
+                || ChangedConstraint(style.height, change.oldRect.height, change.newRect.height)
+            )
+                Refresh();
+            else
+            {
+                gridLayout?.Refresh();
+                stackLayout?.Refresh();
+            }
+        }
+
+        private static bool ChangedConstraint(StyleLength size, float previous, float current) =>
+            size.keyword == StyleKeyword.Undefined && !previous.Equals(current);
 
         private void Refresh()
         {

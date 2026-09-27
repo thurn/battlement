@@ -12,6 +12,7 @@ pub enum StepName {
   Drag,
   Key,
   Navigation,
+  Viewport,
   Advance,
   Wait,
   Assert,

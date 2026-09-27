@@ -244,6 +244,35 @@ namespace Battlement
                         "physical key input has no deterministic semantic delivery contract"
                     );
                     break;
+                case DittoStepAction.Viewport viewport:
+                    Require(
+                        job.Profile.Platform == DittoPlatform.Macos,
+                        "viewport steps require macOS"
+                    );
+                    Require(scenario.Performance is null, "viewport steps cannot be profiled");
+                    Require(
+                        !scenario.Steps.Any(value => value.Action is DittoStepAction.Video),
+                        "viewport steps cannot share a scenario with video"
+                    );
+                    Require(
+                        viewport.Width is > 0 and <= 8192 && viewport.Height is > 0 and <= 8192,
+                        "viewport dimensions must be between 1 and 8192"
+                    );
+                    Require(
+                        viewport.SafeArea.Count == 4,
+                        "viewport safe area requires four values"
+                    );
+                    Require(
+                        viewport.SafeArea[2] > 0 && viewport.SafeArea[3] > 0,
+                        "viewport safe area must be nonempty"
+                    );
+                    Require(
+                        (ulong)viewport.SafeArea[0] + viewport.SafeArea[2] <= viewport.Width
+                            && (ulong)viewport.SafeArea[1] + viewport.SafeArea[3]
+                                <= viewport.Height,
+                        "viewport safe area must fit the framebuffer"
+                    );
+                    break;
                 case DittoStepAction.Navigation:
                     break;
                 case DittoStepAction.Advance advance:

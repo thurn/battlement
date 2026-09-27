@@ -318,6 +318,25 @@ namespace Battlement
             configuredRuntime!.BeginDittoDisplay();
         }
 
+        internal void CancelDittoPointers()
+        {
+            EnsureMainThread();
+            configuredRuntime!.PointerInput.Reset();
+        }
+
+        internal void SetDittoSafeArea(DittoStepAction.Viewport viewport)
+        {
+            EnsureMainThread();
+            var safe = viewport.SafeArea;
+            configuredRuntime!.GeometrySampler.DittoSafeArea = new ViewportRect(
+                safe[0],
+                safe[1],
+                safe[2],
+                safe[3],
+                new DisplayId(0)
+            );
+        }
+
         internal void BeginDittoMotion(DittoMotion motion)
         {
             EnsureMainThread();

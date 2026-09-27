@@ -9,6 +9,7 @@ use crate::{
   card_input::{self, CardInput},
   choreography::CardTiming,
   domain::Seat,
+  hand_pan::{self, HandPan},
   projection::{CardToken, HumanView, VisibleCard},
   settings::Preferences,
 };
@@ -34,8 +35,6 @@ struct FanStyle {
   angle: f64,
   timing: CardTiming,
   seat: Option<Seat>,
-  half_width: f64,
-  first: usize,
 }
 
 impl CardTable {
@@ -91,22 +90,27 @@ impl Component for CardTable {
       tokens,
     );
     let inspection_id = hooks::use_memo(Uuid::new_v4, self.inspection.map(|card| card.token));
+    let pan = hand_pan::use_hand_pan(&self.view.hands[Seat::South.index()]);
     let portrait = self.aspect < 1.0;
     let half_width = 5.7 * self.aspect;
     let larger_text = hooks::use_context::<Preferences>().larger_text;
-    let footer_inset = if larger_text {
-      if portrait { 0.7 } else { 1.8 }
-    } else {
-      0.0
-    };
+    let footer_inset = if larger_text { 1.8 } else { 0.0 };
     let hands: Vec<_> = Seat::ALL
       .into_iter()
       .map(|seat| {
+        if portrait {
+          return self::portrait_hand(
+            &self.view.hands[seat.index()],
+            seat,
+            &destinations,
+            self.timing,
+            &pan,
+          );
+        }
         self::hand(
           &self.view.hands[seat.index()],
           seat,
           half_width,
-          portrait,
           &destinations,
           self.timing,
           footer_inset,
@@ -156,12 +160,9 @@ impl Component for CardTable {
               .iter()
               .enumerate()
               .map(|(index, card)| {
-                self.timing.child(
-                  self::child(*card, &destinations, width, index),
-                  None,
-                  index,
-                  half_width,
-                )
+                self
+                  .timing
+                  .child(self::child(*card, &destinations, width, index), None, index)
               }),
           )
       })
@@ -174,7 +175,9 @@ impl Component for CardTable {
         .scale(Vector3::new(2.0, 2.0, 2.0))
         .child(CardSurface(card, None))
     });
-    (hands, trick, piles, inspection)
+    ContextProvider::new()
+      .context(pan)
+      .child((hands, trick, piles, inspection))
   }
 }
 
@@ -193,6 +196,8 @@ impl Component for CardSurface {
     let focused = focused && interactive.is_some();
     let hovered = hovered && interactive.is_some();
     let focus = set_focused.clone();
+    let pan = hooks::use_optional_context::<HandPan>();
+    let focused_token = self.0.token;
     let hover = set_hovered.clone();
     let handlers = handlers
       .on_pointer_enter(
@@ -216,7 +221,12 @@ impl Component for CardSurface {
         .focusable(true)
         .navigation(
           world::NavigationHandlers::new()
-            .on_focus(EventCallback::new(move |_| focus.set(true)))
+            .on_focus(EventCallback::new(move |_| {
+              focus.set(true);
+              if let Some(pan) = &pan {
+                pan.focus(focused_token);
+              }
+            }))
             .on_blur(EventCallback::new(move |_| set_focused.set(false)))
             .on_cancel(EventCallback::new(move |_| cancel.cancel())),
         )
@@ -271,11 +281,62 @@ impl Component for CardSurface {
   }
 }
 
+fn portrait_hand(
+  cards: &[VisibleCard],
+  seat: Seat,
+  destinations: &Destinations,
+  timing: CardTiming,
+  pan: &HandPan,
+) -> Node {
+  let style = FanStyle {
+    timing,
+    seat: Some(seat),
+    ..FanStyle::default()
+  };
+  let units = pan.layout.units_per_pixel();
+  let (center_x, center_y, angle, width, spacing) = if seat == Seat::South {
+    (
+      pan.world_center(),
+      pan.layout.hand_top(pan.layout.large) + pan.width * CARD_HEIGHT / 2.0,
+      0.0,
+      pan.width,
+      pan.spacing,
+    )
+  } else {
+    let (x, y) = pan.layout.opponent_center(seat, pan.layout.large);
+    (
+      (x - f64::from(pan.layout.viewport.size.width) / 2.0) * units,
+      y,
+      match seat {
+        Seat::North => 180.0,
+        Seat::West => 90.0,
+        Seat::East => -90.0,
+        Seat::South => unreachable!(),
+      },
+      if seat == Seat::North { 48.0 } else { 44.0 },
+      if seat == Seat::North { 12.0 } else { 6.0 },
+    )
+  };
+  let z = (f64::from(pan.layout.viewport.size.height) / 2.0 - center_y) * units
+    / 60.0_f64.to_radians().sin();
+  Node::new(
+    self::fan(
+      cards,
+      destinations,
+      width * units,
+      FanStyle {
+        spacing: spacing * units,
+        ..style
+      },
+    )
+    .plane(self::oriented_plane(center_x, z, angle, 0.0)),
+  )
+}
+
 fn hand(
   cards: &[VisibleCard],
   seat: Seat,
   half_width: f64,
-  portrait: bool,
   destinations: &Destinations,
   timing: CardTiming,
   footer_inset: f64,
@@ -283,32 +344,9 @@ fn hand(
   let style = FanStyle {
     timing,
     seat: Some(seat),
-    half_width,
     ..FanStyle::default()
   };
   if seat == Seat::South {
-    if portrait {
-      let spacing = (half_width * 2.0 - 0.65) / 7.0;
-      return Node::new(
-        cards
-          .chunks(7)
-          .enumerate()
-          .map(|(row, cards)| {
-            self::fan(
-              cards,
-              destinations,
-              spacing * 1.12,
-              FanStyle {
-                spacing,
-                first: row * 7,
-                ..style
-              },
-            )
-            .plane(self::plane(-0.5, -3.0 - row as f64 * 1.55 + footer_inset))
-          })
-          .collect::<Vec<_>>(),
-      );
-    }
     let spacing = ((half_width * 2.0 - 3.0) / 13.0).min(1.16);
     return Node::new(
       self::fan(
@@ -329,47 +367,29 @@ fn hand(
     );
   }
   let (x, z, angle, width, spacing) = match seat {
-    Seat::North => (
-      0.0,
-      3.6,
-      180.0,
-      if portrait { 0.72 } else { 1.65 },
-      if portrait { 0.22 } else { 0.56 },
-    ),
-    Seat::West => (
-      -half_width * if portrait { 0.7 } else { 0.60 },
-      0.6,
-      90.0,
-      if portrait { 0.72 } else { 1.5 },
-      if portrait { 0.17 } else { 0.32 },
-    ),
-    Seat::East => (
-      half_width * if portrait { 0.7 } else { 0.60 },
-      0.6,
-      -90.0,
-      if portrait { 0.72 } else { 1.5 },
-      if portrait { 0.17 } else { 0.32 },
-    ),
+    Seat::North => (0.0, 3.6, 180.0, 1.65, 0.56),
+    Seat::West => (-half_width * 0.60, 0.6, 90.0, 1.5, 0.32),
+    Seat::East => (half_width * 0.60, 0.6, -90.0, 1.5, 0.32),
     Seat::South => unreachable!(),
   };
   Node::new(
-    world::Group::new()
-      .position(Vector3::new(x, 0.0, z))
-      .rotation(self::yaw(angle))
-      .child(
-        self::fan(
-          cards,
-          destinations,
-          width,
-          FanStyle {
-            spacing,
-            curvature: 0.01,
-            angle: 2.5,
-            ..style
-          },
-        )
-        .plane(self::plane(-0.5, -0.5 - self::rise(cards.len(), 0.01))),
-      ),
+    self::fan(
+      cards,
+      destinations,
+      width,
+      FanStyle {
+        spacing,
+        curvature: 0.01,
+        angle: 2.5,
+        ..style
+      },
+    )
+    .plane(self::oriented_plane(
+      x,
+      z,
+      angle,
+      self::rise(cards.len(), 0.01),
+    )),
   )
 }
 
@@ -391,8 +411,7 @@ fn fan(
       style.timing.child(
         self::child(*card, destinations, width, index),
         style.seat,
-        index + style.first,
-        style.half_width,
+        index,
       )
     }))
 }
@@ -428,6 +447,21 @@ fn plane(x: f64, z: f64) -> world::LayoutPlane {
   )
 }
 
+fn oriented_plane(x: f64, z: f64, angle: f64, rise: f64) -> world::LayoutPlane {
+  let (sin, cos) = angle.to_radians().sin_cos();
+  let x_axis = Vector3::new(cos, 0.0, -sin);
+  let y_axis = Vector3::new(sin, 0.0, cos);
+  world::LayoutPlane::new(
+    Vector3::new(
+      x - 0.5 * cos - (0.5 + rise) * sin,
+      0.0,
+      z + 0.5 * sin - (0.5 + rise) * cos,
+    ),
+    x_axis,
+    y_axis,
+  )
+}
+
 fn rise(count: usize, curvature: f64) -> f64 {
   (count.saturating_sub(1) as f64 / 2.0).powi(2) * curvature
 }
@@ -435,9 +469,4 @@ fn rise(count: usize, curvature: f64) -> f64 {
 fn pitch(degrees: f64) -> Quaternion {
   let half = degrees.to_radians() / 2.0;
   Quaternion::new(half.sin(), 0.0, 0.0, half.cos())
-}
-
-fn yaw(degrees: f64) -> Quaternion {
-  let half = degrees.to_radians() / 2.0;
-  Quaternion::new(0.0, half.sin(), 0.0, half.cos())
 }

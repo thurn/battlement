@@ -18,7 +18,9 @@ mod choreography;
 mod choreography_tests;
 pub mod controller;
 pub mod domain;
+mod hand_pan;
 mod inspection;
+mod layout;
 mod layout_fixture;
 mod match_ui;
 mod menus;
@@ -34,6 +36,8 @@ mod screens_fixture;
 mod session_save;
 mod settings;
 mod startup;
+#[cfg(test)]
+mod test_geometry;
 
 pub use projection::HumanView;
 pub use saved_game::SavedMatch;

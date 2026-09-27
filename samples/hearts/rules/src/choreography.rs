@@ -140,7 +140,6 @@ impl CardTiming {
     child: world::LayoutChild,
     seat: Option<Seat>,
     index: usize,
-    half_width: f64,
   ) -> world::LayoutChild {
     if self.travel == 0.0 {
       return child;
@@ -161,15 +160,7 @@ impl CardTiming {
     if !self.deal || self.reduced {
       return child;
     }
-    let portrait = half_width < 5.7;
-    let side = half_width * if portrait { 0.7 } else { 0.60 };
-    let origin = match seat {
-      Some(Seat::South) => Vector3::new(0.0, 0.6, 0.0),
-      Some(Seat::North) => Vector3::new(0.0, 0.6, 3.6),
-      Some(Seat::West) => Vector3::new(0.6, 0.6, side),
-      Some(Seat::East) => Vector3::new(-0.6, 0.6, side),
-      None => return child,
-    };
+    let origin = Vector3::new(0.0, 0.6, 0.0);
     child.initial(
       StyleTarget::new()
         .local_position_x(origin.x as f32)

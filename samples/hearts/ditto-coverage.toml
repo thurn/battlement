@@ -445,3 +445,87 @@ state = "storage.pending-exit"
 scenario = "durable recovery"
 checkpoint = "waiting for save"
 owner = "autosave::replacement_session_wins_after_old_write_and_background_keeps_save_alive"
+
+[[mappings]]
+state = "ergonomics.phone-viewport-and-gestures.phone-safe-area"
+scenario = "phone viewport and gestures"
+checkpoint = "phone safe area"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.phone-viewport-and-gestures.panned"
+scenario = "phone viewport and gestures"
+checkpoint = "panned"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.phone-viewport-and-gestures.landscape"
+scenario = "phone viewport and gestures"
+checkpoint = "landscape"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.phone-viewport-and-gestures.large-settings"
+scenario = "phone viewport and gestures"
+checkpoint = "large settings"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.phone-viewport-and-gestures.large-phone"
+scenario = "phone viewport and gestures"
+checkpoint = "large phone"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.restored-default-viewport.default"
+scenario = "restored default viewport"
+checkpoint = "default"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.phone-controller-reveal.last-card-focus"
+scenario = "phone controller reveal"
+checkpoint = "last card focus"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.rotation-through-pass-and-play.passing-before-rotation"
+scenario = "rotation through pass and play"
+checkpoint = "passing before rotation"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.rotation-through-pass-and-play.passing-after-rotation"
+scenario = "rotation through pass and play"
+checkpoint = "passing after rotation"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.rotation-through-pass-and-play.playing-before-rotation"
+scenario = "rotation through pass and play"
+checkpoint = "playing before rotation"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.rotation-through-pass-and-play.playing-after-rotation"
+scenario = "rotation through pass and play"
+checkpoint = "playing after rotation"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.phone-upward-drag-and-cancel.portrait-inspection"
+scenario = "phone upward drag and cancel"
+checkpoint = "portrait inspection"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.phone-upward-drag-and-cancel.upward-drag"
+scenario = "phone upward drag and cancel"
+checkpoint = "upward drag"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"
+
+[[mappings]]
+state = "ergonomics.phone-upward-drag-and-cancel.played-through-upward-drag"
+scenario = "phone upward drag and cancel"
+checkpoint = "played through upward drag"
+owner = "card_input_tests::portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection"

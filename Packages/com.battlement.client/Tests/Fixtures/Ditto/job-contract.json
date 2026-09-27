@@ -66,5 +66,59 @@
     {"name": "empty fixture", "pointer": "/scenarios/0/fixture", "value": ""},
     {"name": "oversized fixture", "pointer": "/scenarios/0/fixture", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
     {"name": "missing required field", "pointer": "/profile/source_fingerprint", "remove": true}
+  ],
+  "viewport_step": {
+    "index": 0,
+    "name": null,
+    "timeout_ms": 1000,
+    "action": {
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "safe_area": [
+          0,
+          44,
+          390,
+          766
+        ]
+      }
+    }
+  },
+  "viewport_invalid": [
+    {
+      "name": "zero viewport",
+      "pointer": "/scenarios/0/steps/0/action/viewport/width",
+      "value": 0
+    },
+    {
+      "name": "oversized viewport",
+      "pointer": "/scenarios/0/steps/0/action/viewport/height",
+      "value": 8193
+    },
+    {
+      "name": "empty safe area",
+      "pointer": "/scenarios/0/steps/0/action/viewport/safe_area",
+      "value": [
+        0,
+        0,
+        0,
+        844
+      ]
+    },
+    {
+      "name": "safe area overflow",
+      "pointer": "/scenarios/0/steps/0/action/viewport/safe_area",
+      "value": [
+        4294967295,
+        0,
+        390,
+        844
+      ]
+    },
+    {
+      "name": "viewport unexpected field",
+      "pointer": "/scenarios/0/steps/0/action/viewport/scale",
+      "value": 2
+    }
   ]
 }

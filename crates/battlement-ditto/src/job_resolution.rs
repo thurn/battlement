@@ -189,6 +189,7 @@ fn resolved_step(
     timeout_ms: step.timeout.as_millis(),
     measure: step.measure,
     action: match &step.action {
+      AuthoredStepKind::Viewport(viewport) => StepKind::Viewport(viewport.clone()),
       AuthoredStepKind::Navigation { action } => StepKind::Navigation { action: *action },
       AuthoredStepKind::Click { target } => StepKind::Click {
         target: input_target(target, aliases)?,

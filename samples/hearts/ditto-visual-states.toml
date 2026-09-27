@@ -295,3 +295,59 @@ screen = "hearts"
 [[states]]
 key = "storage.pending-exit"
 screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-viewport-and-gestures.phone-safe-area"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-viewport-and-gestures.panned"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-viewport-and-gestures.landscape"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-viewport-and-gestures.large-settings"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-viewport-and-gestures.large-phone"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.restored-default-viewport.default"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-controller-reveal.last-card-focus"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.rotation-through-pass-and-play.passing-before-rotation"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.rotation-through-pass-and-play.passing-after-rotation"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.rotation-through-pass-and-play.playing-before-rotation"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.rotation-through-pass-and-play.playing-after-rotation"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-upward-drag-and-cancel.portrait-inspection"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-upward-drag-and-cancel.upward-drag"
+screen = "hearts"
+
+[[states]]
+key = "ergonomics.phone-upward-drag-and-cancel.played-through-upward-drag"
+screen = "hearts"

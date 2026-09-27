@@ -1,5 +1,5 @@
 use battlement::{PickingMode, UiFontAddress};
-use reactant::{app_context, hooks, overlay::Overlay, portal::PortalTarget, prelude::*};
+use reactant::{hooks, overlay::Overlay, portal::PortalTarget, prelude::*};
 use reactant_rules::ReducerGame;
 use trox::ls;
 
@@ -40,15 +40,15 @@ pub(crate) fn button_style(font: f32) -> Style {
 }
 
 pub(crate) fn panel() -> View {
-  let viewport = app_context::use_viewport_size();
-  let width = (viewport.width as f32 - 48.0).min(580.0);
+  let layout = crate::layout::use_layout();
+  let width = (layout.safe.width as f32 - 48.0).min(580.0);
   View::new().style(
     Style::new()
       .position(Position::Absolute)
-      .left(((viewport.width as f32 - width) / 2.0).px())
-      .top(32.px())
+      .left((layout.safe.x as f32 + (layout.safe.width as f32 - width) / 2.0).px())
+      .top((layout.safe.y as f32 + 32.0).px())
       .width(width.px())
-      .max_height((viewport.height as f32 - 64.0).px())
+      .max_height((layout.safe.height as f32 - 64.0).px())
       .padding(20.px())
       .background_color(Color::rgb(0.96, 0.92, 0.77))
       .color(Color::rgb(0.06, 0.12, 0.03))
@@ -82,6 +82,7 @@ pub(crate) fn passing(direction: PassDirection) -> &'static str {
 impl Component for MatchStatus {
   fn render(&self) -> impl Render {
     let table = &self.0.view.table;
+    let layout = crate::layout::use_layout();
     let p = hooks::use_context::<Preferences>();
     let prompt = match table.phase {
       Phase::Passing => self::passing(table.pass_direction).to_owned(),
@@ -111,9 +112,13 @@ impl Component for MatchStatus {
       .style(
         Style::new()
           .position(Position::Absolute)
-          .left(18.px())
-          .top(120.px())
-          .width(190.px())
+          .left((layout.safe.x as f32 + 18.0).px())
+          .top((layout.safe.y as f32 + 120.0).px())
+          .width(if layout.portrait {
+            (layout.safe.width as f32 - 36.0).px()
+          } else {
+            190.px()
+          })
           .color(Color::rgb(0.06, 0.12, 0.03))
           .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
       )

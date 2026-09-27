@@ -280,6 +280,24 @@ fn validate_step<'a>(
       input_target(target, false)
     }
     StepKind::Navigation { .. } => Ok(()),
+    StepKind::Viewport(viewport) => {
+      ensure!(
+        job.profile.platform == Platform::Macos,
+        "viewport steps require macOS"
+      );
+      ensure!(
+        scenario.performance.is_none(),
+        "viewport steps cannot be profiled"
+      );
+      ensure!(
+        !scenario
+          .steps
+          .iter()
+          .any(|step| matches!(step.action, StepKind::Video(_))),
+        "viewport steps cannot share a scenario with video"
+      );
+      viewport.validate()
+    }
     StepKind::Hover { target } => {
       capability(job, Capability::Hover)?;
       input_target(target, true)

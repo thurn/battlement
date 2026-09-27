@@ -162,6 +162,7 @@ fn step_value(
     raw.drag.is_some(),
     raw.key.is_some(),
     raw.navigation.is_some(),
+    raw.viewport.is_some(),
     raw.advance.is_some(),
     raw.wait.is_some(),
     raw.assertion.is_some(),
@@ -214,6 +215,16 @@ fn step_value(
       format!("{key}.key"),
       "physical key input has no deterministic semantic delivery contract",
     ));
+  } else if let Some(viewport) = raw.viewport.take() {
+    viewport.validate().map_err(|error| {
+      invalid(
+        validation.path,
+        validation.source,
+        format!("{key}.viewport"),
+        error.to_string(),
+      )
+    })?;
+    StepKind::Viewport(viewport)
   } else if let Some(navigation) = raw.navigation.take() {
     StepKind::Navigation {
       action: navigation.action,

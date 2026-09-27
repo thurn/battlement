@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use battlement::{
   Connect, ControllerButton, ControllerDirection, ControllerInputSettings, PanelPoint, ParentScene,
-  PhysicalKey, PickingMode, PreparedAsset, Prop, ScreenSize, Vector3,
+  PhysicalKey, PickingMode, PreparedAsset, Prop, Rect, ScreenSize, Vector3,
 };
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use reactant::{GameStatus, app_context, hooks, overlay::OverlayHost, prelude::*, world};
@@ -15,7 +15,7 @@ use crate::{
   card_table::CardTable,
   controller,
   domain::{HeartsState, Phase, Seat},
-  layout_fixture, scene,
+  layout_fixture, scene, test_geometry,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -55,6 +55,15 @@ impl Component for Probe {
       )),
     )
   }
+}
+
+#[test]
+fn composed_fixture_connects_with_seeded_presentation() {
+  let _display = Display::mount_with(
+    || crate::app::screen_application(HeartsState::new(43), false),
+    self::catalog(),
+    Connect::new("test", "test", ScreenSize::new(1280, 720)),
+  );
 }
 
 #[test]
@@ -301,6 +310,92 @@ fn focused_owned_card_survives_reflow_without_exposing_opponent_controls() {
   assert_eq!(self::current(&current).view.hands[0].len(), 12);
 }
 
+#[test]
+fn portrait_navigation_reveals_every_owned_rank_and_rotation_preserves_selection() {
+  let aspect = DisplayStore::new(16.0 / 9.0);
+  let (mut display, current) = self::mount_with_aspect(HeartsState::new(43), aspect.clone());
+  self::ready(&mut display, &current);
+  let cards = self::current(&current).view.hands[0].clone();
+  let identities: Vec<_> = cards
+    .iter()
+    .map(|card| {
+      display
+        .semantic_node(&card_input::name(card.face.unwrap()))
+        .object_id
+    })
+    .collect();
+  let pass_host = display.semantic_node("Pass three cards").object_id;
+  let play_host = display.semantic_node("Play selected card").object_id;
+  self::resize(&mut display, &aspect, 1, 390, 844);
+  let _ = display.ui_element(pass_host);
+  let _ = display.ui_element(play_host);
+  for (card, id) in cards.iter().zip(&identities) {
+    self::tab_to(&mut display, &card_input::name(card.face.unwrap()));
+    display.settle();
+    let center = display.world_point(*id, Vector3::ZERO);
+    let x = 195.0 + center.x * 844.0 / 11.4;
+    assert!(
+      (58.0..=332.0).contains(&x),
+      "focused card must be visible: {x}"
+    );
+  }
+  self::tab_to(&mut display, &card_input::name(cards[0].face.unwrap()));
+  self::primary(&mut display);
+  let focused = display.focused();
+  let accepted = self::current(&current).game.accepted();
+  self::resize(&mut display, &aspect, 2, 1280, 720);
+  assert_eq!(display.focused(), focused);
+  assert_eq!(
+    self::current(&current).game.accepted().version,
+    accepted.version
+  );
+  assert!(
+    display
+      .accessibility()
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Choose three to pass · 1 / 3"))
+  );
+  self::resize(&mut display, &aspect, 3, 390, 844);
+  for (card, id) in cards.iter().zip(&identities) {
+    assert_eq!(
+      display
+        .semantic_node(&card_input::name(card.face.unwrap()))
+        .object_id,
+      *id
+    );
+  }
+  display.click_button("Inspect selected card");
+  display.flush();
+  assert_eq!(
+    display.semantic_node("Card inspection").role,
+    battlement::SemanticRole::Dialog
+  );
+}
+
+fn resize(
+  display: &mut Display,
+  aspect: &DisplayStore<f64>,
+  generation: u64,
+  width: u32,
+  height: u32,
+) {
+  test_geometry::observe_viewport(
+    display,
+    generation,
+    ScreenSize::new(width, height),
+    Rect {
+      x: 0.0,
+      y: 44.0,
+      width: f64::from(width),
+      height: f64::from(height) - 78.0,
+    },
+  );
+  aspect.set(f64::from(width) / f64::from(height));
+  display.flush();
+  display.settle();
+}
+
 fn key(display: &mut Display, key: PhysicalKey) {
   display.key_down(key);
   display.key_up(key);
@@ -369,18 +464,6 @@ fn mount_with_aspect(initial: HeartsState, aspect: DisplayStore<f64>) -> (Displa
     current: current.clone(),
     aspect,
   };
-  let mut assets = FakeAssetCatalog::new();
-  for asset in assets::ASSET_CATALOG {
-    match asset {
-      PreparedAsset::Scene(a) => assets.add_scene(a.clone()),
-      PreparedAsset::UiFont(a) => assets.add_ui_font(a.clone()),
-      PreparedAsset::Texture(a) => assets.add_texture(a.clone()),
-      PreparedAsset::Prefab(a) => assets.add_prefab(a.clone(), FakePrefab::new()),
-      PreparedAsset::Material(a) => assets.add_material(a.clone()),
-      PreparedAsset::AudioClip(address) => assets.add_audio_clip(address.clone()),
-      _ => panic!("unexpected asset"),
-    }
-  }
   let display = Display::mount_with(
     move || {
       reactant::Application::new(crate::assets::hearts::CONTENT)
@@ -403,8 +486,24 @@ fn mount_with_aspect(initial: HeartsState, aspect: DisplayStore<f64>) -> (Displa
         })
         .camera(|camera| scene::camera().into_object(camera.object_id))
     },
-    assets,
+    self::catalog(),
     Connect::new("test", "test", ScreenSize::new(1280, 720)),
   );
   (display, current)
+}
+
+fn catalog() -> FakeAssetCatalog {
+  let mut assets = FakeAssetCatalog::new();
+  for asset in assets::ASSET_CATALOG {
+    match asset {
+      PreparedAsset::Scene(a) => assets.add_scene(a.clone()),
+      PreparedAsset::UiFont(a) => assets.add_ui_font(a.clone()),
+      PreparedAsset::Texture(a) => assets.add_texture(a.clone()),
+      PreparedAsset::Prefab(a) => assets.add_prefab(a.clone(), FakePrefab::new()),
+      PreparedAsset::Material(a) => assets.add_material(a.clone()),
+      PreparedAsset::AudioClip(address) => assets.add_audio_clip(address.clone()),
+      _ => panic!("unexpected asset"),
+    }
+  }
+  assets
 }

@@ -8,7 +8,7 @@ use std::{
 };
 
 use battlement::application::{ApplicationState, ReducedMotionPreference};
-use battlement::{ActionId, Command, DisplayId, ObjectId, ScreenSize};
+use battlement::{ActionId, Command, DisplayId, ObjectId, Rect, ScreenSize};
 use trox::Localizer;
 
 use crate::{
@@ -27,6 +27,15 @@ pub struct AppHandle {
   scope: Option<u64>,
 }
 
+/// Display dimensions and unobscured bounds in logical, top-left coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Viewport {
+  /// Full display size in logical pixels.
+  pub size: ScreenSize,
+  /// Unobscured rectangle relative to the display origin.
+  pub safe_area: Rect,
+}
+
 /// Returns the current application's session-bound operations handle.
 pub fn use_app() -> AppHandle {
   let mut handle = hooks::use_required_context::<AppHandle>();
@@ -38,21 +47,50 @@ pub fn use_app() -> AppHandle {
 
 /// Reads logical display dimensions, using the connection size until measured.
 pub fn use_viewport_size() -> ScreenSize {
+  self::use_viewport().size
+}
+
+/// Observes resize, display scale and safe-area changes as one coherent value.
+pub fn use_viewport() -> Viewport {
   let initial = hooks::use_required_context::<ScreenSize>();
   let measurement = geometry::use_geometry(ViewportRef::display(DisplayId(0))).measurements;
+  let fallback = Viewport {
+    size: initial,
+    safe_area: Rect {
+      x: 0.0,
+      y: 0.0,
+      width: initial.width.into(),
+      height: initial.height.into(),
+    },
+  };
   if measurement.status == MeasurementStatus::Waiting {
-    return initial;
+    return fallback;
   }
-  measurement.latest.map_or(initial, |geometry| {
+  measurement.latest.map_or(fallback, |geometry| {
     let scale = if geometry.scale.is_finite() && geometry.scale > 0.0 {
       geometry.scale
     } else {
       1.0
     };
-    ScreenSize::new(
+    let size = ScreenSize::new(
       (geometry.viewport.width / scale).round() as u32,
       (geometry.viewport.height / scale).round() as u32,
-    )
+    );
+    let x = (geometry.safe_area.x / scale).clamp(0.0, size.width.into());
+    let y = (geometry.safe_area.y / scale).clamp(0.0, size.height.into());
+    let right =
+      ((geometry.safe_area.x + geometry.safe_area.width) / scale).clamp(x, size.width.into());
+    let bottom =
+      ((geometry.safe_area.y + geometry.safe_area.height) / scale).clamp(y, size.height.into());
+    Viewport {
+      size,
+      safe_area: Rect {
+        x,
+        y,
+        width: right - x,
+        height: bottom - y,
+      },
+    }
   })
 }
 

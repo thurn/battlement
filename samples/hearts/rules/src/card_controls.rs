@@ -1,5 +1,5 @@
 use battlement::{UiFontAddress, object_id};
-use reactant::{app_context, hooks, portal::PortalTarget, prelude::*};
+use reactant::{hooks, portal::PortalTarget, prelude::*};
 use trox::ls;
 
 use crate::{
@@ -7,6 +7,7 @@ use crate::{
   card_input::{self, CardInput},
   domain::{Phase, Seat},
   inspection::Inspection,
+  layout,
   settings::Preferences,
 };
 
@@ -15,16 +16,24 @@ pub(crate) struct CardControls(pub PortalTarget);
 impl Component for CardControls {
   fn render(&self) -> impl Render {
     let input = hooks::use_required_context::<CardInput>();
-    let viewport = app_context::use_viewport_size();
+    let layout = layout::use_layout();
     let preferences = hooks::use_context::<Preferences>();
-    let portrait = viewport.width < viewport.height || preferences.larger_text;
-    let font = if preferences.larger_text { 24.0 } else { 16.0 };
-    let height = if preferences.larger_text {
-      142.0
-    } else if portrait {
-      106.0
+    let mobile = layout.portrait;
+    let portrait = mobile || preferences.larger_text;
+    let font = if preferences.larger_text {
+      24.0
+    } else if mobile {
+      20.0
     } else {
-      52.0
+      16.0
+    };
+    let height = layout.footer as f32;
+    let button_width = if mobile {
+      ((layout.safe.width - 42.0) / 2.0) as f32
+    } else if preferences.larger_text {
+      205.0
+    } else {
+      140.0
     };
     let selected = input.selected_cards().last().copied();
     let description = selected
@@ -68,10 +77,10 @@ impl Component for CardControls {
               .style(
                 Style::new()
                   .position(Position::Absolute)
-                  .left(18.px())
-                  .top((viewport.height as f32 - height - 10.0).px())
+                  .left((layout.safe.x as f32 + 18.0).px())
+                  .top((layout.safe.y as f32 + layout.safe.height as f32 - height - 10.0).px())
                   .height(height.px())
-                  .width((viewport.width as f32 - 36.0).px())
+                  .width((layout.safe.width as f32 - 36.0).px())
                   .flex_direction(if portrait {
                     FlexDirection::Column
                   } else {
@@ -89,18 +98,34 @@ impl Component for CardControls {
                       Style::new()
                         .font_size(font.px())
                         .width(if portrait { 100.pct() } else { 350.px() })
-                        .height(if portrait { 32.px() } else { 44.px() }),
+                        .height(if mobile {
+                          48.px()
+                        } else if portrait {
+                          32.px()
+                        } else {
+                          44.px()
+                        })
+                        .white_space(WhiteSpace::Normal),
                     ),
                   ),
                 Text::new(ls(description.unwrap_or_else(|| "No card selected".into()))).style(
                   Style::new()
                     .font_size(font.px())
-                    .width(if preferences.larger_text {
+                    .width(if mobile {
+                      100.pct()
+                    } else if preferences.larger_text {
                       420.px()
                     } else {
                       205.px()
                     })
                     .height(if portrait { 32.px() } else { 44.px() }),
+                ),
+                Text::new(ls("Swipe sideways to browse · drag up to play.")).style(
+                  Style::new()
+                    .display(if mobile { Display::Flex } else { Display::None })
+                    .font_size(16.px())
+                    .height(28.px())
+                    .white_space(WhiteSpace::Normal),
                 ),
                 View::new()
                   .picking_mode(PickingMode::Ignore)
@@ -114,11 +139,17 @@ impl Component for CardControls {
                     Button::new(ls("Pass three cards"))
                       .style(
                         Style::new()
-                          .height(48.px())
-                          .width(if preferences.larger_text {
-                            205.px()
+                          .display(if mobile && !input.passing() {
+                            Display::None
                           } else {
-                            140.px()
+                            Display::Flex
+                          })
+                          .height(48.px())
+                          .width(button_width.px())
+                          .white_space(if mobile {
+                            WhiteSpace::Normal
+                          } else {
+                            WhiteSpace::NoWrap
                           }),
                       )
                       .disabled(!input.can_pass())
@@ -126,11 +157,17 @@ impl Component for CardControls {
                     Button::new(ls("Play selected card"))
                       .style(
                         Style::new()
-                          .height(48.px())
-                          .width(if preferences.larger_text {
-                            205.px()
+                          .display(if mobile && input.passing() {
+                            Display::None
                           } else {
-                            140.px()
+                            Display::Flex
+                          })
+                          .height(48.px())
+                          .width(button_width.px())
+                          .white_space(if mobile {
+                            WhiteSpace::Normal
+                          } else {
+                            WhiteSpace::NoWrap
                           }),
                       )
                       .disabled(!selected.is_some_and(|token| input.can_play(token)))
@@ -143,10 +180,11 @@ impl Component for CardControls {
                       .style(
                         Style::new()
                           .height(48.px())
-                          .width(if preferences.larger_text {
-                            205.px()
+                          .width(button_width.px())
+                          .white_space(if mobile {
+                            WhiteSpace::Normal
                           } else {
-                            140.px()
+                            WhiteSpace::NoWrap
                           }),
                       )
                       .disabled(selected.is_none())

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use battlement::{AudioBus, AudioClipAddress, AudioMix};
+use battlement::{AudioBus, AudioClipAddress, AudioMix, UiFontAddress};
 use reactant::{
   audio::{self, AudioSettings, AudioTrack},
   hooks,
@@ -79,15 +79,17 @@ impl Component for SoundControls {
     } else {
       18.0
     };
+    let layout = crate::layout::use_layout();
     let music = self.mix.music > 0.0;
     let effects = self.mix.effects > 0.0;
     View::new()
       .style(
         Style::new()
           .position(Position::Absolute)
-          .right(18.px())
-          .top(70.px())
-          .flex_direction(FlexDirection::Row),
+          .right((layout.right() as f32 + 18.0).px())
+          .top((layout.safe.y as f32 + 70.0).px())
+          .flex_direction(FlexDirection::Row)
+          .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
       )
       .child((
         Button::new(ls(if music { "Music on" } else { "Music off" }))

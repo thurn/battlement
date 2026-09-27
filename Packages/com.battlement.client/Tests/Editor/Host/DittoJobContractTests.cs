@@ -17,6 +17,27 @@ namespace Battlement.Tests
             "Packages/com.battlement.client/Tests/Fixtures/Ditto/job-contract.json";
 
         [Test]
+        public void SharedViewportFixtureRejectsInvalidBounds()
+        {
+            JObject fixture = JObject.Parse(File.ReadAllText(FixturePath));
+            JObject valid = (JObject)fixture["valid"]!.DeepClone();
+            valid["scenarios"]![0]!["steps"] = new JArray(fixture["viewport_step"]!.DeepClone());
+            Assert.That(
+                Decode(valid).Scenarios[0].Steps[0].Action,
+                Is.TypeOf<DittoStepAction.Viewport>()
+            );
+            foreach (JObject invalid in fixture["viewport_invalid"]!.Children<JObject>())
+            {
+                JObject changed = (JObject)valid.DeepClone();
+                Apply(changed, invalid);
+                Assert.Throws<JsonSerializationException>(
+                    () => Decode(changed),
+                    (string?)invalid["name"]
+                );
+            }
+        }
+
+        [Test]
         public void SharedFixtureAcceptsValidJobAndRejectsEveryInvalidMutation()
         {
             JObject fixture = JObject.Parse(File.ReadAllText(FixturePath));

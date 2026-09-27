@@ -14,6 +14,49 @@ namespace Battlement.Tests
     {
         [TestCase(true)]
         [TestCase(false)]
+        public void RepeatedAuthoredResizesReflowRetainedSlots(bool grid)
+        {
+            using var panel = new PanelFixture();
+            var container = new BattlementLayoutContainer(
+                grid ? BattlementLayoutContainerKind.Grid : BattlementLayoutContainerKind.Stack
+            );
+            container.style.width = 1280;
+            container.style.height = 720;
+            panel.Root.Add(container);
+            if (grid)
+                container.ApplyGrid(
+                    new UiElement.Grid
+                    {
+                        Columns = Prop<IReadOnlyList<GridTrack>>.Set(
+                            new GridTrack[] { new GridTrack.Fraction(1) }
+                        ),
+                        Rows = Prop<IReadOnlyList<GridTrack>>.Set(
+                            new GridTrack[] { new GridTrack.Fraction(1) }
+                        ),
+                    }
+                );
+            var child = new VisualElement();
+            child.style.height = 720;
+            container.Adapter.Insert(child, 0);
+            var slot = container.Adapter.SlotFor(child);
+            float previous = 1280;
+            foreach (float width in new[] { 390f, 1280f, 720f, 390f, 1280f, 390f })
+            {
+                container.style.width = width;
+                using var change = GeometryChangedEvent.GetPooled(
+                    new UnityEngine.Rect(0, 0, previous, 720),
+                    new UnityEngine.Rect(0, 0, width, 720)
+                );
+                change.target = container;
+                container.SendEvent(change);
+                Assert.That(container.Adapter.SlotFor(child), Is.SameAs(slot));
+                AssertRect(slot, 0, 0, width, 720);
+                previous = width;
+            }
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
         public void DetachedTextDoesNotAttemptPanelDependentMeasurement(bool grid)
         {
             var warnings = new List<string>();

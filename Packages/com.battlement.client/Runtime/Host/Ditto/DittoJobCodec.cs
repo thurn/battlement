@@ -191,6 +191,7 @@ namespace Battlement
             JObject body = Object(variant.Value, variant.Name);
             return variant.Name switch
             {
+                "viewport" => Viewport(body),
                 "click" => Click(body),
                 "hover" => new DittoStepAction.Hover(TargetBody(body)),
                 "drag" => Drag(body),
@@ -209,6 +210,16 @@ namespace Battlement
                 "video" => new DittoStepAction.Video(Video(body)),
                 _ => throw new JsonSerializationException($"Unknown action {variant.Name}."),
             };
+        }
+
+        private static DittoStepAction.Viewport Viewport(JObject value)
+        {
+            Exact(value, "width", "height", "safe_area");
+            return new DittoStepAction.Viewport(
+                UInt32(Field(value, "width")),
+                UInt32(Field(value, "height")),
+                Array(value, "safe_area", UInt32)
+            );
         }
 
         private static DittoStepAction.Navigation Navigation(JObject value)

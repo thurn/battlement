@@ -20,7 +20,7 @@ use crate::{
   choreography::AnimatedTable,
   controller,
   domain::{HeartsState, Phase, Seat, cards},
-  match_ui,
+  layout, match_ui,
   menus::{Menu, Menus},
   particles,
   saved_game::SavedSettings,
@@ -38,6 +38,7 @@ pub(crate) enum Opponents {
   Rollout,
 }
 
+#[derive(Clone)]
 pub(crate) struct HeartsRoot {
   initial: HeartsState,
   gallery: bool,
@@ -123,9 +124,19 @@ fn configured(
   })
 }
 
+struct FixtureRoot(HeartsRoot);
+
+impl Component for FixtureRoot {
+  fn render(&self) -> impl Render {
+    ContextProvider::new()
+      .context(crate::projection::PresentationSeed(43))
+      .child(self.0.clone())
+  }
+}
+
 fn configured_root(root: HeartsRoot) -> Application {
   let gallery = root.gallery;
-  self::configured_content(root, gallery)
+  self::configured_content(FixtureRoot(root), gallery)
 }
 
 pub(crate) fn persistent_root(
@@ -191,6 +202,7 @@ pub(crate) fn configured_content(root: impl Component, gallery: bool) -> Applica
 impl Component for HeartsRoot {
   fn render(&self) -> impl Render {
     let interactive = self.opponents != Opponents::Disabled;
+    let layout = layout::use_layout();
     let overlay = reactant::use_portal_target();
     let saves = hooks::use_optional_context::<Saves>();
     let saved_settings = saves
@@ -286,6 +298,10 @@ impl Component for HeartsRoot {
                 .picking_mode(PickingMode::Ignore)
                 .style(
                   Style::new()
+                    .position(Position::Absolute)
+                    .left((layout.safe.x as f32).px())
+                    .top((layout.safe.y as f32).px())
+                    .width((layout.safe.width as f32).px())
                     .padding(18.px())
                     .color(if self.gallery {
                       Color::rgb(0.97, 0.94, 0.83)
@@ -305,7 +321,11 @@ impl Component for HeartsRoot {
                         .position(Position::Absolute)
                         .right(18.px())
                         .top(18.px())
-                        .width(120.px())
+                        .width(if layout.safe.width < 600.0 {
+                          100.px()
+                        } else {
+                          120.px()
+                        })
                         .height(44.px())
                         .font_size(preferences.font().px())
                         .color(Color::rgb(0.08, 0.14, 0.06))
@@ -318,9 +338,17 @@ impl Component for HeartsRoot {
                       .style(
                         Style::new()
                           .position(Position::Absolute)
-                          .right(150.px())
+                          .right(if layout.safe.width < 600.0 {
+                            126.px()
+                          } else {
+                            150.px()
+                          })
                           .top(18.px())
-                          .width(100.px())
+                          .width(if layout.safe.width < 600.0 {
+                            80.px()
+                          } else {
+                            100.px()
+                          })
                           .height(44.px())
                           .font_size(preferences.font().px())
                           .color(Color::rgb(0.08, 0.14, 0.06))
@@ -378,25 +406,15 @@ impl Component for HeartsRoot {
                   )
                   .child(reactant::GameRoot::new(scene::seats(
                     &game.view,
-                    aspect < 1.0,
+                    layout,
                     preferences.larger_text,
                   )))
               }),
-            )),
-          interactive.then(|| {
-            View::new()
-              .picking_mode(PickingMode::Ignore)
-              .style(
-                Style::new()
-                  .width(100.pct())
-                  .height(100.pct())
-                  .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
-              )
-              .child(audio::SoundControls {
+              interactive.then(|| audio::SoundControls {
                 mix,
                 set_mix: set_mix.clone(),
-              })
-          }),
+              }),
+            )),
           interactive.then(|| reactant::audio::AudioMixProvider {
             mix,
             children: Children::new(reactant::GameRoot::new(audio::GameAudio {

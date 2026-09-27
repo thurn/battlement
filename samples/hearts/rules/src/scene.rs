@@ -3,7 +3,7 @@ use battlement::{
 };
 use reactant::{prelude::*, world};
 
-use crate::{HumanView, assets, domain::Seat};
+use crate::{HumanView, assets, domain::Seat, layout::Layout};
 
 const CAMERA_SIZE: f64 = 5.7;
 const CAMERA_TILT: f64 = 60.0;
@@ -47,60 +47,64 @@ pub(crate) fn environment(aspect: f64) -> impl Render {
   )
 }
 
-pub(crate) fn seats(view: &HumanView, portrait: bool, larger_text: bool) -> impl Render {
-  [
-    (Seat::North, 50.0, if portrait { 13.0 } else { 4.0 }),
-    (
-      Seat::West,
-      if portrait { 16.0 } else { 22.0 },
-      if portrait { 28.0 } else { 18.0 },
-    ),
-    (
-      Seat::East,
-      if portrait { 84.0 } else { 78.0 },
-      if portrait { 28.0 } else { 18.0 },
-    ),
-    (
-      Seat::South,
-      50.0,
-      match (portrait, larger_text) {
-        (true, true) => 55.0,
-        (true, false) => 60.0,
-        (false, true) => 42.0,
-        (false, false) => 57.0,
-      },
-    ),
-  ]
-  .into_iter()
-  .map(|(seat, left, top)| {
-    let name = match seat {
-      Seat::North => "North",
-      Seat::West => "West",
-      Seat::East => "East",
-      Seat::South => "You",
-    };
-    Label::new(trox::ls(format!(
-      "{name}  ·  {}",
-      view.table.totals[seat.index()]
-    )))
-    .semantic(reactant::control_behavior::static_text_props(trox::ls(
-      format!("{name}: {} total points", view.table.totals[seat.index()]),
-    )))
-    .picking_mode(PickingMode::Ignore)
-    .style(
-      Style::new()
-        .position(Position::Absolute)
-        .left(left.pct())
-        .top(top.pct())
-        .width(150.px())
-        .margin_left((-75).px())
-        .height(32.px())
-        .font_size(if larger_text { 28.px() } else { 22.px() })
-        .unity_text_align(TextAnchor::MiddleCenter)
-        .color(Color::rgb(0.08, 0.14, 0.06)),
-    )
-  })
-  .collect::<Vec<_>>()
+pub(crate) fn seats(view: &HumanView, layout: Layout, larger_text: bool) -> impl Render {
+  let portrait = layout.portrait;
+  let safe = layout.safe;
+  let w = f64::from(layout.viewport.size.width);
+  let h = f64::from(layout.viewport.size.height);
+  [Seat::North, Seat::West, Seat::East, Seat::South]
+    .into_iter()
+    .map(|seat| {
+      let (left, top) = if portrait {
+        if seat == Seat::South {
+          (
+            safe.x + safe.width / 2.0,
+            layout.hand_top(larger_text) - 40.0,
+          )
+        } else {
+          let (x, y) = layout.opponent_center(seat, larger_text);
+          (x, y - if seat == Seat::North { 70.0 } else { 84.0 })
+        }
+      } else {
+        match seat {
+          Seat::North => (w * 0.5, h * 0.04),
+          Seat::West => (w * 0.22, h * 0.18),
+          Seat::East => (w * 0.78, h * 0.18),
+          Seat::South => (w * 0.5, h * if larger_text { 0.42 } else { 0.57 }),
+        }
+      };
+      let name = match seat {
+        Seat::North => "North",
+        Seat::West => "West",
+        Seat::East => "East",
+        Seat::South => "You",
+      };
+      Label::new(trox::ls(format!(
+        "{name}  ·  {}",
+        view.table.totals[seat.index()]
+      )))
+      .semantic(reactant::control_behavior::static_text_props(trox::ls(
+        format!("{name}: {} total points", view.table.totals[seat.index()]),
+      )))
+      .picking_mode(PickingMode::Ignore)
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .left((left as f32).px())
+          .top((top as f32).px())
+          .width(if portrait { 96.px() } else { 150.px() })
+          .margin_left(if portrait { (-48).px() } else { (-75).px() })
+          .height(32.px())
+          .font_size(if larger_text {
+            if portrait { 24.px() } else { 28.px() }
+          } else {
+            22.px()
+          })
+          .unity_text_align(TextAnchor::MiddleCenter)
+          .color(Color::rgb(0.08, 0.14, 0.06)),
+      )
+    })
+    .collect::<Vec<_>>()
 }
 
 fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {

@@ -562,9 +562,23 @@ fn suite_facts(directory: &Path) -> Result<SuiteFacts> {
     let Some(Profile::Macos { display }) = suite.profiles.get(&entry.profile) else {
       unreachable!("canonical profiles are macOS");
     };
+    let mut dimensions = (display.width, display.height);
+    if let Some(scenario) = suite
+      .scenarios
+      .iter()
+      .find(|scenario| scenario.name == entry.scenario)
+    {
+      for step in &scenario.steps {
+        match &step.action {
+          StepKind::Viewport(viewport) => dimensions = (viewport.width, viewport.height),
+          StepKind::Screenshot(screenshot) if screenshot.name == entry.checkpoint => break,
+          _ => {}
+        }
+      }
+    }
     ensure!(
-      entry.width == display.width && entry.height == display.height,
-      "baseline {}/{}/{} dimensions must match its declared profile",
+      (entry.width, entry.height) == dimensions,
+      "baseline {}/{}/{} dimensions must match its checkpoint viewport",
       entry.profile,
       entry.scenario,
       entry.checkpoint

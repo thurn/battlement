@@ -33,9 +33,9 @@ namespace Battlement
         private readonly BattlementRunner runner;
         private readonly BattlementUiDocuments documents;
         private readonly IReadOnlyDictionary<string, ObjectId> aliases;
-        private readonly uint width;
-        private readonly uint height;
-        private readonly DisplaySource displays;
+        private uint width;
+        private uint height;
+        private DisplaySource displays;
 
         public DittoInputTargets(
             BattlementRunner runner,
@@ -59,6 +59,13 @@ namespace Battlement
             this.runner = runner;
             documents = runner.DittoUiDocuments;
             this.aliases = aliases ?? throw new ArgumentNullException(nameof(aliases));
+            this.width = width;
+            this.height = height;
+            displays = new DisplaySource(width, height);
+        }
+
+        public void Resize(uint width, uint height)
+        {
             this.width = width;
             this.height = height;
             displays = new DisplaySource(width, height);
@@ -287,6 +294,23 @@ namespace Battlement
             {
                 position = default;
                 diagnostic = $"Pointer target {objectId.Value} is not physically reachable.";
+                if (documents.TryGetGeometryTarget(objectId, out var element, out _, out _))
+                {
+                    int depth = 0;
+                    for (
+                        var current = element;
+                        current is not null && depth < 8;
+                        current = current.parent
+                    )
+                    {
+                        diagnostic +=
+                            $" {current.GetType().Name}: bounds={current.worldBound},"
+                            + $" layout={current.layout}, display={current.resolvedStyle.display},"
+                            + $" visibility={current.resolvedStyle.visibility},"
+                            + $" opacity={current.resolvedStyle.opacity}.";
+                        depth++;
+                    }
+                }
                 return false;
             }
             position = resolution.Position;

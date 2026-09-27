@@ -20,6 +20,7 @@ namespace Battlement
             WaitingForRunner,
             Probing,
             Starting,
+            RestoringDisplay,
             Executing,
             CapturingFailure,
             Resetting,
@@ -83,6 +84,25 @@ namespace Battlement
             if (phase == Phase.WaitingForRunner)
             {
                 TryPreparePlayer();
+            }
+            else if (phase == Phase.RestoringDisplay)
+            {
+                var display = job!.Profile.Display;
+                if (
+                    TryResizeViewport(
+                        new DittoStepAction.Viewport(
+                            display.Width,
+                            display.Height,
+                            display.SafeArea
+                        )
+                    )
+                )
+                    StartScenario();
+                else if (
+                    (Time.realtimeSinceStartupAsDouble - jobStartedAt) * 1000
+                    >= job.RemainingRunTimeoutMs
+                )
+                    CompleteJob(DittoTerminalReason.InfrastructureError);
             }
             else if (phase == Phase.Executing)
             {
@@ -415,6 +435,14 @@ namespace Battlement
             phase = Phase.Executing;
         }
 
+        private bool TryResizeViewport(DittoStepAction.Viewport viewport)
+        {
+            if (!PrepareMacosDisplay(viewport.Width, viewport.Height))
+                return false;
+            nativeCapture!.Resize(viewport.Width, viewport.Height);
+            return true;
+        }
+
         private DittoScenarioExecutor NewExecutor(DittoResolvedScenario scenario)
         {
             if (
@@ -454,7 +482,8 @@ namespace Battlement
                 stepEnded: context.StepEnded,
                 video: videoRecorder,
                 videoFrame: captureVideoFrame,
-                nativeVideoLayout: nativeCapture?.VideoLayout
+                nativeVideoLayout: nativeCapture?.VideoLayout,
+                resizeViewport: TryResizeViewport
             );
         }
 
@@ -817,7 +846,10 @@ namespace Battlement
             scenarioIndex++;
             if (decision?.Action == DittoNextAction.Continue)
             {
-                StartScenario();
+                if (job.Profile.Platform == DittoPlatform.Macos)
+                    phase = Phase.RestoringDisplay;
+                else
+                    StartScenario();
                 return;
             }
             CompleteJob(
