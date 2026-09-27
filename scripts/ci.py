@@ -1197,7 +1197,7 @@ def run_ci(
                 reactant_cli_seconds = time.monotonic() - reactant_cli_started
         run_step(
             "Test repository tooling",
-            function=lambda: ci_tooling.run(REPOSITORY_ROOT, performance=full and ditto),
+            function=lambda: ci_tooling.run(REPOSITORY_ROOT, performance=full and ditto, cache=ci_cache),
         )
         if full:
             print(

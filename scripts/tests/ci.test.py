@@ -14,7 +14,7 @@ import sys
 import tempfile
 from threading import Barrier, Lock
 import tomllib
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -485,7 +485,7 @@ def _verify_selected_native_execution() -> None:
             stack.enter_context(patcher)
         ci.run_ci(full=True, use_ci_cache=False, ditto=True)
         assert closed == [True]
-        tooling.assert_called_once_with(ci.REPOSITORY_ROOT, performance=True)
+        tooling.assert_called_once_with(ci.REPOSITORY_ROOT, performance=True, cache=ANY)
         for failed_stage in ("prepare_standalone_builder", "test_runtime_integrations"):
             with patch.object(ci, failed_stage, side_effect=RuntimeError(failed_stage)):
                 try:

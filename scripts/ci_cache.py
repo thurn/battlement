@@ -150,12 +150,14 @@ class CiCache:
         environment: dict[str, str | int],
         enabled: bool = True,
         event: Callable[[str, dict[str, object]], None] | None = None,
+        provenance: dict[str, object] | None = None,
     ) -> None:
         self.repository_root = repository_root
         self.cache_root = cache_root
         self.environment = environment
         self.enabled = enabled
         self.event = event
+        self.provenance = provenance
 
     @contextmanager
     def invocation(self) -> Iterator[None]:
@@ -382,6 +384,7 @@ class CiCache:
             step=step,
             result="hit",
             cache_key=key,
+            provenance=json.loads(marker.read_text()).get("provenance"),
         )
         return True
 
@@ -438,12 +441,17 @@ class CiCache:
             entry = json.loads(marker.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError):
             return False
-        return entry == {
+        expected = {
             "schema": CACHE_SCHEMA,
             "step": step,
             "key": key,
             "completedAt": entry.get("completedAt"),
-        } and isinstance(entry["completedAt"], int)
+        }
+        if "provenance" in entry:
+            if not isinstance(entry["provenance"], dict):
+                return False
+            expected["provenance"] = entry["provenance"]
+        return entry == expected and isinstance(entry["completedAt"], int)
 
     def _publish(self, marker: Path, step: str, key: str) -> None:
         marker.parent.mkdir(parents=True, exist_ok=True)
@@ -455,6 +463,7 @@ class CiCache:
                     "step": step,
                     "key": key,
                     "completedAt": time.time_ns(),
+                    **({"provenance": self.provenance} if self.provenance is not None else {}),
                 },
                 indent=2,
                 sort_keys=True,

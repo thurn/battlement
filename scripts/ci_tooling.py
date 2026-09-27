@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import nullcontext
 import sys
 import uuid
 
 import ci_steps
+from ci_cache import CiCache
+import ci_tooling_cache
 import operation_log
+import perf_log
 
 
 FIXTURE_OUTPUT_PREFIX = "    [fixture] "
@@ -36,6 +40,7 @@ CHECKS = (
     ("Test CI sample discovery", "scripts/tests/ci.test.py"),
     ("Test affected CI selection", "scripts/tests/ci-selection.test.py"),
     ("Test CI Cache", "scripts/tests/ci-cache.test.py"),
+    ("Test tooling result reuse", "scripts/tests/ci-tooling-cache.test.py"),
     ("Test Unity affected-test selection", "scripts/tests/unity-test-selection.test.py"),
     ("Test native sample selection", "scripts/tests/native-validation-selection.test.py"),
     ("Test performance reporting", "scripts/tests/perf-report.test.py"),
@@ -52,10 +57,28 @@ PERFORMANCE_CHECKS = (
 )
 
 
-def run(repository: Path, *, performance: bool = False) -> None:
+def run(repository: Path, *, performance: bool = False, cache: CiCache | None = None) -> None:
     """Run each fixture in its own process, retaining every failure and trace."""
     checks = CHECKS + (PERFORMANCE_CHECKS if performance else ())
-    logs = repository / ".logs/ci/tooling" / str(uuid.uuid4())
+    log_root = repository / ".logs" if cache is None else perf_log.configured_log_root()
+    logs = log_root / "ci/tooling" / str(uuid.uuid4())
+    if cache is None:
+        run_checks(repository, checks, logs)
+        return
+    reusable, environment = ci_tooling_cache.create(repository, cache, checks, logs)
+    executed = reusable.run(
+        "repository-tooling", (".",),
+        lambda: run_checks(repository, checks, logs, environment), lease=nullcontext,
+    )
+    if not executed:
+        live = tuple(check for check in checks if check[1] not in ci_tooling_cache.REUSABLE)
+        run_checks(repository, live, logs)
+
+
+def run_checks(repository: Path, checks: tuple, logs: Path, environment: dict | None = None) -> None:
+    """Preserve the same bounded runner for misses and always-executed fixtures."""
+    if not checks:
+        return
     logs.mkdir(mode=0o700, parents=True)
     ci_steps.run_parallel_steps(
         [
@@ -63,6 +86,7 @@ def run(repository: Path, *, performance: bool = False) -> None:
                 name,
                 lambda script=script: run_fixture(
                     repository, script, logs / f"{Path(script).name}.log",
+                    environment if script in ci_tooling_cache.REUSABLE else None,
                 ),
             )
             for name, script in checks
@@ -71,12 +95,12 @@ def run(repository: Path, *, performance: bool = False) -> None:
     )
 
 
-def run_fixture(repository: Path, script: str, log: Path) -> None:
+def run_fixture(repository: Path, script: str, log: Path, environment: dict | None = None) -> None:
     """Retain raw child output and label its replay as fixture diagnostics."""
     print(f"    Fixture log: {log}", flush=True)
     with log.open("wb") as output:
         try:
-            operation_log.run([sys.executable, script], cwd=repository, output=output)
+            operation_log.run([sys.executable, script], cwd=repository, output=output, environment=environment)
         finally:
             output.flush()
             with log.open(encoding="utf-8", errors="replace") as retained:
