@@ -114,9 +114,9 @@ fn current_checkout() {
 
     def test_reused_checkout_detects_committed_and_staged_backdated_inputs(self):
         def git(*arguments):
-            subprocess.run(['git', '-c', 'core.hooksPath=/dev/null',
+            return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null',
                 '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
-                *arguments], cwd=self.old, check=True, capture_output=True)
+                *arguments], cwd=self.old, check=True, capture_output=True).stdout
         git('init', '--quiet')
         git('add', '.')
         git('commit', '--quiet', '-m', 'Fixture baseline')
@@ -132,7 +132,9 @@ fn current_checkout() {
         self.assertTrue(any(item['target']['name'] == 'itoa' and item['fresh'] for item in artifacts))
         value.write_text('7')
         os.utime(value, ns=(1, 1))
-        git('add', '.')
+        # Rehash even when the same-size, backdated edit matches Git's stat cache.
+        git('add', '--renormalize', '.')
+        self.assertEqual(git('show', ':local/value.txt'), b'7')
         _, staged, _ = self.build(self.old)
         self.assertEqual(staged.returncode, 0, staged.stdout + staged.stderr)
 

@@ -13,6 +13,8 @@ import operation_log
 FIXTURE_OUTPUT_PREFIX = "    [fixture] "
 
 CHECKS = (
+    # Start long-running fixtures early so shorter checks can overlap their tails.
+    ("Test Ditto CI", "scripts/tests/ditto-ci.test.py"),
     ("Test warm Cargo target ownership", "scripts/tests/cargo-targets.test.py"),
     ("Test process resource accounting", "scripts/tests/process-usage.test.py"),
     ("Test process scheduling priority", "scripts/tests/process-priority.test.py"),
@@ -40,7 +42,6 @@ CHECKS = (
     ("Test candidate performance reporting", "scripts/tests/perf-candidate.test.py"),
     ("Test Tollgate evidence collection", "scripts/tests/tollgate-evidence.test.py"),
     ("Test trusted prose validation", "scripts/tests/prose-validation.test.py"),
-    ("Test Ditto CI", "scripts/tests/ditto-ci.test.py"),
     ("Test Ditto replay", "scripts/tests/ditto-replay.test.py"),
     ("Test Ditto build-cache lifetime", "scripts/tests/ditto-cache-lifetime.test.py"),
 )
