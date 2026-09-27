@@ -27,10 +27,7 @@ pub(crate) fn environment(aspect: f64) -> impl Render {
         0,
         assets::hearts::materials::CLEARING,
       )]),
-    world::Cylinder::new()
-      .position(Vector3::new(0.0, 0.005, 0.0))
-      .scale(Vector3::new(half_width * 1.30, 0.005, 7.0))
-      .materials([MaterialAssignment::new(0, assets::hearts::materials::SAND)]),
+    self::clearing(half_width, portrait),
     world::Group::new().rotation(self::yaw(-35.0)).child(
       world::Light::new()
         .light_type(LightType::Directional)
@@ -107,6 +104,27 @@ pub(crate) fn seats(view: &HumanView, layout: Layout, larger_text: bool) -> impl
           .unity_text_align(TextAnchor::MiddleCenter)
           .color(Color::rgb(0.08, 0.14, 0.06)),
       )
+    })
+    .collect::<Vec<_>>()
+}
+
+fn clearing(half_width: f64, portrait: bool) -> impl Render {
+  let patches: &[(f64, f64, f64, f64)] = if portrait {
+    &[(0.0, 0.0, 1.30, 7.0)]
+  } else {
+    &[
+      (-0.06, 0.0, 1.20, 6.8),
+      (-0.04, 6.0, 0.20, 4.2),
+      (0.05, -6.0, 0.18, 4.2),
+    ]
+  };
+  patches
+    .iter()
+    .map(|&(x, z, width, depth)| {
+      world::Cylinder::new()
+        .position(Vector3::new(x * half_width, 0.005, z))
+        .scale(Vector3::new(width * half_width, 0.005, depth))
+        .materials([MaterialAssignment::new(0, assets::hearts::materials::SAND)])
     })
     .collect::<Vec<_>>()
 }
