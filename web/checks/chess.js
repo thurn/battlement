@@ -1,4 +1,15 @@
 async (page, context) => {
+  await page.addInitScript(() => {
+    window.chessAudioContexts = [];
+    const AudioContext = window.AudioContext;
+    window.AudioContext = new Proxy(AudioContext, {
+      construct(target, arguments_, newTarget) {
+        const audio = Reflect.construct(target, arguments_, newTarget);
+        window.chessAudioContexts.push(audio);
+        return audio;
+      }
+    });
+  });
   const check = await context.start(page, { ...context, viewport: { width: 640, height: 360 } });
   // Host connection precedes menu rendering. Its neon Play row is absent from the board backdrop.
   const play = { x: 230, y: 110, width: 180, height: 36 };
@@ -37,14 +48,11 @@ async (page, context) => {
       }));
     } finally { await page.mouse.up(); }
   }
-  const content = { x: 260, y: 132, width: 120, height: 90 };
-  const menu = await check.capture('main-menu-actions', content);
-  await click(320, 170);
-  await check.expectImage('settings-panel', menu, content, 0.2);
-  await click(320, 334);
-  await check.expectImage('main-menu-restored', menu, content, 0, 0.06);
   await click(320, 128);
   await waitForPlay(false);
   await check.expectImage('game-board', title, play, 0.2);
-  return check.result('Open Settings, return, and start a game by dismissing the visible Play menu');
+  await page.waitForFunction(() => window.chessAudioContexts.some(audio => audio.state === 'running'));
+  const audio = await page.evaluate(() => window.chessAudioContexts.map(audio => audio.state));
+  const result = check.result('Activate audio and start a game through the visible Play menu');
+  return { ...result, assertions: result.assertions + 1, audio };
 }

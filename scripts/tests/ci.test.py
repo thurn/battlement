@@ -419,6 +419,13 @@ def _verify_selected_native_execution() -> None:
             closed.append(True)
 
     native_runs: list[tuple[str, ...]] = []
+    validation_barrier = Barrier(3, timeout=5)
+
+    def validate_concurrently(*_args: object, **_options: object) -> None:
+        if validation_barrier is not None:
+            assert not closed, "prepared builds must remain owned during validation"
+            validation_barrier.wait()
+
 
     def record_step(
         _name: str,
@@ -436,10 +443,11 @@ def _verify_selected_native_execution() -> None:
         samples = options.get("samples")
         assert isinstance(samples, list)
         native_runs.append(tuple(samples))
+        validate_concurrently()
 
     select_unity = ci.unity_test_selection.select
     build_samples = ci.build_standalone_samples
-    tooling = Mock()
+    tooling = Mock(side_effect=validate_concurrently)
     patches = (
         patch.object(ci, "REPOSITORY_ROOT", REPOSITORY_ROOT),
         patch.object(ci, "CiCache", Cache),
@@ -463,7 +471,7 @@ def _verify_selected_native_execution() -> None:
             "changed_paths",
             return_value=("HEAD", ["samples/ui/rules/src/lib.rs"]),
         ),
-        patch.object(web_selection, "validate_affected"),
+        patch.object(web_selection, "validate_affected", side_effect=validate_concurrently),
         patch.multiple(ci, run_csharp_preflight=lambda *_a: None,
                        check_cargo_lockfiles=lambda *_a: None,
                        check_wire_schema_closure=lambda: None,
@@ -485,6 +493,7 @@ def _verify_selected_native_execution() -> None:
             stack.enter_context(patcher)
         ci.run_ci(full=True, use_ci_cache=False, ditto=True)
         assert closed == [True]
+        validation_barrier = None
         tooling.assert_called_once_with(ci.REPOSITORY_ROOT, performance=True, cache=ANY)
         for failed_stage in ("prepare_standalone_builder", "test_runtime_integrations"):
             with patch.object(ci, failed_stage, side_effect=RuntimeError(failed_stage)):
@@ -519,6 +528,31 @@ def _verify_selected_native_execution() -> None:
     assert closed == [True, True, True, True]
     assert native_runs == [("ui",)]
     assert tooling.call_count == 2
+
+    completed: list[str] = []
+    failure_barrier = Barrier(3, timeout=5)
+
+    def sibling(name: str, fail: bool = False) -> None:
+        failure_barrier.wait()
+        assert len(closed) == 4
+        completed.append(name)
+        if fail:
+            raise RuntimeError("browser failure")
+
+    with ExitStack() as stack:
+        for patcher in patches:
+            stack.enter_context(patcher)
+        stack.enter_context(patch.object(ci.ci_tooling, "run", side_effect=lambda *_a, **_k: sibling("tooling")))
+        stack.enter_context(patch.object(ci, "run_ditto_validation", side_effect=lambda *_a, **_k: sibling("native")))
+        stack.enter_context(patch.object(web_selection, "validate_affected", side_effect=lambda *_a: sibling("browser", True)))
+        try:
+            ci.run_ci(full=True, use_ci_cache=False, ditto=True)
+        except RuntimeError as error:
+            assert str(error) == "browser failure"
+        else:
+            raise AssertionError("failed browser validation was discarded")
+    assert sorted(completed) == ["browser", "native", "tooling"]
+    assert closed == [True] * 5
 
 
 def _verify_rust_configuration() -> None:

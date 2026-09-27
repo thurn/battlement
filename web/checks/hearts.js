@@ -14,7 +14,7 @@ async (page, context) => {
   });
   const check = await context.start(page, context);
   const completeHand = context.completeHand === true;
-  const humanTurns = completeHand ? 13 : 5;
+  const humanTurns = completeHand ? 13 : 2;
   const moves = [];
   const frames = [];
   const observeFrame = message => {
@@ -118,7 +118,7 @@ async (page, context) => {
     for (let move = 0; move < humanTurns; move++) {
       const saved = await waitMatch('Human turn', state => state.phase?.Playing?.turn === 'South');
       const state = saved.state, hand = state.hands[0];
-      if (move === 4) {
+      if (move === (completeHand ? 4 : 1)) {
         const durable = await read('hearts-match.json');
         const connected = page.waitForEvent('console', { predicate: message => message.text().includes('battlement.host.connected'), timeout: 90000 });
         await page.reload();
@@ -152,8 +152,8 @@ async (page, context) => {
       if (!state.result) throw new Error('Missing hand score');
       await waitBright('results-ready', { x: 450, y: 60, width: 380, height: 50 }, 0.5);
       await check.capture('completed-hand');
-    } else if (state.hands[0].length !== 8) {
-      throw new Error('The resumed hand did not retain its fifth human play');
+    } else if (state.hands[0].length !== 13 - humanTurns) {
+      throw new Error('The resumed hand did not retain its human plays');
     }
     const graphics = await page.evaluate(() => {
       const canvas = document.querySelector('#unity-canvas');

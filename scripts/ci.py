@@ -1195,10 +1195,6 @@ def run_ci(
                 reactant_cli_started = time.monotonic()
                 run_reactant_asset_fast_lane()
                 reactant_cli_seconds = time.monotonic() - reactant_cli_started
-        run_step(
-            "Test repository tooling",
-            function=lambda: ci_tooling.run(REPOSITORY_ROOT, performance=full and ditto, cache=ci_cache),
-        )
         if full:
             print(
                 "Reactant asset fast-tier timing "
@@ -1208,7 +1204,21 @@ def run_ci(
                 f"total={rust_test_seconds + reactant_cli_seconds + unity_seconds:.3f}s",
                 flush=True,
             )
-        if full and platform.system() == "Darwin":
+        from web_selection import validate_affected
+        validations = [
+            ("Repository tooling", lambda: run_step(
+                "Test repository tooling",
+                function=lambda: ci_tooling.run(
+                    REPOSITORY_ROOT, performance=full and ditto, cache=ci_cache,
+                ),
+            )),
+            ("Browser contracts", lambda: run_step(
+                "Validate affected browser contracts",
+                function=lambda: validate_affected(REPOSITORY_ROOT),
+            )),
+        ]
+
+        def validate_native() -> None:
             if native_samples:
                 run_ditto_validation(
                     ditto_preparation_seconds[0], ditto_builds, invocation_id,
@@ -1223,11 +1233,13 @@ def run_ci(
                             evidence_export, invocation_id, paths
                         ),
                     )
+
+        if full and platform.system() == "Darwin":
+            validations.append(("Native scenarios", validate_native))
+        run_parallel_steps(validations, workers=3)
     finally:
         if ditto_builds is not None:
             ditto_builds.close()
-    from web_selection import validate_affected
-    run_step("Validate affected browser contracts", function=lambda: validate_affected(REPOSITORY_ROOT))
     run_step("Refresh tracked file metadata", function=refresh_tracked_file_metadata)
 
 
