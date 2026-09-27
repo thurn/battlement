@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 import ci_cache  # noqa: E402
 from ci_cache import CiCache, charged_size, prune_chrome_code_sign_clones  # noqa: E402
 from resource_slots import SlotLease  # noqa: E402
+from ci_cache_renames import verify_renamed_inputs  # noqa: E402
 
 
 def main() -> None:
@@ -73,6 +74,7 @@ def main() -> None:
         assert cache.run("fixture", ("included.txt",), lambda: calls.append("first"))
         assert not cache.run("fixture", ("included.txt",), lambda: calls.append("cached"))
         assert calls == ["first"]
+        verify_renamed_inputs(root)
         assert [
             attributes["result"]
             for event, attributes in events

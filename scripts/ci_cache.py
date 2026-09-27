@@ -416,6 +416,7 @@ class CiCache:
                 "status",
                 "--porcelain=v1",
                 "-z",
+                "--no-renames",
                 "--untracked-files=all",
                 "--",
                 *pathspecs,
