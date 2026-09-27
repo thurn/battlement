@@ -138,6 +138,19 @@ fn representative_invalid_suites_have_actionable_diagnostics() {
 }
 
 #[test]
+fn accessibility_assertion_can_wait_for_a_semantic_result() {
+  let source = MINIMAL_SUITE.replace(
+    "click = { target = \"item\" }",
+    "accessibility_assert = { target = { role = \"button\", name = \"Ready\" }, role = \"button\", name = \"Ready\", wait = true }",
+  );
+  let fixture = Fixture::new(&source);
+  let suite = fixture.load().unwrap();
+  assert!(
+    matches!(&suite.scenarios[0].steps[0].action, StepKind::AccessibilityAssert(assertion) if assertion.wait)
+  );
+}
+
+#[test]
 fn performance_contract_parses_measured_pointer_actions_and_rejects_misuse() {
   let source = MINIMAL_SUITE
     .replace(

@@ -149,6 +149,8 @@ namespace Battlement.Tests
             }"
             );
             Assert.That(targets.Evaluate(Decode(assertion)).Matches, Is.True);
+            assertion["wait"] = true;
+            Assert.That(Decode(assertion).Wait, Is.True);
 
             assertion[field] =
                 field == "parent"

@@ -8,12 +8,11 @@ use reactant::rules::{ChoiceOwner, ChoicePolicy, ExecutionMode, Game};
 use crate::visual_state::{self, VisualState};
 use crate::{
   chess_prompt::{ChessPrompt, PromotionPrompt},
-  opponent::Opponent,
   position::{ChessPiece, ChessPosition, Movement},
 };
 
 /// One complete user action admitted to the bounded rules worker.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ChessAction {
   /// Completes a legal player move to one visible destination.
   MoveTo {
@@ -22,8 +21,13 @@ pub enum ChessAction {
     /// Visible destination square.
     to: Square,
   },
-  /// Searches and commits one computer reply from an accepted player move.
-  ComputerMove,
+  /// Commits a legal search result only for its original accepted board.
+  ComputerMove {
+    /// Exact position searched by the component-owned task.
+    position: Board,
+    /// Selected computer move.
+    reply: Move,
+  },
 }
 
 /// Semantic checkpoint consumed exactly once by the board presentation.
@@ -63,7 +67,6 @@ pub struct ChessPolicy;
 /// nondeterministic or host-specific data into the clonable logical state.
 pub struct ChessContext {
   execution: ExecutionMode<ChessGame, ChessPolicy>,
-  opponent: Opponent,
   rng: Rng,
 }
 
@@ -138,16 +141,8 @@ impl ChessAnimation {
 
 impl ChessContext {
   /// Creates the services used by one mounted rules session.
-  pub fn new(
-    execution: ExecutionMode<ChessGame, ChessPolicy>,
-    opponent: Opponent,
-    rng: Rng,
-  ) -> Self {
-    Self {
-      execution,
-      opponent,
-      rng,
-    }
+  pub fn new(execution: ExecutionMode<ChessGame, ChessPolicy>, rng: Rng) -> Self {
+    Self { execution, rng }
   }
 
   /// Derives the presentation checkpoint before committing a logical move.
@@ -247,9 +242,11 @@ impl Game for ChessGame {
       ChessAction::MoveTo { from, to } => {
         state.board().side_to_move() == Color::White && !state.legal_moves(*from, *to).is_empty()
       }
-      ChessAction::ComputerMove => {
-        state.board().side_to_move() == Color::Black
-          && state.board().status() == GameStatus::Ongoing
+      ChessAction::ComputerMove { position, reply } => {
+        if state.board() != position || position.side_to_move() != Color::Black {
+          return false;
+        }
+        position.status() == GameStatus::Ongoing && position.is_legal(*reply)
       }
     }
   }
@@ -275,8 +272,7 @@ impl Game for ChessGame {
         };
         context.apply_move(state, movement);
       }
-      ChessAction::ComputerMove => {
-        let reply = context.opponent.choose(&state.position.board);
+      ChessAction::ComputerMove { reply, .. } => {
         context.apply_move(state, reply);
       }
     }

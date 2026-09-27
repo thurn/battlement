@@ -307,7 +307,6 @@ struct ChessSession {
 impl Component for ChessSession {
   /// Mounts the typed game, installs input, and declares session-scoped effects.
   fn render(&self) -> impl Render {
-    let opponent = self.opponent.clone();
     let seed = self.seed;
     let game = reactant::use_game::<ChessGame, _>(
       self.generation,
@@ -318,7 +317,6 @@ impl Component for ChessSession {
             connection,
             policy: ChessPolicy,
           },
-          opponent.clone(),
           seed.map_or_else(fastrand::Rng::new, fastrand::Rng::with_seed),
         )
       },

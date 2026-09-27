@@ -228,6 +228,9 @@ pub struct AccessibilityTarget {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccessibilityAssertion {
+  /// Waits for a matching semantic snapshot within the step deadline.
+  #[serde(default)]
+  pub wait: bool,
   pub target: AccessibilityTarget,
   pub role: AccessibilityRole,
   pub name: String,

@@ -394,6 +394,7 @@ fn accessibility_assertion(
   assertion: crate::config::raw::RawAccessibilityAssertion,
 ) -> Result<AccessibilityAssertion, ConfigError> {
   Ok(AccessibilityAssertion {
+    wait: assertion.wait,
     target: accessibility_target(validation, key, assertion.target)?,
     role: accessibility_role(assertion.role),
     name: required_accessible_name(validation, &format!("{key}.name"), assertion.name)?,

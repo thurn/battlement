@@ -11,6 +11,7 @@ use std::{
 
 use cozy_chess::{Board, Color, GameStatus, Move, Piece};
 use rayon::prelude::*;
+use reactant::rules::CancellationToken;
 
 const INFINITY: i32 = 1_000_000;
 const CHECKMATE: i32 = 100_000;
@@ -18,18 +19,23 @@ const PIECE_VALUES: [i32; 6] = [100, 320, 330, 500, 900, 0];
 
 /// Searches for the best move found before the think-time budget expires.
 ///
-/// Reactant calls this from a bounded rules action. The function always returns
+/// Reactant calls this from a component-owned task. The function always returns
 /// a deterministic legal move when one exists, even when scenarios set the
 /// budget to zero to avoid wall-clock-dependent tests.
-pub(super) fn choose_move(board: &Board, think_time: Duration) -> Option<Move> {
-  self::search(board, think_time)
+pub(super) fn choose_move(
+  board: &Board,
+  think_time: Duration,
+  token: &CancellationToken,
+) -> Option<Move> {
+  self::search(board, think_time, token)
 }
 
 /// Deepens the search one ply at a time and keeps only fully completed depths.
 ///
 /// Root moves are evaluated in parallel, but deterministic sorting and a
 /// previous-best hint keep equal or interrupted searches reproducible.
-fn search(board: &Board, think_time: Duration) -> Option<Move> {
+fn search(board: &Board, think_time: Duration, token: &CancellationToken) -> Option<Move> {
+  token.checkpoint();
   let deadline = Instant::now() + think_time;
   let mut moves = self::legal_moves(board);
   moves.sort_unstable_by_key(|mv| {
@@ -56,7 +62,7 @@ fn search(board: &Board, think_time: Duration) -> Option<Move> {
     let score = |&mv| {
       let mut child = board.clone();
       child.play_unchecked(mv);
-      self::negamax(&child, depth - 1, -INFINITY, INFINITY, 1, deadline)
+      self::negamax(&child, depth - 1, -INFINITY, INFINITY, 1, deadline, token)
         .map(|score| (score.saturating_neg(), mv))
     };
     let scores = moves.par_iter().map(&score).collect::<Vec<_>>();
@@ -69,10 +75,11 @@ fn search(board: &Board, think_time: Duration) -> Option<Move> {
       .max_by_key(|&(score, _)| score)
       .expect("a legal position has a root move")
       .1;
-    if Instant::now() >= deadline {
+    if token.is_cancelled() || Instant::now() >= deadline {
       break;
     }
   }
+  token.checkpoint();
   Some(best)
 }
 
@@ -87,8 +94,9 @@ fn negamax(
   beta: i32,
   ply: i32,
   deadline: Instant,
+  token: &CancellationToken,
 ) -> Option<i32> {
-  if Instant::now() >= deadline {
+  if token.is_cancelled() || Instant::now() >= deadline {
     return None;
   }
   match board.status() {
@@ -97,7 +105,7 @@ fn negamax(
     GameStatus::Ongoing => {}
   }
   if depth == 0 {
-    return self::quiescence(board, alpha, beta, ply, deadline);
+    return self::quiescence(board, alpha, beta, ply, deadline, token);
   }
 
   let mut moves = self::legal_moves(board);
@@ -106,7 +114,7 @@ fn negamax(
     let mut child = board.clone();
     child.play_unchecked(mv);
     let score =
-      self::negamax(&child, depth - 1, -beta, -alpha, ply + 1, deadline)?.saturating_neg();
+      self::negamax(&child, depth - 1, -beta, -alpha, ply + 1, deadline, token)?.saturating_neg();
     if score >= beta {
       return Some(beta);
     }
@@ -125,8 +133,9 @@ fn quiescence(
   beta: i32,
   ply: i32,
   deadline: Instant,
+  token: &CancellationToken,
 ) -> Option<i32> {
-  if Instant::now() >= deadline {
+  if token.is_cancelled() || Instant::now() >= deadline {
     return None;
   }
   if board.status() != GameStatus::Ongoing {
@@ -152,7 +161,7 @@ fn quiescence(
   for mv in moves {
     let mut child = board.clone();
     child.play_unchecked(mv);
-    let score = self::quiescence(&child, -beta, -alpha, ply + 1, deadline)?.saturating_neg();
+    let score = self::quiescence(&child, -beta, -alpha, ply + 1, deadline, token)?.saturating_neg();
     if score >= beta {
       return Some(beta);
     }

@@ -91,6 +91,9 @@ motion = "controlled"
 advance = { frames = 120 }
 
 [[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "⁨Black Queen⁩ at ⁨g2⁩" }, role = "button", name = "⁨Black Queen⁩ at ⁨g2⁩", wait = true }
+
+[[scenarios.steps]]
 screenshot = { name = "computer-win" }
 
 [[scenarios]]

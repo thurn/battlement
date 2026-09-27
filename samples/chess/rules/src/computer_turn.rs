@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use cozy_chess::{Color, GameStatus};
 use reactant::{
-  DispatchResult, GameHandle, GameStatus as RulesStatus, application, hooks, prelude::*,
+  DispatchResult, GameHandle, GameStatus as RulesStatus, TaskState, application, hooks, prelude::*,
 };
 
 use crate::{
@@ -56,32 +56,48 @@ impl Component for WaitingTurn {
     reactant::use_pausable_timeout(Duration::from_secs(2), !active, move || {
       set_elapsed.set(true);
     });
-    let dispatched = hooks::use_ref(false);
+    let enabled = active && (!delayed || elapsed) && !local.erasing;
+    let position = self.game.accepted_state().board().clone();
+    let input = position.clone();
+    let opponent = self.opponent.clone();
+    let task = reactant::use_task(
+      (enabled && opponent.searches()).then_some(position.clone()),
+      move |token| opponent.search_move(&input, &token),
+    );
+    let result = task.state();
+    let completion = result.clone();
     let game = self.game.clone();
     let opponent = self.opponent.clone();
     let control = self.control.clone();
     hooks::use_effect(
       move || {
-        if !active || (delayed && !elapsed) {
+        if !enabled {
           return;
         }
         let current = control.current();
-        if current.erasing {
+        if current.erasing || current.screen != AppScreen::Game || current.pause_open() {
           return;
         }
-        if current.screen != AppScreen::Game || current.pause_open() {
+        if game.accepted_state().board() != &position {
           return;
         }
-        if dispatched.get() || !opponent.permitted() {
+        let reply = if opponent.searches() {
+          match completion {
+            TaskState::Ready(reply) => *reply,
+            TaskState::Failed(message) => panic!("chess search failed: {message}"),
+            _ => return,
+          }
+        } else if opponent.permitted() {
+          opponent.scripted_reply(&position)
+        } else {
           return;
-        }
-        dispatched.replace(true);
+        };
         assert_eq!(
-          game.dispatch(ChessAction::ComputerMove),
+          game.dispatch(ChessAction::ComputerMove { position, reply }),
           DispatchResult::Started
         );
       },
-      (active, delayed, elapsed, self.opponent.revision()),
+      (enabled, result, self.opponent.revision()),
     );
   }
 }

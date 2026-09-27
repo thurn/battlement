@@ -239,6 +239,8 @@ pub struct AccessibilityTarget {
 /// Expected semantic values for one selected node.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccessibilityAssertion {
+  /// Waits for a matching semantic snapshot within the step deadline.
+  pub wait: bool,
   pub target: AccessibilityTarget,
   pub role: AccessibilityRole,
   pub name: String,

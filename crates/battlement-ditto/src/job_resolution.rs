@@ -212,6 +212,7 @@ fn resolved_step(
       }
       AuthoredStepKind::AccessibilityAssert(assertion) => {
         StepKind::AccessibilityAssert(AccessibilityAssertion {
+          wait: assertion.wait,
           target: accessibility_target(&assertion.target),
           role: accessibility_role(assertion.role),
           name: assertion.name.clone(),
@@ -239,6 +240,7 @@ fn resolved_step(
         },
         visual_witness: visual_witness.as_ref().map(accessibility_target),
         completion: completion.as_ref().map(|assertion| AccessibilityAssertion {
+          wait: assertion.wait,
           target: accessibility_target(&assertion.target),
           role: accessibility_role(assertion.role),
           name: assertion.name.clone(),

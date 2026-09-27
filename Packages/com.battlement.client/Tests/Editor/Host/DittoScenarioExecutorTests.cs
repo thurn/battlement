@@ -501,23 +501,34 @@ namespace Battlement.Tests
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
         }
 
-        [Test]
-        public void ObjectPollingDoesNotRequestFramebufferObservation()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ConditionPollingUsesTheStepDeadlineWithoutFramebufferObservation(bool semantic)
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             DittoResolvedScenario scenario = Scenario(
                 10_000,
                 Step(
                     0,
-                    new DittoStepAction.Wait(
-                        new DittoObjectCondition(
-                            Guid.NewGuid().ToString("D"),
-                            DittoObjectState.Exists
+                    semantic
+                        ? new DittoStepAction.AccessibilityAssert(
+                            new DittoAccessibilityAssertion(
+                                new DittoAccessibilityTarget(SemanticRole.Button, "Ready"),
+                                SemanticRole.Button,
+                                "Ready",
+                                Wait: true
+                            )
                         )
-                    )
+                        : new DittoStepAction.Wait(
+                            new DittoObjectCondition(
+                                Guid.NewGuid().ToString("D"),
+                                DittoObjectState.Exists
+                            )
+                        )
                 )
             );
-            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
+            TimeSpan now = TimeSpan.Zero;
+            using DittoScenarioExecutor executor = Executor(harness, scenario, () => now);
 
             while (executor.CurrentStepIndex is null)
             {
@@ -528,6 +539,16 @@ namespace Battlement.Tests
 
             Assert.That(executor.AwaitingPresentation, Is.True);
             Assert.That(executor.RequiresPaintObservation, Is.False);
+            now = TimeSpan.FromSeconds(6);
+            Drain(executor);
+            Assert.That(
+                executor.Result!.Steps[0].Status,
+                Is.EqualTo(DittoStepStatus.InfrastructureError)
+            );
+            Assert.That(
+                executor.Result.Steps[0].ExpiredDeadline,
+                Is.EqualTo(DittoDeadlineKind.Step)
+            );
         }
 
         [Test]

@@ -207,7 +207,8 @@ namespace Battlement
         bool? Checked = null,
         bool? Disabled = null,
         bool? CurrentPage = null,
-        DittoAccessibilityTarget? Parent = null
+        DittoAccessibilityTarget? Parent = null,
+        bool Wait = false
     );
 
     internal abstract record DittoInputTarget

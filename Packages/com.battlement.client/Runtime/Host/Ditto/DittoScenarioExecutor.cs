@@ -86,7 +86,7 @@ namespace Battlement
         private ulong settleDurationMs;
         private ulong captureDurationMs;
         private uint advanceFrames;
-        private DittoObjectCondition? waitCondition;
+        private Func<DittoConditionResult>? waitCondition;
         private DittoScreenshotStepOutcome? screenshotOutcome;
         private DittoDeadlineKind? scenarioExpiry;
         private string? primaryErrorRef;
@@ -499,7 +499,7 @@ namespace Battlement
                     phase = Phase.FrameAdvance;
                     break;
                 case DittoStepAction.Wait wait:
-                    waitCondition = wait.Condition;
+                    waitCondition = () => targets.Evaluate(wait.Condition);
                     phase = Phase.ObjectWait;
                     EvaluateObjectWait(step);
                     break;
@@ -507,7 +507,14 @@ namespace Battlement
                     Assert(step, assertion.Condition);
                     break;
                 case DittoStepAction.AccessibilityAssert assertion:
-                    AccessibilityAssert(step, assertion.Value);
+                    if (assertion.Value.Wait)
+                    {
+                        waitCondition = () => targets.Evaluate(assertion.Value);
+                        phase = Phase.ObjectWait;
+                        EvaluateObjectWait(step);
+                    }
+                    else
+                        AccessibilityAssert(step, assertion.Value);
                     break;
                 case DittoStepAction.AccessibilityAction action:
                     presentationReady = false;
@@ -1083,7 +1090,7 @@ namespace Battlement
 
         private void EvaluateObjectWait(DittoResolvedStep step)
         {
-            DittoConditionResult condition = targets.Evaluate(waitCondition!);
+            DittoConditionResult condition = waitCondition!();
             if (!condition.IsSupported)
             {
                 FailStep(

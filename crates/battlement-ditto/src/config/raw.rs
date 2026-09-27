@@ -221,6 +221,8 @@ pub(super) struct RawAccessibilityTarget {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RawAccessibilityAssertion {
+  #[serde(default)]
+  pub wait: bool,
   pub target: RawAccessibilityTarget,
   pub role: RawAccessibilityRole,
   pub name: String,

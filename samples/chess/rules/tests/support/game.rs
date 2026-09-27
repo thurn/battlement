@@ -57,6 +57,10 @@ impl ChessTest {
     )
   }
 
+  pub fn with_opponent(board: Board, opponent: Opponent) -> Self {
+    Self::configured(Some(board), None, &[], opponent, true)
+  }
+
   fn configured(
     position: Option<Board>,
     persistence: Option<Arc<dyn PersistenceBackend>>,

@@ -287,8 +287,9 @@ namespace Battlement
 
         private static DittoAccessibilityAssertion AccessibilityAssertion(JObject value)
         {
-            Exact(
+            ExactOptional(
                 value,
+                "wait",
                 "target",
                 "role",
                 "name",
@@ -308,7 +309,8 @@ namespace Battlement
                 NullableBoolean(Field(value, "current_page")),
                 value["parent"]!.Type == JTokenType.Null
                     ? null
-                    : AccessibilityTarget(Object(Field(value, "parent"), "parent"))
+                    : AccessibilityTarget(Object(Field(value, "parent"), "parent")),
+                value["wait"] is JToken wait && Boolean(wait)
             );
         }
 
