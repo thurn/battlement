@@ -56,7 +56,8 @@ impl Component for WaitingTurn {
     reactant::use_pausable_timeout(Duration::from_secs(2), !active, move || {
       set_elapsed.set(true);
     });
-    let enabled = active && (!delayed || elapsed) && !local.erasing;
+    let delay_ready = !delayed || elapsed;
+    let enabled = active && delay_ready && !local.erasing;
     let position = self.game.accepted_state().board().clone();
     let input = position.clone();
     let opponent = self.opponent.clone();
