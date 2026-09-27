@@ -143,6 +143,7 @@ namespace Battlement.Tests
         {
             Wire.ParticlePlayPayload.StartParticlePlayPayload(builder);
             Wire.ParticlePlayPayload.AddRestart(builder, value.Restart);
+            Wire.ParticlePlayPayload.AddSeed(builder, value.Seed);
             Wire.ParticlePlayPayload.AddObjectId(builder, Uuid(builder, value.ObjectId.Value));
             return new(
                 Wire.CoreCommandKind.ParticlePlay,
@@ -174,6 +175,7 @@ namespace Battlement.Tests
             StringOffset address = builder.CreateString(value.Address.Value);
             Wire.ParticleSpawnPayload.StartParticleSpawnPayload(builder);
             Wire.ParticleSpawnPayload.AddLifetimeMs(builder, Milliseconds(value.Lifetime));
+            Wire.ParticleSpawnPayload.AddSeed(builder, value.Seed);
             switch (value.Location)
             {
                 case ParticleSpawnLocation.AtGameObject atObject:

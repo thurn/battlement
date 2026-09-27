@@ -217,7 +217,7 @@ table AnimatorFloatPayload { object_id:Uuid (required); parameter:string (requir
 table AnimatorParameterPayload { object_id:Uuid (required); parameter:string (required); }
 table AnimatorSpeedPayload { object_id:Uuid (required); speed:double; }
 
-table ParticlePlayPayload { object_id:Uuid (required); restart:bool; }
+table ParticlePlayPayload { object_id:Uuid (required); restart:bool; seed:uint = 1; }
 table ParticleStopPayload { object_id:Uuid (required); clear:bool; }
 enum ParticleSpawnLocationKind:ubyte { GameObject, WorldPosition }
 table ParticleSpawnPayload {
@@ -226,6 +226,7 @@ table ParticleSpawnPayload {
   object_id:Uuid;
   world_position:Vector3d;
   lifetime_ms:ulong;
+  seed:uint = 1;
 }
 
 table AudioPlayPayload {

@@ -349,6 +349,7 @@ table MotionSequenceEntry {
   effect_fade_in_millis:ulong;
   effect_position:MotionPositionReference;
   effect_lifetime_millis:ulong;
+  effect_seed:uint = 1;
 }
 
 enum MotionScopeCommandKind:ubyte { Start, Set, Stop }

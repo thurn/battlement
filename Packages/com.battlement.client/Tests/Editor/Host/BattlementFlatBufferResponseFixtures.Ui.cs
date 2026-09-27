@@ -373,7 +373,8 @@ namespace Battlement.Tests
                         scheduleOffset: wireSchedule,
                         effect_addressOffset: address,
                         effect_positionOffset: reference,
-                        effect_lifetime_millis: particle.Occurrence.LifetimeMilliseconds
+                        effect_lifetime_millis: particle.Occurrence.LifetimeMilliseconds,
+                        effect_seed: particle.Occurrence.Seed
                     )
                     .Value;
             }

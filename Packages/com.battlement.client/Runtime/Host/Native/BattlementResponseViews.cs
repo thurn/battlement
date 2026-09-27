@@ -1690,15 +1690,17 @@ namespace Battlement
             double x,
             double y,
             double z,
-            ulong lifetimeMilliseconds
+            ulong lifetimeMilliseconds,
+            uint seed = 1
         ) =>
-            (Address, ObjectId, X, Y, Z, LifetimeMilliseconds) = (
+            (Address, ObjectId, X, Y, Z, LifetimeMilliseconds, Seed) = (
                 address,
                 objectId,
                 x,
                 y,
                 z,
-                lifetimeMilliseconds
+                lifetimeMilliseconds,
+                seed
             );
 
         internal string Address { get; }
@@ -1707,6 +1709,7 @@ namespace Battlement
         internal double Y { get; }
         internal double Z { get; }
         internal ulong LifetimeMilliseconds { get; }
+        internal uint Seed { get; }
     }
 
     internal readonly struct BattlementDirectAudioPlay
@@ -1738,11 +1741,12 @@ namespace Battlement
 
     internal readonly struct BattlementDirectParticlePlay
     {
-        internal BattlementDirectParticlePlay(ObjectId objectId, bool restart) =>
-            (ObjectId, Restart) = (objectId, restart);
+        internal BattlementDirectParticlePlay(ObjectId objectId, bool restart, uint seed = 1) =>
+            (ObjectId, Restart, Seed) = (objectId, restart, seed);
 
         internal ObjectId ObjectId { get; }
         internal bool Restart { get; }
+        internal uint Seed { get; }
     }
 
     internal readonly struct BattlementDirectAudioStop
@@ -3334,7 +3338,8 @@ namespace Battlement
                         position?.X ?? 0,
                         position?.Y ?? 0,
                         position?.Z ?? 0,
-                        payload.LifetimeMs
+                        payload.LifetimeMs,
+                        payload.Seed
                     )
                 );
                 return true;
@@ -3349,7 +3354,8 @@ namespace Battlement
                         new ObjectId(
                             BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "particle object")
                         ),
-                        payload.Restart
+                        payload.Restart,
+                        payload.Seed
                     )
                 );
                 return true;

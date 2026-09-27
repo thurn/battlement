@@ -321,6 +321,15 @@ pub mod hearts {
     /// Addressable key `hearts/materials/clearing` (UnityEngine.Material) from `Assets/Generated/Imported/Clearing.mat` in group `Battlement Hearts`.
     pub const CLEARING: MaterialAddress = MaterialAddress::from_static("hearts/materials/clearing");
   }
+
+  pub mod particles {
+    use battlement::PrefabAddress;
+
+    /// Addressable key `hearts/particles/accent` (UnityEngine.GameObject) from `Assets/Generated/Particles/Accent.prefab` in group `Battlement Hearts`.
+    pub const ACCENT: PrefabAddress = PrefabAddress::from_static("hearts/particles/accent");
+    /// Addressable key `hearts/particles/motes` (UnityEngine.GameObject) from `Assets/Generated/Particles/Motes.prefab` in group `Battlement Hearts`.
+    pub const MOTES: PrefabAddress = PrefabAddress::from_static("hearts/particles/motes");
+  }
 }
 
 use battlement::PreparedAsset;
@@ -449,4 +458,6 @@ pub const ASSET_CATALOG: &[PreparedAsset] = &[
   PreparedAsset::Prefab(hearts::forest::TREE_1_A_COLOR1),
   PreparedAsset::Prefab(hearts::forest::TREE_2_A_COLOR1),
   PreparedAsset::Material(hearts::materials::CLEARING),
+  PreparedAsset::Prefab(hearts::particles::ACCENT),
+  PreparedAsset::Prefab(hearts::particles::MOTES),
 ];

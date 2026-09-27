@@ -665,6 +665,7 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
       CommandBody::ParticlePlay(battlement::ParticlePlayPayload {
         object_id: object_id(body.object_id())?,
         restart: body.restart(),
+        seed: body.seed(),
       })
     }
     Kind::ParticleStop => {
@@ -697,6 +698,7 @@ fn read_body(value: wire::CoreCommand<'_>) -> Result<CommandBody, String> {
         address: body.address().into(),
         location,
         lifetime_ms: body.lifetime_ms(),
+        seed: body.seed(),
       })
     }
     Kind::AudioPlay => {

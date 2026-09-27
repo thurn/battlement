@@ -15,6 +15,8 @@ pub mod controller;
 pub mod domain;
 mod inspection;
 mod layout_fixture;
+mod particle_fixture;
+mod particles;
 pub mod projection;
 pub mod reducer;
 mod scene;

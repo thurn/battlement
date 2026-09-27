@@ -69,7 +69,8 @@ namespace Battlement
                         new MotionParticleOccurrence(
                             value.EffectAddress,
                             MotionPositionReference(value.EffectPosition.Value),
-                            value.EffectLifetimeMillis
+                            value.EffectLifetimeMillis,
+                            value.EffectSeed
                         ),
                         schedule
                     ),

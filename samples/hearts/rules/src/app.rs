@@ -12,7 +12,7 @@ use crate::{
   card_table::CardTable,
   controller,
   domain::{HeartsState, Seat, cards},
-  scene,
+  particles, scene,
 };
 
 pub(crate) const ROOT: ObjectId = object_id!("6644ed66-12dc-4590-9af8-19d174a47000");
@@ -35,6 +35,7 @@ pub fn application_from_state(initial: HeartsState) -> Application {
 
 pub(crate) fn exported_application() -> Application {
   match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").as_deref() {
+    Ok("particles") => crate::particle_fixture::application(),
     Ok("layout") => crate::layout_fixture::application(),
     Ok("cards") => self::configured(HeartsState::new(43), true, false),
     Ok("restored") => self::configured(HeartsState::new(73), false, false),
@@ -174,7 +175,11 @@ impl Component for HeartsRoot {
                 } else {
                   Node::new(table)
                 };
-                (scene::environment(aspect), table)
+                (
+                  scene::environment(aspect),
+                  table,
+                  reactant::GameRoot::new(particles::GameParticles { aspect }),
+                )
               }),
             )),
             self.interactive.then(|| {

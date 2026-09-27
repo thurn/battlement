@@ -2697,6 +2697,7 @@ public struct MotionSequenceEntry : IFlatbufferObject
   public ulong EffectFadeInMillis { get { int o = __p.__offset(30); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
   public Battlement.FlatBuffers.Generated.MotionPositionReference? EffectPosition { get { int o = __p.__offset(32); return o != 0 ? (Battlement.FlatBuffers.Generated.MotionPositionReference?)(new Battlement.FlatBuffers.Generated.MotionPositionReference()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
   public ulong EffectLifetimeMillis { get { int o = __p.__offset(34); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
+  public uint EffectSeed { get { int o = __p.__offset(36); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)1; } }
 
   public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry> CreateMotionSequenceEntry(FlatBufferBuilder builder,
       Battlement.FlatBuffers.Generated.MotionSequenceEntryKind kind = Battlement.FlatBuffers.Generated.MotionSequenceEntryKind.Animate,
@@ -2714,12 +2715,14 @@ public struct MotionSequenceEntry : IFlatbufferObject
       bool effect_loop = false,
       ulong effect_fade_in_millis = 0,
       Offset<Battlement.FlatBuffers.Generated.MotionPositionReference> effect_positionOffset = default(Offset<Battlement.FlatBuffers.Generated.MotionPositionReference>),
-      ulong effect_lifetime_millis = 0) {
-    builder.StartTable(16);
+      ulong effect_lifetime_millis = 0,
+      uint effect_seed = 1) {
+    builder.StartTable(17);
     MotionSequenceEntry.AddEffectLifetimeMillis(builder, effect_lifetime_millis);
     MotionSequenceEntry.AddEffectFadeInMillis(builder, effect_fade_in_millis);
     MotionSequenceEntry.AddEffectPitch(builder, effect_pitch);
     MotionSequenceEntry.AddEffectVolume(builder, effect_volume);
+    MotionSequenceEntry.AddEffectSeed(builder, effect_seed);
     MotionSequenceEntry.AddEffectPosition(builder, effect_positionOffset);
     MotionSequenceEntry.AddEffectAddress(builder, effect_addressOffset);
     MotionSequenceEntry.AddLabel(builder, labelOffset);
@@ -2735,7 +2738,7 @@ public struct MotionSequenceEntry : IFlatbufferObject
     return MotionSequenceEntry.EndMotionSequenceEntry(builder);
   }
 
-  public static void StartMotionSequenceEntry(FlatBufferBuilder builder) { builder.StartTable(16); }
+  public static void StartMotionSequenceEntry(FlatBufferBuilder builder) { builder.StartTable(17); }
   public static void AddKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.MotionSequenceEntryKind kind) { builder.AddByte(0, (byte)kind, 0); }
   public static void AddSelector(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionSelector> selectorOffset) { builder.AddOffset(1, selectorOffset.Value, 0); }
   public static void AddTarget(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionTargetDescriptor> targetOffset) { builder.AddOffset(2, targetOffset.Value, 0); }
@@ -2752,6 +2755,7 @@ public struct MotionSequenceEntry : IFlatbufferObject
   public static void AddEffectFadeInMillis(FlatBufferBuilder builder, ulong effectFadeInMillis) { builder.AddUlong(13, effectFadeInMillis, 0); }
   public static void AddEffectPosition(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.MotionPositionReference> effectPositionOffset) { builder.AddOffset(14, effectPositionOffset.Value, 0); }
   public static void AddEffectLifetimeMillis(FlatBufferBuilder builder, ulong effectLifetimeMillis) { builder.AddUlong(15, effectLifetimeMillis, 0); }
+  public static void AddEffectSeed(FlatBufferBuilder builder, uint effectSeed) { builder.AddUint(16, effectSeed, 1); }
   public static Offset<Battlement.FlatBuffers.Generated.MotionSequenceEntry> EndMotionSequenceEntry(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 14);  // schedule
@@ -2781,6 +2785,7 @@ static public class MotionSequenceEntryVerify
       && verifier.VerifyField(tablePos, 30 /*EffectFadeInMillis*/, 8 /*ulong*/, 8, false)
       && verifier.VerifyTable(tablePos, 32 /*EffectPosition*/, Battlement.FlatBuffers.Generated.MotionPositionReferenceVerify.Verify, false)
       && verifier.VerifyField(tablePos, 34 /*EffectLifetimeMillis*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyField(tablePos, 36 /*EffectSeed*/, 4 /*uint*/, 4, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

@@ -14701,6 +14701,7 @@ pub mod battlement {
         pub const VT_EFFECT_FADE_IN_MILLIS: ::flatbuffers::VOffsetT = 30;
         pub const VT_EFFECT_POSITION: ::flatbuffers::VOffsetT = 32;
         pub const VT_EFFECT_LIFETIME_MILLIS: ::flatbuffers::VOffsetT = 34;
+        pub const VT_EFFECT_SEED: ::flatbuffers::VOffsetT = 36;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14721,6 +14722,7 @@ pub mod battlement {
           builder.add_effect_fade_in_millis(args.effect_fade_in_millis);
           builder.add_effect_pitch(args.effect_pitch);
           builder.add_effect_volume(args.effect_volume);
+          builder.add_effect_seed(args.effect_seed);
           if let Some(x) = args.effect_position {
             builder.add_effect_position(x);
           }
@@ -14962,6 +14964,18 @@ pub mod battlement {
               .unwrap()
           }
         }
+        #[inline]
+        pub fn effect_seed(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(MotionSequenceEntry::VT_EFFECT_SEED, Some(1))
+              .unwrap()
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for MotionSequenceEntry<'_> {
@@ -15023,6 +15037,7 @@ pub mod battlement {
               Self::VT_EFFECT_LIFETIME_MILLIS,
               false,
             )?
+            .visit_field::<u32>("effect_seed", Self::VT_EFFECT_SEED, false)?
             .finish();
           Ok(())
         }
@@ -15044,6 +15059,7 @@ pub mod battlement {
         pub effect_fade_in_millis: u64,
         pub effect_position: Option<::flatbuffers::WIPOffset<MotionPositionReference<'a>>>,
         pub effect_lifetime_millis: u64,
+        pub effect_seed: u32,
       }
       impl<'a> Default for MotionSequenceEntryArgs<'a> {
         #[inline]
@@ -15065,6 +15081,7 @@ pub mod battlement {
             effect_fade_in_millis: 0,
             effect_position: None,
             effect_lifetime_millis: 0,
+            effect_seed: 1,
           }
         }
       }
@@ -15212,6 +15229,12 @@ pub mod battlement {
           );
         }
         #[inline]
+        pub fn add_effect_seed(&mut self, effect_seed: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(MotionSequenceEntry::VT_EFFECT_SEED, effect_seed, 1);
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> MotionSequenceEntryBuilder<'a, 'b, A> {
@@ -15250,6 +15273,7 @@ pub mod battlement {
           ds.field("effect_fade_in_millis", &self.effect_fade_in_millis());
           ds.field("effect_position", &self.effect_position());
           ds.field("effect_lifetime_millis", &self.effect_lifetime_millis());
+          ds.field("effect_seed", &self.effect_seed());
           ds.finish()
         }
       }

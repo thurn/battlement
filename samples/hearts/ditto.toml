@@ -343,3 +343,100 @@ accessibility_action = { target = { role = "button", name = "Music off" }, actio
 accessibility_action = { target = { role = "button", name = "Effects off" }, action = "activate" }
 [[scenarios.steps]]
 screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "seeded particles"
+fixture = "particles"
+motion = "controlled"
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+[[scenarios.steps]]
+screenshot = { name = "ambient", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+[[scenarios.steps]]
+advance = { frames = 12 }
+[[scenarios.steps]]
+screenshot = { name = "ambient-moving", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle particle pause" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "paused", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+screenshot = { name = "paused-later", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Toggle particle pause" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 12 }
+
+[[scenarios.steps]]
+screenshot = { name = "resumed", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Particle accent" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 6 }
+
+[[scenarios.steps]]
+screenshot = { name = "accent-midpoint", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+advance = { frames = 24 }
+
+[[scenarios.steps]]
+screenshot = { name = "accent-finished", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change particle seed" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 12 }
+
+[[scenarios.steps]]
+screenshot = { name = "alternate-seed", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Replace particle session" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "replaced", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Remove ambience" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "removed", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Mount ambience" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "remounted", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Reduced motion" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Particle accent" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 6 }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced-accent", threshold = 0, anti_alias = false, max_changed_percent = 0 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Full motion" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored-motion", threshold = 0, anti_alias = false, max_changed_percent = 0 }

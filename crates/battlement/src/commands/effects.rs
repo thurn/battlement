@@ -7,6 +7,8 @@ pub struct ParticlePlayPayload {
   pub object_id: ObjectId,
   /// Whether to restart systems that are already playing.
   pub restart: bool,
+  /// Nonzero deterministic seed; child systems derive distinct seeds from it.
+  pub seed: u32,
 }
 
 /// Recursively stops particle systems rooted at an object.
@@ -27,6 +29,8 @@ pub struct ParticleSpawnPayload {
   pub location: ParticleSpawnLocation,
   /// Positive effect lifetime in milliseconds.
   pub lifetime_ms: u64,
+  /// Nonzero deterministic seed for this occurrence.
+  pub seed: u32,
 }
 
 /// Source of a temporary particle effect's initial world position.

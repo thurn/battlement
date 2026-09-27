@@ -683,6 +683,56 @@ namespace Battlement.Tests
             );
         }
 
+        [Test]
+        public void CanceledScopeCanRestoreWorldHostsWithoutAdmittingLateCommands()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            var root = new ObjectId(Guid.NewGuid());
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(session, BatchStart.Now, Group(Create(root))) with
+                    {
+                        WorkScope = 7,
+                    }
+                )
+            );
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(session, BatchStart.Now) with
+                    {
+                        CancelScope = 7,
+                    },
+                    BatchWithGroups(
+                        session,
+                        BatchStart.Now,
+                        Group(Create(root), SetLocalPosition(root, new Vector3(2, 0, 0)))
+                    )
+                )
+            );
+            Assert.That(Identity(root).transform.localPosition.x, Is.EqualTo(2));
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(
+                        session,
+                        BatchStart.Now,
+                        Group(SetLocalPosition(root, new Vector3(9, 0, 0)))
+                    ) with
+                    {
+                        WorkScope = 7,
+                    }
+                )
+            );
+            Assert.That(Identity(root).transform.localPosition.x, Is.EqualTo(2));
+            Assert.That(Failures(harness), Is.Empty);
+        }
+
         private static SessionId Connect(BattlementTestHarness harness)
         {
             var session = new SessionId(Guid.NewGuid());

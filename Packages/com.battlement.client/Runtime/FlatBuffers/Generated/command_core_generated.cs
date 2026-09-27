@@ -2238,10 +2238,12 @@ public struct ParticlePlayPayload : IFlatbufferObject
 
   public Battlement.FlatBuffers.Generated.Uuid? ObjectId { get { int o = __p.__offset(4); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
   public bool Restart { get { int o = __p.__offset(6); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public uint Seed { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)1; } }
 
-  public static void StartParticlePlayPayload(FlatBufferBuilder builder) { builder.StartTable(2); }
+  public static void StartParticlePlayPayload(FlatBufferBuilder builder) { builder.StartTable(3); }
   public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(0, objectIdOffset.Value, 0); }
   public static void AddRestart(FlatBufferBuilder builder, bool restart) { builder.AddBool(1, restart, false); }
+  public static void AddSeed(FlatBufferBuilder builder, uint seed) { builder.AddUint(2, seed, 1); }
   public static Offset<Battlement.FlatBuffers.Generated.ParticlePlayPayload> EndParticlePlayPayload(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 4);  // object_id
@@ -2257,6 +2259,7 @@ static public class ParticlePlayPayloadVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*ObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, true)
       && verifier.VerifyField(tablePos, 6 /*Restart*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*Seed*/, 4 /*uint*/, 4, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }
@@ -2315,13 +2318,15 @@ public struct ParticleSpawnPayload : IFlatbufferObject
   public Battlement.FlatBuffers.Generated.Uuid? ObjectId { get { int o = __p.__offset(8); return o != 0 ? (Battlement.FlatBuffers.Generated.Uuid?)(new Battlement.FlatBuffers.Generated.Uuid()).__assign(o + __p.bb_pos, __p.bb) : null; } }
   public Battlement.FlatBuffers.Generated.Vector3d? WorldPosition { get { int o = __p.__offset(10); return o != 0 ? (Battlement.FlatBuffers.Generated.Vector3d?)(new Battlement.FlatBuffers.Generated.Vector3d()).__assign(o + __p.bb_pos, __p.bb) : null; } }
   public ulong LifetimeMs { get { int o = __p.__offset(12); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
+  public uint Seed { get { int o = __p.__offset(14); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)1; } }
 
-  public static void StartParticleSpawnPayload(FlatBufferBuilder builder) { builder.StartTable(5); }
+  public static void StartParticleSpawnPayload(FlatBufferBuilder builder) { builder.StartTable(6); }
   public static void AddAddress(FlatBufferBuilder builder, StringOffset addressOffset) { builder.AddOffset(0, addressOffset.Value, 0); }
   public static void AddLocationKind(FlatBufferBuilder builder, Battlement.FlatBuffers.Generated.ParticleSpawnLocationKind locationKind) { builder.AddByte(1, (byte)locationKind, 0); }
   public static void AddObjectId(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Uuid> objectIdOffset) { builder.AddStruct(2, objectIdOffset.Value, 0); }
   public static void AddWorldPosition(FlatBufferBuilder builder, Offset<Battlement.FlatBuffers.Generated.Vector3d> worldPositionOffset) { builder.AddStruct(3, worldPositionOffset.Value, 0); }
   public static void AddLifetimeMs(FlatBufferBuilder builder, ulong lifetimeMs) { builder.AddUlong(4, lifetimeMs, 0); }
+  public static void AddSeed(FlatBufferBuilder builder, uint seed) { builder.AddUint(5, seed, 1); }
   public static Offset<Battlement.FlatBuffers.Generated.ParticleSpawnPayload> EndParticleSpawnPayload(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 4);  // address
@@ -2340,6 +2345,7 @@ static public class ParticleSpawnPayloadVerify
       && verifier.VerifyField(tablePos, 8 /*ObjectId*/, 16 /*Battlement.FlatBuffers.Generated.Uuid*/, 1, false)
       && verifier.VerifyField(tablePos, 10 /*WorldPosition*/, 24 /*Battlement.FlatBuffers.Generated.Vector3d*/, 8, false)
       && verifier.VerifyField(tablePos, 12 /*LifetimeMs*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyField(tablePos, 14 /*Seed*/, 4 /*uint*/, 4, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

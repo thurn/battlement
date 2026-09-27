@@ -1240,6 +1240,7 @@ pub(crate) fn write_command<'a>(
         &command_wire::ParticlePlayPayloadArgs {
           object_id: Some(&object_id),
           restart: body.restart,
+          seed: body.seed,
         },
       );
       (
@@ -1285,6 +1286,7 @@ pub(crate) fn write_command<'a>(
           object_id: object_id.as_ref(),
           world_position: world_position.as_ref(),
           lifetime_ms: body.lifetime_ms,
+          seed: body.seed,
         },
       );
       (

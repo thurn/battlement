@@ -353,6 +353,8 @@ pub struct MotionParticleOccurrence {
   pub position: MotionPositionReference,
   /// Effect lifetime in milliseconds.
   pub lifetime_ms: u64,
+  /// Nonzero deterministic seed for this occurrence.
+  pub seed: u32,
 }
 
 /// One immutable declaration-order entry in a scoped sequence graph.
@@ -529,7 +531,7 @@ pub fn validate_motion_sequence(entries: &[MotionSequenceEntry]) -> Result<(), S
         }
       }
       MotionSequenceEntry::Particle { particle, .. } => {
-        if particle.address.is_empty() || particle.lifetime_ms == 0 {
+        if particle.address.is_empty() || particle.lifetime_ms == 0 || particle.seed == 0 {
           return Err("Motion sequence particle burst is invalid".to_owned());
         }
         if particle

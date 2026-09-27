@@ -59,11 +59,12 @@ impl Component for GameAudio {
       },
     );
     let scope = animation_controls::use_animation_scope();
+    let animation_scope = scope.clone();
     reactant::use_animate::<ReducerGame<HeartsReducer>>(move |event| {
       let (address, volume) = self::cue(*event)?;
       Some(
         SnapshotAnimation::sequence(
-          scope.clone(),
+          animation_scope.clone(),
           AnimationSequence::new().play_sound_with(
             address,
             SequenceSoundOptions {
@@ -75,6 +76,9 @@ impl Component for GameAudio {
         .nonblocking(),
       )
     });
+    View::new()
+      .picking_mode(PickingMode::Ignore)
+      .motion(MotionProps::new().animation_scope(scope))
   }
 }
 

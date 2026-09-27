@@ -213,6 +213,7 @@ fn sequence_entry(
             .ok_or_else(|| "Motion sequence particle position is missing".to_owned())?,
         )?,
         lifetime_ms: value.effect_lifetime_millis(),
+        seed: value.effect_seed(),
       },
       schedule,
     }),

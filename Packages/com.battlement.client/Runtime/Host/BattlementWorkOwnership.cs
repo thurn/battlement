@@ -122,7 +122,7 @@ namespace Battlement
                 else if (world.TryGetObject(entry.Key, out _))
                 {
                     operations.CancelObjects(world.GetHierarchyObjectIds(entry.Key));
-                    world.DestroyObject(entry.Key);
+                    world.ReleaseScopedObject(entry.Key);
                 }
                 objects.Remove(entry.Key);
             }

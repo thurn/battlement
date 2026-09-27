@@ -277,6 +277,7 @@ fn command_validation_covers_clear_spot_rotation_and_particle_rules() {
   let blocking_particle = Command::new(
     command_id,
     CommandBody::ParticlePlay(ParticlePlayPayload {
+      seed: 1,
       object_id,
       restart: false,
     }),

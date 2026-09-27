@@ -183,7 +183,8 @@ namespace Battlement
                     position.x,
                     position.y,
                     position.z,
-                    occurrence.LifetimeMilliseconds
+                    occurrence.LifetimeMilliseconds,
+                    occurrence.Seed
                 ),
                 clock.Elapsed,
                 lease

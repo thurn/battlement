@@ -98,6 +98,7 @@ fn decodes_every_motion_command_from_verified_response_bytes() {
           },
           battlement::MotionSequenceEntry::Particle {
             particle: battlement::MotionParticleOccurrence {
+              seed: 12345,
               address: "effects/spark".to_owned(),
               position: battlement::MotionPositionReference {
                 object_id: value_id,

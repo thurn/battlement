@@ -558,6 +558,13 @@ namespace Battlement
                 .ToArray();
         }
 
+        internal void ReleaseScopedObject(ObjectId id)
+        {
+            foreach (Guid childId in GetHierarchyObjectIds(id))
+                usedIds.Remove(childId);
+            DestroyObject(id);
+        }
+
         public void DestroyObject(ObjectId id)
         {
             GameObject root = RequireObject(id);

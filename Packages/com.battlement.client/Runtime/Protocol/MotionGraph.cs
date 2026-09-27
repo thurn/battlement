@@ -235,7 +235,8 @@ namespace Battlement
     public sealed record MotionParticleOccurrence(
         string Address,
         MotionPositionReference Position,
-        ulong LifetimeMilliseconds
+        ulong LifetimeMilliseconds,
+        uint Seed = 1
     );
 
     /// <summary>Kind of one locally executed sequence effect occurrence.</summary>

@@ -361,7 +361,8 @@ namespace Battlement
                 + (configuredRuntime?.World.DittoParticles.InfiniteCount ?? 0);
             int heldMotion =
                 (configuredRuntime?.UiDocuments.DittoActiveHeldTimelineCount ?? 0)
-                + (configuredRuntime?.BatchScheduler.HeldOperationCount ?? 0);
+                + (configuredRuntime?.BatchScheduler.HeldOperationCount ?? 0)
+                + (configuredRuntime?.World.DittoParticles.HeldCount ?? 0);
             bool deferredUi = configuredRuntime?.UiDocuments.DittoHasPendingDeferredWork == true;
             return new DittoWorkObservation(
                 dittoStateVersion + (configuredRuntime?.BatchScheduler.ActivityVersion ?? 0),
@@ -585,8 +586,7 @@ namespace Battlement
                 world.InputCameraChanged += pointerInput.SetCamera;
                 BattlementParticleEffects particleEffects = new BattlementParticleEffects(
                     world,
-                    preparedAssets,
-                    dittoMotionClock
+                    preparedAssets
                 );
                 runtime.SetParticleEffects(particleEffects);
                 BattlementAudioSources audioSources = new BattlementAudioSources(

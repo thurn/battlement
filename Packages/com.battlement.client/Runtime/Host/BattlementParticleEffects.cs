@@ -12,48 +12,54 @@ namespace Battlement
     {
         private readonly BattlementWorld world;
         private readonly BattlementPreparedAssets preparedAssets;
-        private readonly DittoMotionClock motionClock;
         private readonly Dictionary<string, EffectPool> pools = new(StringComparer.Ordinal);
         private bool isDisposed;
 
         public BattlementParticleEffects(
             BattlementWorld world,
-            BattlementPreparedAssets preparedAssets,
-            DittoMotionClock motionClock
+            BattlementPreparedAssets preparedAssets
         )
         {
             this.world = world;
             this.preparedAssets = preparedAssets;
-            this.motionClock = motionClock;
             Application.lowMemory += HandleLowMemory;
         }
 
-        public IBattlementCommandOperation? Play(BattlementDirectParticlePlay command) =>
-            Play(command.ObjectId, command.Restart);
-
-        private IBattlementCommandOperation? Play(ObjectId objectId, bool restart)
+        public IBattlementCommandOperation? Play(BattlementDirectParticlePlay command)
         {
-            GameObject target = world.RequireObject(objectId);
-            ParticleSystem[] systems = RequireSystems(target);
-            if (motionClock.IsInstant || motionClock.IsControlled)
-            {
-                foreach (ParticleSystem system in systems)
-                {
-                    system.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
-                }
-                return null;
-            }
-            foreach (ParticleSystem system in systems)
-            {
-                if (restart)
-                {
-                    system.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
-                }
+            PlaySystems(
+                RequireSystems(world.RequireObject(command.ObjectId)),
+                command.Restart,
+                command.Seed
+            );
+            return null;
+        }
 
+        private void PlaySystems(ParticleSystem[] systems, bool restart, uint seed)
+        {
+            if (seed == 0)
+                throw new BattlementCommandException(
+                    CoreErrorCode.InvalidProperty,
+                    "A particle seed must be nonzero."
+                );
+            for (int index = 0; index < systems.Length; index++)
+            {
+                ParticleSystem system = systems[index];
+                uint childSeed = (uint)(((ulong)seed - 1 + (uint)index) % uint.MaxValue + 1);
+                if (world.DittoParticles.IsEnabled)
+                {
+                    world.DittoParticles.Play(system, childSeed, restart);
+                    continue;
+                }
+                if (restart)
+                    system.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+                if (!system.isPlaying)
+                {
+                    system.useAutoRandomSeed = false;
+                    system.randomSeed = childSeed;
+                }
                 system.Play(false);
             }
-
-            return null;
         }
 
         public IBattlementCommandOperation? Stop(BattlementDirectParticleStop command) =>
@@ -66,7 +72,10 @@ namespace Battlement
                 : ParticleSystemStopBehavior.StopEmitting;
             foreach (ParticleSystem system in RequireSystems(world.RequireObject(objectId)))
             {
-                system.Stop(false, behavior);
+                if (world.DittoParticles.IsEnabled)
+                    world.DittoParticles.Stop(system, clear);
+                else
+                    system.Stop(false, behavior);
             }
 
             return null;
@@ -82,7 +91,11 @@ namespace Battlement
                 foreach (
                     ParticleSystem system in target!.GetComponentsInChildren<ParticleSystem>(true)
                 )
-                    if (system.isPlaying)
+                    if (
+                        world.DittoParticles.IsEnabled
+                            ? world.DittoParticles.Pause(system)
+                            : system.isPlaying
+                    )
                     {
                         system.Pause(false);
                         paused.Add(system);
@@ -94,8 +107,13 @@ namespace Battlement
         internal void Resume(IEnumerable<ParticleSystem> systems)
         {
             foreach (ParticleSystem system in systems)
-                if (system != null && system.isPaused)
-                    system.Play(false);
+                if (system != null)
+                {
+                    if (world.DittoParticles.IsEnabled)
+                        world.DittoParticles.Resume(system);
+                    else if (system.isPaused)
+                        system.Play(false);
+                }
         }
 
         public IBattlementCommandOperation? Spawn(
@@ -109,8 +127,6 @@ namespace Battlement
                 "A particle effect lifetime",
                 allowZero: false
             );
-            if (motionClock.IsInstant || motionClock.IsControlled)
-                return null;
             UnityEngine.Vector3 position = command.ObjectId is ObjectId objectId
                 ? world.RequireObject(objectId).transform.position
                 : new UnityEngine.Vector3(
@@ -137,11 +153,6 @@ namespace Battlement
                 "A particle effect lifetime",
                 allowZero: false
             );
-            if (motionClock.IsInstant || motionClock.IsControlled)
-            {
-                lease.Dispose();
-                return null;
-            }
             UnityEngine.Vector3 position = command.ObjectId is ObjectId objectId
                 ? world.RequireObject(objectId).transform.position
                 : new UnityEngine.Vector3(
@@ -181,7 +192,7 @@ namespace Battlement
                     instance = pool.Get(lease);
                     lease = null!;
                 }
-                instance.Acquire(commandId.Value, position);
+                instance.Acquire(commandId.Value, position, this, command.Seed);
                 return new EffectOperation(instance, now + lifetime);
             }
             catch
@@ -359,6 +370,7 @@ namespace Battlement
             private EffectPool? pool;
             private bool isDestroyed;
             private Guid commandId;
+            private BattlementParticleEffects? effects;
 
             private EffectInstance(
                 GameObject gameObject,
@@ -393,17 +405,20 @@ namespace Battlement
 
             public void SetPool(EffectPool value) => pool = value;
 
-            public void Acquire(Guid id, UnityEngine.Vector3 position)
+            public void Acquire(
+                Guid id,
+                UnityEngine.Vector3 position,
+                BattlementParticleEffects owner,
+                uint seed
+            )
             {
+                effects = owner;
                 ResetTransform(position);
                 ResetParticles();
                 commandId = id;
                 InvokeResets(acquiring: true);
                 gameObject.SetActive(true);
-                foreach (ParticleSystem system in RequireSystems(gameObject))
-                {
-                    system.Play(false);
-                }
+                owner.PlaySystems(RequireSystems(gameObject), restart: true, seed);
             }
 
             public void Release()
@@ -439,14 +454,18 @@ namespace Battlement
             public void Pause()
             {
                 foreach (ParticleSystem system in RequireSystems(gameObject))
-                    if (system.isPlaying)
+                    if (effects!.world.DittoParticles.IsEnabled)
+                        effects.world.DittoParticles.Pause(system);
+                    else if (system.isPlaying)
                         system.Pause(false);
             }
 
             public void Resume()
             {
                 foreach (ParticleSystem system in RequireSystems(gameObject))
-                    if (system.isPaused)
+                    if (effects!.world.DittoParticles.IsEnabled)
+                        effects.world.DittoParticles.Resume(system);
+                    else if (system.isPaused)
                         system.Play(false);
             }
 
@@ -495,6 +514,7 @@ namespace Battlement
                     )
                 )
                 {
+                    effects?.world.DittoParticles.Stop(system, clear: true);
                     system.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
                 }
             }

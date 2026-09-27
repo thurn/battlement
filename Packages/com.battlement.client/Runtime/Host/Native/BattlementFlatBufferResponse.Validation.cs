@@ -1068,6 +1068,8 @@ namespace Battlement
                         default:
                             throw new InvalidDataException("A particle location kind is unknown.");
                     }
+                    if (payload.Seed == 0)
+                        throw new InvalidDataException("A particle seed must be nonzero.");
                     if (payload.LifetimeMs == 0 || payload.LifetimeMs > 86_400_000)
                         throw new InvalidDataException(
                             "A particle lifetime must be positive and at most one day."
@@ -1076,6 +1078,8 @@ namespace Battlement
                 }
                 case Wire.CoreCommandKind.ParticlePlay:
                     _ = ReadUuid(value.PayloadAsParticlePlayPayload().ObjectId, "particle object");
+                    if (value.PayloadAsParticlePlayPayload().Seed == 0)
+                        throw new InvalidDataException("A particle seed must be nonzero.");
                     if (value.Blocking)
                         throw new InvalidDataException("Particle play must be nonblocking.");
                     return true;
@@ -1495,6 +1499,7 @@ namespace Battlement
                                     string.IsNullOrEmpty(entry.EffectAddress)
                                     || !entry.EffectPosition.HasValue
                                     || entry.EffectLifetimeMillis == 0
+                                    || entry.EffectSeed == 0
                                     || entry.Selector.HasValue
                                     || entry.Target.HasValue
                                     || entry.Position.HasValue

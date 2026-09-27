@@ -3,6 +3,8 @@
   "bootstrap": "Assets/Scenes/Main.unity",
   "content": "Assets/Scenes/Content.unity",
   "materials": [
+    {"path": "Assets/Generated/Imported/Motes.mat", "shader": "Sprites/Default", "color": "#FFF0BD66"},
+    {"path": "Assets/Generated/Imported/Accent.mat", "shader": "Sprites/Default", "color": "#BF4B4199"},
     {"path": "Assets/Generated/Imported/Clearing.mat", "color": "#476C21"},
     {"path": "Assets/Generated/Imported/Card Back.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/cardback_A.png"},
     {"path": "Assets/Generated/Imported/clubs_two.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/clubs_two.png"},
@@ -58,6 +60,10 @@
     {"path": "Assets/Generated/Imported/hearts_king.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/hearts_king.png"},
     {"path": "Assets/Generated/Imported/hearts_ace.mat","texture": "Assets/ThirdParty/KayKit/PlayingCards/hearts_ace.png"},
     {"path": "Assets/Generated/Imported/Forest.mat","texture": "Assets/ThirdParty/KayKit/ForestNaturePack/forest_texture.png"}
+  ],
+  "particles": [
+    {"path": "Assets/Generated/Particles/Motes.prefab", "material": "Assets/Generated/Imported/Motes.mat", "loop": true, "lifetime": 4, "size": 0.045, "speed": 0.06, "rate": 3, "box": [0.5, 0.6, 6]},
+    {"path": "Assets/Generated/Particles/Accent.prefab", "material": "Assets/Generated/Imported/Accent.mat", "loop": false, "lifetime": 0.7, "size": 0.07, "speed": 0.3, "count": 8, "box": [0.7, 0.2, 0.7]}
   ],
   "models": [
     {"path": "Assets/ThirdParty/KayKit/PlayingCards/card_clubs_two.fbx","materials": {"card_clubs_two": "Assets/Generated/Imported/clubs_two.mat","card_cardback_A": "Assets/Generated/Imported/Card Back.mat"}},
@@ -120,6 +126,8 @@
     {"path": "Assets/ThirdParty/KayKit/ForestNaturePack/Hill_4x2x2_Color1.fbx","materials": {"forest": "Assets/Generated/Imported/Forest.mat"}}
   ],
   "addresses": [
+    {"address": "hearts/particles/motes", "path": "Assets/Generated/Particles/Motes.prefab"},
+    {"address": "hearts/particles/accent", "path": "Assets/Generated/Particles/Accent.prefab"},
     {"address": "hearts/audio/music", "path": "Assets/ThirdParty/NotJam/Drag and Dread.opus"},
     {"address": "hearts/audio/results-music", "path": "Assets/ThirdParty/NotJam/Switch with Me.opus"},
     {"address": "hearts/audio/deal", "path": "Assets/ThirdParty/NotJam/click_3.opus"},

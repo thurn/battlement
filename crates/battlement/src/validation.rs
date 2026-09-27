@@ -15,6 +15,8 @@ pub enum ValidationError {
   NonFiniteNumber,
   /// Shared audio gains were outside the inclusive range zero through one.
   InvalidAudioMix,
+  /// Particle seeds must be nonzero.
+  InvalidParticleSeed,
   /// The requested frame-rate ceiling was outside protocol bounds.
   InvalidFramePacing,
   /// A display preview requested invalid dimensions or refresh data.
@@ -53,6 +55,7 @@ impl fmt::Display for ValidationError {
       Self::NonFiniteNumber => "all numeric values must be finite",
       Self::InvalidFramePacing => "frame-rate ceiling must be between 1 and 1000",
       Self::InvalidDisplayConfiguration => "invalid display configuration",
+      Self::InvalidParticleSeed => "particle seed must be nonzero",
       Self::InvalidAudioMix => "audio mixer gains must be between zero and one",
       Self::DuplicatePreparedAddress => "prepared asset addresses must be unique",
       Self::DuplicateScene => "scene identifiers and addresses must be unique",
@@ -259,6 +262,12 @@ impl Validate for Command {
       }
       CommandBody::AudioPlay(value) if value.r#loop && self.blocking => {
         return Err(ValidationError::InvalidBlocking);
+      }
+      CommandBody::ParticlePlay(value) if value.seed == 0 => {
+        return Err(ValidationError::InvalidParticleSeed);
+      }
+      CommandBody::ParticleSpawn(value) if value.seed == 0 => {
+        return Err(ValidationError::InvalidParticleSeed);
       }
       CommandBody::ParticlePlay(_) if self.blocking => {
         return Err(ValidationError::InvalidBlocking);

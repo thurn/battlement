@@ -107,3 +107,59 @@ screen = "hearts"
 [[states]]
 key = "audio.independent-sound-controls.restored"
 screen = "hearts"
+
+[[states]]
+key = "particles.ambient"
+screen = "hearts"
+
+[[states]]
+key = "particles.ambient-moving"
+screen = "hearts"
+
+[[states]]
+key = "particles.paused"
+screen = "hearts"
+
+[[states]]
+key = "particles.paused-later"
+screen = "hearts"
+
+[[states]]
+key = "particles.resumed"
+screen = "hearts"
+
+[[states]]
+key = "particles.accent-midpoint"
+screen = "hearts"
+
+[[states]]
+key = "particles.accent-finished"
+screen = "hearts"
+
+[[states]]
+key = "particles.alternate-seed"
+screen = "hearts"
+
+[[states]]
+key = "particles.replaced"
+screen = "hearts"
+
+[[states]]
+key = "particles.removed"
+screen = "hearts"
+
+[[states]]
+key = "particles.remounted"
+screen = "hearts"
+
+[[states]]
+key = "particles.reduced"
+screen = "hearts"
+
+[[states]]
+key = "particles.reduced-accent"
+screen = "hearts"
+
+[[states]]
+key = "particles.restored-motion"
+screen = "hearts"

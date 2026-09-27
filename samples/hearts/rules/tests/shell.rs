@@ -1,11 +1,12 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, time::Duration};
 
 use battlement::{Connect, GameObjectKind, PreparedAsset, ScreenSize, Vector3, object_id};
 use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 use battlement_hearts_rules::{
   self as hearts, assets, card_assets,
-  domain::{HeartsState, Seat, cards},
+  domain::{HeartsState, IgnorePresentation, Intention, Seat, cards, transition},
 };
+use reactant_rules::ReducerGame;
 use reactant_testing::Display;
 
 #[test]
@@ -174,7 +175,14 @@ fn catalog() -> FakeAssetCatalog {
       PreparedAsset::Scene(address) => catalog.add_scene(address.clone()),
       PreparedAsset::UiFont(address) => catalog.add_ui_font(address.clone()),
       PreparedAsset::Texture(address) => catalog.add_texture(address.clone()),
-      PreparedAsset::Prefab(address) => catalog.add_prefab(address.clone(), FakePrefab::new()),
+      PreparedAsset::Prefab(address) => catalog.add_prefab(
+        address.clone(),
+        if address.as_str().starts_with("hearts/particles/") {
+          FakePrefab::new().with_particle_systems()
+        } else {
+          FakePrefab::new()
+        },
+      ),
       PreparedAsset::AudioClip(address) => catalog.add_audio_clip(address.clone()),
       PreparedAsset::Material(address) => catalog.add_material(address.clone()),
       _ => panic!("unexpected Hearts asset: {asset:?}"),
@@ -185,7 +193,20 @@ fn catalog() -> FakeAssetCatalog {
 
 #[test]
 fn music_and_effects_controls_preserve_playhead_and_new_game_disposes_old_audio() {
-  let mut display = Display::mount(hearts::application, self::catalog());
+  let mut initial = HeartsState::new(43);
+  for seat in [Seat::West, Seat::North, Seat::East] {
+    let cards = initial.hand(seat).iter().take(3).copied().collect();
+    transition::apply(
+      &mut initial,
+      Intention::SubmitPass { seat, cards },
+      &mut IgnorePresentation,
+    )
+    .unwrap();
+  }
+  let mut display = Display::mount(
+    move || hearts::application_from_state(initial.clone()),
+    self::catalog(),
+  );
   display.flush();
   let music: Vec<_> = display
     .audio_occurrences()
@@ -229,6 +250,27 @@ fn music_and_effects_controls_preserve_playhead_and_new_game_disposes_old_audio(
       .count(),
     1
   );
+  for card in ["Seven of Clubs", "Queen of Clubs", "King of Clubs"] {
+    display.activate_accessible(card);
+    display.flush();
+  }
+  display.activate_accessible("Pass three cards");
+  assert!(
+    display.wait_for_game_output::<ReducerGame<hearts::HeartsReducer>>(Duration::from_secs(10))
+  );
+  display.flush();
+  let pass_cues = |display: &Display| {
+    display
+      .audio_occurrences()
+      .iter()
+      .filter(|sound| sound.address == assets::hearts::audio::PASS)
+      .count()
+  };
+  display.settle();
+  assert_eq!(pass_cues(&display), 1);
+  display.activate_accessible("Music on");
+  display.flush();
+  assert_eq!(pass_cues(&display), 1);
   display.activate_accessible("New game");
   display.flush();
   assert!(display.audio(id).is_none());

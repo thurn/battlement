@@ -73,12 +73,13 @@ namespace Battlement.Tests
             );
         }
 
-        [Test]
-        public void ControlledPrefabParticlesRemainVisibleAndFreezeWithTheirOwnedClock()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void DittoPrefabParticlesUseControlledTimeOrCanonicalInstantPhase(bool controlled)
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             var motion = new DittoMotionController(harness.Runner);
-            motion.Begin(DittoMotion.Controlled);
+            motion.Begin(controlled ? DittoMotion.Controlled : DittoMotion.Instant);
             var address = new PrefabAddress("game/prewarmed-cursor");
             var objectId = new ObjectId(Guid.NewGuid());
             GameObject prefab = ParticlePrefab(address.Value);
@@ -126,7 +127,10 @@ namespace Battlement.Tests
             Assert.That(systems.All(system => system.isPaused), Is.True);
             Assert.That(systems.All(system => !system.useAutoRandomSeed), Is.True);
             _ = Frame(advance: true);
-            Assert.That(systems[0].time, Is.Not.EqualTo(initialTimes[0]));
+            Assert.That(
+                systems[0].time,
+                controlled ? Is.Not.EqualTo(initialTimes[0]) : Is.EqualTo(initialTimes[0])
+            );
 
             Find(objectId).SetActive(false);
             _ = Frame();
@@ -142,51 +146,148 @@ namespace Battlement.Tests
             Assert.That(harness.Runner.ObserveDittoWork().HasInfiniteOperations, Is.False);
         }
 
-        [Test]
-        public void DittoInstantMotionSuppressesParticlePlayAndSpawn() =>
-            AssertStableMotionSuppressesParticlePlayAndSpawn(DittoMotion.Instant);
-
-        [Test]
-        public void DittoControlledMotionSuppressesParticlePlayAndSpawn() =>
-            AssertStableMotionSuppressesParticlePlayAndSpawn(DittoMotion.Controlled);
-
-        private static void AssertStableMotionSuppressesParticlePlayAndSpawn(DittoMotion motion)
+        [TestCase(false)]
+        [TestCase(true)]
+        public void DittoParticlesReproduceRestartAndExpireSpawn(bool controlled)
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                useInstantAnimations: false
-            );
-            var objectAddress = new PrefabAddress("game/instant-particle-root");
-            var effectAddress = new ParticleEffectAddress("game/instant-particle-spawn");
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(controlled ? DittoMotion.Controlled : DittoMotion.Instant);
+            var address = new PrefabAddress("game/seeded-root");
+            var effectAddress = new ParticleEffectAddress("game/seeded-burst");
             var objectId = new ObjectId(Guid.NewGuid());
-            GameObject objectPrefab = ParticlePrefab(objectAddress.Value);
-            GameObject effectPrefab = ParticlePrefab(effectAddress.Value);
-            harness.AssetStorage.EnqueueValue(objectPrefab);
-            harness.AssetStorage.EnqueueValue(effectPrefab);
+            GameObject prefab = ParticlePrefab(address.Value);
+            GameObject burst = ParticlePrefab(effectAddress.Value);
+            burst.AddComponent<BattlementEffectPool>().MaxInactiveCount = 1;
+            harness.AssetStorage.EnqueueValue(prefab);
+            harness.AssetStorage.EnqueueValue(burst);
             SessionId session = Connect(
                 harness,
                 new PreparedAsset[]
                 {
-                    new PreparedAsset.Prefab(objectAddress),
+                    new PreparedAsset.Prefab(address),
                     new PreparedAsset.ParticleEffect(effectAddress),
                 },
-                new[] { PrefabObject(objectId, objectAddress) }
+                new[] { PrefabObject(objectId, address) }
             );
-            new DittoMotionController(harness.Runner).Begin(motion);
-
+            ParticleSystem[] systems = Find(objectId).GetComponentsInChildren<ParticleSystem>(true);
+            void Frame(bool advance = true)
+            {
+                motion.PrepareFrame(forceAdvance: advance, preserveTime: !advance);
+                harness.Runner.RunFrame();
+                harness.Runner.CompleteNativeFrame();
+            }
+            Command Play(uint seed) =>
+                Command(new CommandBody.Particle.Play(objectId, Restart: true, Seed: seed))
+                    .Nonblocking();
+            Command Burst() =>
+                Command(
+                        new CommandBody.Particle.Spawn(
+                            effectAddress,
+                            new ParticleSpawnLocation.AtWorldPosition(Vector3.Zero),
+                            TimeSpan.FromSeconds(1),
+                            Seed: 81
+                        )
+                    )
+                    .Nonblocking();
+            var owner = new ObjectId(Guid.NewGuid());
+            void Send(Batch batch)
+            {
+                harness.Transport.EnqueueSubmit(
+                    FakeBattlementTransport.ResponseResult(
+                        new Response(
+                            session,
+                            new ResponseMessage<Command>[]
+                            {
+                                new ResponseMessage<Command>.BatchMessage(batch),
+                            }
+                        )
+                    )
+                );
+                harness.Runner.Submit(new byte[] { 1 });
+            }
+            void Control(bool paused) =>
+                Send(
+                    new Batch(
+                        new BatchId(Guid.NewGuid()),
+                        session,
+                        Array.Empty<ParallelCommandGroup<Command>>(),
+                        Start: BatchStart.Now
+                    )
+                    {
+                        PresentationControl = new PresentationControl(17, owner, paused),
+                    }
+                );
+            Send(
+                new Batch(
+                    new BatchId(Guid.NewGuid()),
+                    session,
+                    new[] { new ParallelCommandGroup<Command>(new[] { Play(37), Burst() }) },
+                    WorkScope: 17
+                )
+            );
+            for (int frame = 0; frame < 12; frame++)
+                Frame();
+            Assert.That(
+                systems.Select(system => system.randomSeed),
+                Is.EqualTo(new uint[] { 37, 38 })
+            );
+            var expected = ParticleState(systems[0]);
+            Assert.That(expected, Is.Not.Empty);
+            GameObject pooled = Spawned(burst).Single();
+            Assert.That(pooled.activeSelf, Is.True);
+            var burstExpected = ParticleState(pooled.GetComponent<ParticleSystem>());
+            Assert.That(burstExpected, Is.Not.Empty);
+            Frame(advance: false);
+            Assert.That(ParticleState(systems[0]), Is.EqualTo(expected));
+            Control(true);
+            for (int frame = 0; frame < 30; frame++)
+                Frame();
+            Assert.That(ParticleState(systems[0]), Is.EqualTo(expected));
+            Assert.That(
+                ParticleState(pooled.GetComponent<ParticleSystem>()),
+                Is.EqualTo(burstExpected)
+            );
+            Assert.That(harness.Runner.ObserveDittoWork().HasHeldOperations, Is.True);
+            Control(false);
+            Submit(harness, session, Play(37));
+            for (int frame = 0; frame < 12; frame++)
+                Frame();
+            Assert.That(ParticleState(systems[0]), Is.EqualTo(expected));
+            Submit(harness, session, Play(91));
+            for (int frame = 0; frame < 12; frame++)
+                Frame();
+            Assert.That(ParticleState(systems[0]), Is.Not.EqualTo(expected));
+            Assert.That(pooled.activeSelf, Is.False);
+            Submit(harness, session, Burst());
+            for (int frame = 0; frame < 12; frame++)
+                Frame();
+            Assert.That(Spawned(burst).Single(), Is.SameAs(pooled));
+            Assert.That(
+                ParticleState(pooled.GetComponent<ParticleSystem>()),
+                Is.EqualTo(burstExpected)
+            );
             Submit(
                 harness,
                 session,
-                Command(new CommandBody.Particle.Play(objectId)).Nonblocking(),
-                Spawn(effectAddress, 1_000).Nonblocking()
+                Command(new CommandBody.Particle.Stop(objectId, Clear: false))
             );
+            for (int frame = 0; frame < 180; frame++)
+                Frame();
+            Assert.That(systems.Sum(system => system.particleCount), Is.Zero);
+            Assert.That(harness.Runner.ObserveDittoWork().HasInfiniteOperations, Is.False);
+            Assert.That(harness.Runner.ObserveDittoWork().HasPendingWork, Is.False);
+        }
 
-            Assert.That(
-                Find(objectId)
-                    .GetComponentsInChildren<ParticleSystem>(true)
-                    .All(system => !system.isPlaying && system.particleCount == 0),
-                Is.True
-            );
-            Assert.That(Spawned(effectPrefab), Is.Empty);
+        private static (uint, UVector3, float)[] ParticleState(ParticleSystem system)
+        {
+            var particles = new ParticleSystem.Particle[system.particleCount];
+            system.GetParticles(particles);
+            return particles
+                .Select(particle =>
+                    (particle.randomSeed, particle.position, particle.remainingLifetime)
+                )
+                .ToArray();
         }
 
         [Test]

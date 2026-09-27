@@ -1192,7 +1192,10 @@ where
     let decoded = crate::response_reader::read(response.as_bytes())
       .unwrap_or_else(|error| panic!("verified response decoding failed: {error}"));
     let previous = std::mem::replace(&mut self.response_retention, response.retention());
+    // Admit the complete response before completion callbacks can submit more work.
+    let advancing = std::mem::replace(&mut self.presentation_advancing, true);
     self.apply_response(decoded, mode);
+    self.presentation_advancing = advancing;
     self.response_retention = previous;
     self.pump_presentation();
   }

@@ -15,7 +15,9 @@ namespace Battlement
             /// Target object whose hierarchy contains particle systems.
             /// </param>
             /// <param name="Restart">Whether to restart systems already playing.</param>
-            public sealed record Play(ObjectId ObjectId, bool Restart = false) : CommandBody;
+            /// <param name="Seed">Nonzero deterministic seed for this hierarchy.</param>
+            public sealed record Play(ObjectId ObjectId, bool Restart = false, uint Seed = 1)
+                : CommandBody;
 
             /// <summary>
             /// Recursively stop particle systems on an object and its descendants.
@@ -30,10 +32,12 @@ namespace Battlement
             /// <param name="Address">Prepared particle-effect-prefab address.</param>
             /// <param name="Location">Source of the initial world position.</param>
             /// <param name="Lifetime">Positive effect lifetime.</param>
+            /// <param name="Seed">Nonzero deterministic seed for this occurrence.</param>
             public sealed record Spawn(
                 ParticleEffectAddress Address,
                 ParticleSpawnLocation Location,
-                TimeSpan Lifetime
+                TimeSpan Lifetime,
+                uint Seed = 1
             ) : CommandBody;
         }
 

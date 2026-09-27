@@ -200,6 +200,7 @@ fn duplicate_delivery_records_one_audio_and_particle_occurrence() {
   let particle = Command::new(
     command(302),
     CommandBody::ParticleSpawn(battlement::ParticleSpawnPayload {
+      seed: 1,
       address: "temporal/particles".into(),
       location: battlement::ParticleSpawnLocation::WorldPosition(Vector3::new(1.0, 2.0, 3.0)),
       lifetime_ms: 500,

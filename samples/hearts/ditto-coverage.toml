@@ -163,3 +163,87 @@ state = "audio.independent-sound-controls.restored"
 scenario = "independent sound controls"
 checkpoint = "restored"
 owner = "shell::music_and_effects_controls_preserve_playhead_and_new_game_disposes_old_audio"
+
+[[mappings]]
+state = "particles.ambient"
+scenario = "seeded particles"
+checkpoint = "ambient"
+owner = "battlement-client::particle-effect-tests"
+
+[[mappings]]
+state = "particles.ambient-moving"
+scenario = "seeded particles"
+checkpoint = "ambient-moving"
+owner = "battlement-client::particle-effect-tests"
+
+[[mappings]]
+state = "particles.paused"
+scenario = "seeded particles"
+checkpoint = "paused"
+owner = "battlement-client::particle-effect-tests"
+
+[[mappings]]
+state = "particles.paused-later"
+scenario = "seeded particles"
+checkpoint = "paused-later"
+owner = "battlement-client::particle-effect-tests"
+
+[[mappings]]
+state = "particles.resumed"
+scenario = "seeded particles"
+checkpoint = "resumed"
+owner = "battlement-client::particle-effect-tests"
+
+[[mappings]]
+state = "particles.accent-midpoint"
+scenario = "seeded particles"
+checkpoint = "accent-midpoint"
+owner = "battlement-client::particle-effect-tests"
+
+[[mappings]]
+state = "particles.accent-finished"
+scenario = "seeded particles"
+checkpoint = "accent-finished"
+owner = "battlement-client::particle-effect-tests"
+
+[[mappings]]
+state = "particles.alternate-seed"
+scenario = "seeded particles"
+checkpoint = "alternate-seed"
+owner = "battlement-client::particle-effect-tests"
+
+[[mappings]]
+state = "particles.replaced"
+scenario = "seeded particles"
+checkpoint = "replaced"
+owner = "battlement-client::batch-scheduling-tests"
+
+[[mappings]]
+state = "particles.removed"
+scenario = "seeded particles"
+checkpoint = "removed"
+owner = "reactant-testing::particle_lifecycle::emitter_owns_restart_replacement_disablement_and_motion_preference"
+
+[[mappings]]
+state = "particles.remounted"
+scenario = "seeded particles"
+checkpoint = "remounted"
+owner = "reactant-testing::particle_lifecycle::emitter_owns_restart_replacement_disablement_and_motion_preference"
+
+[[mappings]]
+state = "particles.reduced"
+scenario = "seeded particles"
+checkpoint = "reduced"
+owner = "reactant-testing::particle_lifecycle::emitter_owns_restart_replacement_disablement_and_motion_preference"
+
+[[mappings]]
+state = "particles.reduced-accent"
+scenario = "seeded particles"
+checkpoint = "reduced-accent"
+owner = "reactant-testing::particle_lifecycle::emitter_owns_restart_replacement_disablement_and_motion_preference"
+
+[[mappings]]
+state = "particles.restored-motion"
+scenario = "seeded particles"
+checkpoint = "restored-motion"
+owner = "reactant-testing::particle_lifecycle::emitter_owns_restart_replacement_disablement_and_motion_preference"

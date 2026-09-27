@@ -134,9 +134,27 @@ enum SequenceEntry {
   Particle {
     address: battlement::PrefabAddress,
     position: MotionPositionRef,
-    lifetime: Duration,
+    options: SequenceParticleOptions,
     schedule: MotionSequenceSchedule,
   },
+}
+
+/// Deterministic parameters for one finite particle occurrence.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SequenceParticleOptions {
+  /// Maximum time this burst may retain its prefab.
+  pub lifetime: Duration,
+  /// Nonzero reproducible seed.
+  pub seed: u32,
+}
+
+impl Default for SequenceParticleOptions {
+  fn default() -> Self {
+    Self {
+      lifetime: Duration::from_secs(1),
+      seed: 1,
+    }
+  }
 }
 
 /// Captured playback parameters for one sequence sound occurrence.
@@ -639,22 +657,43 @@ impl AnimationSequence {
 
   /// Appends one prepared particle burst with a captured lifetime.
   pub fn particle_for(
-    mut self,
+    self,
     address: impl Into<battlement::PrefabAddress>,
     position: impl Into<MotionPositionRef>,
     lifetime: Duration,
+  ) -> Self {
+    self.particle_with(
+      address,
+      position,
+      SequenceParticleOptions {
+        lifetime,
+        ..SequenceParticleOptions::default()
+      },
+    )
+  }
+
+  /// Appends a seeded finite particle burst owned by this sequence.
+  pub fn particle_with(
+    mut self,
+    address: impl Into<battlement::PrefabAddress>,
+    position: impl Into<MotionPositionRef>,
+    options: SequenceParticleOptions,
   ) -> Self {
     let address = address.into();
     assert!(
       !address.as_str().is_empty(),
       "sequence particle address is empty"
     );
-    assert!(!lifetime.is_zero(), "sequence particle lifetime is zero");
+    assert!(
+      !options.lifetime.is_zero(),
+      "sequence particle lifetime is zero"
+    );
+    assert!(options.seed != 0, "sequence particle seed is zero");
     let schedule = self.after_previous();
     self.entries.push(SequenceEntry::Particle {
       address,
       position: position.into(),
-      lifetime,
+      options,
       schedule,
     });
     self
@@ -741,14 +780,15 @@ impl AnimationSequence {
         SequenceEntry::Particle {
           address,
           position,
-          lifetime,
+          options,
           schedule,
         } => MotionSequenceEntry::Particle {
           particle: battlement::MotionParticleOccurrence {
             address: address.as_str().to_owned(),
             position: position.into_protocol(&mut native_identities),
-            lifetime_ms: u64::try_from(lifetime.as_millis())
+            lifetime_ms: u64::try_from(options.lifetime.as_millis())
               .expect("sequence particle lifetime is too long"),
+            seed: options.seed,
           },
           schedule,
         },

@@ -669,6 +669,7 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
     &mut commands,
     &mut next,
     CommandBody::ParticlePlay(battlement::ParticlePlayPayload {
+      seed: 1,
       object_id: object_id(7),
       restart: true,
     }),
@@ -685,6 +686,7 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
     &mut commands,
     &mut next,
     CommandBody::ParticleSpawn(battlement::ParticleSpawnPayload {
+      seed: 1,
       address: "test/particles".into(),
       location: battlement::ParticleSpawnLocation::GameObject(object_id(3)),
       lifetime_ms: 1,

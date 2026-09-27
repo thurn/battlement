@@ -40,6 +40,7 @@ mod world_layout;
 mod world_layout_algorithms;
 mod world_layout_builders;
 mod world_object;
+mod world_particles;
 mod world_properties;
 mod world_text;
 mod world_view;

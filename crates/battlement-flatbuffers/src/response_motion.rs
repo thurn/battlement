@@ -704,6 +704,7 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
   let mut effect_fade_in_millis = 0;
   let mut effect_position = None;
   let mut effect_lifetime_millis = 0;
+  let mut effect_seed = 1;
   let (kind, schedule) = match value {
     battlement::MotionSequenceEntry::Animate {
       selector: value_selector,
@@ -742,6 +743,7 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
       effect_address = Some(builder.create_string(&particle.address));
       effect_position = Some(write_position_reference(builder, &particle.position));
       effect_lifetime_millis = particle.lifetime_ms;
+      effect_seed = particle.seed;
       (wire::MotionSequenceEntryKind::Particle, schedule)
     }
   };
@@ -765,6 +767,7 @@ fn write_sequence_entry<'a, A: Allocator + 'a>(
       effect_fade_in_millis,
       effect_position,
       effect_lifetime_millis,
+      effect_seed,
     },
   ))
 }

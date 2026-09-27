@@ -10206,6 +10206,7 @@ pub mod battlement {
       impl<'a> ParticlePlayPayload<'a> {
         pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 4;
         pub const VT_RESTART: ::flatbuffers::VOffsetT = 6;
+        pub const VT_SEED: ::flatbuffers::VOffsetT = 8;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -10222,6 +10223,7 @@ pub mod battlement {
           args: &'args ParticlePlayPayloadArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<ParticlePlayPayload<'bldr>> {
           let mut builder = ParticlePlayPayloadBuilder::new(_fbb);
+          builder.add_seed(args.seed);
           if let Some(x) = args.object_id {
             builder.add_object_id(x);
           }
@@ -10253,6 +10255,18 @@ pub mod battlement {
               .unwrap()
           }
         }
+        #[inline]
+        pub fn seed(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(ParticlePlayPayload::VT_SEED, Some(1))
+              .unwrap()
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for ParticlePlayPayload<'_> {
@@ -10264,6 +10278,7 @@ pub mod battlement {
           v.visit_table(pos)?
             .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, true)?
             .visit_field::<bool>("restart", Self::VT_RESTART, false)?
+            .visit_field::<u32>("seed", Self::VT_SEED, false)?
             .finish();
           Ok(())
         }
@@ -10271,6 +10286,7 @@ pub mod battlement {
       pub struct ParticlePlayPayloadArgs<'a> {
         pub object_id: Option<&'a Uuid>,
         pub restart: bool,
+        pub seed: u32,
       }
       impl<'a> Default for ParticlePlayPayloadArgs<'a> {
         #[inline]
@@ -10278,6 +10294,7 @@ pub mod battlement {
           ParticlePlayPayloadArgs {
             object_id: None, // required field
             restart: false,
+            seed: 1,
           }
         }
       }
@@ -10298,6 +10315,12 @@ pub mod battlement {
           self
             .fbb_
             .push_slot::<bool>(ParticlePlayPayload::VT_RESTART, restart, false);
+        }
+        #[inline]
+        pub fn add_seed(&mut self, seed: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(ParticlePlayPayload::VT_SEED, seed, 1);
         }
         #[inline]
         pub fn new(
@@ -10324,6 +10347,7 @@ pub mod battlement {
           let mut ds = f.debug_struct("ParticlePlayPayload");
           ds.field("object_id", &self.object_id());
           ds.field("restart", &self.restart());
+          ds.field("seed", &self.seed());
           ds.finish()
         }
       }
@@ -10491,6 +10515,7 @@ pub mod battlement {
         pub const VT_OBJECT_ID: ::flatbuffers::VOffsetT = 8;
         pub const VT_WORLD_POSITION: ::flatbuffers::VOffsetT = 10;
         pub const VT_LIFETIME_MS: ::flatbuffers::VOffsetT = 12;
+        pub const VT_SEED: ::flatbuffers::VOffsetT = 14;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -10508,6 +10533,7 @@ pub mod battlement {
         ) -> ::flatbuffers::WIPOffset<ParticleSpawnPayload<'bldr>> {
           let mut builder = ParticleSpawnPayloadBuilder::new(_fbb);
           builder.add_lifetime_ms(args.lifetime_ms);
+          builder.add_seed(args.seed);
           if let Some(x) = args.world_position {
             builder.add_world_position(x);
           }
@@ -10582,6 +10608,18 @@ pub mod battlement {
               .unwrap()
           }
         }
+        #[inline]
+        pub fn seed(&self) -> u32 {
+          // Safety:
+          // Created from valid Table for this object
+          // which contains a valid value in this slot
+          unsafe {
+            self
+              ._tab
+              .get::<u32>(ParticleSpawnPayload::VT_SEED, Some(1))
+              .unwrap()
+          }
+        }
       }
 
       impl ::flatbuffers::Verifiable for ParticleSpawnPayload<'_> {
@@ -10600,6 +10638,7 @@ pub mod battlement {
             .visit_field::<Uuid>("object_id", Self::VT_OBJECT_ID, false)?
             .visit_field::<Vector3d>("world_position", Self::VT_WORLD_POSITION, false)?
             .visit_field::<u64>("lifetime_ms", Self::VT_LIFETIME_MS, false)?
+            .visit_field::<u32>("seed", Self::VT_SEED, false)?
             .finish();
           Ok(())
         }
@@ -10610,6 +10649,7 @@ pub mod battlement {
         pub object_id: Option<&'a Uuid>,
         pub world_position: Option<&'a Vector3d>,
         pub lifetime_ms: u64,
+        pub seed: u32,
       }
       impl<'a> Default for ParticleSpawnPayloadArgs<'a> {
         #[inline]
@@ -10620,6 +10660,7 @@ pub mod battlement {
             object_id: None,
             world_position: None,
             lifetime_ms: 0,
+            seed: 1,
           }
         }
       }
@@ -10663,6 +10704,12 @@ pub mod battlement {
             .push_slot::<u64>(ParticleSpawnPayload::VT_LIFETIME_MS, lifetime_ms, 0);
         }
         #[inline]
+        pub fn add_seed(&mut self, seed: u32) {
+          self
+            .fbb_
+            .push_slot::<u32>(ParticleSpawnPayload::VT_SEED, seed, 1);
+        }
+        #[inline]
         pub fn new(
           _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> ParticleSpawnPayloadBuilder<'a, 'b, A> {
@@ -10690,6 +10737,7 @@ pub mod battlement {
           ds.field("object_id", &self.object_id());
           ds.field("world_position", &self.world_position());
           ds.field("lifetime_ms", &self.lifetime_ms());
+          ds.field("seed", &self.seed());
           ds.finish()
         }
       }

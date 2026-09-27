@@ -28,6 +28,7 @@ pub use crate::world_layout::{
   LayoutTarget, Pile, PileLayout, WorldLayout,
 };
 pub use crate::world_object::WorldObject;
+pub use crate::world_particles::ParticleEmitter;
 pub use crate::world_text::Text;
 pub use crate::world_view::{Camera, Light};
 pub use crate::world_visuals::{Mesh, Plane, Sprite};

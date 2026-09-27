@@ -41,8 +41,8 @@ only after Rust responses, deferred UI work, finite motion, layout, and the rend
 frame are complete. Do not add elapsed frames to make one pass. For a controlled
 animation checkpoint, place `advance = { frames = N }` immediately after the action;
 this deliberately samples that animation time. Instant mode completes direct tweens
-immediately and steps remaining finite Motion work deterministically. Infinite motion
-freezes once other work is ready in both instant and controlled modes. Asset and
+immediately and steps remaining finite Motion work deterministically. Looping particles use a canonical prewarmed phase in instant mode. Other infinite
+motion freezes once finite work is ready. Asset and
 scene preparation freeze logical time, including during explicit frame advances.
 
 Inspect the terminal result, screenshots, and retained logs; keep their paths

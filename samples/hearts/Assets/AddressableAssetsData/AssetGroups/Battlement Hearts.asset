@@ -310,6 +310,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7f8c318757df14e79875a434b195f32a
+    m_Address: hearts/particles/accent
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 80452b70ef1f048ea980460a3c3ef7c2
     m_Address: hearts/faces/clubs/seven
     m_ReadOnly: 0
@@ -572,6 +577,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: de6c18566eb994d6ea0b3539ca696444
     m_Address: hearts/faces/spades/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e2e2311fa126b430a966eb526ffaa1cc
+    m_Address: hearts/particles/motes
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

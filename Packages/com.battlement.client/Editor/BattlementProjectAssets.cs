@@ -29,7 +29,9 @@ namespace Battlement.Editor
                 Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
                 if (!material)
                 {
-                    material = new Material(Shader.Find("Standard"));
+                    material = new Material(
+                        Shader.Find(item["shader"]?.Value<string>() ?? "Standard")
+                    );
                     AssetDatabase.CreateAsset(material, path);
                 }
                 Texture2D? texture = null;
@@ -46,12 +48,16 @@ namespace Battlement.Editor
                         $"Invalid material color for {path}: {color}"
                     );
                 material.color = tint;
-                material.SetFloat("_Metallic", 0);
-                material.SetFloat("_Glossiness", 0);
+                if (material.HasProperty("_Metallic"))
+                    material.SetFloat("_Metallic", 0);
+                if (material.HasProperty("_Glossiness"))
+                    material.SetFloat("_Glossiness", 0);
                 EditorUtility.SetDirty(material);
                 retained.Add(path);
             }
             AssetDatabase.SaveAssets();
+            foreach (JToken item in manifest["particles"] ?? new JArray())
+                CreateParticles(item, retained);
             foreach (JToken item in manifest["models"]!)
             {
                 string path = AssetPath(item, "path");
@@ -161,6 +167,61 @@ namespace Battlement.Editor
                 ).ToString()
             );
             Debug.Log($"BATTLEMENT_PROJECT_ASSETS_OK:{declared.Count}");
+        }
+
+        private static void CreateParticles(JToken item, HashSet<string> retained)
+        {
+            string path = AssetPath(item, "path");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var root = new GameObject(Path.GetFileNameWithoutExtension(path));
+            try
+            {
+                ParticleSystem particles = root.AddComponent<ParticleSystem>();
+                particles.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+                ParticleSystem.MainModule main = particles.main;
+                main.playOnAwake = false;
+                main.loop = item["loop"]!.Value<bool>();
+                main.prewarm = main.loop;
+                main.duration = item["lifetime"]!.Value<float>();
+                main.startLifetime = main.duration;
+                main.startSize = item["size"]!.Value<float>();
+                main.startSpeed = item["speed"]!.Value<float>();
+                main.maxParticles = 48;
+                main.simulationSpace = ParticleSystemSimulationSpace.Local;
+                particles.useAutoRandomSeed = false;
+                particles.randomSeed = 1;
+                ParticleSystem.EmissionModule emission = particles.emission;
+                emission.rateOverTime = main.loop ? item["rate"]!.Value<float>() : 0;
+                emission.SetBursts(
+                    main.loop
+                        ? Array.Empty<ParticleSystem.Burst>()
+                        : new[] { new ParticleSystem.Burst(0, item["count"]!.Value<short>()) }
+                );
+                ParticleSystem.ShapeModule shape = particles.shape;
+                shape.shapeType = ParticleSystemShapeType.Box;
+                JArray box = (JArray)item["box"]!;
+                shape.scale = new UnityEngine.Vector3(
+                    box[0].Value<float>(),
+                    box[1].Value<float>(),
+                    box[2].Value<float>()
+                );
+                ParticleSystemRenderer renderer = root.GetComponent<ParticleSystemRenderer>();
+                Material material = AssetDatabase.LoadAssetAtPath<Material>(
+                    AssetPath(item, "material")
+                );
+                if (!material)
+                    throw new InvalidOperationException($"Missing particle material for {path}");
+                renderer.sharedMaterial = material;
+                renderer.renderMode = ParticleSystemRenderMode.Billboard;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                PrefabUtility.SaveAsPrefabAsset(root, path);
+                retained.Add(path);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
 
         private static void CreateScene(string path, bool bootstrap)

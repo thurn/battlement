@@ -29,6 +29,7 @@ fn prepared_asset_couples_its_kind_to_its_address_type() {
 #[test]
 fn particle_spawn_location_is_an_enum() {
   let payload = ParticleSpawnPayload {
+    seed: 1,
     address: PrefabAddress::new("mygame/effects/dust"),
     location: ParticleSpawnLocation::WorldPosition(Vector3::ZERO),
     lifetime_ms: 800,

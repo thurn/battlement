@@ -2159,6 +2159,7 @@ impl MessageWriter {
     let payload = command_wire::ParticleSpawnPayload::create(
       &mut self.builder,
       &command_wire::ParticleSpawnPayloadArgs {
+        seed: 1,
         address: Some(address),
         location_kind: command_wire::ParticleSpawnLocationKind::GameObject,
         object_id: Some(&object_id),
@@ -2191,6 +2192,7 @@ impl MessageWriter {
     let payload = command_wire::ParticleSpawnPayload::create(
       &mut self.builder,
       &command_wire::ParticleSpawnPayloadArgs {
+        seed: 1,
         address: Some(address),
         location_kind: command_wire::ParticleSpawnLocationKind::WorldPosition,
         object_id: None,
@@ -2334,6 +2336,7 @@ impl MessageWriter {
     let payload = command_wire::ParticlePlayPayload::create(
       &mut self.builder,
       &command_wire::ParticlePlayPayloadArgs {
+        seed: 1,
         object_id: Some(&object_id),
         restart,
       },
