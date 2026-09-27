@@ -24,9 +24,9 @@ store publishing, and public web deployment. Prioritize familiar React ownership
 reducers, hooks, effects, keys, and declarative presentation in idiomatic Rust;
 no JSX macro system or general React parity project.
 
-The user owns physical mobile testing/performance sign-off and final aesthetic
-approval. The agent owns builds, instrumentation, reproducible instructions, and
-visual/audio evidence. Intermediate visual review proceeds autonomously.
+The user owns final aesthetic approval. The agent owns builds, instrumentation,
+reproducible instructions, and visual/audio evidence. Intermediate visual review
+proceeds autonomously. Physical mobile testing is skipped as specified below.
 
 ## Current implementation and ownership
 
