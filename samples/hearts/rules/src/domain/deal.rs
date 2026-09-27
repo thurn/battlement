@@ -31,6 +31,21 @@ impl RandomStream {
     self.state = rng.get_seed();
     value
   }
+
+  /// Derives an independent rollout stream and advances only this source stream.
+  pub fn fork(&mut self) -> Self {
+    let mut rng = Rng::with_seed(self.state);
+    let seed = rng.u64(..);
+    self.state = rng.get_seed();
+    Self::from_seed(seed)
+  }
+
+  pub fn shuffle<T>(&mut self, values: &mut [T]) {
+    for last in (1..values.len()).rev() {
+      let selected = self.below((last + 1) as u64) as usize;
+      values.swap(last, selected);
+    }
+  }
 }
 
 impl RandomStreams {
@@ -46,10 +61,7 @@ impl RandomStreams {
 /// Fisher–Yates followed by clockwise dealing; hands use stable card order.
 pub fn shuffled(rng: &mut RandomStream) -> Hands {
   let mut deck = cards::deck();
-  for last in (1..deck.len()).rev() {
-    let selected = rng.below((last + 1) as u64) as usize;
-    deck.swap(last, selected);
-  }
+  rng.shuffle(&mut deck);
   let mut hands: Hands = std::array::from_fn(|_| Vec::with_capacity(13));
   for (index, card) in deck.into_iter().enumerate() {
     hands[index % Seat::ALL.len()].push(card);

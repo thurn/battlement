@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 
 import ci
 
@@ -13,7 +14,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", nargs="?", default="Cargo.toml")
     parser.add_argument("--run", nargs=argparse.REMAINDER, help="Cargo command to run under a target lease")
-    arguments = parser.parse_args()
+    argv = sys.argv[1:]
+    # Cargo owns every argument after --run, including its own -- separator.
+    boundary = argv.index("--run") if "--run" in argv else len(argv)
+    arguments = parser.parse_args(argv[:boundary])
+    if boundary < len(argv):
+        arguments.run = argv[boundary + 1:]
     try:
         manifest = (ci.REPOSITORY_ROOT / arguments.manifest).resolve().relative_to(
             ci.REPOSITORY_ROOT.resolve()

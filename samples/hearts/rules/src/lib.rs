@@ -1,3 +1,4 @@
+pub mod ai;
 mod app;
 #[allow(dead_code)]
 pub mod assets;

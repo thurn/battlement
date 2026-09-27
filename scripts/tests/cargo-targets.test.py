@@ -16,11 +16,24 @@ from unittest.mock import patch
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 import cargo_targets
+import cargo_target
 from ci_cache import CiCache
 import resource_slots
 
 ITOA = next(package['version'] for package in tomllib.loads(
     (SCRIPTS.parent / 'Cargo.lock').read_text())['package'] if package['name'] == 'itoa')
+
+
+class CargoCommandTests(unittest.TestCase):
+    def test_cargo_separator_and_flags_are_forwarded_unchanged(self):
+        command = ['cargo', 'clippy', '--all-targets', '--', '-D', 'warnings']
+        manifest = 'samples/hearts/rules/Cargo.toml'
+        for prefix, workspace in [([], None), ([manifest], Path(manifest))]:
+            with self.subTest(workspace=workspace):
+                with patch.object(sys, 'argv', ['cargo_target.py', *prefix, '--run', *command]), \
+                     patch.object(cargo_target.ci, 'run_cargo') as run:
+                    cargo_target.main()
+                run.assert_called_once_with(workspace, command)
 
 
 @unittest.skipUnless(os.name == "posix", "warm target leases require inherited POSIX descriptors")
