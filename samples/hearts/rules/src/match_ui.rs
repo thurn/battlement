@@ -113,7 +113,7 @@ impl Component for MatchStatus {
         Style::new()
           .position(Position::Absolute)
           .left((layout.safe.x as f32 + 18.0).px())
-          .top((layout.safe.y as f32 + 120.0).px())
+          .top((layout.safe.y as f32 + if layout.portrait { 120.0 } else { 58.0 }).px())
           .width(if layout.portrait {
             (layout.safe.width as f32 - 36.0).px()
           } else {

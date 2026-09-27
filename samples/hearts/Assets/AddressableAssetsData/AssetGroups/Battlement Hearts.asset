@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Battlement Hearts
   m_GUID: 463efacaf948c455d9a8ab01777f828c
   m_SerializeEntries:
+  - m_GUID: 0073068e59cdc4ba8923cb3614b4ef9d
+    m_Address: hearts/materials/meadow
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 017e0cf48778c40ffb3eed0c8ef1573e
     m_Address: hearts/cards/diamonds/jack
     m_ReadOnly: 0
@@ -55,6 +60,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0d5fdf99745154a4793477dbb614a45b
+    m_Address: hearts/forest/tree-4-c-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0d9b3c1b0482e46488271eebf4ee5953
     m_Address: hearts/cards/clubs/two
     m_ReadOnly: 0
@@ -72,6 +82,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 15e7513aafd4b49f7a1a21e89356c398
     m_Address: hearts/faces/hearts/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1907bd4475daf4afbb51ae64104710cd
+    m_Address: hearts/forest/rock-3-a-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -205,8 +220,23 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4906deecf175e4d27a63460888d77ed7
+    m_Address: hearts/forest/bush-3-c-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4b089728300d74965b31e6668f3a2d1a
+    m_Address: hearts/forest/rock-3-b-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4c8ef3c16faaa4f749cdc6afa7b23db4
     m_Address: hearts/cards/diamonds/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4dbe5a0c0a0cb45fd811f9055a4dfdfd
+    m_Address: hearts/forest/hill-8x8x4-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -235,6 +265,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 51e385ed6765f4a88866a9374d981a7b
+    m_Address: hearts/forest/grass-2-a-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5b72d652f4bc5408a9f3dbc18bc20979
     m_Address: hearts/materials/sand
     m_ReadOnly: 0
@@ -255,6 +290,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5e3594cdbd396422681e9e6553ed877f
+    m_Address: hearts/materials/sunlit
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5e6bb3736a1594e50bf868baa1f7aa48
     m_Address: hearts/forest/tree-1-a-color1
     m_ReadOnly: 0
@@ -270,6 +310,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 64007b0a2a64e4649aa64ce494c5e9f0
+    m_Address: hearts/forest/tree-4-b-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 64e437bae3021404493215077a9694a5
     m_Address: hearts/cards/clubs/seven
     m_ReadOnly: 0
@@ -277,6 +322,16 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 6565a6e4444da481da286e4ce57c42b8
     m_Address: hearts/faces/diamonds/jack
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6687e94c778e94af1a68bbdd6e1cf974
+    m_Address: hearts/forest/bush-1-c-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 68fa3eddf0af5454797723eca619e67e
+    m_Address: hearts/forest/grass-2-c-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -300,13 +355,28 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 72ed0b24125054b258523f155df45c5d
+    m_Address: hearts/forest/tree-3-b-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7361e6e1138b547ac984816c784cfd59
     m_Address: hearts/cards/clubs/queen
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7a2f408022c314e83805998f558f6cfb
+    m_Address: hearts/forest/grass-2-b-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7d0fa1b5946614f5ba558b5a26638e7e
     m_Address: hearts/faces/spades/six
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7d523809fd1554ae99be722516bc9e19
+    m_Address: hearts/forest/grass-1-b-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -340,6 +410,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 88cf692c1facc45078766d0eee518194
+    m_Address: hearts/forest/tree-1-b-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8a8a1cb41b02c4d858cf832017ff4dc0
     m_Address: hearts/cards/hearts/six
     m_ReadOnly: 0
@@ -360,6 +435,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8d413d1ba363f4571b4470da98a7ec38
+    m_Address: hearts/forest/grass-1-d-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 905e464da1567413e942e5351f00bb60
     m_Address: hearts/cards/diamonds/eight
     m_ReadOnly: 0
@@ -367,6 +447,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 9779e799335c34435b689ebb53eda8e4
     m_Address: hearts/faces/diamonds/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 99ed716ccdb934cb999c7fb3de9cfea9
+    m_Address: hearts/forest/rock-4-b-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -400,6 +485,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a793539a6bb73408fb497f7d62d9e6b2
+    m_Address: hearts/forest/bush-3-b-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a9dafee5a1d3d447ea72c7caf0e407f3
     m_Address: hearts/cards/clubs/king
     m_ReadOnly: 0
@@ -412,6 +502,16 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b59f0b6e3c98d4708ba31e16c9b56fbf
     m_Address: hearts/faces/clubs/two
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b5b699543b0e343cdae983feb3526011
+    m_Address: hearts/forest/rock-4-c-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b62bbcc9aa61f4d9da8b42d53fc7c939
+    m_Address: hearts/forest/rock-1-e-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -442,6 +542,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: bf3082318a20646b59fd0232d921fe22
     m_Address: hearts/audio/music
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bfc49ca2675a545929dce210cabf35b8
+    m_Address: hearts/forest/rock-1-d-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -585,6 +690,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dfaa4e6c798b14267963efcec4b4ff0f
+    m_Address: hearts/forest/grass-1-c-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e2e2311fa126b430a966eb526ffaa1cc
     m_Address: hearts/particles/motes
     m_ReadOnly: 0
@@ -592,6 +702,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e38f338e910af4541a0fa0dd27529924
     m_Address: hearts/cards/spades/eight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e7e3170342d474d04b4244e7ae5ee45f
+    m_Address: hearts/forest/hill-4x4x4-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -620,8 +735,23 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f26acde690b424566a9804f868f9283e
+    m_Address: hearts/forest/tree-3-c-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f4997acf2c10d4b7cb3354a849001eaf
     m_Address: hearts/faces/hearts/three
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f5ab79ec87ed74e78b274997abbfd1ab
+    m_Address: hearts/forest/tree-1-c-color1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fbff07176ebc24d618f07b459b053afe
+    m_Address: hearts/forest/rock-2-c-color1
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

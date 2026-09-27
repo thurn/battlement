@@ -32,6 +32,7 @@ pub mod projection;
 pub mod reducer;
 mod saved_game;
 mod scene;
+mod scenery;
 mod screens_fixture;
 mod session_save;
 mod settings;

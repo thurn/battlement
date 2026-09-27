@@ -50,7 +50,7 @@ impl Component for ParticleFixture {
         )
         .on_press(reset.update_callback(|value| value + 1)),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((
-        scene::environment(aspect),
+        scene::environment(aspect, false),
         CardTable::new(&game.view, aspect),
       )),
       GameRoot::new(Probe { aspect }),

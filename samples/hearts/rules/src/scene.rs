@@ -3,7 +3,7 @@ use battlement::{
 };
 use reactant::{prelude::*, world};
 
-use crate::{HumanView, assets, domain::Seat, layout::Layout};
+use crate::{HumanView, assets, domain::Seat, layout::Layout, scenery};
 
 const CAMERA_SIZE: f64 = 5.7;
 const CAMERA_TILT: f64 = 60.0;
@@ -17,8 +17,8 @@ pub(crate) fn camera() -> world::Camera {
     .rotation(self::pitch(CAMERA_TILT))
 }
 
-pub(crate) fn environment(aspect: f64) -> impl Render {
-  let portrait = aspect < 1.0;
+/// Table surroundings; `raised_hand` clears the lower interior for the raised larger-text hand.
+pub(crate) fn environment(aspect: f64, raised_hand: bool) -> impl Render {
   let half_width = 5.7 * aspect;
   (
     world::Plane::new()
@@ -27,7 +27,7 @@ pub(crate) fn environment(aspect: f64) -> impl Render {
         0,
         assets::hearts::materials::CLEARING,
       )]),
-    self::clearing(half_width, portrait),
+    scenery::ground(aspect < 1.0, raised_hand),
     world::Group::new().rotation(self::yaw(-35.0)).child(
       world::Light::new()
         .light_type(LightType::Directional)
@@ -44,7 +44,11 @@ pub(crate) fn environment(aspect: f64) -> impl Render {
         .intensity(0.25)
         .shadows(ShadowMode::None),
     ),
-    self::forest(half_width, portrait),
+    if aspect < 1.0 {
+      self::portrait_forest(half_width)
+    } else {
+      scenery::forest(half_width, raised_hand)
+    },
   )
 }
 
@@ -68,10 +72,10 @@ pub(crate) fn seats(view: &HumanView, layout: Layout, larger_text: bool) -> impl
         }
       } else {
         match seat {
-          Seat::North => (w * 0.5, h * 0.04),
-          Seat::West => (w * 0.22, h * 0.18),
-          Seat::East => (w * 0.78, h * 0.18),
-          Seat::South => (w * 0.5, h * if larger_text { 0.42 } else { 0.57 }),
+          Seat::North => (w * 0.5, h * 0.215),
+          Seat::West => (w * 0.315, h * 0.36),
+          Seat::East => (w * 0.685, h * 0.36),
+          Seat::South => (w * 0.5, h * if larger_text { 0.42 } else { 0.635 }),
         }
       };
       let name = match seat {
@@ -108,49 +112,20 @@ pub(crate) fn seats(view: &HumanView, layout: Layout, larger_text: bool) -> impl
     .collect::<Vec<_>>()
 }
 
-fn clearing(half_width: f64, portrait: bool) -> impl Render {
-  let patches: &[(f64, f64, f64, f64)] = if portrait {
-    &[(0.0, 0.0, 1.30, 7.0)]
-  } else {
-    &[
-      (-0.06, 0.0, 1.20, 6.8),
-      (-0.04, 6.0, 0.20, 4.2),
-      (0.05, -6.0, 0.18, 4.2),
-    ]
-  };
-  patches
-    .iter()
-    .map(|&(x, z, width, depth)| {
-      world::Cylinder::new()
-        .position(Vector3::new(x * half_width, 0.005, z))
-        .scale(Vector3::new(width * half_width, 0.005, depth))
-        .materials([MaterialAssignment::new(0, assets::hearts::materials::SAND)])
-    })
-    .collect::<Vec<_>>()
-}
-
-fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
+fn portrait_forest(half_width: f64) -> Vec<world::Group> {
   let mut objects = Vec::new();
-  let scale = if portrait { 0.48 } else { 0.60 };
+  let scale = 0.48;
   for side in [-1.0, 1.0] {
     for (index, z) in [-5.8, -2.9, 0.5, 3.6, 6.4].into_iter().enumerate() {
-      let inset = if portrait {
-        0.85
-      } else {
-        -1.15 + (index % 3) as f64 * 0.18
-      };
-      let x = side * (half_width + inset);
-      let elevated = !portrait && index >= 3;
-      if portrait || elevated {
-        objects.push(self::prop(
-          assets::hearts::forest::HILL_4X2X2_COLOR1,
-          x,
-          if portrait { -0.8 } else { -0.45 },
-          z,
-          scale,
-          side * 90.0,
-        ));
-      }
+      let x = side * (half_width + 0.85);
+      objects.push(self::prop(
+        assets::hearts::forest::HILL_4X2X2_COLOR1,
+        x,
+        -0.8,
+        z,
+        scale,
+        side * 90.0,
+      ));
       objects.push(self::prop(
         if index % 2 == 0 {
           assets::hearts::forest::TREE_1_A_COLOR1
@@ -158,7 +133,7 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
           assets::hearts::forest::TREE_2_A_COLOR1
         },
         x,
-        if elevated { 0.55 } else { 0.0 },
+        0.0,
         z + 0.3,
         scale,
         index as f64 * 73.0,
@@ -168,7 +143,7 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
         x - side * 0.7,
         0.0,
         z - 0.9,
-        scale * if portrait { 1.4 } else { 1.8 },
+        scale * 1.4,
         index as f64 * 42.0,
       ));
       objects.push(self::prop(
@@ -181,30 +156,15 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
       ));
     }
   }
-  let count = (half_width * 2.0 / if portrait { 2.3 } else { 3.1 }).ceil() as usize;
+  let count = (half_width * 2.0 / 2.3).ceil() as usize;
   for index in 0..=count {
     let x = -half_width + index as f64 * (2.0 * half_width / count as f64);
     objects.push(self::prop(
-      if !portrait && index % 2 == 0 {
-        assets::hearts::forest::TREE_1_A_COLOR1
-      } else {
-        assets::hearts::forest::TREE_2_A_COLOR1
-      },
+      assets::hearts::forest::TREE_2_A_COLOR1,
       x,
       0.0,
-      if portrait {
-        5.8
-      } else if x.abs() < half_width * 0.45 {
-        6.8
-      } else {
-        5.1 + (index % 2) as f64 * 0.7
-      },
-      scale
-        * if portrait {
-          1.0
-        } else {
-          0.75 + (index % 3) as f64 * 0.12
-        },
+      5.8,
+      scale,
       index as f64 * 51.0,
     ));
     if x.abs() > half_width * 0.72 {
@@ -222,7 +182,7 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
     let side = if index % 2 == 0 { -1.0 } else { 1.0 };
     objects.push(self::prop(
       assets::hearts::forest::GRASS_1_A_COLOR1,
-      side * (half_width + if portrait { 0.3 } else { -1.1 } - (index % 3) as f64 * 0.1),
+      side * (half_width + 0.3 - (index % 3) as f64 * 0.1),
       0.0,
       -5.3 + (index / 2) as f64 * 0.92,
       scale,
@@ -232,7 +192,14 @@ fn forest(half_width: f64, portrait: bool) -> Vec<world::Group> {
   objects
 }
 
-fn prop(address: PrefabAddress, x: f64, y: f64, z: f64, scale: f64, angle: f64) -> world::Group {
+pub(crate) fn prop(
+  address: PrefabAddress,
+  x: f64,
+  y: f64,
+  z: f64,
+  scale: f64,
+  angle: f64,
+) -> world::Group {
   world::Prefab::at(address)
     .position(Vector3::new(x, y, z))
     .scale(Vector3::new(scale, scale, scale))
@@ -244,7 +211,7 @@ fn pitch(degrees: f64) -> Quaternion {
   Quaternion::new(sin, 0.0, 0.0, cos)
 }
 
-fn yaw(degrees: f64) -> Quaternion {
+pub(crate) fn yaw(degrees: f64) -> Quaternion {
   let (sin, cos) = (degrees.to_radians() / 2.0).sin_cos();
   Quaternion::new(0.0, sin, 0.0, cos)
 }

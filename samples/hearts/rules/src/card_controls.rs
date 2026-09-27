@@ -81,6 +81,14 @@ impl Component for CardControls {
                   .top((layout.safe.y as f32 + layout.safe.height as f32 - height - 10.0).px())
                   .height(height.px())
                   .width((layout.safe.width as f32 - 36.0).px())
+                  .padding_left(12.px())
+                  .padding_right(12.px())
+                  .background_color(if mobile {
+                    Color::rgba(0.0, 0.0, 0.0, 0.0)
+                  } else {
+                    Color::rgba(0.96, 0.92, 0.77, 0.88)
+                  })
+                  .border_radius(10.px())
                   .flex_direction(if portrait {
                     FlexDirection::Column
                   } else {
@@ -92,6 +100,7 @@ impl Component for CardControls {
               .child((
                 View::new()
                   .id(object_id!("6644ed66-12dc-4590-9af8-19d174a47014").into())
+                  .picking_mode(PickingMode::Ignore)
                   .enabled(input.enabled())
                   .child(
                     Heading::new(ls(prompt), 2).style(

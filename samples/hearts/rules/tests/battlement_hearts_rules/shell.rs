@@ -129,7 +129,7 @@ fn displayed_models(display: &Display) -> BTreeSet<String> {
 }
 
 #[test]
-fn landscape_and_portrait_keep_every_human_card_inside_the_playing_area() {
+fn landscape_and_portrait_keep_every_human_card_index_edge_inside_the_playing_area() {
   for (width, height) in [(1280, 720), (720, 1280)] {
     let mut display = Display::mount_with(
       || hearts::application_from_state(HeartsState::new(43)),
@@ -150,24 +150,37 @@ fn landscape_and_portrait_keep_every_human_card_inside_the_playing_area() {
       if !address.as_str().starts_with("hearts/cards/") {
         continue;
       }
-      for x in [-2.15731, 2.15731] {
-        for y in [-3.0, 3.0] {
-          let point = display
+      let mut corners: Vec<_> = [-2.15731, 2.15731]
+        .into_iter()
+        .flat_map(|x| [-3.0, 3.0].map(|y| (x, y)))
+        .map(|(x, y)| {
+          display
             .project_world(
               display
                 .world()
                 .world_point(object.id(), Vector3::new(x, y, 0.0)),
             )
-            .unwrap();
-          assert!(
-            point.x >= 8.0 && point.x <= f64::from(width) - 8.0,
-            "card clipped horizontally: {point:?}"
-          );
-          assert!(
-            point.y >= 90.0 && point.y <= f64::from(height) - 8.0,
-            "card clipped vertically: {point:?}"
-          );
-        }
+            .unwrap()
+        })
+        .collect();
+      for point in &corners {
+        assert!(
+          point.x >= 8.0 && point.x <= f64::from(width) - 8.0,
+          "card clipped horizontally: {point:?}"
+        );
+      }
+      // The oversized landscape hand may run under the footer; its index edge stays above it.
+      corners.sort_by(|a, b| a.y.total_cmp(&b.y));
+      let (checked, bottom) = if width > height {
+        (&corners[..2], f64::from(height) - 62.0)
+      } else {
+        (&corners[..], f64::from(height) - 8.0)
+      };
+      for point in checked {
+        assert!(
+          point.y >= 90.0 && point.y <= bottom,
+          "card clipped vertically: {point:?}"
+        );
       }
     }
   }

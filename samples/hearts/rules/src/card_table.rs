@@ -122,17 +122,25 @@ impl Component for CardTable {
       .trick
       .iter()
       .map(|(seat, card)| {
-        let spacing = if portrait { 0.65 } else { 1.25 };
-        let (x, z) = match seat {
-          Seat::South => (0.0, -0.45),
-          Seat::West => (-spacing, 0.35),
-          Seat::North => (0.0, 1.15),
-          Seat::East => (spacing, 0.35),
+        let (x, z) = if portrait {
+          match seat {
+            Seat::South => (0.0, -0.45),
+            Seat::West => (-0.65, 0.35),
+            Seat::North => (0.0, 1.15),
+            Seat::East => (0.65, 0.35),
+          }
+        } else {
+          match seat {
+            Seat::South => (0.0, -0.7),
+            Seat::West => (-1.85, 0.45),
+            Seat::North => (0.0, 1.75),
+            Seat::East => (1.85, 0.45),
+          }
         };
         self::fan(
           &[*card],
           &destinations,
-          if portrait { 0.63 } else { 1.3 },
+          if portrait { 0.63 } else { 1.5 },
           FanStyle {
             timing: self.timing,
             ..FanStyle::default()
@@ -144,11 +152,20 @@ impl Component for CardTable {
     let piles: Vec<_> = Seat::ALL
       .into_iter()
       .map(|seat| {
-        let (x, z) = match seat {
-          Seat::South => (-half_width * 0.83, -1.3),
-          Seat::West => (-half_width * 0.83, 3.15),
-          Seat::North => (half_width * 0.83, 4.8),
-          Seat::East => (half_width * 0.83, -1.3),
+        let (x, z) = if portrait {
+          match seat {
+            Seat::South => (-half_width * 0.83, -1.3),
+            Seat::West => (-half_width * 0.83, 3.15),
+            Seat::North => (half_width * 0.83, 4.8),
+            Seat::East => (half_width * 0.83, -1.3),
+          }
+        } else {
+          match seat {
+            Seat::South => (-3.0, -1.6 + footer_inset),
+            Seat::West => (-3.3, 3.2),
+            Seat::North => (3.3, 3.2),
+            Seat::East => (3.0, -1.6 + footer_inset),
+          }
         };
         let width = if portrait { 0.42 } else { 0.65 };
         world::Pile::new()
@@ -352,30 +369,32 @@ fn hand(
       self::fan(
         cards,
         destinations,
-        spacing * 2.0,
+        spacing * 1.75,
         FanStyle {
           spacing,
-          curvature: 0.01,
-          angle: -2.3,
+          curvature: 0.045,
+          angle: -3.4,
           ..style
         },
       )
       .plane(self::plane(
         -0.5,
-        -4.0 - self::rise(cards.len(), 0.01) + footer_inset,
+        -4.4 - self::rise(cards.len(), 0.045) + footer_inset,
       )),
     );
   }
+  let raised = footer_inset > 0.0;
+  let (side_z, side_spacing) = if raised { (1.25, 0.36) } else { (0.9, 0.45) };
   let (x, z, angle, width, spacing) = match seat {
-    Seat::North => (0.0, 3.25, 180.0, 1.65, 0.56),
-    Seat::West => (-half_width * 0.60, 0.6, 90.0, 1.5, 0.32),
-    Seat::East => (half_width * 0.60, 0.6, -90.0, 1.5, 0.32),
+    Seat::North => (0.0, 4.4, 180.0, 1.35, 0.62),
+    Seat::West => (-half_width * 0.55, side_z, 90.0, 1.4, side_spacing),
+    Seat::East => (half_width * 0.55, side_z, -90.0, 1.4, side_spacing),
     Seat::South => unreachable!(),
   };
   let (curvature, fan_angle) = if seat == Seat::North {
-    (0.025, 4.5)
+    (0.022, 3.0)
   } else {
-    (0.01, 2.5)
+    (0.025, 2.5)
   };
   Node::new(
     self::fan(

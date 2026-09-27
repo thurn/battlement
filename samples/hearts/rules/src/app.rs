@@ -311,9 +311,18 @@ impl Component for HeartsRoot {
                     .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
                 )
                 .child((
-                  Heading::new(ls("Hearts"), 1).style(Style::new().font_size(32.px())),
-                  Label::new(ls(format!("Hand {}", game.view.table.hand_index + 1)))
-                    .style(Style::new().font_size(24.px())),
+                  View::new()
+                    .picking_mode(PickingMode::Ignore)
+                    .style(
+                      Style::new()
+                        .flex_direction(FlexDirection::Row)
+                        .align_items(Align::Center),
+                    )
+                    .child((
+                      Heading::new(ls("Hearts"), 1).style(Style::new().font_size(28.px())),
+                      Label::new(ls(format!("Hand {}", game.view.table.hand_index + 1)))
+                        .style(Style::new().font_size(22.px()).margin_left(12.px())),
+                    )),
                   Button::new(ls("New game"))
                     .host_name("new-game")
                     .style(
@@ -381,7 +390,7 @@ impl Component for HeartsRoot {
                     Node::new(table)
                   };
                   (
-                    scene::environment(aspect),
+                    scene::environment(aspect, preferences.larger_text),
                     table,
                     reactant::GameRoot::new(particles::GameParticles { aspect }),
                   )

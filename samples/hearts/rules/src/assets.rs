@@ -298,21 +298,93 @@ pub mod hearts {
     /// Addressable key `hearts/forest/bush-1-a-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Bush_1_A_Color1.fbx` in group `Battlement Hearts`.
     pub const BUSH_1_A_COLOR1: PrefabAddress =
       PrefabAddress::from_static("hearts/forest/bush-1-a-color1");
+    /// Addressable key `hearts/forest/bush-1-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Bush_1_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const BUSH_1_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/bush-1-c-color1");
+    /// Addressable key `hearts/forest/bush-3-b-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Bush_3_B_Color1.fbx` in group `Battlement Hearts`.
+    pub const BUSH_3_B_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/bush-3-b-color1");
+    /// Addressable key `hearts/forest/bush-3-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Bush_3_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const BUSH_3_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/bush-3-c-color1");
     /// Addressable key `hearts/forest/grass-1-a-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Grass_1_A_Color1.fbx` in group `Battlement Hearts`.
     pub const GRASS_1_A_COLOR1: PrefabAddress =
       PrefabAddress::from_static("hearts/forest/grass-1-a-color1");
+    /// Addressable key `hearts/forest/grass-1-b-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Grass_1_B_Color1.fbx` in group `Battlement Hearts`.
+    pub const GRASS_1_B_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/grass-1-b-color1");
+    /// Addressable key `hearts/forest/grass-1-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Grass_1_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const GRASS_1_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/grass-1-c-color1");
+    /// Addressable key `hearts/forest/grass-1-d-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Grass_1_D_Color1.fbx` in group `Battlement Hearts`.
+    pub const GRASS_1_D_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/grass-1-d-color1");
+    /// Addressable key `hearts/forest/grass-2-a-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Grass_2_A_Color1.fbx` in group `Battlement Hearts`.
+    pub const GRASS_2_A_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/grass-2-a-color1");
+    /// Addressable key `hearts/forest/grass-2-b-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Grass_2_B_Color1.fbx` in group `Battlement Hearts`.
+    pub const GRASS_2_B_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/grass-2-b-color1");
+    /// Addressable key `hearts/forest/grass-2-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Grass_2_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const GRASS_2_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/grass-2-c-color1");
     /// Addressable key `hearts/forest/hill-4x2x2-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Hill_4x2x2_Color1.fbx` in group `Battlement Hearts`.
     pub const HILL_4X2X2_COLOR1: PrefabAddress =
       PrefabAddress::from_static("hearts/forest/hill-4x2x2-color1");
+    /// Addressable key `hearts/forest/hill-4x4x4-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Hill_4x4x4_Color1.fbx` in group `Battlement Hearts`.
+    pub const HILL_4X4X4_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/hill-4x4x4-color1");
+    /// Addressable key `hearts/forest/hill-8x8x4-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Hill_8x8x4_Color1.fbx` in group `Battlement Hearts`.
+    pub const HILL_8X8X4_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/hill-8x8x4-color1");
     /// Addressable key `hearts/forest/rock-1-a-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Rock_1_A_Color1.fbx` in group `Battlement Hearts`.
     pub const ROCK_1_A_COLOR1: PrefabAddress =
       PrefabAddress::from_static("hearts/forest/rock-1-a-color1");
+    /// Addressable key `hearts/forest/rock-1-d-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Rock_1_D_Color1.fbx` in group `Battlement Hearts`.
+    pub const ROCK_1_D_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/rock-1-d-color1");
+    /// Addressable key `hearts/forest/rock-1-e-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Rock_1_E_Color1.fbx` in group `Battlement Hearts`.
+    pub const ROCK_1_E_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/rock-1-e-color1");
+    /// Addressable key `hearts/forest/rock-2-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Rock_2_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const ROCK_2_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/rock-2-c-color1");
+    /// Addressable key `hearts/forest/rock-3-a-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Rock_3_A_Color1.fbx` in group `Battlement Hearts`.
+    pub const ROCK_3_A_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/rock-3-a-color1");
+    /// Addressable key `hearts/forest/rock-3-b-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Rock_3_B_Color1.fbx` in group `Battlement Hearts`.
+    pub const ROCK_3_B_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/rock-3-b-color1");
+    /// Addressable key `hearts/forest/rock-4-b-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Rock_4_B_Color1.fbx` in group `Battlement Hearts`.
+    pub const ROCK_4_B_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/rock-4-b-color1");
+    /// Addressable key `hearts/forest/rock-4-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Rock_4_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const ROCK_4_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/rock-4-c-color1");
     /// Addressable key `hearts/forest/tree-1-a-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Tree_1_A_Color1.fbx` in group `Battlement Hearts`.
     pub const TREE_1_A_COLOR1: PrefabAddress =
       PrefabAddress::from_static("hearts/forest/tree-1-a-color1");
+    /// Addressable key `hearts/forest/tree-1-b-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Tree_1_B_Color1.fbx` in group `Battlement Hearts`.
+    pub const TREE_1_B_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/tree-1-b-color1");
+    /// Addressable key `hearts/forest/tree-1-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Tree_1_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const TREE_1_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/tree-1-c-color1");
     /// Addressable key `hearts/forest/tree-2-a-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Tree_2_A_Color1.fbx` in group `Battlement Hearts`.
     pub const TREE_2_A_COLOR1: PrefabAddress =
       PrefabAddress::from_static("hearts/forest/tree-2-a-color1");
+    /// Addressable key `hearts/forest/tree-3-b-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Tree_3_B_Color1.fbx` in group `Battlement Hearts`.
+    pub const TREE_3_B_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/tree-3-b-color1");
+    /// Addressable key `hearts/forest/tree-3-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Tree_3_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const TREE_3_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/tree-3-c-color1");
+    /// Addressable key `hearts/forest/tree-4-b-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Tree_4_B_Color1.fbx` in group `Battlement Hearts`.
+    pub const TREE_4_B_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/tree-4-b-color1");
+    /// Addressable key `hearts/forest/tree-4-c-color1` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/ForestNaturePack/Tree_4_C_Color1.fbx` in group `Battlement Hearts`.
+    pub const TREE_4_C_COLOR1: PrefabAddress =
+      PrefabAddress::from_static("hearts/forest/tree-4-c-color1");
   }
 
   pub mod materials {
@@ -320,8 +392,12 @@ pub mod hearts {
 
     /// Addressable key `hearts/materials/clearing` (UnityEngine.Material) from `Assets/Generated/Imported/Clearing.mat` in group `Battlement Hearts`.
     pub const CLEARING: MaterialAddress = MaterialAddress::from_static("hearts/materials/clearing");
+    /// Addressable key `hearts/materials/meadow` (UnityEngine.Material) from `Assets/Generated/Imported/Meadow.mat` in group `Battlement Hearts`.
+    pub const MEADOW: MaterialAddress = MaterialAddress::from_static("hearts/materials/meadow");
     /// Addressable key `hearts/materials/sand` (UnityEngine.Material) from `Assets/Generated/Imported/Sand.mat` in group `Battlement Hearts`.
     pub const SAND: MaterialAddress = MaterialAddress::from_static("hearts/materials/sand");
+    /// Addressable key `hearts/materials/sunlit` (UnityEngine.Material) from `Assets/Generated/Imported/Sunlit.mat` in group `Battlement Hearts`.
+    pub const SUNLIT: MaterialAddress = MaterialAddress::from_static("hearts/materials/sunlit");
   }
 
   pub mod particles {
@@ -454,13 +530,39 @@ pub const ASSET_CATALOG: &[PreparedAsset] = &[
   PreparedAsset::Texture(hearts::faces::spades::TWO),
   PreparedAsset::UiFont(hearts::fonts::CONTROL),
   PreparedAsset::Prefab(hearts::forest::BUSH_1_A_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::BUSH_1_C_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::BUSH_3_B_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::BUSH_3_C_COLOR1),
   PreparedAsset::Prefab(hearts::forest::GRASS_1_A_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::GRASS_1_B_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::GRASS_1_C_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::GRASS_1_D_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::GRASS_2_A_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::GRASS_2_B_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::GRASS_2_C_COLOR1),
   PreparedAsset::Prefab(hearts::forest::HILL_4X2X2_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::HILL_4X4X4_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::HILL_8X8X4_COLOR1),
   PreparedAsset::Prefab(hearts::forest::ROCK_1_A_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::ROCK_1_D_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::ROCK_1_E_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::ROCK_2_C_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::ROCK_3_A_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::ROCK_3_B_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::ROCK_4_B_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::ROCK_4_C_COLOR1),
   PreparedAsset::Prefab(hearts::forest::TREE_1_A_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::TREE_1_B_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::TREE_1_C_COLOR1),
   PreparedAsset::Prefab(hearts::forest::TREE_2_A_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::TREE_3_B_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::TREE_3_C_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::TREE_4_B_COLOR1),
+  PreparedAsset::Prefab(hearts::forest::TREE_4_C_COLOR1),
   PreparedAsset::Material(hearts::materials::CLEARING),
+  PreparedAsset::Material(hearts::materials::MEADOW),
   PreparedAsset::Material(hearts::materials::SAND),
+  PreparedAsset::Material(hearts::materials::SUNLIT),
   PreparedAsset::Prefab(hearts::particles::ACCENT),
   PreparedAsset::Prefab(hearts::particles::MOTES),
 ];

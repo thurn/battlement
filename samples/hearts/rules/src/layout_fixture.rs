@@ -59,7 +59,7 @@ impl Component for LayoutFixture {
           Button::new(ls("Inspect visible card")).on_press(inspect.update_callback(|value| !value)),
         )),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((
-        scene::environment(aspect),
+        scene::environment(aspect, false),
         CardTable::new(view, aspect)
           .inspect(inspecting.then(|| view.hands[Seat::South.index()][0])),
       )),

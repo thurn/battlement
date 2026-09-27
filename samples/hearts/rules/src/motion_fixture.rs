@@ -95,7 +95,7 @@ impl Component for MotionFixture {
             .on_press(set_reduced.update_callback(|value| !value)),
         )),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((
-        scene::environment(viewport_aspect),
+        scene::environment(viewport_aspect, false),
         GameRoot::new(
           MotionConfig::new(AnimatedTable {
             view: game.view,
