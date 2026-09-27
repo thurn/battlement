@@ -2,7 +2,7 @@
 use std::fs::File;
 use std::{
   fs::{self, OpenOptions},
-  io::Write,
+  io::{self, Write},
   path::Path,
 };
 
@@ -10,7 +10,7 @@ use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::wire::result_format;
+use crate::wire::{result::RunResult, result_format};
 
 pub(super) const LEASE_FILE: &str = ".lease.json";
 pub(super) const PENDING_FILE: &str = ".terminal-pending";
@@ -27,23 +27,59 @@ struct RunLease {
 
 pub(super) fn scan_artifacts(directory: &Path) -> Result<Vec<String>> {
   let mut artifacts = Vec::new();
-  collect_artifacts(directory, directory, &mut artifacts)?;
+  collect_artifacts(directory, directory, &mut artifacts)
+    .with_context(|| format!("scan run artifacts {}", directory.display()))?;
   artifacts.sort();
   Ok(artifacts)
 }
 
 pub(super) fn directory_bytes(directory: &Path) -> Result<u64> {
   let mut total = 0_u64;
-  for entry in fs::read_dir(directory).context("read run directory")? {
+  for entry in fs::read_dir(directory)
+    .with_context(|| format!("read run directory {}", directory.display()))?
+  {
     let entry = entry?;
-    let file_type = entry.file_type()?;
+    let file_type = entry
+      .file_type()
+      .with_context(|| format!("inspect {}", entry.path().display()))?;
     if file_type.is_dir() {
       total = total.saturating_add(directory_bytes(&entry.path())?);
     } else if file_type.is_file() {
-      total = total.saturating_add(entry.metadata()?.len());
+      total = total.saturating_add(
+        entry
+          .metadata()
+          .with_context(|| format!("inspect {}", entry.path().display()))?
+          .len(),
+      );
     }
   }
   Ok(total)
+}
+
+pub(super) fn retained_directory_bytes(directory: &Path) -> Result<Option<u64>> {
+  match directory_bytes(directory) {
+    Ok(bytes) => Ok(Some(bytes)),
+    Err(error)
+      if error
+        .downcast_ref::<io::Error>()
+        .is_some_and(|error| error.kind() == io::ErrorKind::NotFound) =>
+    {
+      Ok(None)
+    }
+    Err(error) => Err(error),
+  }
+}
+
+pub(super) fn read_result_if_present(path: &Path) -> Result<Option<RunResult>> {
+  let Some(bytes) = read_if_present(path)? else {
+    return Ok(None);
+  };
+  let result: RunResult = serde_json::from_slice(&bytes)
+    .with_context(|| format!("parse run result {}", path.display()))?;
+  result
+    .validate()
+    .with_context(|| format!("validate run result {}", path.display()))?;
+  Ok(Some(result))
 }
 
 pub(super) fn lease_active(directory: &Path, now_unix_s: u64) -> Result<bool> {
@@ -65,10 +101,11 @@ pub(super) fn write_lease(directory: &Path, owner: &str, now_unix_s: u64) -> Res
 }
 
 pub(super) fn remove_if_file(path: &Path) -> Result<()> {
-  if path.is_file() {
-    fs::remove_file(path).with_context(|| format!("remove {}", path.display()))?;
+  match fs::remove_file(path) {
+    Ok(()) => Ok(()),
+    Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+    Err(error) => Err(error).with_context(|| format!("remove {}", path.display())),
   }
-  Ok(())
 }
 
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
@@ -135,10 +172,12 @@ pub(super) fn materialize_paths(source: &Path, destination: &Path, paths: &[Stri
 
 fn read_lease(directory: &Path) -> Result<Option<RunLease>> {
   let path = directory.join(LEASE_FILE);
-  if !path.exists() {
+  let Some(bytes) = read_if_present(&path)? else {
     return Ok(None);
-  }
-  Ok(Some(serde_json::from_slice(&fs::read(path)?)?))
+  };
+  Ok(Some(serde_json::from_slice(&bytes).with_context(|| {
+    format!("parse run lease {}", path.display())
+  })?))
 }
 
 fn collect_artifacts(root: &Path, directory: &Path, artifacts: &mut Vec<String>) -> Result<()> {
@@ -188,4 +227,12 @@ fn create_safe_directories(root: &Path, directory: &Path) -> Result<()> {
     }
   }
   Ok(())
+}
+
+fn read_if_present(path: &Path) -> Result<Option<Vec<u8>>> {
+  match fs::read(path) {
+    Ok(bytes) => Ok(Some(bytes)),
+    Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+    Err(error) => Err(error).with_context(|| format!("read {}", path.display())),
+  }
 }

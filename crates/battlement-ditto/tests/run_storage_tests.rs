@@ -243,13 +243,22 @@ fn authoritative_result_ignores_stale_recovery_files() {
 }
 
 #[test]
-fn indexed_terminal_result_does_not_block_store_open_after_schema_change() {
+fn indexed_terminal_result_does_not_block_new_runs_after_schema_change() {
   let temporary = TempDir::new().unwrap();
   let root = temporary.path().join("runs");
   let path = terminal_run(&root, RUN_A, 10);
   fs::write(path.join("result.json"), b"{\"legacy\":true}\n").unwrap();
 
-  let reopened = RunStore::open(&root).unwrap();
+  let mut reopened = RunStore::open(&root).unwrap();
+  assert!(
+    reopened
+      .maintain(100, u64::MAX)
+      .unwrap()
+      .recovered
+      .is_empty()
+  );
+  let error = reopened.load_result(RUN_A, 101).unwrap_err();
+  assert!(format!("{error:#}").contains(&path.join("result.json").display().to_string()));
 
   assert_eq!(reopened.entries().len(), 1);
   assert_eq!(reopened.entries()[0].run_id, RUN_A);
@@ -257,6 +266,9 @@ fn indexed_terminal_result_does_not_block_store_open_after_schema_change() {
     reopened.entries()[0].terminal_status,
     Some(RunStatus::Passed)
   );
+  reopened
+    .begin(result(RUN_B, ResultCommand::Run), &mut Vec::new(), 101)
+    .unwrap();
 }
 
 #[test]

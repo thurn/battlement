@@ -1,10 +1,9 @@
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 
 use anyhow::{Context, Result, ensure};
 use uuid::Uuid;
 
 use crate::wire::{
-  result::RunResult,
   run_storage,
   run_storage::{
     ActiveRun, EvictedRun, RETENTION_SECONDS, RecoveredRun, RunCleanupPreview, RunCleanupScope,
@@ -23,36 +22,54 @@ impl RunStore {
 
   /// Converts every expired partial run into an interrupted or durability result.
   pub fn recover_abandoned(&mut self, now_unix_s: u64) -> Result<Vec<RecoveredRun>> {
-    let run_ids: Vec<String> = self
+    let runs: Vec<_> = self
       .index
       .entries
       .iter()
-      .map(|entry| entry.run_id.clone())
+      .map(|entry| (entry.run_id.clone(), entry.terminal_status.is_some()))
       .collect();
     let mut recovered = Vec::new();
-    for run_id in run_ids {
+    for (run_id, terminal) in runs {
       let directory = self.run_directory(&run_id)?;
       if !directory.exists() || run_storage_io::lease_active(&directory, now_unix_s)? {
         continue;
       }
-      let terminal_pending = directory.join(".terminal-pending").is_file();
-      if directory.join(run_storage_io::RESULT_FILE).is_file() && !terminal_pending {
-        let result: RunResult =
-          serde_json::from_slice(&fs::read(directory.join(run_storage_io::RESULT_FILE))?)?;
-        result.validate()?;
-        let entry = self.entry_mut(&run_id)?;
-        entry.terminal_status = Some(result.status);
-        entry.artifact_bytes = run_storage_io::directory_bytes(&directory)?;
+      let terminal_pending = directory.join(run_storage_io::PENDING_FILE).is_file();
+      if terminal && !terminal_pending {
         remove_internal_recovery_files(&directory)?;
         continue;
       }
-      let partial_path = directory.join("partial-result.json");
-      if !partial_path.is_file() {
+      if directory.join(run_storage_io::RESULT_FILE).is_file() && !terminal_pending {
+        let Some(result) =
+          run_storage_io::read_result_if_present(&directory.join(run_storage_io::RESULT_FILE))?
+        else {
+          continue;
+        };
+        ensure!(
+          result.run_id == run_id,
+          "run directory {} and result ID disagree",
+          directory.display()
+        );
+        let Some(bytes) = run_storage_io::retained_directory_bytes(&directory)? else {
+          continue;
+        };
+        let entry = self.entry_mut(&run_id)?;
+        entry.terminal_status = Some(result.status);
+        entry.artifact_bytes = bytes;
+        remove_internal_recovery_files(&directory)?;
         continue;
       }
-      let durability_failure = terminal_pending;
-      let mut result: RunResult = serde_json::from_slice(&fs::read(&partial_path)?)?;
-      result = run_storage::recover_result(result, durability_failure)?;
+      let partial_path = directory.join(run_storage_io::PARTIAL_FILE);
+      let Some(result) = run_storage_io::read_result_if_present(&partial_path)? else {
+        continue;
+      };
+      ensure!(
+        result.run_id == run_id,
+        "run directory {} and result ID disagree",
+        directory.display()
+      );
+      let mut result = run_storage::recover_result(result, terminal_pending)
+        .with_context(|| format!("recover run {}", directory.display()))?;
       result.artifacts = run_storage_io::scan_artifacts(&directory)?;
       let owner = Uuid::new_v4().to_string();
       run_storage_io::write_lease(&directory, &owner, now_unix_s)?;
@@ -82,7 +99,11 @@ impl RunStore {
         entry.artifact_bytes = 0;
         continue;
       }
-      entry.artifact_bytes = run_storage_io::directory_bytes(&directory)?;
+      let Some(bytes) = run_storage_io::retained_directory_bytes(&directory)? else {
+        retained_bytes = retained_bytes.saturating_add(entry.artifact_bytes);
+        continue;
+      };
+      entry.artifact_bytes = bytes;
       if run_storage_io::lease_active(&directory, now_unix_s)? {
         retained_bytes = retained_bytes.saturating_add(entry.artifact_bytes);
         continue;
@@ -105,8 +126,14 @@ impl RunStore {
         "active run selected for eviction"
       );
       let bytes = self.entry_mut(&run_id)?.artifact_bytes;
-      fs::remove_dir_all(&directory)
-        .with_context(|| format!("evict run directory {}", directory.display()))?;
+      match fs::remove_dir_all(&directory) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => {
+          return Err(error)
+            .with_context(|| format!("evict run directory {}", directory.display()));
+        }
+      }
       let entry = self.entry_mut(&run_id)?;
       entry.artifact_bytes = 0;
       entry.artifacts_evicted = true;

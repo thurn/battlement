@@ -1,8 +1,9 @@
 //! Durable local storage for immutable Ditto runs.
 
 use std::{
+  collections::BTreeSet,
   fs::{self, File},
-  io::Write,
+  io::{self, Write},
   path::{Path, PathBuf},
 };
 
@@ -277,10 +278,8 @@ impl RunStore {
       "run terminal commit is uncertain"
     );
     let path = directory.join(run_storage_io::RESULT_FILE);
-    let result: RunResult = serde_json::from_slice(&fs::read(&path).context("read run result")?)
-      .context("parse run result")?;
-    result.validate()?;
-    Ok(result)
+    run_storage_io::read_result_if_present(&path)?
+      .with_context(|| format!("run result is missing: {}", path.display()))
   }
 
   /// Returns the immutable lightweight index in allocation order.
@@ -394,7 +393,7 @@ pub(super) fn recover_result(mut result: RunResult, durability_failure: bool) ->
 }
 
 fn validate_index(index: &RunIndex) -> Result<()> {
-  let mut ids = std::collections::BTreeSet::new();
+  let mut ids = BTreeSet::new();
   for entry in &index.entries {
     validation::identifier("run index ID", &entry.run_id)?;
     ensure!(ids.insert(&entry.run_id), "run index IDs must be unique");
@@ -405,10 +404,22 @@ fn validate_index(index: &RunIndex) -> Result<()> {
 fn reconcile_index(root: &Path, index: &mut RunIndex) -> Result<bool> {
   let mut changed = false;
   let mut discovered = Vec::new();
-  for entry in fs::read_dir(root).context("scan run store")? {
+  let terminal_ids: BTreeSet<_> = index
+    .entries
+    .iter()
+    .filter(|entry| entry.terminal_status.is_some())
+    .map(|entry| entry.run_id.as_str())
+    .collect();
+  for entry in fs::read_dir(root).with_context(|| format!("scan run store {}", root.display()))? {
     let entry = entry?;
-    if !entry.file_type()?.is_dir() {
-      continue;
+    match entry.file_type() {
+      Ok(kind) if kind.is_dir() => {}
+      Ok(_) => continue,
+      Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+      Err(error) => {
+        return Err(error)
+          .with_context(|| format!("inspect run directory {}", entry.path().display()));
+      }
     }
     let run_id = entry.file_name().to_string_lossy().into_owned();
     if validation::identifier("run directory ID", &run_id).is_err() {
@@ -417,12 +428,7 @@ fn reconcile_index(root: &Path, index: &mut RunIndex) -> Result<bool> {
     let directory = entry.path();
     let pending = directory.join(run_storage_io::PENDING_FILE).is_file();
     let authoritative = directory.join(run_storage_io::RESULT_FILE).is_file() && !pending;
-    if authoritative
-      && index
-        .entries
-        .iter()
-        .any(|entry| entry.run_id == run_id && entry.terminal_status.is_some())
-    {
+    if !pending && terminal_ids.contains(run_id.as_str()) {
       continue;
     }
     let candidate = if authoritative {
@@ -430,14 +436,13 @@ fn reconcile_index(root: &Path, index: &mut RunIndex) -> Result<bool> {
     } else {
       directory.join(run_storage_io::PARTIAL_FILE)
     };
-    if !candidate.is_file() {
+    let Some(result) = run_storage_io::read_result_if_present(&candidate)? else {
       continue;
-    }
-    let result: RunResult = serde_json::from_slice(&fs::read(candidate)?)?;
-    result.validate()?;
+    };
     ensure!(
       result.run_id == run_id,
-      "run directory and result ID disagree"
+      "run directory {} and result ID disagree",
+      candidate.display()
     );
     discovered.push((run_id, directory, result, authoritative));
   }
@@ -454,13 +459,16 @@ fn reconcile_index(root: &Path, index: &mut RunIndex) -> Result<bool> {
       }
       continue;
     }
+    let Some(artifact_bytes) = run_storage_io::retained_directory_bytes(&directory)? else {
+      continue;
+    };
     index.entries.push(RunIndexEntry {
       run_id,
       repository: None,
       suite: result.suite,
       last_accessed_unix_s: modified_unix_s(&directory),
       terminal_status: authoritative.then_some(result.status),
-      artifact_bytes: run_storage_io::directory_bytes(&directory)?,
+      artifact_bytes,
       artifacts_evicted: false,
     });
     changed = true;
