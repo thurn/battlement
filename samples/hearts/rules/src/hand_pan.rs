@@ -24,7 +24,7 @@ pub(crate) struct HandPan {
 
 pub(crate) fn use_hand_pan(cards: &[VisibleCard]) -> HandPan {
   let layout = layout::use_layout();
-  let width = if layout.large { 112.0 } else { 92.0 };
+  let width = layout::hand_card_width(layout.large);
   let spacing = if layout.large { 50.0 } else { 42.0 };
   let available = (layout.safe.width - 36.0).max(width);
   let maximum = (width + spacing * cards.len().saturating_sub(1) as f64 - available).max(0.0);

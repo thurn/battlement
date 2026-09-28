@@ -146,9 +146,9 @@ fixture = "play"
 [[scenarios.steps]]
 wait = { object = "root", state = "visible" }
 [[scenarios.steps]]
-pointer = { phase = "press", target = [0.125, 0.885] }
+pointer = { phase = "press", target = [0.1044, 0.892] }
 [[scenarios.steps]]
-pointer = { phase = "release", target = [0.125, 0.885] }
+pointer = { phase = "release", target = [0.1044, 0.892] }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "Play selected card" }, role = "button", name = "Play selected card", disabled = false }
 [[scenarios.steps]]
@@ -166,7 +166,7 @@ fixture = "play"
 [[scenarios.steps]]
 wait = { object = "root", state = "visible" }
 [[scenarios.steps]]
-pointer = { pointer_id = 1, phase = "press", target = [0.125, 0.885] }
+pointer = { pointer_id = 1, phase = "press", target = [0.1044, 0.892] }
 [[scenarios.steps]]
 pointer = { pointer_id = 1, phase = "move", target = [0.30, 0.58] }
 [[scenarios.steps]]
@@ -174,7 +174,7 @@ pointer = { pointer_id = 1, phase = "release", target = [0.30, 0.58] }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "Two of Clubs" }, role = "button", name = "Two of Clubs" }
 [[scenarios.steps]]
-pointer = { pointer_id = 1, phase = "press", target = [0.125, 0.885] }
+pointer = { pointer_id = 1, phase = "press", target = [0.1044, 0.892] }
 [[scenarios.steps]]
 pointer = { pointer_id = 1, phase = "move", target = [0.50, 0.47] }
 [[scenarios.steps]]
@@ -184,7 +184,7 @@ pointer = { pointer_id = 1, phase = "cancel" }
 [[scenarios.steps]]
 screenshot = { name = "cancelled" }
 [[scenarios.steps]]
-pointer = { pointer_id = 1, phase = "press", target = [0.125, 0.885] }
+pointer = { pointer_id = 1, phase = "press", target = [0.1044, 0.892] }
 [[scenarios.steps]]
 pointer = { pointer_id = 1, phase = "move", target = [0.50, 0.47] }
 [[scenarios.steps]]
@@ -319,9 +319,9 @@ navigation = { action = "cancel" }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "Inspect selected card" }, role = "button", name = "Inspect selected card", disabled = true }
 [[scenarios.steps]]
-pointer = { phase = "press", target = [0.125, 0.885] }
+pointer = { phase = "press", target = [0.1044, 0.892] }
 [[scenarios.steps]]
-pointer = { phase = "release", target = [0.125, 0.885] }
+pointer = { phase = "release", target = [0.1044, 0.892] }
 [[scenarios.steps]]
 navigation = { action = "right" }
 [[scenarios.steps]]
@@ -1005,9 +1005,9 @@ viewport = { width = 390, height = 844, safe_area = [0, 44, 390, 766] }
 [[scenarios.steps]]
 wait = { object = "controls", state = "enabled" }
 [[scenarios.steps]]
-pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.68] }
+pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.62] }
 [[scenarios.steps]]
-pointer = { pointer_id = 1, phase = "release", target = [0.08, 0.68] }
+pointer = { pointer_id = 1, phase = "release", target = [0.08, 0.62] }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "Play selected card" }, role = "button", name = "Play selected card", disabled = false }
 [[scenarios.steps]]
@@ -1018,7 +1018,7 @@ screenshot = { name = "portrait inspection" }
 accessibility_action = { target = { role = "button", name = "Close inspection" }, action = "activate" }
 
 [[scenarios.steps]]
-pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.68] }
+pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.62] }
 [[scenarios.steps]]
 pointer = { pointer_id = 1, phase = "move", target = [0.08, 0.53] }
 [[scenarios.steps]]
@@ -1030,7 +1030,7 @@ pointer = { pointer_id = 1, phase = "cancel" }
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "Play selected card" }, role = "button", name = "Play selected card", disabled = false }
 [[scenarios.steps]]
-pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.68] }
+pointer = { pointer_id = 1, phase = "press", target = [0.08, 0.62] }
 [[scenarios.steps]]
 pointer = { pointer_id = 1, phase = "move", target = [0.08, 0.53] }
 [[scenarios.steps]]

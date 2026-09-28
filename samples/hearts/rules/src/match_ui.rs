@@ -117,7 +117,7 @@ impl Component for MatchStatus {
           .width(if layout.portrait {
             (layout.safe.width as f32 - 36.0).px()
           } else {
-            190.px()
+            if p.larger_text { 380.px() } else { 280.px() }
           })
           .color(Color::rgb(0.06, 0.12, 0.03))
           .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),

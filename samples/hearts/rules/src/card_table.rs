@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use battlement::{LocalTransform, Quaternion, Vector3};
+use battlement::{LocalTransform, Quaternion, RgbColor, Vector3};
 use reactant::{hooks, native_host, prelude::*, world};
 use uuid::Uuid;
 
@@ -10,12 +10,15 @@ use crate::{
   choreography::CardTiming,
   domain::Seat,
   hand_pan::{self, HandPan},
+  layout,
   projection::{CardToken, HumanView, VisibleCard},
   settings::Preferences,
 };
 
 const CARD_WIDTH: f64 = 4.31462;
 const CARD_HEIGHT: f64 = 6.000022 / CARD_WIDTH;
+const CARD_STEP: f64 = 0.02;
+const INSPECTION_ORDER: i16 = 100;
 
 type Destinations = BTreeMap<CardToken, world::LayoutDestination>;
 
@@ -26,7 +29,9 @@ pub(crate) struct CardTable {
   timing: CardTiming,
 }
 
-struct CardSurface(VisibleCard, Option<world::LayoutDestination>);
+// A card with its layout destination, stacking order among overlapping backs and
+// the scale its layout applies.
+struct CardSurface(VisibleCard, Option<world::LayoutDestination>, i16, f64);
 
 #[derive(Clone, Copy, Default)]
 struct FanStyle {
@@ -122,19 +127,19 @@ impl Component for CardTable {
       .trick
       .iter()
       .map(|(seat, card)| {
-        let (x, z) = if portrait {
+        let (x, z, tilt) = if portrait {
           match seat {
-            Seat::South => (0.0, -0.45),
-            Seat::West => (-0.65, 0.35),
-            Seat::North => (0.0, 1.15),
-            Seat::East => (0.65, 0.35),
+            Seat::South => (0.0, -0.45, 0.0),
+            Seat::West => (-0.65, 0.35, 0.0),
+            Seat::North => (0.0, 1.15, 0.0),
+            Seat::East => (0.65, 0.35, 0.0),
           }
         } else {
           match seat {
-            Seat::South => (0.0, -0.7),
-            Seat::West => (-1.85, 0.45),
-            Seat::North => (0.0, 1.75),
-            Seat::East => (1.85, 0.45),
+            Seat::South => (0.0, -0.7, -2.0),
+            Seat::West => (-1.85, 0.45, -3.0),
+            Seat::North => (0.0, 1.75, 0.0),
+            Seat::East => (1.85, 0.45, 5.0),
           }
         };
         self::fan(
@@ -146,7 +151,7 @@ impl Component for CardTable {
             ..FanStyle::default()
           },
         )
-        .plane(self::plane(x - 0.5, z - 0.5))
+        .plane(self::oriented_plane(x, z, tilt, 0.0))
       })
       .collect();
     let piles: Vec<_> = Seat::ALL
@@ -167,7 +172,7 @@ impl Component for CardTable {
             Seat::East => (3.0, -1.6 + footer_inset),
           }
         };
-        let width = if portrait { 0.42 } else { 0.65 };
+        let width = if portrait { 0.42 } else { 0.5 };
         world::Pile::new()
           .extent((1.0, 1.0))
           .plane(self::plane(x - 0.5, z - 0.5))
@@ -177,9 +182,11 @@ impl Component for CardTable {
               .iter()
               .enumerate()
               .map(|(index, card)| {
-                self
-                  .timing
-                  .child(self::child(*card, &destinations, width, index), None, index)
+                self.timing.child(
+                  self::child(*card, &destinations, width, index, index),
+                  None,
+                  index,
+                )
               }),
           )
       })
@@ -190,7 +197,7 @@ impl Component for CardTable {
         .position(Vector3::new(0.0, 1.0, 0.1))
         .rotation(self::pitch(90.0))
         .scale(Vector3::new(2.0, 2.0, 2.0))
-        .child(CardSurface(card, None))
+        .child(CardSurface(card, None, INSPECTION_ORDER, 2.0))
     });
     ContextProvider::new()
       .context(pan)
@@ -268,17 +275,12 @@ impl Component for CardSurface {
       .scale(Vector3::new(scale, scale, scale))
       .position(Vector3::new(
         offset.x,
-        offset.y + lift + if selected { 0.18 } else { 0.0 },
-        offset.z
-          - if focused {
-            0.07
-          } else if selected {
-            0.05
-          } else {
-            0.0
-          },
+        offset.y + lift + if selected { 0.3 } else { 0.0 },
+        // A selected card lifts but keeps its stacking so its neighbor's index stays visible.
+        offset.z - if focused { 0.07 } else { 0.0 },
       ))
       .child((
+        self::shadow(self.2, self.3),
         self.0.face.map(|card| {
           world::Prefab::at(card_assets::model(card))
             .rotation(Quaternion::new(0.0, 1.0, 0.0, 0.0))
@@ -292,10 +294,24 @@ impl Component for CardSurface {
           world::Sprite::new()
             .texture(assets::hearts::cards::BACK)
             .size(1.0, CARD_HEIGHT)
+            .layer(self.2 * 2 + 1)
         }),
         hit,
       ))
   }
+}
+
+// Contact shadow: a translucent card silhouette just behind the card, sorted
+// between the card and the one it overlaps.
+fn shadow(order: i16, scale: f64) -> world::Sprite {
+  world::Sprite::new()
+    .texture(assets::hearts::cards::BACK)
+    .size(1.0, CARD_HEIGHT)
+    .tint(RgbColor::rgb(0.05, 0.08, 0.03))
+    .opacity(0.4)
+    // Half a card step behind in world units, so it stays in front of the card beneath.
+    .position(Vector3::new(-0.015, -0.035, CARD_STEP / 2.0 / scale))
+    .layer(order * 2)
 }
 
 fn portrait_hand(
@@ -311,31 +327,35 @@ fn portrait_hand(
     ..FanStyle::default()
   };
   let units = pan.layout.units_per_pixel();
-  let (center_x, center_y, angle, width, spacing) = if seat == Seat::South {
+  let (center_x, z, angle, width, spacing) = if seat == Seat::South {
+    let top = pan.layout.hand_top(pan.layout.large);
     (
       pan.world_center(),
-      pan.layout.hand_top(pan.layout.large) + pan.width * CARD_HEIGHT / 2.0,
+      pan
+        .layout
+        .ground_point(0.0, top + pan.width * CARD_HEIGHT / 2.0)
+        .1,
       0.0,
       pan.width,
       pan.spacing,
     )
   } else {
     let (x, y) = pan.layout.opponent_center(seat, pan.layout.large);
+    let (x, z) = pan.layout.ground_point(x, y);
+    let (width, spacing) = layout::opponent_fan(seat);
     (
-      (x - f64::from(pan.layout.viewport.size.width) / 2.0) * units,
-      y,
+      x,
+      z,
       match seat {
         Seat::North => 180.0,
         Seat::West => 90.0,
         Seat::East => -90.0,
         Seat::South => unreachable!(),
       },
-      if seat == Seat::North { 48.0 } else { 44.0 },
-      if seat == Seat::North { 12.0 } else { 6.0 },
+      width,
+      spacing,
     )
   };
-  let z = (f64::from(pan.layout.viewport.size.height) / 2.0 - center_y) * units
-    / 60.0_f64.to_radians().sin();
   Node::new(
     self::fan(
       cards,
@@ -365,37 +385,39 @@ fn hand(
   };
   if seat == Seat::South {
     let spacing = ((half_width * 2.0 - 3.0) / 13.0).min(1.16);
+    // Extra curvature offsets the tilted camera's flattening of the arc. The
+    // raised larger-text hand keeps a shallower arc so its end ranks clear the footer.
+    let raised = footer_inset > 0.0;
+    let curvature = self::arc(spacing, 3.6) * if raised { 1.3 } else { 1.25 };
+    let drop = if raised { 0.0 } else { 0.62 };
     return Node::new(
       self::fan(
         cards,
         destinations,
-        spacing * 1.75,
+        spacing * if raised { 1.75 } else { 2.1 },
         FanStyle {
           spacing,
-          curvature: 0.045,
-          angle: -3.4,
+          curvature,
+          angle: -3.6,
           ..style
         },
       )
       .plane(self::plane(
         -0.5,
-        -4.4 - self::rise(cards.len(), 0.045) + footer_inset,
+        -4.4 - drop - self::rise(cards.len(), curvature) + footer_inset,
       )),
     );
   }
   let raised = footer_inset > 0.0;
-  let (side_z, side_spacing) = if raised { (1.25, 0.36) } else { (0.9, 0.45) };
-  let (x, z, angle, width, spacing) = match seat {
-    Seat::North => (0.0, 4.4, 180.0, 1.35, 0.62),
-    Seat::West => (-half_width * 0.55, side_z, 90.0, 1.4, side_spacing),
-    Seat::East => (half_width * 0.55, side_z, -90.0, 1.4, side_spacing),
+  let (side_z, side_spacing) = if raised { (1.75, 0.31) } else { (0.9, 0.45) };
+  let (x, z, angle, width, spacing, fan_angle) = match seat {
+    Seat::North => (0.0, 4.42, 180.0, 1.25, 0.58, -3.7),
+    Seat::West => (-half_width * 0.55, side_z, 90.0, 1.4, side_spacing, -5.0),
+    Seat::East => (half_width * 0.55, side_z, -90.0, 1.4, side_spacing, -5.0),
     Seat::South => unreachable!(),
   };
-  let (curvature, fan_angle) = if seat == Seat::North {
-    (0.022, 3.0)
-  } else {
-    (0.025, 2.5)
-  };
+  // Opponent fans bow beyond the tangent arc, which the tilted camera flattens.
+  let curvature = self::arc(spacing, f64::abs(fan_angle)) * 1.3;
   Node::new(
     self::fan(
       cards,
@@ -432,8 +454,14 @@ fn fan(
     )
     .angle((spread * style.angle).to_radians())
     .children(cards.iter().enumerate().map(|(index, card)| {
+      // The mirrored East plane runs its cards bottom to top, so its backs stack in reverse.
+      let order = if style.seat == Some(Seat::East) {
+        cards.len() - 1 - index
+      } else {
+        index
+      };
       style.timing.child(
-        self::child(*card, destinations, width, index),
+        self::child(*card, destinations, width, index, order),
         style.seat,
         index,
       )
@@ -445,17 +473,23 @@ fn child(
   destinations: &Destinations,
   width: f64,
   index: usize,
+  order: usize,
 ) -> world::LayoutChild {
   let rest = world::LayoutBox::new(1.0, CARD_HEIGHT);
   world::LayoutChild::new(
     destinations[&card.token].clone(),
     rest,
-    CardSurface(card, Some(destinations[&card.token].clone())),
+    CardSurface(
+      card,
+      Some(destinations[&card.token].clone()),
+      order as i16,
+      width,
+    ),
   )
   .item(
     world::LayoutItem::new(card.token.id(), rest)
       .orientation(world::LayoutOrientation::Arrangement)
-      .depth(-0.12 - index as f64 * 0.008)
+      .depth(-0.12 - index as f64 * CARD_STEP)
       .authored(LocalTransform {
         scale: Vector3::new(width, width, width),
         ..LocalTransform::default()
@@ -484,6 +518,11 @@ fn oriented_plane(x: f64, z: f64, angle: f64, rise: f64) -> world::LayoutPlane {
     x_axis,
     y_axis,
   )
+}
+
+// Curvature that keeps cards tangent to a circular fan turning `degrees` per card.
+fn arc(spacing: f64, degrees: f64) -> f64 {
+  spacing * degrees.to_radians() / 2.0
 }
 
 fn rise(count: usize, curvature: f64) -> f64 {

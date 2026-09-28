@@ -28,6 +28,27 @@ impl Component for CardControls {
       16.0
     };
     let height = layout.footer as f32;
+    // A backing bar keeps the stacked larger-text footer legible over the hand;
+    // the compact landscape footer uses a status pill beside right-aligned buttons.
+    let bar = portrait && !mobile;
+    let status = if mobile {
+      // Portrait text sits over open ground, so it gets its own backing.
+      Style::new()
+        .padding_left(10.px())
+        .padding_top(4.px())
+        .background_color(Color::rgba(0.96, 0.92, 0.77, 0.92))
+        .border_radius(8.px())
+    } else if portrait {
+      Style::new()
+    } else {
+      Style::new()
+        .width(400.px())
+        .padding_left(12.px())
+        .padding_top(4.px())
+        .padding_bottom(4.px())
+        .background_color(Color::rgb(0.96, 0.92, 0.77))
+        .border_radius(8.px())
+    };
     let button_width = if mobile {
       ((layout.safe.width - 42.0) / 2.0) as f32
     } else if preferences.larger_text {
@@ -81,14 +102,20 @@ impl Component for CardControls {
                   .top((layout.safe.y as f32 + layout.safe.height as f32 - height - 10.0).px())
                   .height(height.px())
                   .width((layout.safe.width as f32 - 36.0).px())
-                  .padding_left(12.px())
-                  .padding_right(12.px())
-                  .background_color(if mobile {
-                    Color::rgba(0.0, 0.0, 0.0, 0.0)
+                  .padding_left(if bar { 12 } else { 0 }.px())
+                  .padding_right(if bar { 12 } else { 0 }.px())
+                  .background_color(if bar {
+                    Color::rgb(0.96, 0.92, 0.77)
                   } else {
-                    Color::rgba(0.96, 0.92, 0.77, 0.88)
+                    Color::rgba(0.0, 0.0, 0.0, 0.0)
                   })
                   .border_radius(10.px())
+                  .justify_content(Justify::SpaceBetween)
+                  .align_items(if portrait {
+                    Align::Stretch
+                  } else {
+                    Align::Center
+                  })
                   .flex_direction(if portrait {
                     FlexDirection::Column
                   } else {
@@ -99,36 +126,39 @@ impl Component for CardControls {
               )
               .child((
                 View::new()
-                  .id(object_id!("6644ed66-12dc-4590-9af8-19d174a47014").into())
                   .picking_mode(PickingMode::Ignore)
-                  .enabled(input.enabled())
-                  .child(
-                    Heading::new(ls(prompt), 2).style(
+                  .style(status)
+                  .child((
+                    View::new()
+                      .id(object_id!("6644ed66-12dc-4590-9af8-19d174a47014").into())
+                      .picking_mode(PickingMode::Ignore)
+                      .enabled(input.enabled())
+                      .child(
+                        Heading::new(ls(prompt), 2).style(
+                          Style::new()
+                            .font_size(font.px())
+                            .width(100.pct())
+                            .height(if mobile {
+                              48.px()
+                            } else if portrait {
+                              32.px()
+                            } else {
+                              22.px()
+                            })
+                            .white_space(WhiteSpace::Normal),
+                        ),
+                      ),
+                    Text::new(ls(description.unwrap_or_else(|| "No card selected".into()))).style(
                       Style::new()
                         .font_size(font.px())
-                        .width(if portrait { 100.pct() } else { 350.px() })
-                        .height(if mobile {
-                          48.px()
-                        } else if portrait {
-                          32.px()
+                        .width(if preferences.larger_text && !mobile {
+                          420.px()
                         } else {
-                          44.px()
+                          100.pct()
                         })
-                        .white_space(WhiteSpace::Normal),
+                        .height(if portrait { 32.px() } else { 20.px() }),
                     ),
-                  ),
-                Text::new(ls(description.unwrap_or_else(|| "No card selected".into()))).style(
-                  Style::new()
-                    .font_size(font.px())
-                    .width(if mobile {
-                      100.pct()
-                    } else if preferences.larger_text {
-                      420.px()
-                    } else {
-                      205.px()
-                    })
-                    .height(if portrait { 32.px() } else { 44.px() }),
-                ),
+                  )),
                 Text::new(ls("Swipe sideways to browse · drag up to play.")).style(
                   Style::new()
                     .display(if mobile { Display::Flex } else { Display::None })
@@ -142,6 +172,14 @@ impl Component for CardControls {
                     Style::new()
                       .flex_direction(FlexDirection::Row)
                       .height(52.px())
+                      .padding_top(if portrait { 0 } else { 2 }.px())
+                      .padding_right(if portrait { 0 } else { 6 }.px())
+                      .background_color(if portrait {
+                        Color::rgba(0.0, 0.0, 0.0, 0.0)
+                      } else {
+                        Color::rgb(0.9, 0.87, 0.72)
+                      })
+                      .border_radius(8.px())
                       .font_size(font.px()),
                   )
                   .child((
@@ -155,6 +193,10 @@ impl Component for CardControls {
                           })
                           .height(48.px())
                           .width(button_width.px())
+                          .margin_left(6.px())
+                          .color(Color::rgb(0.08, 0.14, 0.06))
+                          .background_color(Color::rgb(0.96, 0.92, 0.77))
+                          .border_radius(6.px())
                           .white_space(if mobile {
                             WhiteSpace::Normal
                           } else {
@@ -173,6 +215,10 @@ impl Component for CardControls {
                           })
                           .height(48.px())
                           .width(button_width.px())
+                          .margin_left(6.px())
+                          .color(Color::rgb(0.08, 0.14, 0.06))
+                          .background_color(Color::rgb(0.96, 0.92, 0.77))
+                          .border_radius(6.px())
                           .white_space(if mobile {
                             WhiteSpace::Normal
                           } else {
@@ -190,6 +236,10 @@ impl Component for CardControls {
                         Style::new()
                           .height(48.px())
                           .width(button_width.px())
+                          .margin_left(6.px())
+                          .color(Color::rgb(0.08, 0.14, 0.06))
+                          .background_color(Color::rgb(0.96, 0.92, 0.77))
+                          .border_radius(6.px())
                           .white_space(if mobile {
                             WhiteSpace::Normal
                           } else {

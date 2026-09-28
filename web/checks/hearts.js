@@ -25,10 +25,11 @@ async (page, context) => {
   page.on('console', observeFrame);
   // A short mouse pulse can fall between Unity frames under software rendering.
   const click = (x, y) => check.click(x, y, 800);
-  // Aim at a card's exposed index edge; the arced hand drops 2.46px per squared offset.
+  // Aim below a card's exposed index corner, 78.5px apart along an arc whose
+  // top edge drops 2.53px per squared offset.
   const clickCard = (index, count) => {
-    const offset = index - (count - 1) / 2;
-    return click(640 + (offset - 0.45) * 1.16 * 720 / 11.4, 525 + 2.46 * offset * offset);
+    const offset = index - (count - 1) / 2 - 0.45;
+    return click(640 + offset * 78.5, 537 + 2.53 * offset * offset);
   };
   const read = async filename => page.evaluate(async filename => {
     const db = await new Promise((resolve, reject) => {
@@ -61,8 +62,9 @@ async (page, context) => {
     } while (Date.now() < deadline);
     throw new Error(`${description}: ${JSON.stringify(saved)}`);
   };
+  // Software WebGL under shared CI load can take most of a minute to finish the deal.
   const waitBright = async (name, clip, minimum, levels = [180, 160, 110]) => {
-    const deadline = Date.now() + 30000;
+    const deadline = Date.now() + 60000;
     do {
       const capture = await check.capture(name, clip);
       const fraction = await page.evaluate(async ([bytes, levels]) => {
@@ -113,7 +115,7 @@ async (page, context) => {
     await check.capture('dealt-hand');
     // Separated cards avoid the lifted selection covering its right neighbor.
     for (const index of [3, 6, 10]) await clickCard(index, 13);
-    await click(650, 684);
+    await click(882, 684); // Pass three cards.
     await waitMatch('Pass exchange', state => Boolean(state.phase?.Playing));
     await waitBright('play-help-ready', { x: 580, y: 280, width: 120, height: 30 }, 0.5);
     await click(640, 292); // Play help.
@@ -138,7 +140,7 @@ async (page, context) => {
       const { card, index } = choice(state);
       await page.waitForTimeout(1000);
       await clickCard(index, hand.length);
-      await click(800, 684); // Play selected card.
+      await click(1032, 684); // Play selected card.
       const next = await waitMatch('Accepted human card', current => current.hands[0].length < hand.length);
       const human = next.state.history.filter(play => play.seat === 'South');
       if (human.length !== move + 1) throw new Error('Input did not admit exactly one human play');

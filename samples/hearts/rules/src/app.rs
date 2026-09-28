@@ -285,6 +285,7 @@ impl Component for HeartsRoot {
           ))
       })
       .collect();
+    let compact_header = layout::compact_header(layout, preferences.larger_text);
     ContextProvider::new().context(preferences).child(
       Stack::new()
         .picking_mode(PickingMode::Ignore)
@@ -329,13 +330,15 @@ impl Component for HeartsRoot {
                       Style::new()
                         .position(Position::Absolute)
                         .right(18.px())
-                        .top(18.px())
+                        .top(if compact_header { 14 } else { 18 }.px())
                         .width(if layout.safe.width < 600.0 {
                           100.px()
+                        } else if compact_header {
+                          88.px()
                         } else {
                           120.px()
                         })
-                        .height(44.px())
+                        .height(if compact_header { 32 } else { 44 }.px())
                         .font_size(preferences.font().px())
                         .color(Color::rgb(0.08, 0.14, 0.06))
                         .background_color(Color::rgb(0.96, 0.92, 0.77))
@@ -349,16 +352,20 @@ impl Component for HeartsRoot {
                           .position(Position::Absolute)
                           .right(if layout.safe.width < 600.0 {
                             126.px()
+                          } else if compact_header {
+                            112.px()
                           } else {
                             150.px()
                           })
-                          .top(18.px())
+                          .top(if compact_header { 14 } else { 18 }.px())
                           .width(if layout.safe.width < 600.0 {
                             80.px()
+                          } else if compact_header {
+                            88.px()
                           } else {
                             100.px()
                           })
-                          .height(44.px())
+                          .height(if compact_header { 32 } else { 44 }.px())
                           .font_size(preferences.font().px())
                           .color(Color::rgb(0.08, 0.14, 0.06))
                           .background_color(Color::rgb(0.96, 0.92, 0.77))
@@ -390,7 +397,7 @@ impl Component for HeartsRoot {
                     Node::new(table)
                   };
                   (
-                    scene::environment(aspect, preferences.larger_text),
+                    scene::environment(layout, preferences.larger_text),
                     table,
                     reactant::GameRoot::new(particles::GameParticles { aspect }),
                   )

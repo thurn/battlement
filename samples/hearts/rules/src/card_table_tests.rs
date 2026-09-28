@@ -159,11 +159,16 @@ fn assert_private_visuals(display: &mut Display, view: &HumanView) {
       .presentation(card.token.id())
       .unwrap()
       .native_objects;
-    let mut visuals = 0;
+    let (mut visuals, mut shadows) = (0, 0);
     for id in hosts {
       let object = display.world().object(id).unwrap();
       match object.kind() {
         GameObjectKind::Empty | GameObjectKind::BoxHitRegion { .. } => {}
+        // Every card casts a translucent back-silhouette contact shadow.
+        GameObjectKind::Image { image } if image.opacity < 1.0 => {
+          assert_eq!(image.texture, assets::hearts::cards::BACK);
+          shadows += 1;
+        }
         GameObjectKind::Image { image } => {
           assert!(card.face.is_none());
           assert_eq!(image.texture, assets::hearts::cards::BACK);
@@ -180,7 +185,7 @@ fn assert_private_visuals(display: &mut Display, view: &HumanView) {
         kind => panic!("unexpected card payload {kind:?}"),
       }
     }
-    assert_eq!(visuals, 1);
+    assert_eq!((visuals, shadows), (1, 1));
   }
 }
 

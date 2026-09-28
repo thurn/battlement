@@ -81,6 +81,8 @@ impl Component for SoundControls {
       18.0
     };
     let layout = crate::layout::use_layout();
+    let compact =
+      crate::layout::compact_header(layout, hooks::use_context::<Preferences>().larger_text);
     let music = self.mix.music > 0.0;
     let effects = self.mix.effects > 0.0;
     View::new()
@@ -88,19 +90,19 @@ impl Component for SoundControls {
         Style::new()
           .position(Position::Absolute)
           .right((layout.right() as f32 + 18.0).px())
-          .top((layout.safe.y as f32 + 70.0).px())
+          .top((layout.safe.y as f32 + if compact { 52.0 } else { 70.0 }).px())
           .flex_direction(FlexDirection::Row)
           .unity_font_definition(UiFontAddress::from(assets::hearts::fonts::CONTROL)),
       )
       .child((
         Button::new(ls(if music { "Music on" } else { "Music off" }))
-          .style(self::button_style(font))
+          .style(self::button_style(font, compact))
           .on_press(self.set_mix.update_callback(|mix| AudioMix {
             music: if mix.music > 0.0 { 0.0 } else { 0.22 },
             ..mix
           })),
         Button::new(ls(if effects { "Effects on" } else { "Effects off" }))
-          .style(self::button_style(font))
+          .style(self::button_style(font, compact))
           .on_press(self.set_mix.update_callback(|mix| AudioMix {
             effects: if mix.effects > 0.0 { 0.0 } else { 0.65 },
             ..mix
@@ -109,11 +111,11 @@ impl Component for SoundControls {
   }
 }
 
-fn button_style(font: f32) -> Style {
+fn button_style(font: f32, compact: bool) -> Style {
   Style::new()
-    .width(104.px())
+    .width(if compact { 88 } else { 104 }.px())
     .margin_left(6.px())
-    .height(40.px())
+    .height(if compact { 32 } else { 40 }.px())
     .font_size(font.px())
     .color(Color::rgb(0.08, 0.14, 0.06))
     .background_color(Color::rgb(0.96, 0.92, 0.77))

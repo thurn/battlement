@@ -38,6 +38,7 @@ impl Component for ParticleFixture {
     let (generation, reset) = hooks::use_state(0_u64);
     let game = controller::use_hearts(generation, || HeartsState::new(43), Seat::South, true);
     let viewport = app_context::use_viewport_size();
+    let layout = crate::layout::use_layout();
     let aspect = f64::from(viewport.width) / f64::from(viewport.height);
     (
       Button::new(ls("Replace particle session"))
@@ -50,7 +51,7 @@ impl Component for ParticleFixture {
         )
         .on_press(reset.update_callback(|value| value + 1)),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((
-        scene::environment(aspect, false),
+        scene::environment(layout, false),
         CardTable::new(&game.view, aspect),
       )),
       GameRoot::new(Probe { aspect }),

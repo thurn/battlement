@@ -35,6 +35,7 @@ impl Component for LayoutFixture {
     let (index, set_index) = hooks::use_state(0_usize);
     let (inspecting, inspect) = hooks::use_state(false);
     let viewport = app_context::use_viewport_size();
+    let layout = crate::layout::use_layout();
     let aspect = f64::from(viewport.width) / f64::from(viewport.height);
     let last = views.len() - 1;
     let view = &views[index];
@@ -59,7 +60,7 @@ impl Component for LayoutFixture {
           Button::new(ls("Inspect visible card")).on_press(inspect.update_callback(|value| !value)),
         )),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((
-        scene::environment(aspect, false),
+        scene::environment(layout, false),
         CardTable::new(view, aspect)
           .inspect(inspecting.then(|| view.hands[Seat::South.index()][0])),
       )),

@@ -5,8 +5,10 @@ use reactant::{prelude::*, world};
 
 use crate::{HumanView, assets, domain::Seat, layout::Layout, scenery};
 
-const CAMERA_SIZE: f64 = 5.7;
-const CAMERA_TILT: f64 = 60.0;
+/// Orthographic half-height of the table camera in world units.
+pub(crate) const CAMERA_SIZE: f64 = 5.7;
+/// Downward pitch of the table camera in degrees.
+pub(crate) const CAMERA_TILT: f64 = 60.0;
 
 pub(crate) fn camera() -> world::Camera {
   world::Camera::new()
@@ -18,8 +20,22 @@ pub(crate) fn camera() -> world::Camera {
 }
 
 /// Table surroundings; `raised_hand` clears the lower interior for the raised larger-text hand.
-pub(crate) fn environment(aspect: f64, raised_hand: bool) -> impl Render {
-  let half_width = 5.7 * aspect;
+pub(crate) fn environment(layout: Layout, raised_hand: bool) -> impl Render {
+  let size = layout.viewport.size;
+  let aspect = f64::from(size.width) / f64::from(size.height);
+  let half_width = CAMERA_SIZE * aspect;
+  let portrait = aspect < 1.0;
+  // Portrait cards and labels are placed in pixels, so their ground footprint
+  // depends on the viewport's resolution as well as its shape.
+  let clearance = scenery::Clearance::new(if portrait {
+    layout
+      .portrait_obstacles()
+      .into_iter()
+      .map(|rect| self::ground_rect(layout, rect))
+      .collect()
+  } else {
+    Vec::new()
+  });
   (
     world::Plane::new()
       .scale(Vector3::new(6.0, 1.0, 6.0))
@@ -27,49 +43,41 @@ pub(crate) fn environment(aspect: f64, raised_hand: bool) -> impl Render {
         0,
         assets::hearts::materials::CLEARING,
       )]),
-    scenery::ground(aspect < 1.0, raised_hand),
+    scenery::ground(half_width, portrait, raised_hand, clearance.clone()),
     world::Group::new().rotation(self::yaw(-35.0)).child(
       world::Light::new()
         .light_type(LightType::Directional)
-        .rotation(self::pitch(55.0))
-        .color(Color::rgb(1.0, 0.96, 0.84))
-        .intensity(0.9)
+        .rotation(self::pitch(66.0))
+        .color(Color::rgb(1.0, 0.93, 0.78))
+        .intensity(1.0)
         .shadows(ShadowMode::Soft),
     ),
-    world::Group::new().rotation(self::yaw(145.0)).child(
+    world::Group::new().rotation(self::yaw(-20.0)).child(
       world::Light::new()
         .light_type(LightType::Directional)
         .rotation(self::pitch(35.0))
         .color(Color::rgb(0.75, 0.84, 1.0))
-        .intensity(0.25)
+        .intensity(0.3)
         .shadows(ShadowMode::None),
     ),
-    if aspect < 1.0 {
-      self::portrait_forest(half_width)
-    } else {
-      scenery::forest(half_width, raised_hand)
-    },
+    world::Group::new().child(scenery::forest(
+      half_width,
+      portrait,
+      raised_hand,
+      &clearance,
+    )),
   )
 }
 
 pub(crate) fn seats(view: &HumanView, layout: Layout, larger_text: bool) -> impl Render {
   let portrait = layout.portrait;
-  let safe = layout.safe;
   let w = f64::from(layout.viewport.size.width);
   let h = f64::from(layout.viewport.size.height);
   [Seat::North, Seat::West, Seat::East, Seat::South]
     .into_iter()
     .map(|seat| {
       let (left, top) = if portrait {
-        if seat == Seat::South {
-          (
-            safe.x + safe.width / 2.0,
-            layout.hand_top(larger_text) - 40.0,
-          )
-        } else {
-          let (x, y) = layout.opponent_center(seat, larger_text);
-          (x, y - if seat == Seat::North { 70.0 } else { 84.0 })
-        }
+        layout.label_origin(seat, larger_text)
       } else {
         match seat {
           Seat::North => (w * 0.5, h * 0.215),
@@ -112,86 +120,6 @@ pub(crate) fn seats(view: &HumanView, layout: Layout, larger_text: bool) -> impl
     .collect::<Vec<_>>()
 }
 
-fn portrait_forest(half_width: f64) -> Vec<world::Group> {
-  let mut objects = Vec::new();
-  let scale = 0.48;
-  for side in [-1.0, 1.0] {
-    for (index, z) in [-5.8, -2.9, 0.5, 3.6, 6.4].into_iter().enumerate() {
-      let x = side * (half_width + 0.85);
-      objects.push(self::prop(
-        assets::hearts::forest::HILL_4X2X2_COLOR1,
-        x,
-        -0.8,
-        z,
-        scale,
-        side * 90.0,
-      ));
-      objects.push(self::prop(
-        if index % 2 == 0 {
-          assets::hearts::forest::TREE_1_A_COLOR1
-        } else {
-          assets::hearts::forest::TREE_2_A_COLOR1
-        },
-        x,
-        0.0,
-        z + 0.3,
-        scale,
-        index as f64 * 73.0,
-      ));
-      objects.push(self::prop(
-        assets::hearts::forest::ROCK_1_A_COLOR1,
-        x - side * 0.7,
-        0.0,
-        z - 0.9,
-        scale * 1.4,
-        index as f64 * 42.0,
-      ));
-      objects.push(self::prop(
-        assets::hearts::forest::BUSH_1_A_COLOR1,
-        x - side * 0.45,
-        0.0,
-        z + 1.0,
-        scale * 3.5,
-        0.0,
-      ));
-    }
-  }
-  let count = (half_width * 2.0 / 2.3).ceil() as usize;
-  for index in 0..=count {
-    let x = -half_width + index as f64 * (2.0 * half_width / count as f64);
-    objects.push(self::prop(
-      assets::hearts::forest::TREE_2_A_COLOR1,
-      x,
-      0.0,
-      5.8,
-      scale,
-      index as f64 * 51.0,
-    ));
-    if x.abs() > half_width * 0.72 {
-      objects.push(self::prop(
-        assets::hearts::forest::BUSH_1_A_COLOR1,
-        x,
-        0.0,
-        -6.1,
-        scale * 4.0,
-        0.0,
-      ));
-    }
-  }
-  for index in 0..24 {
-    let side = if index % 2 == 0 { -1.0 } else { 1.0 };
-    objects.push(self::prop(
-      assets::hearts::forest::GRASS_1_A_COLOR1,
-      side * (half_width + 0.3 - (index % 3) as f64 * 0.1),
-      0.0,
-      -5.3 + (index / 2) as f64 * 0.92,
-      scale,
-      index as f64 * 37.0,
-    ));
-  }
-  objects
-}
-
 pub(crate) fn prop(
   address: PrefabAddress,
   x: f64,
@@ -214,6 +142,13 @@ fn pitch(degrees: f64) -> Quaternion {
 pub(crate) fn yaw(degrees: f64) -> Quaternion {
   let (sin, cos) = (degrees.to_radians() / 2.0).sin_cos();
   Quaternion::new(0.0, sin, 0.0, cos)
+}
+
+/// Ground rectangle `[left, right, near, far]` beneath screen rectangle `[left, top, right, bottom]`.
+fn ground_rect(layout: Layout, [left, top, right, bottom]: [f64; 4]) -> [f64; 4] {
+  let (left, near) = layout.ground_point(left, bottom);
+  let (right, far) = layout.ground_point(right, top);
+  [left, right, near, far]
 }
 
 pub(crate) fn table_drag_delta(dx: f64, dy: f64, viewport_height: u32) -> Vector3 {

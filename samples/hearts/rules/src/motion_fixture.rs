@@ -50,6 +50,7 @@ impl Component for MotionFixture {
       true,
     );
     let viewport = app_context::use_viewport_size();
+    let layout = crate::layout::use_layout();
     let viewport_aspect = f64::from(viewport.width) / f64::from(viewport.height);
     let dispatch = game.game.clone();
     let version = dispatch.accepted().version;
@@ -95,7 +96,7 @@ impl Component for MotionFixture {
             .on_press(set_reduced.update_callback(|value| !value)),
         )),
       world::SceneRoot::new(ParentScene::PrimaryScene).child((
-        scene::environment(viewport_aspect, false),
+        scene::environment(layout, false),
         GameRoot::new(
           MotionConfig::new(AnimatedTable {
             view: game.view,

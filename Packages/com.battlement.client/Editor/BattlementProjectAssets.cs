@@ -26,14 +26,19 @@ namespace Battlement.Editor
             {
                 string path = AssetPath(item, "path");
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                string shaderName = item["shader"]?.Value<string>() ?? "Standard";
+                Shader shader = Shader.Find(shaderName);
+                if (!shader)
+                {
+                    throw new InvalidOperationException($"Missing shader {shaderName} for {path}");
+                }
                 Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
                 if (!material)
                 {
-                    material = new Material(
-                        Shader.Find(item["shader"]?.Value<string>() ?? "Standard")
-                    );
+                    material = new Material(shader);
                     AssetDatabase.CreateAsset(material, path);
                 }
+                material.shader = shader;
                 Texture2D? texture = null;
                 if (item["texture"] != null)
                 {

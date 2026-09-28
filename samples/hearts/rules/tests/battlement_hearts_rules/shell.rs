@@ -120,7 +120,8 @@ fn displayed_models(display: &Display) -> BTreeSet<String> {
     .world()
     .objects()
     .filter_map(|object| match object.kind() {
-      GameObjectKind::Image { image } => Some(image.texture.as_str()),
+      // Translucent images are the cards' contact shadows.
+      GameObjectKind::Image { image } if image.opacity == 1.0 => Some(image.texture.as_str()),
       _ => None,
     })
     .collect();
